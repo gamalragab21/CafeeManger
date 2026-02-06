@@ -154,9 +154,29 @@ interface CafeeMangerApi {
     // ─── Analytics ───────────────────────────────────────────────
     @GET("api/v1/analytics/summary")
     suspend fun getAnalyticsSummary(
-        @Query("from") from: Long,
-        @Query("to") to: Long
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
     ): AnalyticsSummaryResponse
+
+    @GET("api/v1/analytics/filtered-summary")
+    suspend fun getFilteredAnalyticsSummary(
+        @Query("status") status: String? = null,
+        @Query("channel") channel: String? = null,
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
+    ): AnalyticsSummaryResponse
+
+    @GET("api/v1/analytics/settlements")
+    suspend fun getSettlements(
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
+    ): SettlementsResponse
+
+    @GET("api/v1/analytics/delivery-performance")
+    suspend fun getDeliveryPerformance(
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
+    ): List<DeliveryPerformanceResponse>
 
     @GET("api/v1/analytics/daily")
     suspend fun getDailyAnalytics(

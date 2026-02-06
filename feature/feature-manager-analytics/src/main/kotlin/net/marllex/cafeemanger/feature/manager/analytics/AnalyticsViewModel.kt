@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.AnalyticsRepository
 import net.marllex.cafeemanger.core.model.AnalyticsSummary
 import net.marllex.cafeemanger.core.model.DailyAnalytics
+import net.marllex.cafeemanger.core.model.DeliveryPerformance
+import net.marllex.cafeemanger.core.model.Settlements
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,9 +23,16 @@ class AnalyticsViewModel @Inject constructor(
 
     data class UiState(
         val summary: AnalyticsSummary? = null,
+        val filteredSummary: AnalyticsSummary? = null,
+        val settlements: Settlements? = null,
+        val deliveryPerformance: List<DeliveryPerformance> = emptyList(),
         val dailyData: List<DailyAnalytics> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
+        val selectedStatus: String? = null,
+        val selectedChannel: String? = null,
+        val fromDate: Long? = null,
+        val toDate: Long? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -39,21 +48,77 @@ class AnalyticsViewModel @Inject constructor(
             val thirtyDaysAgo = now - (30L * 24 * 60 * 60 * 1000)
 
             val summaryResult = analyticsRepository.getSummary(thirtyDaysAgo, now)
+            val settlementsResult = analyticsRepository.getSettlements(thirtyDaysAgo, now)
+            val deliveryResult = analyticsRepository.getDeliveryPerformance(thirtyDaysAgo, now)
             val dailyResult = analyticsRepository.getDailyAnalytics(thirtyDaysAgo, now)
 
             summaryResult.onSuccess { summary ->
-                Log.e("GAMALRAGAB", "onSuccess: summary=$summary" )
                 _uiState.update { it.copy(summary = summary, isLoading = false) }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
 
+            settlementsResult.onSuccess { settlements ->
+                _uiState.update { it.copy(settlements = settlements) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
+
+            deliveryResult.onSuccess { performance ->
+                _uiState.update { it.copy(deliveryPerformance = performance) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
+
             dailyResult.onSuccess { daily ->
-                Log.e("GAMALRAGAB", "onSuccess: daily=$daily" )
                 _uiState.update { it.copy(dailyData = daily) }
             }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    fun applyFilters(status: String?, channel: String?, from: Long?, to: Long?) {
+        viewModelScope.launch {
+            _uiState.update { 
+                it.copy(
+                    isLoading = true,
+                    selectedStatus = status,
+                    selectedChannel = channel,
+                    fromDate = from,
+                    toDate = to
+                )
+            }
+
+            val filteredResult = analyticsRepository.getFilteredSummary(status, channel, from, to)
+            
+            filteredResult.onSuccess { summary ->
+                _uiState.update { 
+                    it.copy(
+                        filteredSummary = summary,
+                        isLoading = false
+                    )
+                }
+            }.onFailure { e ->
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        error = e.message
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearFilters() {
+        _uiState.update { 
+            it.copy(
+                selectedStatus = null,
+                selectedChannel = null,
+                fromDate = null,
+                toDate = null,
+                filteredSummary = null
+            )
         }
     }
 }

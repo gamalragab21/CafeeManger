@@ -10,6 +10,8 @@ data class AnalyticsSummary(
     val averageOrderValue: Double,
     val ordersByChannel: Map<String, Int>,
     val ordersByStatus: Map<String, Int>,
+    val ordersByPaymentMethod: Map<String, Int>,
+    val revenueByPaymentMethod: Map<String, Double>,
     val topItems: List<TopItem>,
     val fromDate: Long,
     val toDate: Long
@@ -27,4 +29,26 @@ data class DailyAnalytics(
     val date: String,
     val orders: Int,
     val revenue: Double
+)
+
+@Serializable
+data class SettlementByPaymentMethod(
+    val orderCount: Int,
+    val totalRevenue: Double,
+    val totalTax: Double,
+    val totalSubtotal: Double
+)
+
+@Serializable
+data class Settlements(
+    val byPaymentMethod: Map<String, SettlementByPaymentMethod>
+)
+
+@Serializable
+data class DeliveryPerformance(
+    val deliveryUserId: String,
+    val deliveryUserName: String,
+    val orderCount: Int,
+    val totalRevenue: Double,
+    val totalTax: Double
 )

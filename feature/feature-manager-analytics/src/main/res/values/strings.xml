@@ -7,4 +7,24 @@
     <string name="avg_order_value">Avg Order Value</string>
     <string name="qty">Qty: %1$d</string>
     <string name="daily_breakdown">Daily Breakdown</string>
+    <string name="filters">Filters</string>
+    <string name="status">Status</string>
+    <string name="channel">Channel</string>
+    <string name="apply_filters">Apply Filters</string>
+    <string name="clear_filters">Clear Filters</string>
+    <string name="settlements">Settlements</string>
+    <string name="by_payment_method">By Payment Method</string>
+    <string name="order_count">Orders</string>
+    <string name="total_tax">Total Tax</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="delivery_performance">Delivery Performance</string>
+    <string name="delivery_person">Delivery Person</string>
+    <string name="orders_delivered">Orders Delivered</string>
+    <string name="total_with_tax">Total (with Tax)</string>
+    <string name="all">All</string>
+    <string name="completed">Completed</string>
+    <string name="pending">Pending</string>
+    <string name="dine_in">Dine In</string>
+    <string name="delivery">Delivery</string>
+    <string name="takeaway">Takeaway</string>
 </resources>

@@ -50,6 +50,19 @@ data class DeliveryPerformanceDto(
     val total_tax: Double
 )
 
+@Serializable
+data class SettlementByPaymentMethodDto(
+    val order_count: Int,
+    val total_revenue: Double,
+    val total_tax: Double,
+    val total_subtotal: Double
+)
+
+@Serializable
+data class SettlementsDto(
+    val by_payment_method: Map<String, SettlementByPaymentMethodDto>
+)
+
 private fun buildOrderQuery(vendorUUID: UUID, status: String?, channel: String?, from: Long?, to: Long?): Query {
     var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
     status?.let { query = query.andWhere { OrdersTable.status eq it } }
@@ -155,14 +168,14 @@ fun Route.analyticsRoutes() {
                 val byPayment = orders
                     .groupBy { it[OrdersTable.paymentMethod] }
                     .mapValues { (_, rows) ->
-                        mapOf(
-                            "order_count" to rows.size,
-                            "total_revenue" to rows.sumOf { it[OrdersTable.total].toDouble() },
-                            "total_tax" to rows.sumOf { it[OrdersTable.tax].toDouble() },
-                            "total_subtotal" to rows.sumOf { it[OrdersTable.subtotal].toDouble() }
+                        SettlementByPaymentMethodDto(
+                            order_count = rows.size,
+                            total_revenue = rows.sumOf { it[OrdersTable.total].toDouble() },
+                            total_tax = rows.sumOf { it[OrdersTable.tax].toDouble() },
+                            total_subtotal = rows.sumOf { it[OrdersTable.subtotal].toDouble() }
                         )
                     }
-                mapOf("by_payment_method" to byPayment)
+                SettlementsDto(by_payment_method = byPayment)
             }
             call.respond(HttpStatusCode.OK, settlements)
         }
@@ -174,37 +187,26 @@ fun Route.analyticsRoutes() {
             val to = call.parameters["to"]?.toLongOrNull()
 
             val performance = transaction {
-                var query = (OrdersTable innerJoin UsersTable)
-                    .slice(
-                        OrdersTable.deliveryUserId,
-                        UsersTable.name,
-                        OrdersTable.id.count(),
-                        OrdersTable.total.sum(),
-                        OrdersTable.tax.sum()
-                    )
-                    .select {
-                        (OrdersTable.vendorId eq vendorUUID) and
-                                (OrdersTable.channel eq "DELIVERY") and
-                                (OrdersTable.deliveryUserId.isNotNull())
-                    }
-                    .groupBy(OrdersTable.deliveryUserId, UsersTable.name)
+                val orders = buildOrderQuery(vendorUUID, null, "DELIVERY", from, to)
+                    .andWhere { OrdersTable.deliveryUserId.isNotNull() }
+                    .toList()
 
-                from?.let { ts ->
-                    val instant = Instant.fromEpochMilliseconds(ts)
-                    query = query.andWhere { OrdersTable.createdAt greaterEq instant }
-                }
-                to?.let { ts ->
-                    val instant = Instant.fromEpochMilliseconds(ts)
-                    query = query = query.andWhere { OrdersTable.createdAt lessEq instant }
-                }
+                val groupedByDelivery = orders
+                    .groupBy { it[OrdersTable.deliveryUserId]!! }
 
-                query.map {
+                val userIds = groupedByDelivery.keys.toList()
+                val users = UsersTable.selectAll()
+                    .where { UsersTable.id inList userIds }
+                    .associateBy { it[UsersTable.id] }
+
+                groupedByDelivery.map { (userId, orderRows) ->
+                    val user = users[userId]
                     DeliveryPerformanceDto(
-                        delivery_user_id = it[OrdersTable.deliveryUserId]!!.toString(),
-                        delivery_user_name = it[UsersTable.name],
-                        order_count = it[OrdersTable.id.count()],
-                        total_revenue = it[OrdersTable.total.sum()]?.toDouble() ?: 0.0,
-                        total_tax = it[OrdersTable.tax.sum()]?.toDouble() ?: 0.0
+                        delivery_user_id = userId.toString(),
+                        delivery_user_name = user?.get(UsersTable.name) ?: "Unknown",
+                        order_count = orderRows.size,
+                        total_revenue = orderRows.sumOf { it[OrdersTable.total].toDouble() },
+                        total_tax = orderRows.sumOf { it[OrdersTable.tax].toDouble() }
                     )
                 }
             }
@@ -263,7 +265,7 @@ fun Route.analyticsRoutes() {
                 val completedOrders = OrdersTable.selectAll()
                     .where {
                         (OrdersTable.vendorId eq vendorUUID) and
-                        (OrdersTable.status eq "COMPLETED")
+                                (OrdersTable.status eq "COMPLETED")
                     }
 
                 val totalRevenue = completedOrders

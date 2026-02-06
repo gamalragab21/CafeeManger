@@ -103,6 +103,8 @@ fun AnalyticsSummaryResponse.toDomain(from: Long, to: Long) = AnalyticsSummary(
     averageOrderValue = averageOrderValue,
     ordersByChannel = ordersByChannel,
     ordersByStatus = ordersByStatus,
+    ordersByPaymentMethod = ordersByPaymentMethod,
+    revenueByPaymentMethod = revenueByPaymentMethod,
     topItems = topItems.map { it.toDomain() },
     fromDate = from,
     toDate = to
@@ -118,4 +120,23 @@ fun DailyAnalyticsResponse.toDomain() = DailyAnalytics(
     date = date,
     orders = orders,
     revenue = revenue
+)
+
+fun SettlementByPaymentMethodResponse.toDomain() = SettlementByPaymentMethod(
+    orderCount = orderCount,
+    totalRevenue = totalRevenue,
+    totalTax = totalTax,
+    totalSubtotal = totalSubtotal
+)
+
+fun SettlementsResponse.toDomain() = Settlements(
+    byPaymentMethod = byPaymentMethod.mapValues { it.value.toDomain() }
+)
+
+fun DeliveryPerformanceResponse.toDomain() = DeliveryPerformance(
+    deliveryUserId = deliveryUserId,
+    deliveryUserName = deliveryUserName,
+    orderCount = orderCount,
+    totalRevenue = totalRevenue,
+    totalTax = totalTax
 )
