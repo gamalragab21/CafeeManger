@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="users">المستخدمون</string>
+    <string name="add_new_staff_member">إضافة موظف جديد</string>
+    <string name="role">الدور</string>
+    <string name="full_name">الاسم الكامل</string>
+    <string name="phone_number">رقم الهاتف</string>
+    <string name="email_optional">البريد الإلكتروني (اختياري)</string>
+    <string name="password_min_6_chars">كلمة المرور (6 أحرف على الأقل)</string>
+    <string name="saving">جارٍ الحفظ...</string>
+    <string name="create_user">إنشاء مستخدم</string>
+    <string name="cancel">إلغاء</string>
+</resources>
+

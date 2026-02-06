@@ -1,4 +1,4 @@
-import androidx.room.gradle.RoomExtension
+import com.google.devtools.ksp.gradle.KspExtension
 import net.marllex.cafeemanger.libs
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -9,12 +9,11 @@ class AndroidRoomConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             with(pluginManager) {
-                apply("androidx.room")
                 apply("com.google.devtools.ksp")
             }
 
-            extensions.configure<RoomExtension> {
-                schemaDirectory("$projectDir/schemas")
+            extensions.configure<KspExtension> {
+                arg("room.generateKotlin", "true")
             }
 
             dependencies {

@@ -1,0 +1,286 @@
+package net.marllex.cafeemanger.backend.api.routes
+
+import io.ktor.http.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.datetime.Instant
+import kotlinx.serialization.Serializable
+import net.marllex.cafeemanger.backend.api.middleware.requireRole
+import net.marllex.cafeemanger.backend.data.database.OrderItemsTable
+import net.marllex.cafeemanger.backend.data.database.OrdersTable
+import net.marllex.cafeemanger.backend.data.database.UsersTable
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.kotlin.datetime.date
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.UUID
+
+@Serializable
+data class AnalyticsSummaryDto(
+    val total_orders: Int,
+    val total_revenue: Double,
+    val average_order_value: Double,
+    val orders_by_channel: Map<String, Int>,
+    val orders_by_status: Map<String, Int>,
+    val orders_by_payment_method: Map<String, Int>,
+    val revenue_by_payment_method: Map<String, Double>,
+    val top_items: List<TopItemDto>
+)
+
+@Serializable
+data class TopItemDto(
+    val item_name: String,
+    val total_quantity: Int,
+    val total_revenue: Double
+)
+
+@Serializable
+data class DailyAnalyticsDto(
+    val date: String,
+    val total_orders: Int,
+    val total_revenue: Double
+)
+
+@Serializable
+data class DeliveryPerformanceDto(
+    val delivery_user_id: String,
+    val delivery_user_name: String,
+    val order_count: Int,
+    val total_revenue: Double,
+    val total_tax: Double
+)
+
+private fun buildOrderQuery(vendorUUID: UUID, status: String?, channel: String?, from: Long?, to: Long?): Query {
+    var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
+    status?.let { query = query.andWhere { OrdersTable.status eq it } }
+    channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
+    from?.let { ts ->
+        val instant = Instant.fromEpochMilliseconds(ts)
+        query = query.andWhere { OrdersTable.createdAt greaterEq instant }
+    }
+    to?.let { ts ->
+        val instant = Instant.fromEpochMilliseconds(ts)
+        query = query.andWhere { OrdersTable.createdAt lessEq instant }
+    }
+    return query
+}
+
+private fun buildSummaryFromOrders(orders: List<ResultRow>, vendorUUID: UUID): AnalyticsSummaryDto {
+    val totalOrders = orders.size
+    val totalRevenue = orders.sumOf { it[OrdersTable.total].toDouble() }
+    val averageOrderValue = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
+
+    val ordersByChannel = orders.groupBy { it[OrdersTable.channel] }.mapValues { it.value.size }
+    val ordersByStatus = orders.groupBy { it[OrdersTable.status] }.mapValues { it.value.size }
+    val ordersByPaymentMethod = orders.groupBy { it[OrdersTable.paymentMethod] }.mapValues { it.value.size }
+    val revenueByPaymentMethod = orders
+        .groupBy { it[OrdersTable.paymentMethod] }
+        .mapValues { rows -> rows.value.sumOf { it[OrdersTable.total].toDouble() } }
+
+    val orderIds = orders.map { it[OrdersTable.id] }
+    val topItems = if (orderIds.isEmpty()) emptyList() else {
+        val orderItemRows = OrderItemsTable
+            .select(
+                OrderItemsTable.itemNameSnapshot,
+                OrderItemsTable.quantity,
+                OrderItemsTable.itemPriceSnapshot
+            )
+            .where { OrderItemsTable.orderId inList orderIds }
+            .toList()
+        orderItemRows
+            .groupBy { it[OrderItemsTable.itemNameSnapshot] }
+            .map { (name, rows) ->
+                TopItemDto(
+                    item_name = name,
+                    total_quantity = rows.sumOf { it[OrderItemsTable.quantity] },
+                    total_revenue = rows.sumOf {
+                        it[OrderItemsTable.itemPriceSnapshot].toDouble() * it[OrderItemsTable.quantity]
+                    }
+                )
+            }
+            .sortedByDescending { it.total_quantity }
+            .take(10)
+    }
+
+    return AnalyticsSummaryDto(
+        total_orders = totalOrders,
+        total_revenue = totalRevenue,
+        average_order_value = averageOrderValue,
+        orders_by_channel = ordersByChannel,
+        orders_by_status = ordersByStatus,
+        orders_by_payment_method = ordersByPaymentMethod,
+        revenue_by_payment_method = revenueByPaymentMethod,
+        top_items = topItems
+    )
+}
+
+fun Route.analyticsRoutes() {
+    route("/api/v1/analytics") {
+        get("/summary") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val summary = transaction {
+                val orders = buildOrderQuery(vendorUUID, null, null, from, to).toList()
+                buildSummaryFromOrders(orders, vendorUUID)
+            }
+            call.respond(HttpStatusCode.OK, summary)
+        }
+
+        get("/filtered-summary") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val status = call.parameters["status"]
+            val channel = call.parameters["channel"]
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val summary = transaction {
+                val orders = buildOrderQuery(vendorUUID, status, channel, from, to).toList()
+                buildSummaryFromOrders(orders, vendorUUID)
+            }
+            call.respond(HttpStatusCode.OK, summary)
+        }
+
+        get("/settlements") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val settlements = transaction {
+                val orders = buildOrderQuery(vendorUUID, null, null, from, to).toList()
+                val byPayment = orders
+                    .groupBy { it[OrdersTable.paymentMethod] }
+                    .mapValues { (_, rows) ->
+                        mapOf(
+                            "order_count" to rows.size,
+                            "total_revenue" to rows.sumOf { it[OrdersTable.total].toDouble() },
+                            "total_tax" to rows.sumOf { it[OrdersTable.tax].toDouble() },
+                            "total_subtotal" to rows.sumOf { it[OrdersTable.subtotal].toDouble() }
+                        )
+                    }
+                mapOf("by_payment_method" to byPayment)
+            }
+            call.respond(HttpStatusCode.OK, settlements)
+        }
+
+        get("/delivery-performance") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val performance = transaction {
+                var query = (OrdersTable innerJoin UsersTable)
+                    .slice(
+                        OrdersTable.deliveryUserId,
+                        UsersTable.name,
+                        OrdersTable.id.count(),
+                        OrdersTable.total.sum(),
+                        OrdersTable.tax.sum()
+                    )
+                    .select {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                                (OrdersTable.channel eq "DELIVERY") and
+                                (OrdersTable.deliveryUserId.isNotNull())
+                    }
+                    .groupBy(OrdersTable.deliveryUserId, UsersTable.name)
+
+                from?.let { ts ->
+                    val instant = Instant.fromEpochMilliseconds(ts)
+                    query = query.andWhere { OrdersTable.createdAt greaterEq instant }
+                }
+                to?.let { ts ->
+                    val instant = Instant.fromEpochMilliseconds(ts)
+                    query = query = query.andWhere { OrdersTable.createdAt lessEq instant }
+                }
+
+                query.map {
+                    DeliveryPerformanceDto(
+                        delivery_user_id = it[OrdersTable.deliveryUserId]!!.toString(),
+                        delivery_user_name = it[UsersTable.name],
+                        order_count = it[OrdersTable.id.count()],
+                        total_revenue = it[OrdersTable.total.sum()]?.toDouble() ?: 0.0,
+                        total_tax = it[OrdersTable.tax.sum()]?.toDouble() ?: 0.0
+                    )
+                }
+            }
+            call.respond(HttpStatusCode.OK, performance)
+        }
+
+        get("/daily") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val days = call.parameters["days"]?.toIntOrNull() ?: 30
+
+            val dailyData = transaction {
+                OrdersTable
+                    .select(
+                        OrdersTable.createdAt.date(),
+                        OrdersTable.id.count(),
+                        OrdersTable.total.sum()
+                    ).where { OrdersTable.vendorId eq vendorUUID }
+                    .groupBy(OrdersTable.createdAt.date())
+                    .orderBy(OrdersTable.createdAt.date(), SortOrder.DESC)
+                    .limit(days)
+                    .map {
+                        DailyAnalyticsDto(
+                            date = it[OrdersTable.createdAt.date()].toString(),
+                            total_orders = it[OrdersTable.id.count()].toInt(),
+                            total_revenue = it[OrdersTable.total.sum()]?.toDouble() ?: 0.0
+                        )
+                    }
+            }
+            call.respond(HttpStatusCode.OK, dailyData)
+        }
+
+        get("/orders/count") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val status = call.parameters["status"]
+            val channel = call.parameters["channel"]
+
+            val count = transaction {
+                var query = OrdersTable.selectAll()
+                    .where { OrdersTable.vendorId eq vendorUUID }
+
+                status?.let { query = query.andWhere { OrdersTable.status eq it } }
+                channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
+
+                query.count().toInt()
+            }
+            call.respond(HttpStatusCode.OK, mapOf("count" to count))
+        }
+
+        get("/revenue") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val revenue = transaction {
+                val completedOrders = OrdersTable.selectAll()
+                    .where {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                        (OrdersTable.status eq "COMPLETED")
+                    }
+
+                val totalRevenue = completedOrders
+                    .sumOf { it[OrdersTable.total].toDouble() }
+
+                val todayStr = kotlinx.datetime.Clock.System.now().toString().substring(0, 10)
+                val todayRevenue = completedOrders
+                    .filter { it[OrdersTable.createdAt].toString().startsWith(todayStr) }
+                    .sumOf { it[OrdersTable.total].toDouble() }
+
+                mapOf(
+                    "total_revenue" to totalRevenue,
+                    "today_revenue" to todayRevenue,
+                    "completed_orders" to completedOrders.count().toInt()
+                )
+            }
+            call.respond(HttpStatusCode.OK, revenue)
+        }
+    }
+}

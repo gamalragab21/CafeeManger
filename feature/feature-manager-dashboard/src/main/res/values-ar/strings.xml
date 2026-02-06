@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="active_orders">الطلبات النشطة</string>
+    <string name="today_s_orders">طلبات اليوم</string>
+    <string name="today_s_revenue">إيرادات اليوم</string>
+    <string name="recent_orders">أحدث الطلبات</string>
+</resources>

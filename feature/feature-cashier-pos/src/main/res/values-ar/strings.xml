@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="add_to_cart">أضف إلى السلة</string>
+    <string name="new_order">طلب جديد</string>
+    <string name="select_table">اختر الطاولة</string>
+    <string name="notes_optional">ملاحظات (اختياري)</string>
+    <string name="placing_order">جاري تقديم الطلب...</string>
+    <string name="place_order">تقديم الطلب - %1$s</string>
+</resources>

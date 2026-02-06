@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subtotal">Subtotal</string>
+    <string name="total">TOTAL</string>
+    <string name="thank_you_for_your_visit">Thank you for your visit!</string>
+    <string name="done">Done</string>
+    <string name="receipt">Receipt</string>
+</resources>

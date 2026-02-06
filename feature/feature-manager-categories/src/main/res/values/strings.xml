@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="categories">Categories</string>
+    <string name="add_category">Add Category</string>
+    <string name="edit_category">Edit Category</string>
+    <string name="name">Name</string>
+    <string name="display_order">Display Order</string>
+    <string name="saving">Saving...</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+</resources>

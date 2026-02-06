@@ -10,6 +10,7 @@ data class Vendor(
     val address: String,
     val contactPhone: String,
     val walletPhone: String? = null,
+    val defaultDeliveryFee: Double = 0.0,
     val createdAt: Long,
     val updatedAt: Long? = null
 )

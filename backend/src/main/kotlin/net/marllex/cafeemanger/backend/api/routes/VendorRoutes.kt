@@ -1,0 +1,96 @@
+package net.marllex.cafeemanger.backend.api.routes
+
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
+import net.marllex.cafeemanger.backend.api.middleware.currentUser
+import net.marllex.cafeemanger.backend.api.middleware.requireRole
+import net.marllex.cafeemanger.backend.data.database.VendorsTable
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
+import kotlinx.datetime.Clock
+import java.util.UUID
+
+@Serializable
+data class VendorResponse(
+    val id: String,
+    val name: String,
+    val logo_url: String? = null,
+    val address: String,
+    val contact_phone: String,
+    val wallet_phone: String? = null,
+    val default_delivery_fee: Double = 0.0,
+    val created_at: Long,
+    val updated_at: Long? = null
+)
+
+@Serializable
+data class UpdateVendorRequest(
+    val name: String? = null,
+    val logo_url: String? = null,
+    val address: String? = null,
+    val contact_phone: String? = null,
+    val wallet_phone: String? = null,
+    val default_delivery_fee: Double? = null
+)
+
+fun Route.vendorRoutes() {
+    route("/api/v1/vendors") {
+        get("/me") {
+            val principal = currentUser()
+            val vendor = transaction {
+                VendorsTable.selectAll()
+                    .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
+                    .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
+            }
+
+            call.respond(HttpStatusCode.OK, VendorResponse(
+                id = vendor[VendorsTable.id].toString(),
+                name = vendor[VendorsTable.name],
+                logo_url = vendor[VendorsTable.logoUrl],
+                address = vendor[VendorsTable.address],
+                contact_phone = vendor[VendorsTable.contactPhone],
+                wallet_phone = vendor[VendorsTable.walletPhone],
+                default_delivery_fee = vendor[VendorsTable.defaultDeliveryFee].toDouble(),
+                created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
+                updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
+            ))
+        }
+
+        put("/me") {
+            val principal = requireRole("MANAGER")
+            val request = call.receive<UpdateVendorRequest>()
+
+            val updated = transaction {
+                VendorsTable.update({ VendorsTable.id eq UUID.fromString(principal.vendorId) }) { stmt ->
+                    request.name?.let { stmt[name] = it }
+                    request.logo_url?.let { stmt[logoUrl] = it }
+                    request.address?.let { stmt[address] = it }
+                    request.contact_phone?.let { stmt[contactPhone] = it }
+                    request.wallet_phone?.let { stmt[walletPhone] = it }
+                    request.default_delivery_fee?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
+                    stmt[updatedAt] = Clock.System.now()
+                }
+
+                VendorsTable.selectAll()
+                    .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
+                    .first()
+            }
+
+            call.respond(HttpStatusCode.OK, VendorResponse(
+                id = updated[VendorsTable.id].toString(),
+                name = updated[VendorsTable.name],
+                logo_url = updated[VendorsTable.logoUrl],
+                address = updated[VendorsTable.address],
+                contact_phone = updated[VendorsTable.contactPhone],
+                wallet_phone = updated[VendorsTable.walletPhone],
+                default_delivery_fee = updated[VendorsTable.defaultDeliveryFee].toDouble(),
+                created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
+                updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
+            ))
+        }
+    }
+}

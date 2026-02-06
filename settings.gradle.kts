@@ -30,6 +30,7 @@ include(":app")
 include(":app-manager")
 include(":app-cashier")
 include(":app-delivery")
+include(":backend")
 
 // Core modules
 include(":core:core-common")
@@ -43,9 +44,6 @@ include(":core:core-auth")
 
 // Feature modules - Shared
 include(":feature:feature-auth")
-include(":feature:feature-orders")
-include(":feature:feature-menu")
-include(":feature:feature-profile")
 
 // Feature modules - Manager App
 include(":feature:feature-manager-dashboard")

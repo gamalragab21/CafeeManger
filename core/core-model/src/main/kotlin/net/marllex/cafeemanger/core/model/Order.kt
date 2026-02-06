@@ -18,6 +18,7 @@ data class Order(
     val geoLng: Double? = null,
     val paymentMethod: PaymentMethod,
     val subtotal: Double,
+    val deliveryFee: Double = 0.0,
     val tax: Double = 0.0,
     val total: Double,
     val notes: String? = null,

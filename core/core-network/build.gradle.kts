@@ -10,6 +10,12 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    defaultConfig {
+        // Base URL for the backend API - override in local.properties: BASE_URL=http://your-server:8080/
+        val baseUrl = project.findProperty("BASE_URL") as? String ?: "http://10.0.2.2:8080/"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+    }
 }
 
 dependencies {

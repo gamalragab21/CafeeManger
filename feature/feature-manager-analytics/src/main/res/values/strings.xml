@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analytics">Analytics</string>
+    <string name="summary_last_30_days">Summary (Last 30 Days)</string>
+    <string name="total_orders">Total Orders</string>
+    <string name="revenue">Revenue</string>
+    <string name="avg_order_value">Avg Order Value</string>
+    <string name="qty">Qty: %1$d</string>
+    <string name="daily_breakdown">Daily Breakdown</string>
+</resources>

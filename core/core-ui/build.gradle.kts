@@ -12,8 +12,10 @@ dependencies {
     api(libs.androidx.compose.material.icons.extended)
     api(libs.androidx.compose.ui.tooling.preview)
 
+    implementation(project(":core:core-model"))
     implementation(libs.coil.compose)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
 
     debugApi(libs.androidx.compose.ui.tooling)
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="my_deliveries">عمليّات التوصيل الخاصة بي</string>
+    <string name="my_orders">طلباتي (%1$d)</string>
+    <string name="available">متاح (%1$d)</string>
+    <string name="all">الكل</string>
+    <string name="no_deliveries_yet">لا توجد عمليات توصيل بعد</string>
+    <string name="no_available_orders">لا توجد طلبات متاحة</string>
+    <string name="start_delivery">بدء التوصيل</string>
+    <string name="mark_delivered">تحديد كـ تم التوصيل</string>
+    <string name="pick_up_order">استلام الطلب</string>
+</resources>

@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "net.marllex.cafeemanger"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "net.marllex.cafeemanger"

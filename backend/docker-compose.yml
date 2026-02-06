@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cafeemanger-postgres
+    environment:
+      POSTGRES_USER: cafeemanger
+      POSTGRES_PASSWORD: cafeemanger_dev
+      POSTGRES_DB: cafeemanger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cafeemanger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: cafeemanger-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/cafeemanger
+      DATABASE_USER: cafeemanger
+      DATABASE_PASSWORD: cafeemanger_dev
+      JWT_SECRET: dev-secret-key-change-in-production-12345
+      JWT_ISSUER: cafeemanger
+      JWT_AUDIENCE: cafeemanger-api
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:

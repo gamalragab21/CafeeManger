@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tables">Tables</string>
+    <string name="table">Table %1$s</string>
+    <string name="edit_table">Edit Table</string>
+    <string name="add_table">Add Table</string>
+    <string name="table_number">Table Number</string>
+    <string name="capacity">Capacity</string>
+    <string name="saving">Saving...</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+</resources>

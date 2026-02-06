@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+/build-logic
+/build-logic/convention/build/pluginDescriptors/cafeemanger.android.application.compose.properties
+/.kotlin

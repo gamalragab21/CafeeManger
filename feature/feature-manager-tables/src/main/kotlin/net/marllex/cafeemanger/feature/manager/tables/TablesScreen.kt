@@ -1,0 +1,210 @@
+package net.marllex.cafeemanger.feature.manager.tables
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.marllex.cafeemanger.core.model.Table
+import net.marllex.cafeemanger.core.model.TableStatus
+import net.marllex.cafeemanger.core.ui.components.ErrorView
+import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TablesScreen(
+    viewModel: TablesViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.tables)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = viewModel::showAddDialog) {
+                Icon(Icons.Filled.Add, contentDescription = "Add Table")
+            }
+        },
+    ) { padding ->
+        when {
+            uiState.isLoading -> LoadingIndicator()
+            uiState.error != null && uiState.tables.isEmpty() -> ErrorView(
+                message = uiState.error!!,
+                onRetry = viewModel::loadTables,
+            )
+            else -> LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(uiState.tables, key = { it.id }) { table ->
+                    TableCard(
+                        table = table,
+                        onEdit = { viewModel.showEditDialog(table) },
+                        onDelete = { viewModel.deleteTable(table.id) },
+                        onStatusChange = { viewModel.updateStatus(table, it) },
+                    )
+                }
+            }
+        }
+
+        if (uiState.showAddDialog) {
+            TableDialog(
+                isEditing = uiState.editingTable != null,
+                number = uiState.dialogNumber,
+                capacity = uiState.dialogCapacity,
+                isSaving = uiState.isSaving,
+                onNumberChange = viewModel::updateDialogNumber,
+                onCapacityChange = viewModel::updateDialogCapacity,
+                onSave = viewModel::saveTable,
+                onDismiss = viewModel::dismissDialog,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TableCard(
+    table: Table,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onStatusChange: (TableStatus) -> Unit,
+) {
+    val statusColor = when (table.status) {
+        TableStatus.AVAILABLE -> Color(0xFF4CAF50)
+        TableStatus.OCCUPIED -> Color(0xFFF44336)
+        TableStatus.RESERVED -> Color(0xFFFF9800)
+    }
+
+    var showStatusMenu by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.table, table.number),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.People, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = " ${table.capacity}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            OutlinedButton(onClick = { showStatusMenu = true }) {
+                Text(text = table.status.name, color = statusColor)
+            }
+            DropdownMenu(expanded = showStatusMenu, onDismissRequest = { showStatusMenu = false }) {
+                TableStatus.entries.forEach { status ->
+                    DropdownMenuItem(
+                        text = { Text(status.name) },
+                        onClick = {
+                            onStatusChange(status)
+                            showStatusMenu = false
+                        },
+                    )
+                }
+            }
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TableDialog(
+    isEditing: Boolean,
+    number: String,
+    capacity: String,
+    isSaving: Boolean,
+    onNumberChange: (String) -> Unit,
+    onCapacityChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEditing) stringResource(R.string.edit_table) else stringResource(R.string.add_table)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = number, onValueChange = onNumberChange,
+                    label = { Text(stringResource(R.string.table_number)) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = capacity, onValueChange = onCapacityChange,
+                    label = { Text(stringResource(R.string.capacity)) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave, enabled = !isSaving && number.isNotBlank()) {
+                Text(if (isSaving) stringResource(R.string.saving) else stringResource(R.string.save))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analytics">التحليلات</string>
+    <string name="summary_last_30_days">الملخص (آخر 30 يوم)</string>
+    <string name="total_orders">إجمالي الطلبات</string>
+    <string name="revenue">الإيرادات</string>
+    <string name="avg_order_value">متوسط قيمة الطلب</string>
+    <string name="qty">الكمية: %1$d</string>
+    <string name="daily_breakdown">التفصيل اليومي</string>
+</resources>

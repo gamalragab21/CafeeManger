@@ -1,5 +1,6 @@
 package net.marllex.cafeemanger.core.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -16,9 +17,9 @@ data class AnalyticsSummary(
 
 @Serializable
 data class TopItem(
-    val item: Item,
-    val quantitySold: Int,
-    val revenue: Double
+    @SerialName("item_name") val item: String,
+    @SerialName("total_quantity") val quantitySold: Int,
+    @SerialName("total_revenue") val revenue: Double
 )
 
 @Serializable

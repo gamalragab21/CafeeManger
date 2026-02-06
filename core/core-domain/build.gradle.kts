@@ -10,6 +10,7 @@ android {
 dependencies {
     api(project(":core:core-model"))
     implementation(project(":core:core-common"))
+    api(project(":core:core-network"))
 
     implementation(libs.kotlinx.coroutines.android)
 }

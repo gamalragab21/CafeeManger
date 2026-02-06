@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="users">Users</string>
+    <string name="add_new_staff_member">Add New Staff Member</string>
+    <string name="role">Role</string>
+    <string name="full_name">Full Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="email_optional">Email (optional)</string>
+    <string name="password_min_6_chars">Password (min 6 chars)</string>
+    <string name="saving">Saving...</string>
+    <string name="create_user">Create User</string>
+    <string name="cancel">Cancel</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CafeeManger Delivery</string>
+    <string name="my_orders_menu">My Orders</string>
+    <string name="map">Map</string>
+    <string name="settings">Settings</string>
+</resources>
