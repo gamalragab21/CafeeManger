@@ -15,6 +15,7 @@ import android.text.TextPaint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -87,6 +90,7 @@ import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.PaymentMethod
 import net.marllex.cafeemanger.core.model.Vendor
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
+import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -211,14 +215,14 @@ fun ReceiptScreen(
                             ) {
                                 // ── Header with Logo ──
                                 if (!vendor?.logoUrl.isNullOrBlank()) {
-                                    coil.compose.AsyncImage(
+                                    AsyncImage(
                                         model = vendor?.logoUrl,
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(64.dp)
-                                            .clip(androidx.compose.foundation.shape.CircleShape)
-                                            .border(1.dp, Color(0xFFE7E5E4), androidx.compose.foundation.shape.CircleShape),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            .clip(CircleShape)
+                                            .border(1.dp, Color(0xFFE7E5E4), CircleShape),
+                                        contentScale = ContentScale.Crop,
                                     )
                                     Spacer(Modifier.height(8.dp))
                                 }

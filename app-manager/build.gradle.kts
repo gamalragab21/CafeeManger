@@ -49,6 +49,9 @@ dependencies {
     implementation(project(":feature:feature-manager-orders"))
     implementation(project(":feature:feature-manager-stock"))
 
+    // Image loading
+    implementation(libs.coil.compose)
+
     // AndroidX
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
