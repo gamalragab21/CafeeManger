@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderStatus
 import javax.inject.Inject
@@ -17,6 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class DeliveryOrdersViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
+    private val vendorRepository: VendorRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -28,6 +30,8 @@ class DeliveryOrdersViewModel @Inject constructor(
         val error: String? = null,
         val isSharing: Boolean = false,
         val shareUrl: String? = null,
+        val vendorName: String = "",
+        val vendorLogoUrl: String? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -38,6 +42,10 @@ class DeliveryOrdersViewModel @Inject constructor(
     fun loadOrders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            // Load vendor info for logo
+            vendorRepository.refreshVendor().onSuccess { vendor ->
+                _uiState.update { it.copy(vendorName = vendor.name, vendorLogoUrl = vendor.logoUrl) }
+            }
             // Refresh my orders from API
             orderRepository.refreshMyDeliveryOrders(_uiState.value.selectedStatus)
                 .onFailure { e ->

@@ -52,6 +52,9 @@ dependencies {
     // Image loading
     implementation(libs.coil.compose)
 
+    // QR code generation
+    implementation(libs.zxing.core)
+
     // AndroidX
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)

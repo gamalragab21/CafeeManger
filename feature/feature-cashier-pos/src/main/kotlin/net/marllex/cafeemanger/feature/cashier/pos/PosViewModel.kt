@@ -48,6 +48,8 @@ class PosViewModel @Inject constructor(
         val enableTables: Boolean = true,
         val enableDineIn: Boolean = true,
         val enableDelivery: Boolean = true,
+        val vendorName: String = "",
+        val vendorLogoUrl: String? = null,
         val selectedTableId: String? = null,
         val selectedTaxPlaceId: String? = null,
         val clientName: String = "",
@@ -79,6 +81,8 @@ class PosViewModel @Inject constructor(
                     enableTables = vendor.enableTables,
                     enableDineIn = vendor.enableDineIn,
                     enableDelivery = vendor.enableDelivery,
+                    vendorName = vendor.name,
+                    vendorLogoUrl = vendor.logoUrl,
                     channel = defaultChannel,
                 ) }
             }

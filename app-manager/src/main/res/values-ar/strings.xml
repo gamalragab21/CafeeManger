@@ -36,4 +36,12 @@
     <string name="store_logo">شعار المتجر</string>
     <string name="store_logo_url">رابط الشعار</string>
     <string name="store_logo_url_hint">الصق رابط صورة مباشر (https://…)</string>
+    <!-- Digital Menu -->
+    <string name="digital_menu">القائمة الرقمية</string>
+    <string name="digital_menu_link">رابط القائمة</string>
+    <string name="scan_to_view_menu">امسح لعرض القائمة الرقمية</string>
+    <string name="copy_link">نسخ الرابط</string>
+    <string name="link_copied">تم نسخ الرابط!</string>
+    <string name="no_digital_menu">لا توجد قائمة رقمية بعد.\nتواصل مع المسؤول لإعدادها.</string>
+    <string name="todays_overview">نظرة على اليوم</string>
 </resources>

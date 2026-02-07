@@ -8,4 +8,5 @@ android {
 
 dependencies {
     implementation(project(":core:core-data"))
+    implementation(libs.coil.compose)
 }

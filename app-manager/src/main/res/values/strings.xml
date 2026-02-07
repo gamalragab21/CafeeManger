@@ -36,4 +36,12 @@
     <string name="store_logo">Store Logo</string>
     <string name="store_logo_url">Logo URL</string>
     <string name="store_logo_url_hint">Paste a direct image link (https://…)</string>
+    <!-- Digital Menu -->
+    <string name="digital_menu">Digital Menu</string>
+    <string name="digital_menu_link">Menu Link</string>
+    <string name="scan_to_view_menu">Scan to view your digital menu</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="link_copied">Link copied!</string>
+    <string name="no_digital_menu">No digital menu configured yet.\nContact admin to set up.</string>
+    <string name="todays_overview">Today\'s Overview</string>
 </resources>

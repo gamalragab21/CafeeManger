@@ -9,4 +9,5 @@ android {
 dependencies {
     implementation(project(":core:core-data"))
     implementation(project(":core:core-auth"))
+    implementation(libs.coil.compose)
 }
