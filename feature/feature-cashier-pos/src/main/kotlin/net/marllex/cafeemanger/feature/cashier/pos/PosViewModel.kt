@@ -14,6 +14,7 @@ import net.marllex.cafeemanger.core.domain.repository.CategoryRepository
 import net.marllex.cafeemanger.core.domain.repository.ItemRepository
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
 import net.marllex.cafeemanger.core.domain.repository.TableRepository
+import net.marllex.cafeemanger.core.domain.repository.TaxPlaceRepository
 import net.marllex.cafeemanger.core.model.CartItem
 import net.marllex.cafeemanger.core.model.Category
 import net.marllex.cafeemanger.core.model.Item
@@ -21,6 +22,7 @@ import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.PaymentMethod
 import net.marllex.cafeemanger.core.model.Table
+import net.marllex.cafeemanger.core.model.TaxPlace
 import net.marllex.cafeemanger.core.network.dto.CreateOrderItemRequest
 import javax.inject.Inject
 
@@ -30,16 +32,19 @@ class PosViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val tableRepository: TableRepository,
     private val orderRepository: OrderRepository,
+    private val taxPlaceRepository: TaxPlaceRepository,
 ) : ViewModel() {
 
     data class UiState(
         val items: List<Item> = emptyList(),
         val categories: List<Category> = emptyList(),
         val tables: List<Table> = emptyList(),
+        val taxPlaces: List<TaxPlace> = emptyList(),
         val selectedCategoryId: String? = null,
         val cart: List<CartItem> = emptyList(),
         val channel: OrderChannel = OrderChannel.DINE_IN,
         val selectedTableId: String? = null,
+        val selectedTaxPlaceId: String? = null,
         val clientName: String = "",
         val clientPhone: String = "",
         val clientAddress: String = "",
@@ -61,6 +66,17 @@ class PosViewModel @Inject constructor(
             itemRepository.refreshItems()
             categoryRepository.refreshCategories()
             tableRepository.refreshTables()
+            // Preload tax places so the cashier can pick fees immediately
+            taxPlaceRepository.getTaxPlaces().onSuccess { places ->
+                _uiState.update { state ->
+                    state.copy(
+                        taxPlaces = places,
+                        selectedTaxPlaceId = state.selectedTaxPlaceId
+                            ?: places.firstOrNull { it.isDefault }?.id
+                            ?: places.firstOrNull()?.id
+                    )
+                }
+            }
 
             combine(
                 itemRepository.getAvailableItems(),
@@ -115,7 +131,28 @@ class PosViewModel @Inject constructor(
     }
 
     fun setChannel(channel: OrderChannel) {
-        _uiState.update { it.copy(channel = channel) }
+        _uiState.update {
+            it.copy(
+                channel = channel,
+                selectedTaxPlaceId = if (channel == OrderChannel.DELIVERY) it.selectedTaxPlaceId ?: it.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id else null
+            )
+        }
+        if (channel == OrderChannel.DELIVERY && _uiState.value.taxPlaces.isEmpty()) {
+            viewModelScope.launch {
+                taxPlaceRepository.getTaxPlaces().onSuccess { places ->
+                    _uiState.update { state ->
+                        state.copy(
+                            taxPlaces = places,
+                            selectedTaxPlaceId = state.selectedTaxPlaceId ?: places.firstOrNull { it.isDefault }?.id ?: places.firstOrNull()?.id
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun setSelectedTaxPlaceId(taxPlaceId: String?) {
+        _uiState.update { it.copy(selectedTaxPlaceId = taxPlaceId) }
     }
 
     fun setTableId(tableId: String?) { _uiState.update { it.copy(selectedTableId = tableId) } }
@@ -148,6 +185,7 @@ class PosViewModel @Inject constructor(
                 clientAddress = if (s.channel == OrderChannel.DELIVERY) s.clientAddress.ifBlank { null } else null,
                 geoLat = null, geoLng = null,
                 paymentMethod = paymentMethod,
+                taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
                 notes = s.notes.ifBlank { null },
                 items = orderItems,
             ).onSuccess { order ->
@@ -164,7 +202,7 @@ class PosViewModel @Inject constructor(
             it.copy(
                 cart = emptyList(), createdOrder = null,
                 clientName = "", clientPhone = "", clientAddress = "",
-                notes = "", selectedTableId = null,
+                notes = "", selectedTableId = null, selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { it.isDefault }?.id,
             )
         }
     }

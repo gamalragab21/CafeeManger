@@ -11,7 +11,9 @@ data class OrderResponse(
     val status: String,
     @SerialName("table_id") val tableId: String? = null,
     @SerialName("cashier_id") val cashierId: String,
+    @SerialName("cashier_name") val cashierName: String? = null,
     @SerialName("delivery_user_id") val deliveryUserId: String? = null,
+    @SerialName("delivery_user_name") val deliveryUserName: String? = null,
     @SerialName("client_name") val clientName: String? = null,
     @SerialName("client_phone") val clientPhone: String? = null,
     @SerialName("client_address") val clientAddress: String? = null,
@@ -57,6 +59,7 @@ data class CreateOrderRequest(
     @SerialName("geo_lng") val geoLng: Double? = null,
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("delivery_fee") val deliveryFee: Double = 0.0,
+    @SerialName("tax_place_id") val taxPlaceId: String? = null,
     val notes: String? = null,
     val items: List<CreateOrderItemRequest>
 )
@@ -76,4 +79,11 @@ data class UpdateOrderStatusRequest(
 @Serializable
 data class AssignDeliveryRequest(
     @SerialName("delivery_user_id") val deliveryUserId: String
+)
+
+@Serializable
+data class ShareReceiptResponse(
+    val url: String,
+    val token: String,
+    @SerialName("expires_at") val expiresAt: Long
 )

@@ -39,4 +39,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindAnalyticsRepository(impl: AnalyticsRepositoryImpl): AnalyticsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTaxPlaceRepository(impl: TaxPlaceRepositoryImpl): TaxPlaceRepository
 }

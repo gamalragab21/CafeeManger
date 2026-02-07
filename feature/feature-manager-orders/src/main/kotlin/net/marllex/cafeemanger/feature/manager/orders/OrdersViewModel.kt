@@ -23,6 +23,10 @@ class OrdersViewModel @Inject constructor(
         val orders: List<Order> = emptyList(),
         val selectedStatus: String? = null,
         val selectedChannel: String? = null,
+        val selectedCashierId: String? = null,
+        val selectedDeliveryUserId: String? = null,
+        val fromDate: Long? = null,
+        val toDate: Long? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
     )
@@ -36,8 +40,14 @@ class OrdersViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val s = _uiState.value
-            orderRepository.refreshOrders(s.selectedStatus, s.selectedChannel)
-
+            orderRepository.refreshOrders(
+                status = s.selectedStatus,
+                channel = s.selectedChannel,
+                cashierId = s.selectedCashierId,
+                deliveryUserId = s.selectedDeliveryUserId,
+                from = s.fromDate,
+                to = s.toDate
+            )
             orderRepository.getOrders(s.selectedStatus, s.selectedChannel)
                 .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
                 .collect { orders -> _uiState.update { it.copy(orders = orders, isLoading = false) } }
@@ -52,6 +62,29 @@ class OrdersViewModel @Inject constructor(
     fun filterByChannel(channel: String?) {
         _uiState.update { it.copy(selectedChannel = channel) }
         loadOrders()
+    }
+
+    fun filterByCashier(cashierId: String?) {
+        _uiState.update { it.copy(selectedCashierId = cashierId) }
+        loadOrders()
+    }
+
+    fun filterByDelivery(deliveryUserId: String?) {
+        _uiState.update { it.copy(selectedDeliveryUserId = deliveryUserId) }
+        loadOrders()
+    }
+
+    fun filterByDateRange(from: Long?, to: Long?) {
+        _uiState.update { it.copy(fromDate = from, toDate = to) }
+        loadOrders()
+    }
+
+    fun shareReceipt(orderId: String, onLink: (String) -> Unit) {
+        viewModelScope.launch {
+            orderRepository.shareReceipt(orderId)
+                .onSuccess { link -> onLink(link.url) }
+                .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
+        }
     }
 
     fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {

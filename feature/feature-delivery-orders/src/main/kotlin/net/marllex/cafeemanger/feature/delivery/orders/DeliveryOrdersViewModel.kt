@@ -26,6 +26,8 @@ class DeliveryOrdersViewModel @Inject constructor(
         val selectedStatus: String? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
+        val isSharing: Boolean = false,
+        val shareUrl: String? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -79,6 +81,20 @@ class DeliveryOrdersViewModel @Inject constructor(
                 .onSuccess { loadOrders() }
                 .onFailure { e ->
                     _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    fun shareReceipt(orderId: String, onLink: (String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSharing = true, error = null) }
+            orderRepository.shareReceipt(orderId)
+                .onSuccess { link ->
+                    _uiState.update { it.copy(isSharing = false, shareUrl = link.url) }
+                    onLink(link.url)
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isSharing = false, error = e.message) }
                 }
         }
     }

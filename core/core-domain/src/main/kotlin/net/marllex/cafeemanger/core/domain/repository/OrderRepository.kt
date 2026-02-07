@@ -5,6 +5,7 @@ import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.OrderStatus
 import net.marllex.cafeemanger.core.model.PaymentMethod
+import net.marllex.cafeemanger.core.model.ReceiptShareLink
 import net.marllex.cafeemanger.core.network.dto.CreateOrderItemRequest
 
 interface OrderRepository {
@@ -12,7 +13,14 @@ interface OrderRepository {
     fun getOrderById(id: String): Flow<Order?>
     fun getMyDeliveryOrders(status: String? = null): Flow<List<Order>>
 
-    suspend fun refreshOrders(status: String? = null, channel: String? = null): Result<List<Order>>
+    suspend fun refreshOrders(
+        status: String? = null,
+        channel: String? = null,
+        cashierId: String? = null,
+        deliveryUserId: String? = null,
+        from: Long? = null,
+        to: Long? = null
+    ): Result<List<Order>>
     suspend fun refreshMyDeliveryOrders(status: String? = null): Result<List<Order>>
     suspend fun getAvailableDeliveryOrders(): Result<List<Order>>
     suspend fun createOrder(
@@ -21,9 +29,12 @@ interface OrderRepository {
         clientName: String?, clientPhone: String?, clientAddress: String?,
         geoLat: Double?, geoLng: Double?,
         paymentMethod: PaymentMethod,
+        taxPlaceId: String?,
         notes: String?,
         items: List<CreateOrderItemRequest>
     ): Result<Order>
+    suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrderStatus(id: String, status: OrderStatus): Result<Order>
     suspend fun assignDeliveryUser(id: String, deliveryUserId: String): Result<Order>
+    suspend fun shareReceipt(id: String): Result<ReceiptShareLink>
 }

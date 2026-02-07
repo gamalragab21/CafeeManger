@@ -16,3 +16,28 @@ local.properties
 /build-logic
 /build-logic/convention/build/pluginDescriptors/cafeemanger.android.application.compose.properties
 /.kotlin
+
+# Gradle
+.gradle/
+build/
+
+# Android Studio
+.idea/
+*.iml
+
+# Local config
+local.properties
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+.kotlin/
+
+# KSP / Kapt
+ksp/
+

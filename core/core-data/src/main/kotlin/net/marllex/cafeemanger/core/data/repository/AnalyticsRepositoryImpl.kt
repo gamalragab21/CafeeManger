@@ -22,21 +22,46 @@ class AnalyticsRepositoryImpl @Inject constructor(
     override suspend fun getFilteredSummary(
         status: String?,
         channel: String?,
+        cashierId: String?,
+        deliveryUserId: String?,
         from: Long?,
         to: Long?
     ): Result<AnalyticsSummary> = runCatching {
         val fromDate = from ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
         val toDate = to ?: System.currentTimeMillis()
-        api.getFilteredAnalyticsSummary(status, channel, fromDate, toDate).toDomain(fromDate, toDate)
+        api.getFilteredAnalyticsSummary(status, channel, cashierId, deliveryUserId, fromDate, toDate).toDomain(fromDate, toDate)
     }
 
-    override suspend fun getSettlements(from: Long?, to: Long?): Result<Settlements> = runCatching {
-        api.getSettlements(from, to).toDomain()
+    override suspend fun getSettlements(
+        status: String?,
+        channel: String?,
+        cashierId: String?,
+        deliveryUserId: String?,
+        from: Long?,
+        to: Long?
+    ): Result<Settlements> = runCatching {
+        api.getSettlements(status, channel, cashierId, deliveryUserId, from, to).toDomain()
     }
 
-    override suspend fun getDeliveryPerformance(from: Long?, to: Long?): Result<List<DeliveryPerformance>> =
+    override suspend fun getDeliveryPerformance(
+        status: String?,
+        cashierId: String?,
+        from: Long?,
+        to: Long?
+    ): Result<List<DeliveryPerformance>> =
         runCatching {
-            api.getDeliveryPerformance(from, to).map { it.toDomain() }
+            api.getDeliveryPerformance(status, cashierId, from, to).map { it.toDomain() }
+        }
+
+    override suspend fun getCashierPerformance(
+        status: String?,
+        channel: String?,
+        deliveryUserId: String?,
+        from: Long?,
+        to: Long?
+    ): Result<List<DeliveryPerformance>> =
+        runCatching {
+            api.getCashierPerformance(status, channel, deliveryUserId, from, to).map { it.toDomain() }
         }
 
     override suspend fun getDailyAnalytics(from: Long, to: Long): Result<List<DailyAnalytics>> =

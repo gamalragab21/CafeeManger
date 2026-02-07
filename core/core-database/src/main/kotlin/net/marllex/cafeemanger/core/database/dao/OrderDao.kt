@@ -31,8 +31,8 @@ interface OrderDao {
     @Query("UPDATE orders SET status = :status, updated_at = :updatedAt WHERE id = :orderId")
     suspend fun updateOrderStatus(orderId: String, status: String, updatedAt: Long)
 
-    @Query("UPDATE orders SET delivery_user_id = :userId, status = :status, updated_at = :updatedAt WHERE id = :orderId")
-    suspend fun assignDeliveryUser(orderId: String, userId: String, status: String = "ASSIGNED", updatedAt: Long)
+    @Query("UPDATE orders SET delivery_user_id = :userId, updated_at = :updatedAt WHERE id = :orderId")
+    suspend fun assignDeliveryUser(orderId: String, userId: String, updatedAt: Long)
 
     // ─── Order Items ─────────────────────────────────────────────
     @Query("SELECT * FROM order_items WHERE order_id = :orderId")

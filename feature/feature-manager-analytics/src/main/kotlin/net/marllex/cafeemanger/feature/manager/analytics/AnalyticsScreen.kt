@@ -3,6 +3,8 @@ package net.marllex.cafeemanger.feature.manager.analytics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,31 +12,42 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +57,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,24 +81,35 @@ fun AnalyticsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.analytics)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                actions = {
+
+                    IconButton(onClick = { viewModel.loadAnalytics() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                    }
+                }
             )
         },
     ) { padding ->
         when {
             uiState.isLoading && uiState.summary == null -> LoadingIndicator()
-            uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadAnalytics)
+            uiState.error != null -> ErrorView(
+                message = uiState.error!!,
+                onRetry = viewModel::loadAnalytics
+            )
+
             uiState.summary != null -> AnalyticsContent(
                 summary = uiState.summary!!,
                 filteredSummary = uiState.filteredSummary,
                 settlements = uiState.settlements,
                 deliveryPerformance = uiState.deliveryPerformance,
+                cashierPerformance = uiState.cashierPerformance,
                 dailyData = uiState.dailyData,
-                selectedStatus = uiState.selectedStatus,
-                selectedChannel = uiState.selectedChannel,
-                onApplyFilters = { status, channel ->
-                    val from = uiState.fromDate
-                    val to = uiState.toDate
-                    viewModel.applyFilters(status, channel, from, to)
+                selectedCashierId = uiState.selectedCashierId,
+                selectedDeliveryUserId = uiState.selectedDeliveryUserId,
+                fromDate = uiState.fromDate,
+                toDate = uiState.toDate,
+                onApplyFilters = { cashierId, deliveryUserId, from, to ->
+                    viewModel.applyFilters(cashierId, deliveryUserId, from, to)
                 },
                 onClearFilters = viewModel::clearFilters,
                 modifier = Modifier.padding(padding),
@@ -92,23 +118,50 @@ fun AnalyticsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AnalyticsContent(
     summary: AnalyticsSummary,
     filteredSummary: AnalyticsSummary?,
     settlements: Settlements?,
     deliveryPerformance: List<DeliveryPerformance>,
+    cashierPerformance: List<DeliveryPerformance>,
     dailyData: List<DailyAnalytics>,
-    selectedStatus: String?,
-    selectedChannel: String?,
-    onApplyFilters: (String?, String?) -> Unit,
+    selectedCashierId: String?,
+    selectedDeliveryUserId: String?,
+    fromDate: Long?,
+    toDate: Long?,
+    onApplyFilters: (String?, String?, Long?, Long?) -> Unit,
     onClearFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showStatusMenu by remember { mutableStateOf(false) }
-    var showChannelMenu by remember { mutableStateOf(false) }
+    var showCashierMenu by remember { mutableStateOf(false) }
+    var showDeliveryMenu by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val displaySummary = filteredSummary ?: summary
+    val cashierFilterLabel = selectedCashierId?.let { id ->
+        cashierPerformance.find { it.deliveryUserId == id }?.deliveryUserName ?: id.takeLast(6)
+    } ?: stringResource(R.string.cashier)
+    val deliveryFilterLabel = selectedDeliveryUserId?.let { id ->
+        deliveryPerformance.find { it.deliveryUserId == id }?.deliveryUserName ?: id.takeLast(6)
+    } ?: stringResource(R.string.delivery_person)
+    val now = System.currentTimeMillis()
+    val sevenDays = now - 7L * 24 * 60 * 60 * 1000
+    val thirtyDays = now - 30L * 24 * 60 * 60 * 1000
+    val datePreset = when {
+        fromDate == null && toDate == null -> "ALL"
+        toDate != null && kotlin.math.abs(toDate - now) < 2 * 60 * 60 * 1000 && fromDate != null && kotlin.math.abs(
+            fromDate - sevenDays
+        ) < 2 * 60 * 60 * 1000 -> "7"
+
+        toDate != null && kotlin.math.abs(toDate - now) < 2 * 60 * 60 * 1000 && fromDate != null && kotlin.math.abs(
+            fromDate - thirtyDays
+        ) < 2 * 60 * 60 * 1000 -> "30"
+
+        else -> "CUSTOM"
+    }
+    val formatAmount: (Double) -> String = { amt -> String.format("%.2f EGP", amt) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -116,126 +169,177 @@ private fun AnalyticsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Filters Section
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+             item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                        )
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.FilterList,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                stringResource(R.string.filters),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-                        if (selectedStatus != null || selectedChannel != null) {
-                            Button(onClick = onClearFilters) {
-                                Text(stringResource(R.string.clear_filters))
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Status Filter
-                        Box {
-                            FilterChip(
-                                selected = selectedStatus != null,
-                                onClick = { showStatusMenu = true },
-                                label = { Text(selectedStatus ?: stringResource(R.string.status)) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            DropdownMenu(
-                                expanded = showStatusMenu,
-                                onDismissRequest = { showStatusMenu = false }
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Header: Title and Clear Button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.all)) },
-                                    onClick = {
-                                        showStatusMenu = false
-                                        onApplyFilters(null, selectedChannel)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.completed)) },
-                                    onClick = {
-                                        showStatusMenu = false
-                                        onApplyFilters("COMPLETED", selectedChannel)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.pending)) },
-                                    onClick = {
-                                        showStatusMenu = false
-                                        onApplyFilters("PENDING", selectedChannel)
-                                    }
-                                )
-                            }
-                        }
-
-                        // Channel Filter
-                        Box {
-                            FilterChip(
-                                selected = selectedChannel != null,
-                                onClick = { showChannelMenu = true },
-                                label = {
-                                    Text(
-                                        selectedChannel ?: stringResource(R.string.channel)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FilterList,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.filters),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                if (selectedCashierId != null || selectedDeliveryUserId != null || fromDate != null || toDate != null) {
+                                    TextButton(onClick = onClearFilters) {
+                                        Text(stringResource(R.string.clear_filters))
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Section 1: Date Range Presets (Flowing)
+                            Text(
+                                text = "Time Period",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            DropdownMenu(
-                                expanded = showChannelMenu,
-                                onDismissRequest = { showChannelMenu = false }
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // FlowRow automatically handles screen width
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                maxItemsInEachRow = 4 // Keeps it neat on tablets
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.all)) },
-                                    onClick = {
-                                        showChannelMenu = false
-                                        onApplyFilters(selectedStatus, null)
+                                val datePresets = listOf(
+                                    Triple("ALL", stringResource(R.string.all_time), null),
+                                    Triple("7", stringResource(R.string.last_7_days), sevenDays),
+                                    Triple("30", stringResource(R.string.last_30_days), thirtyDays)
+                                )
+
+                                datePresets.forEach { (key, label, start) ->
+                                    FilterChip(
+                                        selected = datePreset == key,
+                                        onClick = { onApplyFilters(selectedCashierId, selectedDeliveryUserId, start, now) },
+                                        label = { Text(label) }
+                                    )
+                                }
+
+                                FilterChip(
+                                    selected = datePreset == "CUSTOM",
+                                    onClick = { showDatePicker = true },
+                                    label = { Text("Custom") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(16.dp))
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.dine_in)) },
-                                    onClick = {
-                                        showChannelMenu = false
-                                        onApplyFilters(selectedStatus, "DINE_IN")
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Section 2: Dropdowns (Side-by-side or Stacked)
+                            Text(
+                                text = "Assignees",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Cashier Dropdown
+                                Box(modifier = Modifier.weight(1f)) {
+                                    FilterChip(
+                                        selected = selectedCashierId != null,
+                                        onClick = { showCashierMenu = true },
+                                        label = { Text(cashierFilterLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) }
+                                    )
+                                    DropdownMenu(
+                                        expanded = showCashierMenu,
+                                        onDismissRequest = { showCashierMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.all)) },
+                                            onClick = {
+                                                showCashierMenu = false
+                                                onApplyFilters(null, selectedDeliveryUserId, fromDate, toDate)
+                                            }
+                                        )
+                                        cashierPerformance.forEach { p ->
+                                            DropdownMenuItem(
+                                                text = { Text(p.deliveryUserName) },
+                                                onClick = {
+                                                    showCashierMenu = false
+                                                    onApplyFilters(p.deliveryUserId, selectedDeliveryUserId, fromDate, toDate)
+                                                }
+                                            )
+                                        }
                                     }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.delivery)) },
-                                    onClick = {
-                                        showChannelMenu = false
-                                        onApplyFilters(selectedStatus, "DELIVERY")
+                                }
+
+                                // Delivery Dropdown
+                                Box(modifier = Modifier.weight(1f)) {
+                                    FilterChip(
+                                        selected = selectedDeliveryUserId != null,
+                                        onClick = { showDeliveryMenu = true },
+                                        label = { Text(deliveryFilterLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) }
+                                    )
+                                    DropdownMenu(
+                                        expanded = showDeliveryMenu,
+                                        onDismissRequest = { showDeliveryMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.all)) },
+                                            onClick = {
+                                                showDeliveryMenu = false
+                                                onApplyFilters(selectedCashierId, null, fromDate, toDate)
+                                            }
+                                        )
+                                        deliveryPerformance.forEach { p ->
+                                            DropdownMenuItem(
+                                                text = { Text(p.deliveryUserName) },
+                                                onClick = {
+                                                    showDeliveryMenu = false
+                                                    onApplyFilters(selectedCashierId, p.deliveryUserId, fromDate, toDate)
+                                                }
+                                            )
+                                        }
                                     }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.takeaway)) },
-                                    onClick = {
-                                        showChannelMenu = false
-                                        onApplyFilters(selectedStatus, "TAKEAWAY")
-                                    }
-                                )
+                                }
                             }
                         }
                     }
                 }
+        if (showDatePicker) {
+            item {
+                DateRangePickerModal(
+                    initialStart = fromDate,
+                    initialEnd = toDate,
+                    onDismiss = { showDatePicker = false },
+                    onConfirm = { start, end ->
+                        showDatePicker = false
+                        onApplyFilters(selectedCashierId, selectedDeliveryUserId, start, end)
+                    }
+                )
             }
         }
 
@@ -248,7 +352,10 @@ private fun AnalyticsContent(
         }
 
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 MetricCard(
                     title = stringResource(R.string.total_orders),
                     value = displaySummary.totalOrders.toString(),
@@ -257,7 +364,7 @@ private fun AnalyticsContent(
                 )
                 MetricCard(
                     title = stringResource(R.string.revenue),
-                    value = String.format("%.2f", displaySummary.totalRevenue),
+                    value = formatAmount(displaySummary.totalRevenue),
                     icon = Icons.Filled.AttachMoney,
                     modifier = Modifier.weight(1f)
                 )
@@ -267,7 +374,7 @@ private fun AnalyticsContent(
         item {
             MetricCard(
                 title = stringResource(R.string.avg_order_value),
-                value = String.format("%.2f", displaySummary.averageOrderValue),
+                value = formatAmount(displaySummary.averageOrderValue),
                 icon = Icons.Filled.TrendingUp,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -324,7 +431,7 @@ private fun AnalyticsContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = String.format("%.2f", data.totalRevenue),
+                                    text = formatAmount(data.totalRevenue),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
@@ -335,7 +442,78 @@ private fun AnalyticsContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = String.format("%.2f", data.totalTax),
+                                    text = formatAmount(data.totalTax),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Cashier Performance Section
+        if (cashierPerformance.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Receipt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.cashier_performance),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+            items(cashierPerformance) { performance ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = performance.deliveryUserName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    stringResource(R.string.order_count),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "${performance.orderCount}",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                            Column {
+                                Text(
+                                    stringResource(R.string.revenue),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    formatAmount(performance.totalRevenue),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                            Column {
+                                Text(
+                                    stringResource(R.string.total_tax),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    formatAmount(performance.totalTax),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
@@ -410,7 +588,7 @@ private fun AnalyticsContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = String.format("%.2f", performance.totalTax),
+                                    text = formatAmount(performance.totalTax),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
@@ -450,7 +628,7 @@ private fun AnalyticsContent(
                             )
                         }
                         Text(
-                            text = String.format("%.2f", topItem.revenue),
+                            text = formatAmount(topItem.revenue),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -494,7 +672,7 @@ private fun AnalyticsContent(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            text = String.format("%.2f", daily.revenue),
+                            text = formatAmount(daily.revenue),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -530,5 +708,45 @@ private fun MetricCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRangePickerModal(
+    initialStart: Long?,
+    initialEnd: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (Long?, Long?) -> Unit
+) {
+    val dateRangePickerState = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = initialStart,
+        initialSelectedEndDateMillis = initialEnd
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        dateRangePickerState.selectedStartDateMillis,
+                        dateRangePickerState.selectedEndDateMillis
+                    )
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DateRangePicker(
+            state = dateRangePickerState,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }

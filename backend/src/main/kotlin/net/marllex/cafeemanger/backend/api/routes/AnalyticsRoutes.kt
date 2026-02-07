@@ -63,10 +63,20 @@ data class SettlementsDto(
     val by_payment_method: Map<String, SettlementByPaymentMethodDto>
 )
 
-private fun buildOrderQuery(vendorUUID: UUID, status: String?, channel: String?, from: Long?, to: Long?): Query {
+private fun buildOrderQuery(
+    vendorUUID: UUID,
+    status: String?,
+    channel: String?,
+    cashierId: java.util.UUID?,
+    deliveryUserId: java.util.UUID?,
+    from: Long?,
+    to: Long?
+): Query {
     var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
     status?.let { query = query.andWhere { OrdersTable.status eq it } }
     channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
+    cashierId?.let { query = query.andWhere { OrdersTable.cashierId eq it } }
+    deliveryUserId?.let { query = query.andWhere { OrdersTable.deliveryUserId eq it } }
     from?.let { ts ->
         val instant = Instant.fromEpochMilliseconds(ts)
         query = query.andWhere { OrdersTable.createdAt greaterEq instant }
@@ -136,7 +146,7 @@ fun Route.analyticsRoutes() {
             val to = call.parameters["to"]?.toLongOrNull()
 
             val summary = transaction {
-                val orders = buildOrderQuery(vendorUUID, null, null, from, to).toList()
+                val orders = buildOrderQuery(vendorUUID, null, null, null, null, from, to).toList()
                 buildSummaryFromOrders(orders, vendorUUID)
             }
             call.respond(HttpStatusCode.OK, summary)
@@ -147,11 +157,13 @@ fun Route.analyticsRoutes() {
             val vendorUUID = UUID.fromString(principal.vendorId)
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
+            val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
+            val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
 
             val summary = transaction {
-                val orders = buildOrderQuery(vendorUUID, status, channel, from, to).toList()
+                val orders = buildOrderQuery(vendorUUID, status, channel, cashierId, deliveryUserId, from, to).toList()
                 buildSummaryFromOrders(orders, vendorUUID)
             }
             call.respond(HttpStatusCode.OK, summary)
@@ -160,11 +172,15 @@ fun Route.analyticsRoutes() {
         get("/settlements") {
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            val status = call.parameters["status"]
+            val channel = call.parameters["channel"]
+            val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
+            val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
 
             val settlements = transaction {
-                val orders = buildOrderQuery(vendorUUID, null, null, from, to).toList()
+                val orders = buildOrderQuery(vendorUUID, status, channel, cashierId, deliveryUserId, from, to).toList()
                 val byPayment = orders
                     .groupBy { it[OrdersTable.paymentMethod] }
                     .mapValues { (_, rows) ->
@@ -183,27 +199,71 @@ fun Route.analyticsRoutes() {
         get("/delivery-performance") {
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            val status = call.parameters["status"]
+            val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
 
             val performance = transaction {
-                val orders = buildOrderQuery(vendorUUID, null, "DELIVERY", from, to)
+                // Fetch all delivery users for this vendor so filters never appear empty
+                val deliveryUsers = UsersTable
+                    .selectAll()
+                    .where {
+                        (UsersTable.vendorId eq vendorUUID) and
+                                (UsersTable.role eq "DELIVERY")
+                    }
+                    .associateBy { it[UsersTable.id] }
+
+                val orders = buildOrderQuery(vendorUUID, status, "DELIVERY", cashierId, null, from, to)
                     .andWhere { OrdersTable.deliveryUserId.isNotNull() }
                     .toList()
 
-                val groupedByDelivery = orders
-                    .groupBy { it[OrdersTable.deliveryUserId]!! }
+                val groupedByDelivery = orders.groupBy { it[OrdersTable.deliveryUserId]!! }
 
-                val userIds = groupedByDelivery.keys.toList()
-                val users = UsersTable.selectAll()
-                    .where { UsersTable.id inList userIds }
-                    .associateBy { it[UsersTable.id] }
-
-                groupedByDelivery.map { (userId, orderRows) ->
-                    val user = users[userId]
+                // Build performance list including users with zero orders
+                deliveryUsers.values.map { userRow ->
+                    val userId = userRow[UsersTable.id]
+                    val orderRows = groupedByDelivery[userId].orEmpty()
                     DeliveryPerformanceDto(
                         delivery_user_id = userId.toString(),
-                        delivery_user_name = user?.get(UsersTable.name) ?: "Unknown",
+                        delivery_user_name = userRow[UsersTable.name],
+                        order_count = orderRows.size,
+                        total_revenue = orderRows.sumOf { it[OrdersTable.total].toDouble() },
+                        total_tax = orderRows.sumOf { it[OrdersTable.tax].toDouble() }
+                    )
+                }
+            }
+            call.respond(HttpStatusCode.OK, performance)
+        }
+
+        get("/cashier-performance") {
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val status = call.parameters["status"]
+            val channel = call.parameters["channel"]
+            val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val performance = transaction {
+                // Fetch all cashiers for this vendor so filters never appear empty
+                val cashiers = UsersTable
+                    .selectAll()
+                    .where {
+                        (UsersTable.vendorId eq vendorUUID) and
+                                (UsersTable.role eq "CASHIER")
+                    }
+                    .associateBy { it[UsersTable.id] }
+
+                val orders = buildOrderQuery(vendorUUID, status, channel, null, deliveryUserId, from, to).toList()
+                val groupedByCashier = orders.groupBy { it[OrdersTable.cashierId] }
+
+                cashiers.values.map { userRow ->
+                    val userId = userRow[UsersTable.id]
+                    val orderRows = groupedByCashier[userId].orEmpty()
+                    DeliveryPerformanceDto(
+                        delivery_user_id = userId.toString(),
+                        delivery_user_name = userRow[UsersTable.name],
                         order_count = orderRows.size,
                         total_revenue = orderRows.sumOf { it[OrdersTable.total].toDouble() },
                         total_tax = orderRows.sumOf { it[OrdersTable.tax].toDouble() }

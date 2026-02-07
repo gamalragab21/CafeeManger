@@ -119,6 +119,8 @@ interface CafeeMangerApi {
     suspend fun getOrders(
         @Query("status") status: String? = null,
         @Query("channel") channel: String? = null,
+        @Query("cashier_id") cashierId: String? = null,
+        @Query("delivery_user_id") deliveryUserId: String? = null,
         @Query("from") from: Long? = null,
         @Query("to") to: Long? = null,
         @Query("limit") limit: Int = 50,
@@ -143,6 +145,11 @@ interface CafeeMangerApi {
         @Body request: AssignDeliveryRequest
     ): OrderResponse
 
+    @POST("api/v1/orders/{id}/share")
+    suspend fun shareReceipt(
+        @Path("id") id: String
+    ): ShareReceiptResponse
+
     @GET("api/v1/orders/delivery/mine")
     suspend fun getMyDeliveryOrders(
         @Query("status") status: String? = null
@@ -162,18 +169,26 @@ interface CafeeMangerApi {
     suspend fun getFilteredAnalyticsSummary(
         @Query("status") status: String? = null,
         @Query("channel") channel: String? = null,
+        @Query("cashier_id") cashierId: String? = null,
+        @Query("delivery_user_id") deliveryUserId: String? = null,
         @Query("from") from: Long? = null,
         @Query("to") to: Long? = null
     ): AnalyticsSummaryResponse
 
     @GET("api/v1/analytics/settlements")
     suspend fun getSettlements(
+        @Query("status") status: String? = null,
+        @Query("channel") channel: String? = null,
+        @Query("cashier_id") cashierId: String? = null,
+        @Query("delivery_user_id") deliveryUserId: String? = null,
         @Query("from") from: Long? = null,
         @Query("to") to: Long? = null
     ): SettlementsResponse
 
     @GET("api/v1/analytics/delivery-performance")
     suspend fun getDeliveryPerformance(
+        @Query("status") status: String? = null,
+        @Query("cashier_id") cashierId: String? = null,
         @Query("from") from: Long? = null,
         @Query("to") to: Long? = null
     ): List<DeliveryPerformanceResponse>
@@ -183,4 +198,29 @@ interface CafeeMangerApi {
         @Query("from") from: Long,
         @Query("to") to: Long
     ): List<DailyAnalyticsResponse>
+
+    @GET("api/v1/analytics/cashier-performance")
+    suspend fun getCashierPerformance(
+        @Query("status") status: String? = null,
+        @Query("channel") channel: String? = null,
+        @Query("delivery_user_id") deliveryUserId: String? = null,
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null
+    ): List<DeliveryPerformanceResponse>
+
+    // Tax places (manager: CRUD; cashier: list for delivery orders)
+    @GET("api/v1/tax-places")
+    suspend fun getTaxPlaces(): List<TaxPlaceResponse>
+
+    @POST("api/v1/tax-places")
+    suspend fun createTaxPlace(@Body request: CreateTaxPlaceRequest): TaxPlaceResponse
+
+    @PUT("api/v1/tax-places/{id}")
+    suspend fun updateTaxPlace(
+        @Path("id") id: String,
+        @Body request: UpdateTaxPlaceRequest
+    ): TaxPlaceResponse
+
+    @DELETE("api/v1/tax-places/{id}")
+    suspend fun deleteTaxPlace(@Path("id") id: String): ApiSuccessResponse
 }

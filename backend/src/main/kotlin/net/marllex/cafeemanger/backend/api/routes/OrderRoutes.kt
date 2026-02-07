@@ -1,8 +1,10 @@
 package net.marllex.cafeemanger.backend.api.routes
 
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
+import io.ktor.http.ContentType
+import io.ktor.server.request.*
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
@@ -16,19 +18,32 @@ import net.marllex.cafeemanger.backend.data.database.ActivityLogsTable
 import net.marllex.cafeemanger.backend.data.database.ItemsTable
 import net.marllex.cafeemanger.backend.data.database.OrderItemsTable
 import net.marllex.cafeemanger.backend.data.database.OrdersTable
+import net.marllex.cafeemanger.backend.data.database.TaxPlacesTable
+import net.marllex.cafeemanger.backend.data.database.VendorsTable
+import net.marllex.cafeemanger.backend.data.database.UsersTable
 import net.marllex.cafeemanger.backend.domain.service.OrderService
+import net.marllex.cafeemanger.backend.config.JwtConfig
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.server.plugins.origin
+import io.ktor.server.routing.application
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.andWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
 import java.util.UUID
+import java.util.Date
 
 @Serializable
 data class CreateOrderDto(
@@ -41,15 +56,14 @@ data class CreateOrderDto(
     val geo_lng: Double? = null,
     val payment_method: String,
     val delivery_fee: Double = 0.0,
+    val tax_place_id: String? = null,
     val notes: String? = null,
     val items: List<CreateOrderItemDto>
 )
 
 @Serializable
 data class CreateOrderItemDto(
-    val item_id: String,
-    val quantity: Int,
-    val note: String? = null
+    val item_id: String, val quantity: Int, val note: String? = null
 )
 
 @Serializable
@@ -59,6 +73,11 @@ data class UpdateStatusDto(val status: String)
 data class AssignDeliveryDto(val delivery_user_id: String)
 
 @Serializable
+data class ShareReceiptResponseDto(
+    val url: String, val token: String, val expires_at: Long
+)
+
+@Serializable
 data class OrderDto(
     val id: String,
     val vendor_id: String,
@@ -66,7 +85,9 @@ data class OrderDto(
     val status: String,
     val table_id: String? = null,
     val cashier_id: String,
+    val cashier_name: String? = null,
     val delivery_user_id: String? = null,
+    val delivery_user_name: String? = null,
     val client_name: String? = null,
     val client_phone: String? = null,
     val client_address: String? = null,
@@ -96,15 +117,14 @@ data class OrderItemDto(
 
 @Serializable
 data class PaginatedOrders(
-    val orders: List<OrderDto>,
-    val total: Int,
-    val has_more: Boolean
+    val orders: List<OrderDto>, val total: Int, val has_more: Boolean
 )
 
 fun Route.orderRoutes() {
     val orderService by KoinJavaComponent.inject<OrderService>(
         clazz = OrderService::class.java
     )
+    val jwtConfig by lazy { JwtConfig(this.application.environment.config) }
 
     route("/api/v1/orders") {
         // IMPORTANT: specific paths MUST come before /{id} to avoid route conflict
@@ -112,27 +132,22 @@ fun Route.orderRoutes() {
             val principal = requireRole("DELIVERY")
 
             val orders = transaction {
-                val orderRows = OrdersTable.selectAll()
-                    .where {
-                        (OrdersTable.vendorId eq UUID.fromString(principal.vendorId)) and
-                                (OrdersTable.channel eq "DELIVERY") and
-                                (OrdersTable.status eq "READY")
-                    }
-                    .orderBy(OrdersTable.createdAt, SortOrder.DESC)
-                    .toList()
-                println("GAMALRAGAB:--> vendor_id=${orderRows.first().toOrderDto().vendor_id}")
-                println("GAMALRAGAB:--> vendorId=${principal.vendorId}")
-                println("GAMALRAGAB:--> UUID=${UUID.fromString(principal.vendorId)}")
+                val orderRows = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq UUID.fromString(principal.vendorId)) and (OrdersTable.channel eq "DELIVERY") and (OrdersTable.deliveryUserId.isNull()) and (OrdersTable.status eq "READY")
+                }.orderBy(OrdersTable.createdAt, SortOrder.DESC).toList()
+                val userIds = orderRows.flatMap { listOf(it[OrdersTable.cashierId], it[OrdersTable.deliveryUserId]) }
+                    .filterNotNull().distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
                 orderRows.map { orderRow ->
-                    val items = OrderItemsTable.selectAll()
-                        .where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
-                        .map { it.toOrderItemDto() }
-                    orderRow.toOrderDto(items)
-
+                    val items =
+                        OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
+                            .map { it.toOrderItemDto() }
+                    orderRow.toOrderDto(items, usersMap)
                 }
             }
-
-            print("GAMALRAGAB:--> orders=${orders}")
             call.respond(HttpStatusCode.OK, orders)
         }
 
@@ -141,20 +156,26 @@ fun Route.orderRoutes() {
             val status = call.parameters["status"]
 
             val orders = transaction {
-                var query = OrdersTable.selectAll()
-                    .where {
-                        (OrdersTable.deliveryUserId eq UUID.fromString(principal.userId)) and
-                                (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
-                    }
+                var query = OrdersTable.selectAll().where {
+                    (OrdersTable.deliveryUserId eq UUID.fromString(principal.userId)) and (OrdersTable.vendorId eq UUID.fromString(
+                        principal.vendorId
+                    ))
+                }
 
                 status?.let { query = query.andWhere { OrdersTable.status eq it } }
 
                 val orderRows = query.orderBy(OrdersTable.createdAt, SortOrder.DESC).toList()
+                val userIds = orderRows.flatMap { listOf(it[OrdersTable.cashierId], it[OrdersTable.deliveryUserId]) }
+                    .filterNotNull().distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
                 orderRows.map { orderRow ->
-                    val items = OrderItemsTable.selectAll()
-                        .where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
-                        .map { it.toOrderItemDto() }
-                    orderRow.toOrderDto(items)
+                    val items =
+                        OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
+                            .map { it.toOrderItemDto() }
+                    orderRow.toOrderDto(items, usersMap)
                 }
             }
             call.respond(HttpStatusCode.OK, orders)
@@ -164,26 +185,46 @@ fun Route.orderRoutes() {
             val principal = currentUser()
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
+            val cashierId = call.parameters["cashier_id"]?.let { UUID.fromString(it) }
+            val deliveryUserId = call.parameters["delivery_user_id"]?.let { UUID.fromString(it) }
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 50
             val offset = call.parameters["offset"]?.toIntOrNull() ?: 0
+            val vendorUUID = UUID.fromString(principal.vendorId)
 
             val (orders, total) = transaction {
-                var query = OrdersTable.selectAll()
-                    .where { OrdersTable.vendorId eq UUID.fromString(principal.vendorId) }
-
+                var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
                 status?.let { query = query.andWhere { OrdersTable.status eq it } }
                 channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
+                cashierId?.let { query = query.andWhere { OrdersTable.cashierId eq it } }
+                deliveryUserId?.let { query = query.andWhere { OrdersTable.deliveryUserId eq it } }
+                from?.let { ts ->
+                    query = query.andWhere {
+                        OrdersTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(ts)
+                    }
+                }
+                to?.let { ts ->
+                    query =
+                        query.andWhere { OrdersTable.createdAt lessEq kotlinx.datetime.Instant.fromEpochMilliseconds(ts) }
+                }
 
                 val totalCount = query.count().toInt()
-                val results = query
-                    .orderBy(OrdersTable.createdAt, SortOrder.DESC)
-                    .limit(limit).offset(offset.toLong())
-                    .map { orderRow ->
-                        val items = OrderItemsTable.selectAll()
-                            .where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
+                val orderRows =
+                    query.orderBy(OrdersTable.createdAt, SortOrder.DESC).limit(limit).offset(offset.toLong()).toList()
+                val cashierIds = orderRows.map { it[OrdersTable.cashierId] }.distinct()
+                val deliveryIds = orderRows.mapNotNull { it[OrdersTable.deliveryUserId] }.distinct()
+                val userIds = (cashierIds + deliveryIds).distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                val results = orderRows.map { orderRow ->
+                    val items =
+                        OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
                             .map { it.toOrderItemDto() }
-                        orderRow.toOrderDto(items)
-                    }
+                    orderRow.toOrderDto(items, usersMap)
+                }
                 results to totalCount
             }
             call.respond(HttpStatusCode.OK, PaginatedOrders(orders, total, offset + limit < total))
@@ -194,19 +235,50 @@ fun Route.orderRoutes() {
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
 
             val order = transaction {
-                val orderRow = OrdersTable.selectAll()
-                    .where {
-                        (OrdersTable.id eq UUID.fromString(id)) and
-                                (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
-                    }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+                val orderRow = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
-                val items = OrderItemsTable.selectAll()
-                    .where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
                     .map { it.toOrderItemDto() }
-
-                orderRow.toOrderDto(items)
+                val userIds =
+                    listOf(orderRow[OrdersTable.cashierId], orderRow[OrdersTable.deliveryUserId]).filterNotNull()
+                        .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                orderRow.toOrderDto(items, usersMap)
             }
             call.respond(HttpStatusCode.OK, order)
+        }
+
+        // Generate a temporary shareable receipt URL (30 minutes)
+        post("/{id}/share") {
+            val principal = currentUser()
+            val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            transaction {
+                OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(orderId)) and (OrdersTable.vendorId eq UUID.fromString(
+                        principal.vendorId
+                    ))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+            }
+
+            val expiresMs = 30 * 60 * 1000 // 30 minutes
+            val token = generateReceiptToken(jwtConfig, orderId, principal.vendorId, expiresMs)
+            val origin = call.request.origin
+            val portPart = when (origin.serverPort) {
+                80, 443 -> ""
+                else -> ":${origin.serverPort}"
+            }
+            val url = "${origin.scheme}://${origin.serverHost}$portPart/public/receipts/$orderId?token=$token"
+            call.respond(
+                ShareReceiptResponseDto(
+                    url = url, token = token, expires_at = System.currentTimeMillis() + expiresMs
+                )
+            )
         }
 
         post {
@@ -218,10 +290,8 @@ fun Route.orderRoutes() {
                 // Calculate totals from item snapshots
                 var subtotal = BigDecimal.ZERO
                 val itemSnapshots = request.items.map { orderItem ->
-                    val item = ItemsTable.selectAll()
-                        .where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
-                        .firstOrNull()
-                        ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
+                    val item = ItemsTable.selectAll().where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
+                        .firstOrNull() ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
 
                     val price = item[ItemsTable.price]
                     subtotal += price * BigDecimal(orderItem.quantity)
@@ -231,27 +301,43 @@ fun Route.orderRoutes() {
                 val deliveryFeeAmount = if (request.channel == "DELIVERY") {
                     BigDecimal.valueOf(request.delivery_fee)
                 } else BigDecimal.ZERO
-                val total = subtotal + deliveryFeeAmount
+                val baseAmount = subtotal + deliveryFeeAmount
+                var taxAmount = BigDecimal.ZERO
+                val taxPlaceIdUuid = request.tax_place_id?.let { UUID.fromString(it) }
+                if (request.channel == "DELIVERY" && taxPlaceIdUuid != null) {
+                    val taxPlace = TaxPlacesTable.selectAll().where {
+                        (TaxPlacesTable.id eq taxPlaceIdUuid) and (TaxPlacesTable.vendorId eq UUID.fromString(
+                            principal.vendorId
+                        ))
+                    }.firstOrNull()
+                    taxPlace?.let {
+                        val fixed = it[TaxPlacesTable.taxPercent] // interpret as fixed amount (EGP)
+                        taxAmount = fixed.setScale(2, java.math.RoundingMode.HALF_UP)
+                    }
+                }
+                val total = baseAmount + taxAmount
 
-                val orderId = OrdersTable.insertAndGetId {
-                    it[vendorId] = UUID.fromString(principal.vendorId)
-                    it[channel] = request.channel
-                    it[status] = "CREATED"
-                    request.table_id?.let { tid -> it[tableId] = UUID.fromString(tid) }
-                    it[cashierId] = UUID.fromString(principal.userId)
-                    it[clientName] = request.client_name
-                    it[clientPhone] = request.client_phone
-                    it[clientAddress] = request.client_address
-                    it[geoLat] = request.geo_lat
-                    it[geoLng] = request.geo_lng
-                    it[paymentMethod] = request.payment_method
-                    it[OrdersTable.subtotal] = subtotal
-                    it[deliveryFee] = deliveryFeeAmount
-                    it[tax] = BigDecimal.ZERO
-                    it[OrdersTable.total] = total
-                    it[notes] = request.notes
-                    it[createdAt] = Clock.System.now()
-                    it[updatedAt] = Clock.System.now()
+                val orderId = OrdersTable.insertAndGetId { stmt ->
+                    stmt[vendorId] = UUID.fromString(principal.vendorId)
+                    stmt[channel] = request.channel
+                    stmt[status] = "CREATED"
+                    request.table_id?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
+                    stmt[cashierId] = UUID.fromString(principal.userId)
+                    stmt[deliveryUserId] = null
+                    taxPlaceIdUuid?.let { uuid -> stmt[OrdersTable.taxPlaceId] = uuid }
+                    stmt[clientName] = request.client_name
+                    stmt[clientPhone] = request.client_phone
+                    stmt[clientAddress] = request.client_address
+                    stmt[geoLat] = request.geo_lat
+                    stmt[geoLng] = request.geo_lng
+                    stmt[paymentMethod] = request.payment_method
+                    stmt[OrdersTable.subtotal] = subtotal
+                    stmt[deliveryFee] = deliveryFeeAmount
+                    stmt[tax] = taxAmount
+                    stmt[OrdersTable.total] = total
+                    stmt[notes] = request.notes
+                    stmt[createdAt] = Clock.System.now()
+                    stmt[updatedAt] = Clock.System.now()
                 }
 
                 // Insert order items
@@ -285,8 +371,15 @@ fun Route.orderRoutes() {
                     it[createdAt] = Clock.System.now()
                 }
 
-                OrdersTable.selectAll().where { OrdersTable.id eq orderId }
-                    .first().toOrderDto(orderItems)
+                val orderRow = OrdersTable.selectAll().where { OrdersTable.id eq orderId }.first()
+                val userIds =
+                    listOf(orderRow[OrdersTable.cashierId], orderRow[OrdersTable.deliveryUserId]).filterNotNull()
+                        .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                orderRow.toOrderDto(orderItems, usersMap)
             }
             call.respond(HttpStatusCode.Created, order)
         }
@@ -297,20 +390,18 @@ fun Route.orderRoutes() {
             val request = call.receive<UpdateStatusDto>()
 
             val order = transaction {
-                val current = OrdersTable.selectAll()
-                    .where {
-                        (OrdersTable.id eq UUID.fromString(id)) and
-                                (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
-                    }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+                val targetStatus = if (request.status == "DELIVERED") "COMPLETED" else request.status
+                val current = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
                 val valid = orderService.validateStatusTransition(
-                    current[OrdersTable.status], request.status,
-                    current[OrdersTable.channel], principal.role
+                    current[OrdersTable.status], targetStatus, current[OrdersTable.channel], principal.role
                 )
                 if (!valid) throw IllegalStateException("Invalid status transition")
 
                 OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
-                    it[status] = request.status
+                    it[status] = targetStatus
                     it[updatedAt] = Clock.System.now()
                 }
 
@@ -318,19 +409,51 @@ fun Route.orderRoutes() {
                     it[orderId] = UUID.fromString(id)
                     it[userId] = UUID.fromString(principal.userId)
                     it[action] = "STATUS_CHANGED"
-                    it[payload] =
-                        """{"from":"${current[OrdersTable.status]}","to":"${request.status}"}"""
+                    it[payload] = """{"from":"${current[OrdersTable.status]}","to":"$targetStatus"}"""
                     it[createdAt] = Clock.System.now()
                 }
 
-                val items = OrderItemsTable.selectAll()
-                    .where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
                     .map { it.toOrderItemDto() }
-
-                OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }
-                    .first().toOrderDto(items)
+                val updatedRow = OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }.first()
+                val userIds =
+                    listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId]).filterNotNull()
+                        .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                updatedRow.toOrderDto(items, usersMap)
             }
             call.respond(HttpStatusCode.OK, order)
+        }
+
+        // Generate a temporary shareable receipt URL (30 minutes)
+        post("/{id}/share") {
+            val principal = currentUser()
+            val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            transaction {
+                OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(orderId)) and (OrdersTable.vendorId eq UUID.fromString(
+                        principal.vendorId
+                    ))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+            }
+
+            val expiresMs = 30 * 60 * 1000 // 30 minutes
+            val token = generateReceiptToken(jwtConfig, orderId, principal.vendorId, expiresMs)
+            val origin = call.request.origin
+            val portPart = when (origin.serverPort) {
+                80, 443 -> ""
+                else -> ":${origin.serverPort}"
+            }
+            val url = "${origin.scheme}://${origin.serverHost}$portPart/public/receipts/$orderId?token=$token"
+            call.respond(
+                ShareReceiptResponseDto(
+                    url = url, token = token, expires_at = System.currentTimeMillis() + expiresMs
+                )
+            )
         }
 
         patch("/{id}/assign") {
@@ -347,11 +470,9 @@ fun Route.orderRoutes() {
 
             val order = transaction {
                 // Verify order is READY for assignment
-                val currentOrder = OrdersTable.selectAll()
-                    .where {
-                        (OrdersTable.id eq UUID.fromString(id)) and
-                                (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
-                    }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+                val currentOrder = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
                 val currentStatus = currentOrder[OrdersTable.status]
                 if (currentStatus != "READY" && currentStatus != "ASSIGNED") {
@@ -359,8 +480,7 @@ fun Route.orderRoutes() {
                 }
 
                 OrdersTable.update({
-                    (OrdersTable.id eq UUID.fromString(id)) and
-                            (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                    (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
                 }) {
                     it[OrdersTable.deliveryUserId] = UUID.fromString(deliveryUserId)
                     it[status] = "ASSIGNED"
@@ -375,12 +495,17 @@ fun Route.orderRoutes() {
                     it[createdAt] = Clock.System.now()
                 }
 
-                val items = OrderItemsTable.selectAll()
-                    .where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
                     .map { it.toOrderItemDto() }
-
-                OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }
-                    .first().toOrderDto(items)
+                val updatedRow = OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }.first()
+                val userIds =
+                    listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId]).filterNotNull()
+                        .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                updatedRow.toOrderDto(items, usersMap)
             }
             call.respond(HttpStatusCode.OK, order)
         }
@@ -388,14 +513,19 @@ fun Route.orderRoutes() {
     }
 }
 
-private fun ResultRow.toOrderDto(items: List<OrderItemDto> = emptyList()) = OrderDto(
+
+private fun ResultRow.toOrderDto(
+    items: List<OrderItemDto> = emptyList(), usersMap: Map<UUID, String> = emptyMap()
+) = OrderDto(
     id = this[OrdersTable.id].toString(),
     vendor_id = this[OrdersTable.vendorId].toString(),
     channel = this[OrdersTable.channel],
     status = this[OrdersTable.status],
     table_id = this[OrdersTable.tableId]?.toString(),
     cashier_id = this[OrdersTable.cashierId].toString(),
+    cashier_name = usersMap[this[OrdersTable.cashierId].value],
     delivery_user_id = this[OrdersTable.deliveryUserId]?.toString(),
+    delivery_user_name = this[OrdersTable.deliveryUserId]?.let { usersMap[it.value] },
     client_name = this[OrdersTable.clientName],
     client_phone = this[OrdersTable.clientPhone],
     client_address = this[OrdersTable.clientAddress],
@@ -421,3 +551,175 @@ private fun ResultRow.toOrderItemDto() = OrderItemDto(
     quantity = this[OrderItemsTable.quantity],
     note = this[OrderItemsTable.note]
 )
+
+// Public, token-guarded receipt view (no auth header required)
+fun Route.orderSharePublicRoutes() {
+    val jwtConfig by lazy { JwtConfig(this.application.environment.config) }
+
+    route("/public/receipts") {
+        get("/{id}") {
+            val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val token = call.request.queryParameters["token"] ?: throw IllegalArgumentException("token required")
+
+            val verifier = JWT.require(Algorithm.HMAC256(jwtConfig.secret)).withIssuer(jwtConfig.issuer)
+                .withAudience(jwtConfig.audience).withClaim("type", "receipt").build()
+
+            val decoded = try {
+                verifier.verify(token)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Invalid or expired token")
+            }
+
+            if (decoded.subject != orderId) throw IllegalArgumentException("Token/order mismatch")
+            val vendorIdFromToken = decoded.getClaim("vendor_id").asString()
+
+            val (order, vendorName, vendorAddress, vendorPhone) = transaction {
+                val orderRow =
+                    OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(orderId) }.firstOrNull()
+                        ?: throw NoSuchElementException("Order not found")
+                if (orderRow[OrdersTable.vendorId].toString() != vendorIdFromToken) {
+                    throw IllegalArgumentException("Token/vendor mismatch")
+                }
+
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
+                    .map { it.toOrderItemDto() }
+                val userIds =
+                    listOf(orderRow[OrdersTable.cashierId], orderRow[OrdersTable.deliveryUserId]).filterNotNull()
+                        .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                val vendor =
+                    VendorsTable.selectAll().where { VendorsTable.id eq orderRow[OrdersTable.vendorId] }.first()
+                ReceiptContext(
+                    order = orderRow.toOrderDto(items, usersMap),
+                    vendorName = vendor[VendorsTable.name],
+                    vendorAddress = vendor[VendorsTable.address],
+                    vendorPhone = vendor[VendorsTable.contactPhone]
+                )
+            }
+
+            val html = buildReceiptHtml(order, vendorName, vendorAddress, vendorPhone)
+            call.respondText(html, ContentType.Text.Html)
+        }
+    }
+}
+
+private fun generateReceiptToken(jwtConfig: JwtConfig, orderId: String, vendorId: String, ttlMs: Int): String {
+    return JWT.create().withSubject(orderId).withIssuer(jwtConfig.issuer).withAudience(jwtConfig.audience)
+        .withClaim("vendor_id", vendorId).withClaim("type", "receipt").withIssuedAt(Date())
+        .withExpiresAt(Date(System.currentTimeMillis() + ttlMs)).sign(Algorithm.HMAC256(jwtConfig.secret))
+}
+
+private data class ReceiptContext(
+    val order: OrderDto,
+    val vendorName: String?,
+    val vendorAddress: String?,
+    val vendorPhone: String?,
+)
+
+private fun buildReceiptHtml(
+    order: OrderDto, vendorName: String?, vendorAddress: String?, vendorPhone: String?
+): String {
+    val itemsHtml = order.items.joinToString("") { item ->
+        """
+        <tr>
+          <td class="item-desc">
+            <span class="qty">${item.quantity}x</span> ${item.item_name_snapshot}
+          </td>
+          <td class="item-price">${"%.2f".format(item.item_price_snapshot * item.quantity)}</td>
+        </tr>
+        """.trimIndent()
+    }
+
+    return """
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { 
+            background-color: #f4f4f7; 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center;
+          }
+          .receipt-card { 
+            background: #ffffff; 
+            max-width: 400px; 
+            width: 100%; 
+            padding: 30px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            border-radius: 8px;
+          }
+          header { text-align: center; margin-bottom: 20px; }
+          .vendor-name { font-size: 22px; font-weight: bold; margin: 0; color: #1a1a1a; }
+          .vendor-info { font-size: 13px; color: #717171; margin-top: 4px; }
+          
+          .divider { 
+            border-top: 2px dashed #eeeeee; 
+            margin: 20px 0; 
+          }
+          
+          .order-meta { font-size: 13px; color: #444; margin-bottom: 15px; }
+          .meta-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+          .label { color: #888; }
+          
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .item-desc { font-size: 15px; padding: 8px 0; color: #2d2d2d; }
+          .qty { color: #888; font-weight: bold; margin-right: 5px; }
+          .item-price { text-align: right; font-family: monospace; font-size: 15px; color: #1a1a1a; }
+          
+          .totals-section { border-top: 1px solid #f0f0f0; padding-top: 15px; }
+          .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+          .grand-total { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: #2e7d32; 
+            margin-top: 10px; 
+            padding-top: 10px; 
+            border-top: 2px solid #f0f0f0;
+          }
+          
+          footer { text-align: center; margin-top: 30px; font-size: 12px; color: #aaaaaa; }
+        </style>
+      </head>
+      <body>
+        <div class="receipt-card">
+          <header>
+            <div class="vendor-name">${vendorName ?: "Our Store"}</div>
+            <div class="vendor-info">${vendorAddress ?: ""}</div>
+            <div class="vendor-info">${vendorPhone ?: ""}</div>
+          </header>
+
+          <div class="order-meta">
+            <div class="meta-row"><span class="label">Order ID:</span> <span>#${order.id.takeLast(8).uppercase()}</span></div>
+            <div class="meta-row"><span class="label">Date:</span> <span>${java.text.SimpleDateFormat("MMM dd, yyyy HH:mm").format(java.util.Date(order.created_at))}</span></div>
+            <div class="meta-row"><span class="label">Payment:</span> <span>${order.payment_method}</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <table>
+            $itemsHtml
+          </table>
+
+          <div class="totals-section">
+            <div class="total-row"><span class="label">Subtotal</span> <span>${"%.2f".format(order.subtotal)} EGP</span></div>
+            <div class="total-row"><span class="label">Tax</span> <span>${"%.2f".format(order.tax)} EGP</span></div>
+            <div class="total-row grand-total"><span>Total</span> <span>${"%.2f".format(order.total)} EGP</span></div>
+          </div>
+
+          <footer>
+            <p>Thank you for choosing us!</p>
+            <p>Generated at ${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date())}</p>
+          </footer>
+        </div>
+      </body>
+    </html>
+    """.trimIndent()
+}

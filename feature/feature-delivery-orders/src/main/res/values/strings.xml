@@ -9,4 +9,10 @@
     <string name="start_delivery">Start Delivery</string>
     <string name="mark_delivered">Mark Delivered</string>
     <string name="pick_up_order">Pick Up Order</string>
+    <string name="receipt">Receipt</string>
+    <string name="total">TOTAL</string>
+    <string name="thank_you_for_your_visit">Thank you for your visit!</string>
+    <string name="done">Done</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="share_receipt">Share\n</string>
 </resources>

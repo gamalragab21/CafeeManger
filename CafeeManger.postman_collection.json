@@ -1,0 +1,503 @@
+{
+  "info": {
+    "name": "CafeeManger API",
+    "description": "Multi-Vendor Restaurant Management System API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "vendor_id", "value": "" },
+    { "key": "user_id", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "auth": { "type": "noauth" }
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Restaurant (Create Manager)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', jsonData.access_token);",
+                  "pm.collectionVariables.set('refresh_token', jsonData.refresh_token);",
+                  "pm.collectionVariables.set('vendor_id', jsonData.user.vendor_id);",
+                  "pm.collectionVariables.set('user_id', jsonData.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/auth/register",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendor_name\": \"My Cafe\",\n  \"vendor_address\": \"123 Main St, City\",\n  \"vendor_phone\": \"+201234567890\",\n  \"manager_name\": \"Ahmed Manager\",\n  \"manager_phone\": \"+201111111111\",\n  \"manager_email\": \"ahmed@mycafe.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', jsonData.access_token);",
+                  "pm.collectionVariables.set('refresh_token', jsonData.refresh_token);",
+                  "pm.collectionVariables.set('vendor_id', jsonData.user.vendor_id);",
+                  "pm.collectionVariables.set('user_id', jsonData.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/auth/login",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+201111111111\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', jsonData.access_token);",
+                  "pm.collectionVariables.set('refresh_token', jsonData.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/auth/refresh",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor (Restaurant Profile)",
+      "item": [
+        {
+          "name": "Get My Restaurant",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/vendors/me"
+          }
+        },
+        {
+          "name": "Update My Restaurant",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/vendors/me",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Updated Cafe\",\n  \"address\": \"456 New St, City\",\n  \"contact_phone\": \"+201234567890\",\n  \"wallet_phone\": \"+201234567891\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (Manager Only)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/users"
+          }
+        },
+        {
+          "name": "Get Users by Role",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users?role=CASHIER",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users"],
+              "query": [{ "key": "role", "value": "CASHIER" }]
+            }
+          }
+        },
+        {
+          "name": "Create Cashier",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/users",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"CASHIER\",\n  \"name\": \"Sara Cashier\",\n  \"phone\": \"+201222222222\",\n  \"email\": \"sara@mycafe.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Delivery User",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/users",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"DELIVERY\",\n  \"name\": \"Omar Delivery\",\n  \"phone\": \"+201333333333\",\n  \"email\": \"omar@mycafe.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/users/{{user_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"active\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/categories"
+          }
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/categories",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hot Drinks\",\n  \"display_order\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/categories/CATEGORY_ID_HERE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cold Drinks\",\n  \"display_order\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/categories/CATEGORY_ID_HERE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Items",
+      "item": [
+        {
+          "name": "Get All Items",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/items"
+          }
+        },
+        {
+          "name": "Get Items by Category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/items?category_id=CATEGORY_ID_HERE",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "items"],
+              "query": [{ "key": "category_id", "value": "CATEGORY_ID_HERE" }]
+            }
+          }
+        },
+        {
+          "name": "Get Available Items",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/items/available"
+          }
+        },
+        {
+          "name": "Create Item",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/items",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"CATEGORY_ID_HERE\",\n  \"name\": \"Cappuccino\",\n  \"description\": \"Hot cappuccino with foam\",\n  \"price\": 35.00,\n  \"available\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Item",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/items/ITEM_ID_HERE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Large Cappuccino\",\n  \"price\": 45.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Toggle Item Availability",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/v1/items/ITEM_ID_HERE/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"available\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Item",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/items/ITEM_ID_HERE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tables",
+      "item": [
+        {
+          "name": "Get Tables",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tables"
+          }
+        },
+        {
+          "name": "Create Table",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/tables",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": 5,\n  \"capacity\": 4,\n  \"status\": \"AVAILABLE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Table",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/tables/TABLE_ID_HERE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"capacity\": 6\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Table Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/v1/tables/TABLE_ID_HERE/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OCCUPIED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Table",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/tables/TABLE_ID_HERE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/orders"
+          }
+        },
+        {
+          "name": "Get Orders by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders?status=CREATED",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders"],
+              "query": [{ "key": "status", "value": "CREATED" }]
+            }
+          }
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/orders/ORDER_ID_HERE"
+          }
+        },
+        {
+          "name": "Create Order (Dine-In)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"DINE_IN\",\n  \"table_id\": \"TABLE_ID_HERE\",\n  \"payment_method\": \"CASH\",\n  \"notes\": \"No sugar\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM_ID_HERE\",\n      \"quantity\": 2,\n      \"note\": \"Extra hot\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Order (Delivery)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"DELIVERY\",\n  \"client_name\": \"Customer Name\",\n  \"client_phone\": \"+201444444444\",\n  \"client_address\": \"789 Delivery St\",\n  \"geo_lat\": 30.0444,\n  \"geo_lng\": 31.2357,\n  \"payment_method\": \"CASH\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM_ID_HERE\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/v1/orders/ORDER_ID_HERE/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Assign Delivery User",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/v1/orders/ORDER_ID_HERE/assign",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delivery_user_id\": \"DELIVERY_USER_ID_HERE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Delivery Orders",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/orders/delivery/mine"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/summary?from=1704067200000&to=1735689600000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "summary"],
+              "query": [
+                { "key": "from", "value": "1704067200000" },
+                { "key": "to", "value": "1735689600000" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Daily Analytics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/daily?from=1704067200000&to=1735689600000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "daily"],
+              "query": [
+                { "key": "from", "value": "1704067200000" },
+                { "key": "to", "value": "1735689600000" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

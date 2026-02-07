@@ -84,18 +84,18 @@ fun PaymentMethodChip(
     )
 }
 
+@Composable
 private fun getStatusColors(status: OrderStatus): Pair<Color, Color> {
+    val cs = MaterialTheme.colorScheme
     return when (status) {
-        OrderStatus.CREATED -> StatusCreated to StatusCreated
-        OrderStatus.CONFIRMED -> StatusConfirmed to StatusConfirmed
-        OrderStatus.IN_PREPARATION -> StatusInPreparation to StatusInPreparation
-        OrderStatus.SERVED -> StatusServed to StatusServed
-        OrderStatus.READY -> StatusReady to StatusReady
-        OrderStatus.ASSIGNED -> StatusAssigned to StatusAssigned
-        OrderStatus.OUT_FOR_DELIVERY -> StatusOutForDelivery to StatusOutForDelivery
-        OrderStatus.DELIVERED -> StatusDelivered to StatusDelivered
-        OrderStatus.COMPLETED -> StatusCompleted to StatusCompleted
-        OrderStatus.CANCELED -> StatusCanceled to StatusCanceled
+        OrderStatus.CREATED -> cs.outlineVariant to cs.onSurfaceVariant
+        OrderStatus.IN_PREPARATION -> cs.secondaryContainer to cs.onSecondaryContainer
+        OrderStatus.READY -> cs.secondaryContainer to cs.onSecondaryContainer
+        OrderStatus.ASSIGNED -> cs.primaryContainer to cs.onPrimaryContainer
+        OrderStatus.OUT_FOR_DELIVERY -> cs.tertiaryContainer to cs.onTertiaryContainer
+        OrderStatus.DELIVERED -> cs.tertiaryContainer to cs.onTertiaryContainer
+        OrderStatus.COMPLETED -> cs.primaryContainer to cs.onPrimaryContainer
+        OrderStatus.CANCELED -> cs.errorContainer to cs.onErrorContainer
     }
 }
 

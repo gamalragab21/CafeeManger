@@ -5,4 +5,18 @@
     <string name="thank_you_for_your_visit">شكرًا لزيارتك!</string>
     <string name="done">تم</string>
     <string name="receipt">الإيصال</string>
+    <string name="share_receipt">مشاركة الإيصال</string>
+    <string name="print">طباعة</string>
+    <string name="qr">رمز QR</string>
+    <string name="share">مشاركة</string>
+    <string name="back">رجوع</string>
+    <string name="restaurant_fallback">المطعم</string>
+    <string name="order_number">رقم الطلب</string>
+    <string name="channel">القناة</string>
+    <string name="payment">الدفع</string>
+    <string name="date">التاريخ</string>
+    <string name="cashier">الكاشير</string>
+    <string name="delivery">المندوب</string>
+    <string name="tax">الضريبة</string>
+    <string name="manager_phone">مدير المطعم: %1$s</string>
 </resources>

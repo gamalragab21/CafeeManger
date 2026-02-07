@@ -21,6 +21,8 @@ fun Application.configureRouting() {
 
         // Public routes (no auth required)
         authRoutes()
+        // Public receipt view
+        orderSharePublicRoutes()
 
         // Protected routes
         authenticate("auth-jwt") {
@@ -31,6 +33,7 @@ fun Application.configureRouting() {
             tableRoutes()
             userManagementRoutes()
             analyticsRoutes()
+            taxPlacesRoutes()
         }
     }
 }

@@ -3,9 +3,12 @@ package net.marllex.cafeemanger.feature.manager.orders
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,15 +23,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -38,11 +44,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Intent
+import android.net.Uri
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.model.OrderStatus
@@ -56,8 +66,17 @@ import net.marllex.cafeemanger.core.ui.components.PaymentMethodChip
 @Composable
 fun OrdersScreen(
     viewModel: OrdersViewModel = hiltViewModel(),
+    onViewReceipt: ((String) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val fallbackViewReceipt: (String) -> Unit = remember(viewModel, context) {
+        { orderId ->
+            viewModel.shareReceipt(orderId) { url ->
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -75,6 +94,7 @@ fun OrdersScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadOrders,
             )
+
             else -> Column(modifier = Modifier.padding(padding)) {
                 // Status filter
                 LazyRow(
@@ -88,7 +108,16 @@ fun OrdersScreen(
                             label = { Text(stringResource(R.string.all)) },
                         )
                     }
-                    val statuses = listOf("CREATED", "CONFIRMED", "IN_PREPARATION", "COMPLETED", "CANCELED")
+                    val statuses = listOf(
+                        "CREATED",
+                        "IN_PREPARATION",
+                        "READY",
+                        "ASSIGNED",
+                        "OUT_FOR_DELIVERY",
+                        "DELIVERED",
+                        "COMPLETED",
+                        "CANCELED"
+                    )
                     items(statuses) { status ->
                         FilterChip(
                             selected = uiState.selectedStatus == status,
@@ -107,6 +136,7 @@ fun OrdersScreen(
                         OrderCard(
                             order = order,
                             onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
+                            onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) }
                         )
                     }
                 }
@@ -115,10 +145,12 @@ fun OrdersScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OrderCard(
     order: Order,
     onStatusUpdate: (OrderStatus) -> Unit,
+    onViewReceipt: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -128,6 +160,7 @@ private fun OrderCard(
             .clickable { expanded = !expanded },
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // --- Header Section ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -136,6 +169,8 @@ private fun OrderCard(
                 Text(
                     text = "#${order.id.takeLast(6).uppercase()}",
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f) // Ensures ID pushes away from status
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -149,24 +184,50 @@ private fun OrderCard(
                     )
                 }
             }
+
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+            // --- Channel & Payment (Flowing) ---
+            // If screen is narrow, PaymentMethodChip will wrap to the next line
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 ChannelChip(channel = order.channel.name)
                 PaymentMethodChip(method = order.paymentMethod.name)
             }
-            Spacer(modifier = Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- Info Section (Compact Grid Style) ---
             Text(
-                text = "${order.items.size} items - Total: ${String.format("%.2f", order.total)}",
+                text = "${order.items.size} items • Total: ${
+                    String.format(
+                        "%.2f",
+                        order.total
+                    )
+                }",
                 style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            order.clientName?.let {
-                Text(text = "Client: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            order.clientPhone?.let {
-                Text(text = "Phone: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // Using a simple helper for these labels to keep code clean
+            val details = listOfNotNull(
+                order.cashierName?.let { "Cashier" to it },
+                order.deliveryUserName?.let { "Delivery" to it },
+                order.clientName?.let { "Client" to it },
+                order.clientPhone?.let { "Phone" to it }
+            )
+
+            details.forEach { (label, value) ->
+                Text(
+                    text = "$label: $value",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // Expandable items section
+            // --- Expandable Section ---
             AnimatedVisibility(
                 visible = expanded,
                 enter = expandVertically(),
@@ -182,60 +243,110 @@ private fun OrderCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
 
                     order.items.forEach { item ->
                         OrderItemRow(item = item)
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("Subtotal", style = MaterialTheme.typography.bodyMedium)
-                        Text(String.format("%.2f", order.subtotal), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("Total", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            String.format("%.2f", order.total),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    // Price Breakdown
+                    PriceRow("Subtotal", String.format("%.2f EGP", order.subtotal))
+                    PriceRow("Tax", String.format("%.2f EGP", order.tax))
+                    PriceRow("Total", String.format("%.2f EGP", order.total), isBold = true)
 
-                    order.notes?.let {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Notes: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    order.clientAddress?.let {
-                        Text("Address: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Secondary Info
+                    if (order.notes != null || order.clientAddress != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(
+                                        alpha = 0.3f
+                                    ), MaterialTheme.shapes.small
+                                )
+                                .padding(8.dp)
+                        ) {
+                            order.notes?.let {
+                                Text(
+                                    "Notes: $it",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            order.clientAddress?.let {
+                                Text(
+                                    "Address: $it",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // Action buttons based on current status
+            // --- Action Buttons (Responsive) ---
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onViewReceipt,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.Receipt, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("View receipt")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             val nextStatuses = getNextStatuses(order)
             if (nextStatuses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(modifier = Modifier.height(12.dp))
+                // FlowRow is CRITICAL here so buttons don't disappear off-screen
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     nextStatuses.forEach { status ->
-                        TextButton(onClick = { onStatusUpdate(status) }) {
-                            Text(status.name.replace("_", " "))
+                        FilledTonalButton(
+                            onClick = { onStatusUpdate(status) },
+                            contentPadding = PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 4.dp
+                            )
+                        ) {
+                            Text(
+                                status.name.replace("_", " ").lowercase()
+                                    .replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                 }
             }
         }
+
+    }
+}
+
+// Helper for the expanded price lines
+@Composable
+fun PriceRow(label: String, value: String, isBold: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = if (isBold) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+        )
+        Text(
+            text = value,
+            style = if (isBold) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = if (isBold) MaterialTheme.colorScheme.primary else Color.Unspecified
+        )
     }
 }
 
@@ -257,7 +368,11 @@ private fun OrderItemRow(item: OrderItem) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium)
             item.note?.let {
-                Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         Text(

@@ -12,6 +12,7 @@ import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.model.OrderStatus
 import net.marllex.cafeemanger.core.model.PaymentMethod
+import net.marllex.cafeemanger.core.model.ReceiptShareLink
 import net.marllex.cafeemanger.core.network.CafeeMangerApi
 import net.marllex.cafeemanger.core.network.dto.*
 import net.marllex.cafeemanger.core.network.mapper.toDomain
@@ -64,12 +65,25 @@ class OrderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshOrders(status: String?, channel: String?): Result<List<Order>> =
+    override suspend fun refreshOrders(
+        status: String?,
+        channel: String?,
+        cashierId: String?,
+        deliveryUserId: String?,
+        from: Long?,
+        to: Long?
+    ): Result<List<Order>> =
         runCatching {
-            val response = api.getOrders(status = status, channel = channel)
+            val response = api.getOrders(
+                status = status,
+                channel = channel,
+                cashierId = cashierId,
+                deliveryUserId = deliveryUserId,
+                from = from,
+                to = to
+            )
             val orders = response.orders.map { it.toDomain() }
             orderDao.insertOrders(orders.map { it.toEntity() })
-            // Cache order items
             orders.forEach { order ->
                 orderDao.deleteOrderItems(order.id)
                 orderDao.insertOrderItems(order.items.map { it.toEntity() })
@@ -105,7 +119,7 @@ class OrderRepositoryImpl @Inject constructor(
         channel: OrderChannel, tableId: String?,
         clientName: String?, clientPhone: String?, clientAddress: String?,
         geoLat: Double?, geoLng: Double?,
-        paymentMethod: PaymentMethod, notes: String?,
+        paymentMethod: PaymentMethod, taxPlaceId: String?, notes: String?,
         items: List<CreateOrderItemRequest>
     ): Result<Order> = runCatching {
         val response = api.createOrder(
@@ -114,7 +128,9 @@ class OrderRepositoryImpl @Inject constructor(
                 clientName = clientName, clientPhone = clientPhone,
                 clientAddress = clientAddress,
                 geoLat = geoLat, geoLng = geoLng,
-                paymentMethod = paymentMethod.name, notes = notes,
+                paymentMethod = paymentMethod.name,
+                taxPlaceId = taxPlaceId,
+                notes = notes,
                 items = items
             )
         )
@@ -123,6 +139,16 @@ class OrderRepositoryImpl @Inject constructor(
         orderDao.insertOrderItems(order.items.map { it.toEntity() })
         order
     }
+
+    override suspend fun fetchOrder(id: String): Result<Order> =
+        runCatching {
+            val response = api.getOrder(id)
+            val order = response.toDomain()
+            orderDao.insertOrder(order.toEntity())
+            orderDao.deleteOrderItems(order.id)
+            orderDao.insertOrderItems(order.items.map { it.toEntity() })
+            order
+        }
 
     override suspend fun updateOrderStatus(id: String, status: OrderStatus): Result<Order> =
         runCatching {
@@ -144,5 +170,15 @@ class OrderRepositoryImpl @Inject constructor(
             orderDao.deleteOrderItems(order.id)
             orderDao.insertOrderItems(order.items.map { it.toEntity() })
             order
+        }
+
+    override suspend fun shareReceipt(id: String): Result<ReceiptShareLink> =
+        runCatching {
+            val response = api.shareReceipt(id)
+            ReceiptShareLink(
+                url = response.url,
+                token = response.token,
+                expiresAt = response.expiresAt
+            )
         }
 }

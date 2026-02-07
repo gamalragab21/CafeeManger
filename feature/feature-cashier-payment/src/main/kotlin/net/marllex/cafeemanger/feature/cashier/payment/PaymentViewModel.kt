@@ -52,7 +52,9 @@ class PaymentViewModel @Inject constructor(
             _uiState.update { it.copy(isProcessing = true) }
             // Move order to COMPLETED if it's in a valid state
             val targetStatus = when (order.status) {
-                OrderStatus.SERVED -> OrderStatus.COMPLETED
+                OrderStatus.READY,
+                OrderStatus.ASSIGNED,
+                OrderStatus.OUT_FOR_DELIVERY,
                 OrderStatus.DELIVERED -> OrderStatus.COMPLETED
                 else -> null
             }

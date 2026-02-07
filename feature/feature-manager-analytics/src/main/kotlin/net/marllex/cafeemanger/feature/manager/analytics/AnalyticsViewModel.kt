@@ -26,11 +26,12 @@ class AnalyticsViewModel @Inject constructor(
         val filteredSummary: AnalyticsSummary? = null,
         val settlements: Settlements? = null,
         val deliveryPerformance: List<DeliveryPerformance> = emptyList(),
+        val cashierPerformance: List<DeliveryPerformance> = emptyList(),
         val dailyData: List<DailyAnalytics> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
-        val selectedStatus: String? = null,
-        val selectedChannel: String? = null,
+        val selectedCashierId: String? = null,
+        val selectedDeliveryUserId: String? = null,
         val fromDate: Long? = null,
         val toDate: Long? = null,
     )
@@ -48,8 +49,9 @@ class AnalyticsViewModel @Inject constructor(
             val thirtyDaysAgo = now - (30L * 24 * 60 * 60 * 1000)
 
             val summaryResult = analyticsRepository.getSummary(thirtyDaysAgo, now)
-            val settlementsResult = analyticsRepository.getSettlements(thirtyDaysAgo, now)
-            val deliveryResult = analyticsRepository.getDeliveryPerformance(thirtyDaysAgo, now)
+            val settlementsResult = analyticsRepository.getSettlements(null, null, null, null, thirtyDaysAgo, now)
+            val deliveryResult = analyticsRepository.getDeliveryPerformance(null, null, thirtyDaysAgo, now)
+            val cashierResult = analyticsRepository.getCashierPerformance(null, null, null, thirtyDaysAgo, now)
             val dailyResult = analyticsRepository.getDailyAnalytics(thirtyDaysAgo, now)
 
             summaryResult.onSuccess { summary ->
@@ -75,50 +77,70 @@ class AnalyticsViewModel @Inject constructor(
             }.onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
             }
+
+            cashierResult.onSuccess { cashier ->
+                _uiState.update { it.copy(cashierPerformance = cashier) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
         }
     }
 
-    fun applyFilters(status: String?, channel: String?, from: Long?, to: Long?) {
+    fun applyFilters(
+        cashierId: String?,
+        deliveryUserId: String?,
+        from: Long?,
+        to: Long?
+    ) {
         viewModelScope.launch {
             _uiState.update { 
                 it.copy(
                     isLoading = true,
-                    selectedStatus = status,
-                    selectedChannel = channel,
+                    selectedCashierId = cashierId,
+                    selectedDeliveryUserId = deliveryUserId,
                     fromDate = from,
                     toDate = to
                 )
             }
 
-            val filteredResult = analyticsRepository.getFilteredSummary(status, channel, from, to)
+            val fromDate = from ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
+            val toDate = to ?: System.currentTimeMillis()
+            val filteredResult = analyticsRepository.getFilteredSummary(null, null, cashierId, deliveryUserId, fromDate, toDate)
+            val settlementsResult = analyticsRepository.getSettlements(null, null, cashierId, deliveryUserId, fromDate, toDate)
+            val deliveryResult = analyticsRepository.getDeliveryPerformance(null, cashierId, fromDate, toDate)
+            val cashierResult = analyticsRepository.getCashierPerformance(null, null, deliveryUserId, fromDate, toDate)
             
             filteredResult.onSuccess { summary ->
-                _uiState.update { 
-                    it.copy(
-                        filteredSummary = summary,
-                        isLoading = false
-                    )
-                }
+                _uiState.update { it.copy(filteredSummary = summary) }
             }.onFailure { e ->
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false,
-                        error = e.message
-                    )
-                }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
+            settlementsResult.onSuccess { settlements ->
+                _uiState.update { it.copy(settlements = settlements) }
+            }
+            deliveryResult.onSuccess { performance ->
+                _uiState.update { it.copy(deliveryPerformance = performance) }
+            }
+            cashierResult.onSuccess { performance ->
+                _uiState.update { it.copy(cashierPerformance = performance) }
+            }
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
     fun clearFilters() {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
-                selectedStatus = null,
-                selectedChannel = null,
+                selectedCashierId = null,
+                selectedDeliveryUserId = null,
                 fromDate = null,
                 toDate = null,
-                filteredSummary = null
+                filteredSummary = null,
+                settlements = null,
+                deliveryPerformance = emptyList(),
+                cashierPerformance = emptyList()
             )
         }
+        loadAnalytics()
     }
 }

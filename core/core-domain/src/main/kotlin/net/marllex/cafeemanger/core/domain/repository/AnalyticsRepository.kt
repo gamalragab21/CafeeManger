@@ -10,10 +10,31 @@ interface AnalyticsRepository {
     suspend fun getFilteredSummary(
         status: String? = null,
         channel: String? = null,
+        cashierId: String? = null,
+        deliveryUserId: String? = null,
         from: Long? = null,
         to: Long? = null
     ): Result<AnalyticsSummary>
-    suspend fun getSettlements(from: Long?, to: Long?): Result<Settlements>
-    suspend fun getDeliveryPerformance(from: Long?, to: Long?): Result<List<DeliveryPerformance>>
+    suspend fun getSettlements(
+        status: String? = null,
+        channel: String? = null,
+        cashierId: String? = null,
+        deliveryUserId: String? = null,
+        from: Long? = null,
+        to: Long? = null
+    ): Result<Settlements>
+    suspend fun getDeliveryPerformance(
+        status: String? = null,
+        cashierId: String? = null,
+        from: Long? = null,
+        to: Long? = null
+    ): Result<List<DeliveryPerformance>>
+    suspend fun getCashierPerformance(
+        status: String? = null,
+        channel: String? = null,
+        deliveryUserId: String? = null,
+        from: Long? = null,
+        to: Long? = null
+    ): Result<List<DeliveryPerformance>>
     suspend fun getDailyAnalytics(from: Long, to: Long): Result<List<DailyAnalytics>>
 }

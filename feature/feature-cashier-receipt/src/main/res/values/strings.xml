@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="subtotal">Subtotal</string>
-    <string name="total">TOTAL</string>
+    <string name="total">Total</string>
     <string name="thank_you_for_your_visit">Thank you for your visit!</string>
     <string name="done">Done</string>
     <string name="receipt">Receipt</string>
+    <string name="share_receipt">Share receipt</string>
+    <string name="print">Print</string>
+    <string name="qr">QR</string>
+    <string name="share">Share</string>
+    <string name="back">Back</string>
+    <string name="restaurant_fallback">Restaurant</string>
+    <string name="order_number">Order #</string>
+    <string name="channel">Channel</string>
+    <string name="payment">Payment</string>
+    <string name="date">Date</string>
+    <string name="cashier">Cashier</string>
+    <string name="delivery">Delivery</string>
+    <string name="tax">Tax</string>
+    <string name="manager_phone">Manager: %1$s</string>
 </resources>

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +62,7 @@ import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
 import net.marllex.cafeemanger.feature.manager.users.UsersScreen
 import net.marllex.cafeemanger.manager.R
+import net.marllex.cafeemanger.manager.taxplaces.TaxPlacesScreen
 
 enum class ManagerTab(
     val route: String,
@@ -71,7 +73,7 @@ enum class ManagerTab(
     ORDERS("manager/orders", R.string.orders, Icons.Filled.Receipt),
     MENU("manager/menu", R.string.menu, Icons.Filled.Category),
     USERS("manager/users", R.string.staff, Icons.Filled.People),
-    PROFILE("manager/profile", R.string.profile, Icons.Filled.Store),
+    PROFILE("manager/profile", R.string.profile, Icons.Filled.Person),
 }
 
 @Composable
@@ -124,7 +126,7 @@ fun CafeeBottomBar(
                         Text(
                             text = stringResource(tab.title),
                             style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -253,6 +255,7 @@ private fun ProfileTabContent() {
         stringResource(R.string.restaurant),
         stringResource(R.string.tables),
         stringResource(R.string.analytics),
+        stringResource(R.string.tax_places),
         stringResource(R.string.settings)
     )
 
@@ -299,7 +302,8 @@ private fun ProfileTabContent() {
                 0 -> RestaurantProfileScreen()
                 1 -> TablesScreen()
                 2 -> AnalyticsScreen()
-                3 -> SettingsContent()
+                3 -> TaxPlacesScreen()
+                4 -> SettingsContent()
             }
         }
     }

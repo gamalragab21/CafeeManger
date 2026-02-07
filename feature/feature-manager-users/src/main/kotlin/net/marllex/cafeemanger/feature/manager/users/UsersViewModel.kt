@@ -6,7 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.UserManagementRepository
@@ -20,6 +20,7 @@ class UsersViewModel @Inject constructor(
 ) : ViewModel() {
 
     data class UiState(
+        val allUsers: List<User> = emptyList(),
         val users: List<User> = emptyList(),
         val selectedRole: UserRole? = null,
         val isLoading: Boolean = true,
@@ -44,15 +45,16 @@ class UsersViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             userRepository.refreshUsers()
-            userRepository.getUsers(_uiState.value.selectedRole)
-                .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
-                .collect { users -> _uiState.update { it.copy(users = users, isLoading = false) } }
+            val role = _uiState.value.selectedRole
+            val fetched = userRepository.getUsers(role).first()
+            _uiState.update { it.copy(allUsers = fetched, users = fetched, isLoading = false) }
         }
     }
 
     fun filterByRole(role: UserRole?) {
-        _uiState.update { it.copy(selectedRole = role) }
-        loadUsers()
+        val all = _uiState.value.allUsers
+        val filtered = if (role == null) all else all.filter { it.role == role }
+        _uiState.update { it.copy(selectedRole = role, users = filtered) }
     }
 
     fun showAddDialog() {
@@ -103,6 +105,7 @@ class UsersViewModel @Inject constructor(
                 email = s.dialogEmail.ifBlank { null }, password = s.dialogPassword,
             ).onSuccess {
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
+                loadUsers()
             }.onFailure { e ->
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -117,7 +120,7 @@ class UsersViewModel @Inject constructor(
                 phone = null,
                 name = null,
                 email = null
-            )
+            ).onSuccess { loadUsers() }
         }
     }
 
@@ -125,7 +128,7 @@ class UsersViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.deleteUser(id).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
-            }
+            }.onSuccess { loadUsers() }
         }
     }
 }

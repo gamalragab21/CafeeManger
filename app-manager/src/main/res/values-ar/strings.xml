@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">كافيه مانجر - المدير</string>
+    <string name="categories">الفئات</string>
+    <string name="items">المنتجات</string>
+    <string name="restaurant_profile">ملف المطعم</string>
+    <string name="edit_restaurant_info">تعديل بيانات المطعم</string>
+    <string name="restaurant_name">اسم المطعم</string>
+    <string name="address">العنوان</string>
+    <string name="contact_phone">هاتف التواصل</string>
+    <string name="wallet_phone_optional">رقم المحفظة (اختياري)</string>
+
+    <string name="cancel">إلغاء</string>
+    <string name="save">حفظ</string>
+
+    <string name="restaurant_info">بيانات المطعم</string>
+    <string name="edit_profile">تعديل الملف</string>
+    <string name="restaurant">المطعم</string>
+    <string name="tables">الطاولات</string>
+    <string name="analytics">التقارير</string>
+    <string name="settings">الإعدادات</string>
+
+    <string name="tax_places">رسوم التوصيل</string>
+
+    <string name="home">الرئيسية</string>
+    <string name="orders">الطلبات</string>
+    <string name="menu">المنيو</string>
+    <string name="staff">الموظفين</string>
+    <string name="profile">الملف</string>
+
+</resources>

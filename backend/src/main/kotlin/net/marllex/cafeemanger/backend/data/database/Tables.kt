@@ -1,6 +1,7 @@
 package net.marllex.cafeemanger.backend.data.database
 
 import org.jetbrains.exposed.dao.id.UUIDTable
+import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 import kotlinx.datetime.Clock
 
@@ -73,6 +74,17 @@ object TablesTable : UUIDTable("restaurant_tables") {
     }
 }
 
+// ─── Tax Places (per-vendor tax rates by place) ───────────────────
+object TaxPlacesTable : UUIDTable("tax_places") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val name = varchar("name", 255)
+    val taxPercent = decimal("tax_percent", 5, 2)
+    val isDefault = bool("is_default").default(false)
+    val displayOrder = integer("display_order").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
 // ─── Orders ──────────────────────────────────────────────────────
 object OrdersTable : UUIDTable("orders") {
     val vendorId = reference("vendor_id", VendorsTable)
@@ -81,6 +93,7 @@ object OrdersTable : UUIDTable("orders") {
     val tableId = reference("table_id", TablesTable).nullable()
     val cashierId = reference("cashier_id", UsersTable)
     val deliveryUserId = reference("delivery_user_id", UsersTable).nullable()
+    val taxPlaceId = reference("tax_place_id", TaxPlacesTable, onDelete = ReferenceOption.SET_NULL).nullable()
     val clientName = varchar("client_name", 255).nullable()
     val clientPhone = varchar("client_phone", 20).nullable()
     val clientAddress = text("client_address").nullable()

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -269,6 +271,7 @@ private fun CartBottomSheet(
                     OutlinedTextField(
                         value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
                         label = { Text("Client Phone") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -278,6 +281,21 @@ private fun CartBottomSheet(
                         label = { Text("Delivery Address") },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                if (uiState.taxPlaces.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Tax place", style = MaterialTheme.typography.labelMedium)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(uiState.taxPlaces) { place ->
+                                FilterChip(
+                                    selected = uiState.selectedTaxPlaceId == place.id,
+                                    onClick = { viewModel.setSelectedTaxPlaceId(place.id) },
+                                    label = { Text("${place.name} (+${place.taxPercent} EGP)") },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

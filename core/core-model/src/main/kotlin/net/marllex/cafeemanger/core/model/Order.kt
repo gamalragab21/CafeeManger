@@ -10,7 +10,9 @@ data class Order(
     val status: OrderStatus,
     val tableId: String? = null,
     val cashierId: String,
+    val cashierName: String? = null,
     val deliveryUserId: String? = null,
+    val deliveryUserName: String? = null,
     val clientName: String? = null,
     val clientPhone: String? = null,
     val clientAddress: String? = null,
@@ -36,29 +38,22 @@ enum class OrderChannel {
 @Serializable
 enum class OrderStatus {
     CREATED,
-    CONFIRMED,
     IN_PREPARATION,
-    SERVED,           // Dine-in only
-    READY,            // Delivery only
-    ASSIGNED,         // Delivery only
-    OUT_FOR_DELIVERY, // Delivery only
-    DELIVERED,        // Delivery only
-    COMPLETED,
+    READY,            // ready to handoff / assign
+    ASSIGNED,         // delivery assigned
+    OUT_FOR_DELIVERY, // on the way
+    DELIVERED,        // delivered to customer
+    COMPLETED,        // final settlement done
     CANCELED;
 
     fun canTransitionTo(newStatus: OrderStatus, channel: OrderChannel): Boolean {
         return when (this) {
-            CREATED -> newStatus in listOf(CONFIRMED, CANCELED)
-            CONFIRMED -> newStatus in listOf(IN_PREPARATION, CANCELED)
-            IN_PREPARATION -> when (channel) {
-                OrderChannel.DINE_IN -> newStatus in listOf(SERVED, CANCELED)
-                OrderChannel.DELIVERY -> newStatus in listOf(READY, CANCELED)
-            }
-            SERVED -> newStatus in listOf(COMPLETED, CANCELED)
-            READY -> newStatus in listOf(ASSIGNED, CANCELED)
-            ASSIGNED -> newStatus in listOf(OUT_FOR_DELIVERY, CANCELED)
-            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, CANCELED)
-            DELIVERED -> newStatus == COMPLETED
+            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
+            READY -> newStatus in listOf(ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED)
+            ASSIGNED -> newStatus in listOf(OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED)
+            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, COMPLETED, CANCELED)
+            DELIVERED -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> false
             CANCELED -> false
         }
@@ -66,15 +61,16 @@ enum class OrderStatus {
 
     companion object {
         fun getAvailableStatuses(channel: OrderChannel): List<OrderStatus> {
-            return when (channel) {
-                OrderChannel.DINE_IN -> listOf(
-                    CREATED, CONFIRMED, IN_PREPARATION, SERVED, COMPLETED, CANCELED
-                )
-                OrderChannel.DELIVERY -> listOf(
-                    CREATED, CONFIRMED, IN_PREPARATION, READY,
-                    ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED
-                )
-            }
+            return listOf(
+                CREATED,
+                IN_PREPARATION,
+                READY,
+                ASSIGNED,
+                OUT_FOR_DELIVERY,
+                DELIVERED,
+                COMPLETED,
+                CANCELED
+            )
         }
     }
 }
@@ -85,3 +81,9 @@ enum class PaymentMethod {
     WALLET,
     CARD
 }
+
+data class ReceiptShareLink(
+    val url: String,
+    val token: String,
+    val expiresAt: Long
+)
