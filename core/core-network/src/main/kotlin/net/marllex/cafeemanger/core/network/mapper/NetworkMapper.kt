@@ -99,6 +99,30 @@ fun OrderItemResponse.toDomain() = OrderItem(
     note = note
 )
 
+// ─── Stock Mappers ──────────────────────────────────────────────
+fun StockResponse.toDomain() = Stock(
+    id = id,
+    vendorId = vendorId,
+    itemId = itemId,
+    itemName = itemName,
+    quantity = quantity,
+    minQuantity = minQuantity,
+    costPrice = costPrice,
+    unit = unit,
+    lastUpdatedAt = updatedAt ?: (createdAt ?: System.currentTimeMillis()),
+)
+
+fun StockTransactionResponse.toDomain() = StockTransaction(
+    id = id,
+    stockId = stockId,
+    type = StockTransactionType.valueOf(type),
+    quantity = quantity,
+    previousQuantity = previousQuantity,
+    orderId = orderId,
+    note = note,
+    createdAt = createdAt ?: System.currentTimeMillis(),
+)
+
 // ─── Analytics Mappers ───────────────────────────────────────────
 fun AnalyticsSummaryResponse.toDomain(from: Long, to: Long) = AnalyticsSummary(
     totalOrders = totalOrders,

@@ -137,6 +137,7 @@ class OrderRepositoryImpl @Inject constructor(
         val order = response.toDomain()
         orderDao.insertOrder(order.toEntity())
         orderDao.insertOrderItems(order.items.map { it.toEntity() })
+        // Stock deduction is handled server-side automatically
         order
     }
 

@@ -34,6 +34,7 @@ fun Application.configureRouting() {
             userManagementRoutes()
             analyticsRoutes()
             taxPlacesRoutes()
+            stockRoutes()
         }
     }
 }

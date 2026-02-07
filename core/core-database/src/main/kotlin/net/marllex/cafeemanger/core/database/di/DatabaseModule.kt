@@ -44,4 +44,7 @@ object DatabaseModule {
 
     @Provides
     fun provideOrderDao(db: CafeeMangerDatabase): OrderDao = db.orderDao()
+
+    @Provides
+    fun provideStockDao(db: CafeeMangerDatabase): StockDao = db.stockDao()
 }

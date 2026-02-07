@@ -59,6 +59,7 @@ import net.marllex.cafeemanger.feature.manager.categories.CategoriesScreen
 import net.marllex.cafeemanger.feature.manager.dashboard.DashboardScreen
 import net.marllex.cafeemanger.feature.manager.items.ItemsScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
+import net.marllex.cafeemanger.feature.manager.stock.StockScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
 import net.marllex.cafeemanger.feature.manager.users.UsersScreen
 import net.marllex.cafeemanger.manager.R
@@ -197,7 +198,11 @@ fun ManagerNavHost() {
 @Composable
 private fun MenuTabContent() {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf(stringResource(R.string.categories), stringResource(R.string.items))
+    val tabs = listOf(
+        stringResource(R.string.categories),
+        stringResource(R.string.items),
+        stringResource(R.string.stock),
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
@@ -243,6 +248,7 @@ private fun MenuTabContent() {
             when (selectedTab) {
                 0 -> CategoriesScreen()
                 1 -> ItemsScreen()
+                2 -> StockScreen()
             }
         }
     }

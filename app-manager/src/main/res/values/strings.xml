@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CafeeManger Manager</string>
+    <string name="app_name">Wasel POS - Manager</string>
     <string name="categories">Categories</string>
     <string name="items">Items</string>
     <string name="restaurant_profile">Restaurant Profile</string>
@@ -23,4 +23,5 @@
     <string name="menu">Menu</string>
     <string name="staff">Staff</string>
     <string name="profile">Profile</string>
+    <string name="stock">Stock</string>
 </resources>

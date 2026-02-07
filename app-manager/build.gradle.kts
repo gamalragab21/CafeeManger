@@ -47,6 +47,7 @@ dependencies {
     implementation(project(":feature:feature-manager-users"))
     implementation(project(":feature:feature-manager-analytics"))
     implementation(project(":feature:feature-manager-orders"))
+    implementation(project(":feature:feature-manager-stock"))
 
     // AndroidX
     implementation(libs.androidx.appcompat)

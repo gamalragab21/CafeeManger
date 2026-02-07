@@ -208,6 +208,40 @@ interface CafeeMangerApi {
         @Query("to") to: Long? = null
     ): List<DeliveryPerformanceResponse>
 
+    // ─── Stock ─────────────────────────────────────────────────────
+    @GET("api/v1/stock")
+    suspend fun getStock(): List<StockResponse>
+
+    @GET("api/v1/stock/{id}")
+    suspend fun getStockItem(@Path("id") id: String): StockResponse
+
+    @POST("api/v1/stock")
+    suspend fun createStock(@Body request: CreateStockRequest): StockResponse
+
+    @PUT("api/v1/stock/{id}")
+    suspend fun updateStock(
+        @Path("id") id: String,
+        @Body request: UpdateStockRequest
+    ): StockResponse
+
+    @PATCH("api/v1/stock/{id}/add")
+    suspend fun addStockQuantity(
+        @Path("id") id: String,
+        @Body request: AdjustQuantityRequest
+    ): StockResponse
+
+    @PATCH("api/v1/stock/{id}/deduct")
+    suspend fun deductStockQuantity(
+        @Path("id") id: String,
+        @Body request: AdjustQuantityRequest
+    ): StockResponse
+
+    @DELETE("api/v1/stock/{id}")
+    suspend fun deleteStock(@Path("id") id: String): ApiSuccessResponse
+
+    @GET("api/v1/stock/{id}/transactions")
+    suspend fun getStockTransactions(@Path("id") id: String): List<StockTransactionResponse>
+
     // Tax places (manager: CRUD; cashier: list for delivery orders)
     @GET("api/v1/tax-places")
     suspend fun getTaxPlaces(): List<TaxPlaceResponse>

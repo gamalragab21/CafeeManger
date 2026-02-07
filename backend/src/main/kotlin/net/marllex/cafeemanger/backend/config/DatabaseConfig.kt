@@ -43,11 +43,13 @@ object DatabaseConfig {
                 TaxPlacesTable,
                 OrdersTable,
                 OrderItemsTable,
+                StockTable,
+                StockTransactionsTable,
                 ActivityLogsTable,
                 RefreshTokensTable
             )
-            // Add any new columns to existing tables (e.g. tax_place_id on orders)
-            SchemaUtils.createMissingTablesAndColumns(OrdersTable)
+            // Add any new columns to existing tables
+            SchemaUtils.createMissingTablesAndColumns(OrdersTable, StockTable, StockTransactionsTable)
         }
 
         // Auto-seed demo data if database is empty

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">كافيه مانجر - الكاشير</string>
+    <string name="app_name">واصل POS - الكاشير</string>
 
     <string name="cashier_new_order">طلب جديد</string>
     <string name="cashier_orders">الطلبات</string>

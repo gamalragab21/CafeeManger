@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">مدير الكافيه</string>
+    <string name="app_name">واصل POS - المدير</string>
     <string name="categories">الأقسام</string>
     <string name="items">الأصناف</string>
     <string name="restaurant_profile">ملف المطعم</string>
@@ -23,6 +23,5 @@
     <string name="menu">القائمة</string>
     <string name="staff">الموظفون</string>
     <string name="profile">الملف الشخصي</string>
-
-
+    <string name="stock">المخزون</string>
 </resources>

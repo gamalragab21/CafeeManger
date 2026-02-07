@@ -50,6 +50,7 @@
             <option value="$PROJECT_DIR$/feature/feature-manager-dashboard" />
             <option value="$PROJECT_DIR$/feature/feature-manager-items" />
             <option value="$PROJECT_DIR$/feature/feature-manager-orders" />
+            <option value="$PROJECT_DIR$/feature/feature-manager-stock" />
             <option value="$PROJECT_DIR$/feature/feature-manager-tables" />
             <option value="$PROJECT_DIR$/feature/feature-manager-users" />
           </set>

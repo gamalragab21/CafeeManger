@@ -120,6 +120,30 @@ object OrderItemsTable : UUIDTable("order_items") {
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
+// ─── Stock ───────────────────────────────────────────────────────
+object StockTable : UUIDTable("stock") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val itemId = reference("item_id", ItemsTable)
+    val itemName = varchar("item_name", 255)
+    val quantity = integer("quantity").default(0)
+    val minQuantity = integer("min_quantity").default(5)
+    val costPrice = decimal("cost_price", 10, 2).default(java.math.BigDecimal.ZERO)
+    val unit = varchar("unit", 50).default("pcs")
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Stock Transactions ─────────────────────────────────────────
+object StockTransactionsTable : UUIDTable("stock_transactions") {
+    val stockId = reference("stock_id", StockTable)
+    val type = varchar("type", 20) // ADD, DEDUCT, ADJUST
+    val quantity = integer("quantity")
+    val previousQuantity = integer("previous_quantity")
+    val orderId = reference("order_id", OrdersTable).nullable()
+    val note = text("note").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
 // ─── Activity Logs ───────────────────────────────────────────────
 object ActivityLogsTable : UUIDTable("activity_logs") {
     val orderId = reference("order_id", OrdersTable)

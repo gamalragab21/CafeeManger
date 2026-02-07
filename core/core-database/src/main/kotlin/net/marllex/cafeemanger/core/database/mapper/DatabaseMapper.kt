@@ -107,3 +107,31 @@ fun OrderItem.toEntity() = OrderItemEntity(
     itemPriceSnapshot = itemPriceSnapshot,
     quantity = quantity, note = note
 )
+
+// ─── Stock Mappers ──────────────────────────────────────────────
+fun StockEntity.toDomain() = Stock(
+    id = id, vendorId = vendorId, itemId = itemId,
+    itemName = itemName, quantity = quantity,
+    minQuantity = minQuantity, costPrice = costPrice,
+    unit = unit, lastUpdatedAt = lastUpdatedAt
+)
+
+fun Stock.toEntity() = StockEntity(
+    id = id, vendorId = vendorId, itemId = itemId,
+    itemName = itemName, quantity = quantity,
+    minQuantity = minQuantity, costPrice = costPrice,
+    unit = unit, lastUpdatedAt = lastUpdatedAt
+)
+
+fun StockTransactionEntity.toDomain() = StockTransaction(
+    id = id, stockId = stockId,
+    type = StockTransactionType.valueOf(type),
+    quantity = quantity, previousQuantity = previousQuantity,
+    orderId = orderId, note = note, createdAt = createdAt
+)
+
+fun StockTransaction.toEntity() = StockTransactionEntity(
+    id = id, stockId = stockId, type = type.name,
+    quantity = quantity, previousQuantity = previousQuantity,
+    orderId = orderId, note = note, createdAt = createdAt
+)

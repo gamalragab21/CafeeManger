@@ -18,6 +18,8 @@ import net.marllex.cafeemanger.backend.data.database.ActivityLogsTable
 import net.marllex.cafeemanger.backend.data.database.ItemsTable
 import net.marllex.cafeemanger.backend.data.database.OrderItemsTable
 import net.marllex.cafeemanger.backend.data.database.OrdersTable
+import net.marllex.cafeemanger.backend.data.database.StockTable
+import net.marllex.cafeemanger.backend.data.database.StockTransactionsTable
 import net.marllex.cafeemanger.backend.data.database.TaxPlacesTable
 import net.marllex.cafeemanger.backend.data.database.VendorsTable
 import net.marllex.cafeemanger.backend.data.database.UsersTable
@@ -360,6 +362,40 @@ fun Route.orderRoutes() {
                         quantity = orderItem.quantity,
                         note = orderItem.note
                     )
+                }
+
+                // Deduct stock for each item in the order
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                itemSnapshots.forEach { (item, orderItem, _) ->
+                    val itemUUID = UUID.fromString(orderItem.item_id)
+                    val stockRow = StockTable.selectAll()
+                        .where {
+                            (StockTable.itemId eq itemUUID) and
+                            (StockTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+
+                    if (stockRow != null) {
+                        val oldQty = stockRow[StockTable.quantity]
+                        val newQty = (oldQty - orderItem.quantity).coerceAtLeast(0)
+                        val now = Clock.System.now()
+
+                        StockTable.update({
+                            StockTable.id eq stockRow[StockTable.id]
+                        }) {
+                            it[quantity] = newQty
+                            it[updatedAt] = now
+                        }
+
+                        StockTransactionsTable.insert {
+                            it[stockId] = stockRow[StockTable.id]
+                            it[type] = "DEDUCT"
+                            it[StockTransactionsTable.quantity] = orderItem.quantity
+                            it[previousQuantity] = oldQty
+                            it[StockTransactionsTable.orderId] = orderId
+                            it[note] = "Order deduction"
+                            it[createdAt] = now
+                        }
+                    }
                 }
 
                 // Log activity

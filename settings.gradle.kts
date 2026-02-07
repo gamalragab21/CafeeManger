@@ -50,6 +50,7 @@ include(":feature:feature-manager-tables")
 include(":feature:feature-manager-users")
 include(":feature:feature-manager-analytics")
 include(":feature:feature-manager-orders")
+include(":feature:feature-manager-stock")
 
 // Feature modules - Cashier App
 include(":feature:feature-cashier-pos")

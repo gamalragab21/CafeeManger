@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CafeeManger Cashier</string>
+    <string name="app_name">Wasel POS - Cashier</string>
      <string name="cashier_new_order">New Order</string>
         <string name="cashier_orders">Orders</string>
         <string name="cashier_settings">Settings</string>
