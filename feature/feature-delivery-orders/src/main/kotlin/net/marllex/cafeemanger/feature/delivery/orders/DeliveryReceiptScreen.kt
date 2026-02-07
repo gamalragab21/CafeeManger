@@ -13,6 +13,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -34,8 +36,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,7 +47,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
@@ -86,6 +92,8 @@ fun DeliveryReceiptScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    var showQr by remember { mutableStateOf(false) }
+    var pendingShare by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -108,11 +116,15 @@ fun DeliveryReceiptScreen(
             uiState.order != null -> {
                 val order = uiState.order!!
                 val vendor = uiState.vendor
-                val dateStr = formatDate(order.createdAt)
                 // Allow sharing/QR even if vendor is still null; bitmap handles null gracefully
                 val ready = !uiState.isLoading
-                var showQr by remember { mutableStateOf(false) }
-                var pendingShare by remember { mutableStateOf(false) }
+
+                // If user opens QR, ensure we trigger link generation
+                androidx.compose.runtime.LaunchedEffect(showQr) {
+                    if (showQr && uiState.shareUrl == null && !uiState.isSharing) {
+                        viewModel.generateShareLink()
+                    }
+                }
 
                 // Trigger share once link is ready
                 androidx.compose.runtime.LaunchedEffect(uiState.shareUrl, pendingShare) {
@@ -308,34 +320,71 @@ fun DeliveryReceiptScreen(
             }
         }
     }
-    var showQr by remember { mutableStateOf(false) }
-
     // QR dialog
     if (showQr) {
         val shareUrl = uiState.shareUrl
         val isLoading = uiState.isSharing || uiState.shareUrl == null
-        androidx.compose.material3.AlertDialog(
+
+        AlertDialog(
             onDismissRequest = { showQr = false },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showQr = false }) {
-                    androidx.compose.material3.Text(stringResource(android.R.string.ok))
+                TextButton(onClick = { showQr = false }) {
+                    Text(stringResource(android.R.string.ok))
                 }
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.share_receipt),
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             },
             text = {
-                if (isLoading) {
-                    net.marllex.cafeemanger.core.ui.components.LoadingIndicator(modifier = Modifier.fillMaxWidth())
-                } else if (shareUrl != null) {
-                    val qr = generateQrBitmap(shareUrl, 300)
-                    androidx.compose.foundation.Image(
-                        bitmap = qr.asImageBitmap(),
-                        contentDescription = "QR",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                    )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (isLoading) {
+                        Box(
+                            modifier = Modifier.height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (shareUrl != null) {
+                        // Create a dedicated white container for the QR code
+                        // This ensures it's scannable even in Dark Mode
+                        Surface(
+                            modifier = Modifier
+                                .size(220.dp) // Fixed size looks better than fillMaxWidth
+                                .padding(8.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            tonalElevation = 2.dp,
+                            shadowElevation = 4.dp
+                        ) {
+                            // Generate at a higher resolution for crispness, but display in fixed size
+                            val qr = remember(shareUrl) { generateQrBitmap(shareUrl, 512) }
+                            Image(
+                                bitmap = qr.asImageBitmap(),
+                                contentDescription = "QR Code",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp) // Internal padding within the white box
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Scan to view digital receipt",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
-            },
-            title = { androidx.compose.material3.Text(stringResource(R.string.share_receipt)) }
+            }
         )
     }
 }
