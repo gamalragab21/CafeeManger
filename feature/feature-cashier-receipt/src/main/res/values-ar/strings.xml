@@ -11,12 +11,15 @@
     <string name="share">مشاركة</string>
     <string name="back">رجوع</string>
     <string name="restaurant_fallback">المطعم</string>
-    <string name="order_number">رقم الطلب</string>
+    <string name="order_number_receipt">رقم الطلب</string>
     <string name="channel">القناة</string>
     <string name="payment">الدفع</string>
     <string name="date">التاريخ</string>
     <string name="cashier">الكاشير</string>
     <string name="delivery">المندوب</string>
-    <string name="tax">الضريبة</string>
+    <string name="recipt_tax">رسوم التوصيل</string>
     <string name="manager_phone">مدير المطعم: %1$s</string>
+    <string name="client_name">العميل</string>
+    <string name="client_phone">هاتف العميل</string>
+    <string name="client_address">عنوان العميل</string>
 </resources>

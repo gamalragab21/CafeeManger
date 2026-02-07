@@ -11,12 +11,15 @@
     <string name="share">Share</string>
     <string name="back">Back</string>
     <string name="restaurant_fallback">Restaurant</string>
-    <string name="order_number">Order #</string>
+    <string name="order_number_receipt">Order #</string>
     <string name="channel">Channel</string>
     <string name="payment">Payment</string>
     <string name="date">Date</string>
     <string name="cashier">Cashier</string>
     <string name="delivery">Delivery</string>
-    <string name="tax">Tax</string>
+    <string name="recipt_tax">Delivery fee</string>
     <string name="manager_phone">Manager: %1$s</string>
+    <string name="client_name">Client</string>
+    <string name="client_phone">Client phone</string>
+    <string name="client_address">Client address</string>
 </resources>

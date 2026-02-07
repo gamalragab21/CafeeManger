@@ -23,9 +23,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "CafeeManger"
 
-// Legacy app module (will be removed after migration)
-include(":app")
-
 // Application modules
 include(":app-manager")
 include(":app-cashier")

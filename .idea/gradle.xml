@@ -22,7 +22,6 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/app-cashier" />
             <option value="$PROJECT_DIR$/app-delivery" />
             <option value="$PROJECT_DIR$/app-manager" />
