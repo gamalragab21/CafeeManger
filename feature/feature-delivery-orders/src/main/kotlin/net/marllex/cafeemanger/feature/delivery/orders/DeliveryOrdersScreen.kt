@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -74,7 +75,7 @@ fun DeliveryOrdersScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.my_deliveries)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -205,7 +206,8 @@ private fun DeliveryOrderCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header: ID and Status
@@ -273,7 +275,8 @@ private fun DeliveryOrderCard(
                 OutlinedButton(
                     onClick = onViewReceipt,
                     modifier = Modifier.weight(1f, fill = false).defaultMinSize(minWidth = 120.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Receipt, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -295,7 +298,8 @@ private fun DeliveryOrderCard(
                         modifier = Modifier.weight(1f).defaultMinSize(minWidth = 140.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(buttonText, maxLines = 1)
                     }
@@ -328,6 +332,7 @@ private fun AvailableOrderCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
         ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -363,6 +368,7 @@ private fun AvailableOrderCard(
             OutlinedButton(
                 onClick = onViewReceipt,
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Receipt, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
@@ -374,6 +380,7 @@ private fun AvailableOrderCard(
             Button(
                 onClick = onPickup,
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(stringResource(R.string.pick_up_order))
             }

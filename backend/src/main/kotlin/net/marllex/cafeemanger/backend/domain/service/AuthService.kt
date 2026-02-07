@@ -90,7 +90,12 @@ class AuthService(private val jwtConfig: JwtConfig) {
         managerName: String,
         managerPhone: String,
         managerEmail: String?,
-        password: String
+        password: String,
+        storeType: String? = null,
+        enableTables: Boolean = true,
+        enableDineIn: Boolean = true,
+        enableDelivery: Boolean = true,
+        digitalMenuUrl: String? = null,
     ): AuthResult {
         return transaction {
             // Check global phone uniqueness (login queries by phone across all vendors)
@@ -106,6 +111,11 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 it[name] = vendorName
                 it[address] = vendorAddress
                 it[contactPhone] = vendorPhone
+                storeType?.let { v -> it[VendorsTable.storeType] = v }
+                it[VendorsTable.enableTables] = enableTables
+                it[VendorsTable.enableDineIn] = enableDineIn
+                it[VendorsTable.enableDelivery] = enableDelivery
+                digitalMenuUrl?.let { v -> it[VendorsTable.digitalMenuUrl] = v }
                 it[createdAt] = Clock.System.now()
                 it[updatedAt] = Clock.System.now()
             }

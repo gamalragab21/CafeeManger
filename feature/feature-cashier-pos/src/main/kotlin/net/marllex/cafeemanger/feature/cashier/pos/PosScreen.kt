@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,7 +78,7 @@ fun PosScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.new_order)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 actions = {
                     IconButton(onClick = { showCartSheet = true }) {
@@ -99,19 +101,33 @@ fun PosScreen(
                 onRetry = viewModel::loadMenu,
             )
             else -> Column(modifier = Modifier.padding(padding)) {
-                // Channel selector
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    OrderChannel.entries.forEachIndexed { index, channel ->
-                        SegmentedButton(
-                            selected = uiState.channel == channel,
-                            onClick = { viewModel.setChannel(channel) },
-                            shape = SegmentedButtonDefaults.itemShape(index, OrderChannel.entries.size),
-                        ) {
-                            Text(channel.name.replace("_", " "))
+                // Channel selector – only show enabled channels
+                val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery) {
+                    buildList {
+                        if (uiState.enableDineIn) add(OrderChannel.DINE_IN)
+                        if (uiState.enableDelivery) add(OrderChannel.DELIVERY)
+                        if (isEmpty()) addAll(OrderChannel.entries) // fallback: show all
+                    }
+                }
+                if (availableChannels.size > 1) {
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        availableChannels.forEachIndexed { index, channel ->
+                            SegmentedButton(
+                                selected = uiState.channel == channel,
+                                onClick = { viewModel.setChannel(channel) },
+                                shape = SegmentedButtonDefaults.itemShape(index, availableChannels.size),
+                            ) {
+                                Text(
+                                    when (channel) {
+                                        OrderChannel.DINE_IN -> stringResource(R.string.channel_dine_in)
+                                        OrderChannel.DELIVERY -> stringResource(R.string.channel_delivery)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -126,6 +142,7 @@ fun PosScreen(
                             selected = uiState.selectedCategoryId == null,
                             onClick = { viewModel.selectCategory(null) },
                             label = { Text("All") },
+                            colors = FilterChipDefaults.filterChipColors(),
                         )
                     }
                     items(uiState.categories) { cat ->
@@ -133,6 +150,7 @@ fun PosScreen(
                             selected = uiState.selectedCategoryId == cat.id,
                             onClick = { viewModel.selectCategory(cat.id) },
                             label = { Text(cat.name) },
+                            colors = FilterChipDefaults.filterChipColors(),
                         )
                     }
                 }
@@ -173,6 +191,7 @@ fun PosScreen(
 private fun MenuItemCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = if (cartQuantity > 0) CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
         ) else CardDefaults.cardColors(),
@@ -292,6 +311,7 @@ private fun CartBottomSheet(
                                     selected = uiState.selectedTaxPlaceId == place.id,
                                     onClick = { viewModel.setSelectedTaxPlaceId(place.id) },
                                     label = { Text("${place.name} (+${place.taxPercent} EGP)") },
+                                    colors = FilterChipDefaults.filterChipColors(),
                                 )
                             }
                         }
@@ -299,8 +319,8 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Table selector for dine-in
-            if (uiState.channel == OrderChannel.DINE_IN && uiState.tables.isNotEmpty()) {
+            // Table selector for dine-in (only if tables are enabled)
+            if (uiState.enableTables && uiState.channel == OrderChannel.DINE_IN && uiState.tables.isNotEmpty()) {
                 item {
                     Text(text = stringResource(R.string.select_table), style = MaterialTheme.typography.labelMedium)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -309,6 +329,7 @@ private fun CartBottomSheet(
                                 selected = uiState.selectedTableId == table.id,
                                 onClick = { viewModel.setTableId(table.id) },
                                 label = { Text("T${table.number}") },
+                                colors = FilterChipDefaults.filterChipColors(),
                             )
                         }
                     }

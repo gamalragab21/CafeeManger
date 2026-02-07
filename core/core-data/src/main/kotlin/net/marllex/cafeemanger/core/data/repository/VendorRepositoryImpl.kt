@@ -33,10 +33,17 @@ class VendorRepositoryImpl @Inject constructor(
 
     override suspend fun updateVendor(
         name: String?, logoUrl: String?, address: String?,
-        contactPhone: String?, walletPhone: String?
+        contactPhone: String?, walletPhone: String?,
+        enableTables: Boolean?, enableDineIn: Boolean?,
+        enableDelivery: Boolean?,
     ): Result<Vendor> = runCatching {
         val response = api.updateMyVendor(
-            UpdateVendorRequest(name, logoUrl, address, contactPhone, walletPhone)
+            UpdateVendorRequest(
+                name = name, logoUrl = logoUrl, address = address,
+                contactPhone = contactPhone, walletPhone = walletPhone,
+                enableTables = enableTables, enableDineIn = enableDineIn,
+                enableDelivery = enableDelivery,
+            )
         )
         val vendor = response.toDomain()
         vendorDao.insertVendor(vendor.toEntity())

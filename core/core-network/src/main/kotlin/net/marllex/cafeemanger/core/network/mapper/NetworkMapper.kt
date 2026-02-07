@@ -11,6 +11,12 @@ fun VendorResponse.toDomain() = Vendor(
     address = address,
     contactPhone = contactPhone,
     walletPhone = walletPhone,
+    defaultDeliveryFee = defaultDeliveryFee,
+    storeType = storeType,
+    enableTables = enableTables,
+    enableDineIn = enableDineIn,
+    enableDelivery = enableDelivery,
+    digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

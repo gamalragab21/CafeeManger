@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -21,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,12 +59,15 @@ fun ItemsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.menu_items)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::showAddDialog) {
+            FloatingActionButton(
+                onClick = viewModel::showAddDialog,
+                shape = RoundedCornerShape(16.dp),
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add Item")
             }
         },
@@ -84,6 +89,9 @@ fun ItemsScreen(
                             selected = uiState.selectedCategoryId == null,
                             onClick = { viewModel.filterByCategory(null) },
                             label = { Text(stringResource(R.string.all)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            ),
                         )
                     }
                     items(uiState.categories) { category ->
@@ -91,6 +99,9 @@ fun ItemsScreen(
                             selected = uiState.selectedCategoryId == category.id,
                             onClick = { viewModel.filterByCategory(category.id) },
                             label = { Text(category.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            ),
                         )
                     }
                 }
@@ -127,6 +138,8 @@ private fun ItemCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = if (!item.available) CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ) else CardDefaults.cardColors(),
@@ -211,6 +224,9 @@ private fun ItemDialog(
                             selected = uiState.dialogCategoryId == cat.id,
                             onClick = { viewModel.updateDialogCategoryId(cat.id) },
                             label = { Text(cat.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            ),
                         )
                     }
                 }

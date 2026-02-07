@@ -9,4 +9,39 @@
     <string name="start_delivery">بدء التوصيل</string>
     <string name="mark_delivered">تحديد كـ تم التوصيل</string>
     <string name="pick_up_order">استلام الطلب</string>
+    <!-- Receipt -->
+    <string name="receipt">الإيصال</string>
+    <string name="total">الإجمالي</string>
+    <string name="thank_you_for_your_visit">شكرًا لزيارتك!</string>
+    <string name="done">تم</string>
+    <string name="subtotal">المجموع الجزئي</string>
+    <string name="share_receipt">مشاركة الإيصال</string>
+    <string name="back">رجوع</string>
+    <string name="restaurant_fallback">المتجر</string>
+    <string name="order_number_receipt">رقم الطلب</string>
+    <string name="date">التاريخ</string>
+    <string name="channel">القناة</string>
+    <string name="payment">الدفع</string>
+    <string name="cashier">الكاشير</string>
+    <string name="client_name">العميل</string>
+    <string name="client_phone">الهاتف</string>
+    <string name="client_address">العنوان</string>
+    <string name="receipt_item">الصنف</string>
+    <string name="receipt_qty">الكمية</string>
+    <string name="receipt_price">السعر</string>
+    <string name="receipt_notes">ملاحظات</string>
+    <string name="receipt_tax">الضريبة</string>
+    <string name="receipt_delivery_fee">رسوم التوصيل</string>
+    <string name="receipt_scan_qr">امسح لعرض الإيصال الرقمي</string>
+    <string name="receipt_currency">ج.م</string>
+    <string name="receipt_amount_format">%1$.2f %2$s</string>
+    <string name="qr">رمز QR</string>
+    <string name="share">مشاركة</string>
+    <!-- Channel names -->
+    <string name="channel_dine_in">محلي</string>
+    <string name="channel_delivery">توصيل</string>
+    <!-- Payment method names -->
+    <string name="payment_cash">نقدي</string>
+    <string name="payment_wallet">محفظة</string>
+    <string name="payment_card">بطاقة</string>
 </resources>

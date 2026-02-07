@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Channel labels -->
+    <string name="channel_dine_in">محلي</string>
+    <string name="channel_delivery">توصيل</string>
+    <!-- Payment labels -->
+    <string name="payment_cash">نقدي</string>
+    <string name="payment_wallet">محفظة</string>
+    <string name="payment_card">بطاقة</string>
+</resources>

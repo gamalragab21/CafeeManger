@@ -9,9 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.cafeemanger.core.model.OrderStatus
+import net.marllex.cafeemanger.core.ui.R
 import net.marllex.cafeemanger.core.ui.theme.*
 
 @Composable
@@ -27,8 +29,8 @@ fun OrderStatusChip(
         fontWeight = FontWeight.SemiBold,
         color = textColor,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor.copy(alpha = 0.15f))
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor.copy(alpha = 0.12f))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
 }
@@ -38,24 +40,24 @@ fun ChannelChip(
     channel: String,
     modifier: Modifier = Modifier
 ) {
-    val (bgColor, textColor) = when (channel) {
-        "DINE_IN" -> DineInColor to Color.White
-        "DELIVERY" -> DeliveryChannelColor to Color.White
-        else -> Color.Gray to Color.White
+    val chipColor = when (channel) {
+        "DINE_IN" -> DineInColor
+        "DELIVERY" -> DeliveryChannelColor
+        else -> Color.Gray
     }
 
     Text(
         text = when (channel) {
-            "DINE_IN" -> "Dine-In"
-            "DELIVERY" -> "Delivery"
+            "DINE_IN" -> stringResource(R.string.channel_dine_in)
+            "DELIVERY" -> stringResource(R.string.channel_delivery)
             else -> channel
         },
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.SemiBold,
-        color = bgColor,
+        color = chipColor,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor.copy(alpha = 0.12f))
+            .clip(RoundedCornerShape(8.dp))
+            .background(chipColor.copy(alpha = 0.10f))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
 }
@@ -66,9 +68,9 @@ fun PaymentMethodChip(
     modifier: Modifier = Modifier
 ) {
     val label = when (method) {
-        "CASH" -> "Cash"
-        "WALLET" -> "Wallet"
-        "CARD" -> "Card"
+        "CASH" -> stringResource(R.string.payment_cash)
+        "WALLET" -> stringResource(R.string.payment_wallet)
+        "CARD" -> stringResource(R.string.payment_card)
         else -> method
     }
 
@@ -78,7 +80,7 @@ fun PaymentMethodChip(
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
@@ -86,16 +88,15 @@ fun PaymentMethodChip(
 
 @Composable
 private fun getStatusColors(status: OrderStatus): Pair<Color, Color> {
-    val cs = MaterialTheme.colorScheme
     return when (status) {
-        OrderStatus.CREATED -> cs.outlineVariant to cs.onSurfaceVariant
-        OrderStatus.IN_PREPARATION -> cs.secondaryContainer to cs.onSecondaryContainer
-        OrderStatus.READY -> cs.secondaryContainer to cs.onSecondaryContainer
-        OrderStatus.ASSIGNED -> cs.primaryContainer to cs.onPrimaryContainer
-        OrderStatus.OUT_FOR_DELIVERY -> cs.tertiaryContainer to cs.onTertiaryContainer
-        OrderStatus.DELIVERED -> cs.tertiaryContainer to cs.onTertiaryContainer
-        OrderStatus.COMPLETED -> cs.primaryContainer to cs.onPrimaryContainer
-        OrderStatus.CANCELED -> cs.errorContainer to cs.onErrorContainer
+        OrderStatus.CREATED -> StatusCreated to StatusCreated
+        OrderStatus.IN_PREPARATION -> StatusInPreparation to StatusInPreparation
+        OrderStatus.READY -> StatusReady to StatusReady
+        OrderStatus.ASSIGNED -> StatusAssigned to StatusAssigned
+        OrderStatus.OUT_FOR_DELIVERY -> StatusOutForDelivery to StatusOutForDelivery
+        OrderStatus.DELIVERED -> StatusDelivered to StatusDelivered
+        OrderStatus.COMPLETED -> StatusCompleted to StatusCompleted
+        OrderStatus.CANCELED -> StatusCanceled to StatusCanceled
     }
 }
 

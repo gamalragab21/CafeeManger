@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -51,12 +53,15 @@ fun CategoriesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.categories)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::showAddDialog) {
+            FloatingActionButton(
+                onClick = viewModel::showAddDialog,
+                shape = RoundedCornerShape(16.dp),
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_category))
             }
         },
@@ -105,7 +110,11 @@ private fun CategoryCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

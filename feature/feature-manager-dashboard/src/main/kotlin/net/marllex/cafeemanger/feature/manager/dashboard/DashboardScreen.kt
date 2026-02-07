@@ -1,6 +1,7 @@
 package net.marllex.cafeemanger.feature.manager.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,8 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Pending
@@ -28,9 +34,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.marllex.cafeemanger.core.model.Order
@@ -45,13 +54,19 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(uiState.vendor?.name ?: "Dashboard")
+                        Text(
+                            text = uiState.vendor?.name ?: "Dashboard",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         if (uiState.vendor?.address != null) {
                             Text(
                                 text = uiState.vendor!!.address,
@@ -62,7 +77,7 @@ fun DashboardScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -73,53 +88,94 @@ fun DashboardScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadDashboard,
             )
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            else -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
             ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .then(if (isTablet) Modifier.widthIn(max = 840.dp) else Modifier),
+                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
                 item {
-                    Text("Today's Overview", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "Today's Overview",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
 
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
+                    if (isTablet) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            StatCard(
+                                title = stringResource(R.string.active_orders),
+                                value = uiState.activeOrdersCount.toString(),
+                                icon = Icons.Filled.Pending,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatCard(
+                                title = stringResource(R.string.today_s_orders),
+                                value = uiState.todayOrdersCount.toString(),
+                                icon = Icons.Filled.Receipt,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatCard(
+                                title = stringResource(R.string.today_s_revenue),
+                                value = String.format("%.2f", uiState.todayRevenue),
+                                icon = Icons.Filled.AttachMoney,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            StatCard(
+                                title = stringResource(R.string.active_orders),
+                                value = uiState.activeOrdersCount.toString(),
+                                icon = Icons.Filled.Pending,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatCard(
+                                title = stringResource(R.string.today_s_orders),
+                                value = uiState.todayOrdersCount.toString(),
+                                icon = Icons.Filled.Receipt,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+
+                if (!isTablet) {
+                    item {
                         StatCard(
-                            title = stringResource(R.string.active_orders),
-                            value = uiState.activeOrdersCount.toString(),
-                            icon = Icons.Filled.Pending,
-                            modifier = Modifier.weight(1f),
-                        )
-                        StatCard(
-                            title = stringResource(R.string.today_s_orders),
-                            value = uiState.todayOrdersCount.toString(),
-                            icon = Icons.Filled.Receipt,
-                            modifier = Modifier.weight(1f),
+                            title = stringResource(R.string.today_s_revenue),
+                            value = String.format("%.2f", uiState.todayRevenue),
+                            icon = Icons.Filled.AttachMoney,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
 
                 item {
-                    StatCard(
-                        title = stringResource(R.string.today_s_revenue),
-                        value = String.format("%.2f", uiState.todayRevenue),
-                        icon = Icons.Filled.AttachMoney,
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        text = stringResource(R.string.recent_orders),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(stringResource(R.string.recent_orders), style = MaterialTheme.typography.titleMedium)
                 }
 
                 items(uiState.recentOrders, key = { it.id }) { order ->
                     RecentOrderCard(order = order)
+                }
                 }
             }
         }
@@ -135,20 +191,33 @@ private fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(20.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = title,
@@ -161,20 +230,30 @@ private fun StatCard(
 
 @Composable
 private fun RecentOrderCard(order: Order) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "#${order.id.takeLast(6).uppercase()}",
                     style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     ChannelChip(channel = order.channel.name)
                     order.clientName?.let {
                         Text(
@@ -185,11 +264,15 @@ private fun RecentOrderCard(order: Order) {
                     }
                 }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 OrderStatusChip(status = order.status)
                 Text(
                     text = String.format("%.2f", order.total),
                     style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }

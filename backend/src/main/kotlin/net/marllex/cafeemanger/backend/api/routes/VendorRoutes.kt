@@ -23,6 +23,11 @@ data class VendorResponse(
     val contact_phone: String,
     val wallet_phone: String? = null,
     val default_delivery_fee: Double = 0.0,
+    val store_type: String? = null,
+    val enable_tables: Boolean = true,
+    val enable_dine_in: Boolean = true,
+    val enable_delivery: Boolean = true,
+    val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
 )
@@ -34,7 +39,12 @@ data class UpdateVendorRequest(
     val address: String? = null,
     val contact_phone: String? = null,
     val wallet_phone: String? = null,
-    val default_delivery_fee: Double? = null
+    val default_delivery_fee: Double? = null,
+    val store_type: String? = null,
+    val enable_tables: Boolean? = null,
+    val enable_dine_in: Boolean? = null,
+    val enable_delivery: Boolean? = null,
+    val digital_menu_url: String? = null
 )
 
 fun Route.vendorRoutes() {
@@ -55,6 +65,11 @@ fun Route.vendorRoutes() {
                 contact_phone = vendor[VendorsTable.contactPhone],
                 wallet_phone = vendor[VendorsTable.walletPhone],
                 default_delivery_fee = vendor[VendorsTable.defaultDeliveryFee].toDouble(),
+                store_type = vendor[VendorsTable.storeType],
+                enable_tables = vendor[VendorsTable.enableTables],
+                enable_dine_in = vendor[VendorsTable.enableDineIn],
+                enable_delivery = vendor[VendorsTable.enableDelivery],
+                digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
             ))
@@ -72,6 +87,11 @@ fun Route.vendorRoutes() {
                     request.contact_phone?.let { stmt[contactPhone] = it }
                     request.wallet_phone?.let { stmt[walletPhone] = it }
                     request.default_delivery_fee?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
+                    request.store_type?.let { stmt[storeType] = it }
+                    request.enable_tables?.let { stmt[enableTables] = it }
+                    request.enable_dine_in?.let { stmt[enableDineIn] = it }
+                    request.enable_delivery?.let { stmt[enableDelivery] = it }
+                    request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 
@@ -88,6 +108,11 @@ fun Route.vendorRoutes() {
                 contact_phone = updated[VendorsTable.contactPhone],
                 wallet_phone = updated[VendorsTable.walletPhone],
                 default_delivery_fee = updated[VendorsTable.defaultDeliveryFee].toDouble(),
+                store_type = updated[VendorsTable.storeType],
+                enable_tables = updated[VendorsTable.enableTables],
+                enable_dine_in = updated[VendorsTable.enableDineIn],
+                enable_delivery = updated[VendorsTable.enableDelivery],
+                digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
             ))

@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,7 +59,7 @@ fun DeliveryStatusScreen(
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
@@ -76,7 +77,7 @@ fun DeliveryStatusScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // Status
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -89,7 +90,7 @@ fun DeliveryStatusScreen(
                     }
 
                     // Client info
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(stringResource(R.string.client_information), style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
@@ -110,7 +111,7 @@ fun DeliveryStatusScreen(
                             }
                             if (order.geoLat != null && order.geoLng != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Button(onClick = { onNavigateToMap(order.geoLat, order.geoLng) }) {
+                                Button(onClick = { onNavigateToMap(order.geoLat, order.geoLng) }, shape = RoundedCornerShape(12.dp)) {
                                     Icon(Icons.Filled.LocationOn, contentDescription = null)
                                     Text(" Open in Maps")
                                 }
@@ -119,7 +120,7 @@ fun DeliveryStatusScreen(
                     }
 
                     // Order items
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(stringResource(R.string.order_items), style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
@@ -146,7 +147,7 @@ fun DeliveryStatusScreen(
                     }
 
                     order.notes?.let {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text("Notes", style = MaterialTheme.typography.titleSmall)
                                 Text(text = it, style = MaterialTheme.typography.bodyMedium)
@@ -161,6 +162,7 @@ fun DeliveryStatusScreen(
                                 onClick = { viewModel.updateStatus(OrderStatus.OUT_FOR_DELIVERY) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !uiState.isUpdating,
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Filled.DeliveryDining, contentDescription = null)
                                 Text(if (uiState.isUpdating) stringResource(R.string.updating) else stringResource(
@@ -173,6 +175,7 @@ fun DeliveryStatusScreen(
                                 onClick = { viewModel.updateStatus(OrderStatus.DELIVERED) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !uiState.isUpdating,
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Filled.CheckCircle, contentDescription = null)
                                 Text(if (uiState.isUpdating) stringResource(R.string.updating) else stringResource(

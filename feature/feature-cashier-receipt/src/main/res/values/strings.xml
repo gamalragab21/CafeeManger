@@ -10,7 +10,7 @@
     <string name="qr">QR</string>
     <string name="share">Share</string>
     <string name="back">Back</string>
-    <string name="restaurant_fallback">Restaurant</string>
+    <string name="restaurant_fallback">Store</string>
     <string name="order_number_receipt">Order #</string>
     <string name="channel">Channel</string>
     <string name="payment">Payment</string>
@@ -22,4 +22,21 @@
     <string name="client_name">Client</string>
     <string name="client_phone">Client phone</string>
     <string name="client_address">Client address</string>
+    <!-- Receipt table headers -->
+    <string name="receipt_item">Item</string>
+    <string name="receipt_qty">Qty</string>
+    <string name="receipt_price">Price</string>
+    <string name="receipt_notes">Notes</string>
+    <string name="receipt_tax">Tax</string>
+    <string name="receipt_delivery_fee">Delivery fee</string>
+    <string name="receipt_scan_qr">Scan to view digital receipt</string>
+    <string name="receipt_currency">EGP</string>
+    <string name="receipt_amount_format">%1$.2f %2$s</string>
+    <!-- Channel names -->
+    <string name="channel_dine_in">Dine In</string>
+    <string name="channel_delivery">Delivery</string>
+    <!-- Payment method names -->
+    <string name="payment_cash">Cash</string>
+    <string name="payment_wallet">Wallet</string>
+    <string name="payment_card">Card</string>
 </resources>

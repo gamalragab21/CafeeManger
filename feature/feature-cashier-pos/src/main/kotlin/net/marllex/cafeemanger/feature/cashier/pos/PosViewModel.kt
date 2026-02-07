@@ -15,6 +15,7 @@ import net.marllex.cafeemanger.core.domain.repository.ItemRepository
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
 import net.marllex.cafeemanger.core.domain.repository.TableRepository
 import net.marllex.cafeemanger.core.domain.repository.TaxPlaceRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.model.CartItem
 import net.marllex.cafeemanger.core.model.Category
 import net.marllex.cafeemanger.core.model.Item
@@ -33,6 +34,7 @@ class PosViewModel @Inject constructor(
     private val tableRepository: TableRepository,
     private val orderRepository: OrderRepository,
     private val taxPlaceRepository: TaxPlaceRepository,
+    private val vendorRepository: VendorRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -43,6 +45,9 @@ class PosViewModel @Inject constructor(
         val selectedCategoryId: String? = null,
         val cart: List<CartItem> = emptyList(),
         val channel: OrderChannel = OrderChannel.DINE_IN,
+        val enableTables: Boolean = true,
+        val enableDineIn: Boolean = true,
+        val enableDelivery: Boolean = true,
         val selectedTableId: String? = null,
         val selectedTaxPlaceId: String? = null,
         val clientName: String = "",
@@ -63,6 +68,20 @@ class PosViewModel @Inject constructor(
     fun loadMenu() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            // Load vendor feature flags
+            vendorRepository.refreshVendor().onSuccess { vendor ->
+                val defaultChannel = when {
+                    vendor.enableDineIn -> OrderChannel.DINE_IN
+                    vendor.enableDelivery -> OrderChannel.DELIVERY
+                    else -> OrderChannel.DINE_IN
+                }
+                _uiState.update { it.copy(
+                    enableTables = vendor.enableTables,
+                    enableDineIn = vendor.enableDineIn,
+                    enableDelivery = vendor.enableDelivery,
+                    channel = defaultChannel,
+                ) }
+            }
             itemRepository.refreshItems()
             categoryRepository.refreshCategories()
             tableRepository.refreshTables()

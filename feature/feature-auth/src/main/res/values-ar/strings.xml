@@ -12,7 +12,7 @@
     <string name="password_hint">أدخل كلمة المرور</string>
 
     <string name="manager_panel">لوحة المدير</string>
-    <string name="manager_subtitle">سجل الدخول لإدارة المطعم</string>
+    <string name="manager_subtitle">سجل الدخول لإدارة المتجر</string>
 
     <string name="cashier_panel">نقطة البيع</string>
     <string name="cashier_subtitle">سجل الدخول لبدء الطلبات</string>

@@ -13,22 +13,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -87,6 +92,8 @@ private fun LoginContent(
 ) {
     val focusManager = LocalFocusManager.current
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
 
     val (appLabel, appSubtitle, appIcon) = when (appType) {
         "MANAGER" -> Triple(
@@ -114,46 +121,58 @@ private fun LoginContent(
         )
     }
 
-    Scaffold { innerPadding ->
-        Column(
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Spacer(modifier = Modifier.height(64.dp))
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+            Spacer(modifier = Modifier.height(80.dp))
 
+            // App icon with gradient background
             Box(
                 modifier = Modifier
-                    .size(100.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        RoundedCornerShape(24.dp),
-                    ),
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = appIcon,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = appLabel,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -161,16 +180,24 @@ private fun LoginContent(
             Text(
                 text = appSubtitle,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // Phone field
             OutlinedTextField(
                 value = uiState.phone,
                 onValueChange = onPhoneChange,
                 label = { Text(stringResource(R.string.phone_number)) },
                 placeholder = { Text(stringResource(R.string.phone_hint)) },
-                leadingIcon = { Icon(Icons.Default.Phone, null) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Rounded.Phone,
+                        null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Next,
@@ -181,22 +208,35 @@ private fun LoginContent(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !uiState.isLoading,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                ),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Password field
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = onPasswordChange,
                 label = { Text(stringResource(R.string.password)) },
                 placeholder = { Text(stringResource(R.string.password_hint)) },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Rounded.Lock,
+                        null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
-                            if (passwordVisible) Icons.Default.VisibilityOff
-                            else Icons.Default.Visibility,
+                            if (passwordVisible) Icons.Rounded.VisibilityOff
+                            else Icons.Rounded.Visibility,
                             null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 },
@@ -216,8 +256,14 @@ private fun LoginContent(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !uiState.isLoading,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                ),
             )
 
+            // Error message
             AnimatedVisibility(
                 visible = uiState.errorMessage != null,
                 enter = fadeIn(),
@@ -226,42 +272,55 @@ private fun LoginContent(
                 Text(
                     text = uiState.errorMessage.orEmpty(),
                     color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 12.dp),
                 )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Sign in button
             Button(
                 onClick = onLoginClick,
                 enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                ),
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
                     Text(
                         text = stringResource(R.string.sign_in),
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             LanguageSelector(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 32.dp),
             )
+        }
         }
     }
 }

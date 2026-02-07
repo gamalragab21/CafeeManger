@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,10 +36,10 @@ fun ErrorView(
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Filled.ErrorOutline,
+            imageVector = Icons.Rounded.ErrorOutline,
             contentDescription = "Error",
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.error
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -47,8 +49,14 @@ fun ErrorView(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (onRetry != null) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onRetry) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text("Retry")
             }
         }
@@ -68,10 +76,10 @@ fun EmptyView(
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Filled.SearchOff,
+            imageVector = Icons.Rounded.Inbox,
             contentDescription = "Empty",
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(

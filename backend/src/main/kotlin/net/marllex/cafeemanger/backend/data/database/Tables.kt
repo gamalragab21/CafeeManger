@@ -13,6 +13,11 @@ object VendorsTable : UUIDTable("vendors") {
     val contactPhone = varchar("contact_phone", 20)
     val walletPhone = varchar("wallet_phone", 20).nullable()
     val defaultDeliveryFee = decimal("default_delivery_fee", 10, 2).default(java.math.BigDecimal.ZERO)
+    val storeType = varchar("store_type", 50).nullable()
+    val enableTables = bool("enable_tables").default(true)
+    val enableDineIn = bool("enable_dine_in").default(true)
+    val enableDelivery = bool("enable_delivery").default(true)
+    val digitalMenuUrl = text("digital_menu_url").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -60,7 +65,7 @@ object ItemsTable : UUIDTable("items") {
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
 
-// ─── Tables (Restaurant Tables) ──────────────────────────────────
+// ─── Tables (Store Tables) ───────────────────────────────────────
 object TablesTable : UUIDTable("restaurant_tables") {
     val vendorId = reference("vendor_id", VendorsTable)
     val number = varchar("number", 50)

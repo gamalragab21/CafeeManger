@@ -50,7 +50,7 @@ class ReceiptViewModel @Inject constructor(
     fun loadReceipt() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            // Refresh vendor to ensure restaurant info is available for the receipt
+            // Refresh vendor to ensure store info is available for the receipt
             val vendor = vendorRepository.refreshVendor().getOrNull()
                 ?: runCatching { vendorRepository.getMyVendor().first() }.getOrNull()
             vendorLoaded = true // allow progress even if vendor is null

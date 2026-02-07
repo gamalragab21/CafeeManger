@@ -12,7 +12,7 @@
     <string name="password_hint">Enter your password</string>
 
     <string name="manager_panel">Manager Panel</string>
-    <string name="manager_subtitle">Sign in to manage your restaurant</string>
+    <string name="manager_subtitle">Sign in to manage your store</string>
 
     <string name="cashier_panel">Cashier POS</string>
     <string name="cashier_subtitle">Sign in to start taking orders</string>

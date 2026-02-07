@@ -17,7 +17,7 @@ import net.marllex.cafeemanger.core.database.entity.*
         StockEntity::class,
         StockTransactionEntity::class,
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class CafeeMangerDatabase : RoomDatabase() {

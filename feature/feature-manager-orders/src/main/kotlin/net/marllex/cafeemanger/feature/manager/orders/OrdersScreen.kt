@@ -25,9 +25,11 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.widthIn
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.model.OrderStatus
@@ -61,6 +65,7 @@ import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 import net.marllex.cafeemanger.core.ui.components.OrderStatusChip
 import net.marllex.cafeemanger.core.ui.components.PaymentMethodChip
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +74,8 @@ fun OrdersScreen(
     onViewReceipt: ((String) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
     val context = LocalContext.current
     val fallbackViewReceipt: (String) -> Unit = remember(viewModel, context) {
         { orderId ->
@@ -83,7 +90,7 @@ fun OrdersScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.orders)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -106,6 +113,10 @@ fun OrdersScreen(
                             selected = uiState.selectedStatus == null,
                             onClick = { viewModel.filterByStatus(null) },
                             label = { Text(stringResource(R.string.all)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                         )
                     }
                     val statuses = listOf(
@@ -123,13 +134,17 @@ fun OrdersScreen(
                             selected = uiState.selectedStatus == status,
                             onClick = { viewModel.filterByStatus(status) },
                             label = { Text(status.replace("_", " ")) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                         )
                     }
                 }
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxSize().then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
+                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.orders, key = { it.id }) { order ->
@@ -158,8 +173,10 @@ private fun OrderCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             // --- Header Section ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -291,7 +308,10 @@ private fun OrderCard(
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onViewReceipt,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+//                colors =OutlinedButtonDefaults.outlinedButtonColors(
+//                    contentColor = MaterialTheme.colorScheme.primary,
+//                ),
             ) {
                 Icon(Icons.Filled.Receipt, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
@@ -313,7 +333,8 @@ private fun OrderCard(
                             contentPadding = PaddingValues(
                                 horizontal = 12.dp,
                                 vertical = 4.dp
-                            )
+                            ),
+                            shape = RoundedCornerShape(8.dp),
                         ) {
                             Text(
                                 status.name.replace("_", " ").lowercase()
@@ -355,7 +376,7 @@ private fun OrderItemRow(item: OrderItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -364,7 +385,7 @@ private fun OrderItemRow(item: OrderItem) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium)
             item.note?.let {

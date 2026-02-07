@@ -23,6 +23,8 @@ fun Application.configureRouting() {
         authRoutes()
         // Public receipt view
         orderSharePublicRoutes()
+        // Public digital menu page
+        digitalMenuRoutes()
 
         // Protected routes
         authenticate("auth-jwt") {

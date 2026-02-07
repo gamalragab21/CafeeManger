@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
@@ -47,7 +48,7 @@ fun PaymentScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.payment_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
             )
         },
@@ -70,7 +71,10 @@ fun PaymentScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
                         Column(modifier = Modifier.padding(16.dp)) {
 
                             Row(
@@ -150,7 +154,10 @@ fun PaymentScreen(
 
                     Button(
                         onClick = viewModel::completePayment,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
                         enabled = !uiState.isProcessing,
                     ) {
                         Text(
@@ -206,13 +213,25 @@ private fun PaymentSuccess(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(onClick = onReceipt, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onReceipt,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+        ) {
             Text(stringResource(R.string.view_receipt))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onDone,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+        ) {
             Text(stringResource(R.string.new_order))
         }
     }

@@ -9,10 +9,39 @@
     <string name="start_delivery">Start Delivery</string>
     <string name="mark_delivered">Mark Delivered</string>
     <string name="pick_up_order">Pick Up Order</string>
+    <!-- Receipt -->
     <string name="receipt">Receipt</string>
-    <string name="total">TOTAL</string>
+    <string name="total">Total</string>
     <string name="thank_you_for_your_visit">Thank you for your visit!</string>
     <string name="done">Done</string>
     <string name="subtotal">Subtotal</string>
-    <string name="share_receipt">Share\n</string>
+    <string name="share_receipt">Share Receipt</string>
+    <string name="back">Back</string>
+    <string name="restaurant_fallback">Store</string>
+    <string name="order_number_receipt">Order #</string>
+    <string name="date">Date</string>
+    <string name="channel">Channel</string>
+    <string name="payment">Payment</string>
+    <string name="cashier">Cashier</string>
+    <string name="client_name">Client</string>
+    <string name="client_phone">Phone</string>
+    <string name="client_address">Address</string>
+    <string name="receipt_item">Item</string>
+    <string name="receipt_qty">Qty</string>
+    <string name="receipt_price">Price</string>
+    <string name="receipt_notes">Notes</string>
+    <string name="receipt_tax">Tax</string>
+    <string name="receipt_delivery_fee">Delivery fee</string>
+    <string name="receipt_scan_qr">Scan to view digital receipt</string>
+    <string name="receipt_currency">EGP</string>
+    <string name="receipt_amount_format">%1$.2f %2$s</string>
+    <string name="qr">QR</string>
+    <string name="share">Share</string>
+    <!-- Channel names -->
+    <string name="channel_dine_in">Dine In</string>
+    <string name="channel_delivery">Delivery</string>
+    <!-- Payment method names -->
+    <string name="payment_cash">Cash</string>
+    <string name="payment_wallet">Wallet</string>
+    <string name="payment_card">Card</string>
 </resources>

@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,7 +48,7 @@ fun DeliveryHistoryScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Completed Orders") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         }
     ) { padding ->
@@ -73,7 +74,7 @@ fun DeliveryHistoryScreen(
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                             ),
-                            shape = MaterialTheme.shapes.medium
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
                                 modifier = Modifier

@@ -11,6 +11,11 @@ data class Vendor(
     val contactPhone: String,
     val walletPhone: String? = null,
     val defaultDeliveryFee: Double = 0.0,
+    val storeType: String? = null,
+    val enableTables: Boolean = true,
+    val enableDineIn: Boolean = true,
+    val enableDelivery: Boolean = true,
+    val digitalMenuUrl: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null
 )

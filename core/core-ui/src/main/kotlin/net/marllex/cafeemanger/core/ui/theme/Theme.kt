@@ -19,49 +19,69 @@ import androidx.core.view.WindowCompat
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = OnPrimary,
-    primaryContainer = PrimaryLight,
-    onPrimaryContainer = PrimaryDark,
+    primaryContainer = PrimaryContainer,
+    onPrimaryContainer = OnPrimaryContainer,
     secondary = Secondary,
     onSecondary = OnSecondary,
-    secondaryContainer = SecondaryLight,
-    onSecondaryContainer = SecondaryDark,
+    secondaryContainer = SecondaryContainer,
+    onSecondaryContainer = OnSecondaryContainer,
     tertiary = Tertiary,
     onTertiary = OnTertiary,
-    tertiaryContainer = TertiaryLight,
-    onTertiaryContainer = TertiaryDark,
+    tertiaryContainer = TertiaryContainer,
+    onTertiaryContainer = OnTertiaryContainer,
     error = Error,
     onError = OnError,
-    errorContainer = ErrorLight,
+    errorContainer = ErrorContainer,
+    onErrorContainer = OnErrorContainer,
     background = BackgroundLight,
+    onBackground = Color(0xFF1C1917),       // Stone 900
     surface = SurfaceLight,
+    onSurface = Color(0xFF1C1917),          // Stone 900
     surfaceVariant = SurfaceVariantLight,
+    onSurfaceVariant = Color(0xFF57534E),   // Stone 600
+    outline = OutlineLight,
+    outlineVariant = OutlineVariantLight,
+    inverseSurface = Color(0xFF292524),      // Stone 800
+    inverseOnSurface = Color(0xFFF5F5F4),   // Stone 100
+    inversePrimary = PrimaryLight,
+    surfaceTint = Primary,
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryLight,
-    onPrimary = PrimaryDark,
-    primaryContainer = Primary,
-    onPrimaryContainer = OnPrimary,
+    onPrimary = OnPrimaryContainer,
+    primaryContainer = PrimaryDark,
+    onPrimaryContainer = PrimaryContainer,
     secondary = SecondaryLight,
-    onSecondary = SecondaryDark,
-    secondaryContainer = Secondary,
-    onSecondaryContainer = OnSecondary,
+    onSecondary = OnSecondaryContainer,
+    secondaryContainer = SecondaryDark,
+    onSecondaryContainer = SecondaryContainer,
     tertiary = TertiaryLight,
-    onTertiary = TertiaryDark,
-    tertiaryContainer = Tertiary,
-    onTertiaryContainer = OnTertiary,
-    error = ErrorLight,
-    onError = OnError,
-    errorContainer = Error,
+    onTertiary = OnTertiaryContainer,
+    tertiaryContainer = TertiaryDark,
+    onTertiaryContainer = TertiaryContainer,
+    error = Color(0xFFFCA5A5),              // Red 300
+    onError = Color(0xFF7F1D1D),            // Red 900
+    errorContainer = Color(0xFF991B1B),     // Red 800
+    onErrorContainer = Color(0xFFFEE2E2),   // Red 100
     background = BackgroundDark,
+    onBackground = Color(0xFFF5F5F4),       // Stone 100
     surface = SurfaceDark,
+    onSurface = Color(0xFFF5F5F4),          // Stone 100
     surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = Color(0xFFA8A29E),   // Stone 400
+    outline = OutlineDark,
+    outlineVariant = OutlineVariantDark,
+    inverseSurface = Color(0xFFF5F5F4),     // Stone 100
+    inverseOnSurface = Color(0xFF292524),   // Stone 800
+    inversePrimary = Primary,
+    surfaceTint = PrimaryLight,
 )
 
 @Composable
 fun CafeeMangerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Always use our brand colors
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -78,14 +98,15 @@ fun CafeeMangerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Match status bar to top app bar tone for better contrast
-            window.statusBarColor = colorScheme.primaryContainer.toArgb()
+            // Edge-to-edge: transparent status bar, surface-colored nav bar
+            window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = colorScheme.surface.toArgb()
             val insetsController = WindowCompat.getInsetsController(window, view)
             insetsController.isAppearanceLightStatusBars = !darkTheme
             insetsController.isAppearanceLightNavigationBars = !darkTheme
         }
     }
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = CafeeMangerTypography,

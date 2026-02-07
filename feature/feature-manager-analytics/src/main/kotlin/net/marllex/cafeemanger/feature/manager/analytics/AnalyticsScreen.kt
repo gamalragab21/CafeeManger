@@ -1,6 +1,7 @@
 package net.marllex.cafeemanger.feature.manager.analytics
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -80,7 +83,7 @@ fun AnalyticsScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.analytics)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
 
                     IconButton(onClick = { viewModel.loadAnalytics() }) {
@@ -174,7 +177,7 @@ private fun AnalyticsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 4.dp),
-                        shape = MaterialTheme.shapes.medium,
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
                         )
@@ -401,7 +404,10 @@ private fun AnalyticsContent(
             }
 
             items(settlements.byPaymentMethod.entries.toList()) { (method, data) ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = method,
@@ -472,7 +478,10 @@ private fun AnalyticsContent(
                 }
             }
             items(cashierPerformance) { performance ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = performance.deliveryUserName,
@@ -544,7 +553,10 @@ private fun AnalyticsContent(
             }
 
             items(deliveryPerformance) { performance ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = performance.deliveryUserName,
@@ -608,7 +620,10 @@ private fun AnalyticsContent(
             }
 
             items(displaySummary.topItems) { topItem ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -651,7 +666,10 @@ private fun AnalyticsContent(
 
             val maxRevenue = dailyData.maxOfOrNull { it.revenue } ?: 1.0
             items(dailyData) { daily ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -692,14 +710,23 @@ private fun MetricCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
+        Column(modifier = Modifier.padding(20.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = value, style = MaterialTheme.typography.headlineSmall)
             Text(

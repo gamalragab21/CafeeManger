@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,16 +63,23 @@ fun UsersScreen(
     viewModel: UsersViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.users)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::showAddDialog) {
+            FloatingActionButton(
+                onClick = viewModel::showAddDialog,
+                shape = RoundedCornerShape(16.dp),
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add User")
             }
         },
@@ -83,19 +93,39 @@ fun UsersScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
-                        FilterChip(selected = uiState.selectedRole == null, onClick = { viewModel.filterByRole(null) }, label = { Text("All") })
+                        FilterChip(
+                            selected = uiState.selectedRole == null,
+                            onClick = { viewModel.filterByRole(null) },
+                            label = { Text("All") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        )
                     }
                     items(UserRole.entries.toList()) { role ->
-                        FilterChip(selected = uiState.selectedRole == role, onClick = { viewModel.filterByRole(role) }, label = { Text(role.name) })
+                        FilterChip(
+                            selected = uiState.selectedRole == role,
+                            onClick = { viewModel.filterByRole(role) },
+                            label = { Text(role.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        )
                     }
                 }
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize().then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
+                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(uiState.users, key = { it.id }) { user ->
-                        UserCard(user = user, onToggleActive = { viewModel.toggleActive(user) }, onDelete = { viewModel.deleteUser(user.id) })
+                        UserCard(
+                            user = user,
+                            onToggleActive = { viewModel.toggleActive(user) },
+                            onDelete = { viewModel.deleteUser(user.id) },
+                        )
                     }
                 }
             }
@@ -111,22 +141,51 @@ fun UsersScreen(
 private fun UserCard(user: User, onToggleActive: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = if (!user.active) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors(),
+        shape = RoundedCornerShape(16.dp),
+        colors = if (!user.active) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            )
+        } else {
+            CardDefaults.cardColors()
+        },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = user.name, style = MaterialTheme.typography.titleMedium)
-                Text(text = user.role.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                Text(text = user.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = user.name,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = user.role.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    text = user.phone,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
-            Switch(checked = user.active, onCheckedChange = { onToggleActive() })
+            Switch(
+                checked = user.active,
+                onCheckedChange = { onToggleActive() },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }

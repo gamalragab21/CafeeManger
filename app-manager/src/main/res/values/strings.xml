@@ -3,17 +3,17 @@
     <string name="app_name">Wasel POS - Manager</string>
     <string name="categories">Categories</string>
     <string name="items">Items</string>
-    <string name="restaurant_profile">Restaurant Profile</string>
-    <string name="edit_restaurant_info">Edit Restaurant Info</string>
-    <string name="restaurant_name">Restaurant Name</string>
+    <string name="store_profile">Store Profile</string>
+    <string name="edit_store_info">Edit Store Info</string>
+    <string name="store_name">Store Name</string>
     <string name="address">Address</string>
     <string name="contact_phone">Contact Phone</string>
     <string name="wallet_phone_optional">Wallet Phone (optional)</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
-    <string name="restaurant_info">Restaurant Info</string>
+    <string name="store_info">Store information and settings</string>
     <string name="edit_profile">Edit Profile</string>
-    <string name="restaurant">Restaurant</string>
+    <string name="store">Store</string>
     <string name="tables">Tables</string>
     <string name="analytics">Analytics</string>
     <string name="tax_places">Tax of Delivery</string>
@@ -24,4 +24,16 @@
     <string name="staff">Staff</string>
     <string name="profile">Profile</string>
     <string name="stock">Stock</string>
+    <!-- Feature toggles -->
+    <string name="store_features">Store Features</string>
+    <string name="enable_tables">Tables</string>
+    <string name="enable_tables_desc">Enable table management for your store</string>
+    <string name="enable_dine_in">Dine-In</string>
+    <string name="enable_dine_in_desc">Allow customers to order and eat in-store</string>
+    <string name="enable_delivery">Delivery</string>
+    <string name="enable_delivery_desc">Enable delivery orders for your store</string>
+    <!-- Logo -->
+    <string name="store_logo">Store Logo</string>
+    <string name="store_logo_url">Logo URL</string>
+    <string name="store_logo_url_hint">Paste a direct image link (https://…)</string>
 </resources>

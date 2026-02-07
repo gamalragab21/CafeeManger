@@ -85,6 +85,9 @@ import net.marllex.cafeemanger.core.model.Item
 import net.marllex.cafeemanger.core.model.Stock
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
+import net.marllex.cafeemanger.core.ui.theme.StockHealthy
+import net.marllex.cafeemanger.core.ui.theme.StockLow
+import net.marllex.cafeemanger.core.ui.theme.StockOut
 
 /**
  * Helper function to get localized unit string from unit key
@@ -115,7 +118,7 @@ fun StockScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.stock_management)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 actions = {
                     if (uiState.alertItems.isNotEmpty()) {
@@ -281,7 +284,7 @@ private fun OverviewTab(
                     title = stringResource(R.string.stock_value),
                     value = String.format("%.2f", uiState.summary.totalValue),
                     icon = Icons.Outlined.TrendingUp,
-                    color = Color(0xFF2E7D32),
+                    color = StockHealthy,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -296,7 +299,7 @@ private fun OverviewTab(
                     title = stringResource(R.string.low_stock),
                     value = "${uiState.summary.lowStockCount}",
                     icon = Icons.Outlined.TrendingDown,
-                    color = Color(0xFFE65100),
+                    color = StockOut,
                     modifier = Modifier.weight(1f),
                 )
                 SummaryCard(
@@ -414,7 +417,7 @@ private fun StockHealthCard(uiState: StockViewModel.UiState) {
                         modifier = Modifier
                             .weight(healthyPct.coerceAtLeast(0.01f))
                             .height(12.dp)
-                            .background(Color(0xFF4CAF50)),
+                            .background(StockHealthy),
                     )
                 }
                 if (lowPct > 0) {
@@ -422,7 +425,7 @@ private fun StockHealthCard(uiState: StockViewModel.UiState) {
                         modifier = Modifier
                             .weight(lowPct.coerceAtLeast(0.01f))
                             .height(12.dp)
-                            .background(Color(0xFFFF9800)),
+                            .background(StockLow),
                     )
                 }
             }
@@ -435,12 +438,12 @@ private fun StockHealthCard(uiState: StockViewModel.UiState) {
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 LegendItem(
-                    color = Color(0xFF4CAF50),
+                    color = StockHealthy,
                     label = stringResource(R.string.healthy),
                     count = uiState.summary.healthyStockCount,
                 )
                 LegendItem(
-                    color = Color(0xFFFF9800),
+                    color = StockLow,
                     label = stringResource(R.string.low_stock),
                     count = uiState.summary.lowStockCount,
                 )
@@ -503,7 +506,7 @@ private fun TopValueItemRow(stock: Stock) {
                 text = String.format("%.2f", stock.totalValue),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF2E7D32),
+                color = StockHealthy,
             )
         }
     }
@@ -562,9 +565,9 @@ private fun StockItemCard(
 ) {
     val statusColor by animateColorAsState(
         targetValue = when {
-            stock.isOutOfStock -> Color(0xFFD32F2F)
-            stock.isLowStock -> Color(0xFFE65100)
-            else -> Color(0xFF2E7D32)
+            stock.isOutOfStock -> StockOut
+            stock.isLowStock -> StockOut
+            else -> StockHealthy
         },
         label = "status",
     )
@@ -662,14 +665,14 @@ private fun StockItemCard(
                     Icon(
                         Icons.Filled.Add,
                         contentDescription = "Add Quantity",
-                        tint = Color(0xFF2E7D32),
+                        tint = StockHealthy,
                     )
                 }
                 IconButton(onClick = onDeductQty) {
                     Icon(
                         Icons.Filled.Remove,
                         contentDescription = "Deduct Quantity",
-                        tint = Color(0xFFE65100),
+                        tint = StockOut,
                     )
                 }
                 IconButton(onClick = onEdit) {
@@ -726,7 +729,7 @@ private fun AlertsTab(
                     Icons.Outlined.CheckCircle,
                     contentDescription = null,
                     modifier = Modifier.size(64.dp),
-                    tint = Color(0xFF4CAF50),
+                    tint = StockHealthy,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -767,7 +770,7 @@ private fun AlertsTab(
                     SectionHeader(
                         title = stringResource(R.string.needs_reorder),
                         icon = Icons.Outlined.TrendingDown,
-                        color = Color(0xFFE65100),
+                        color = StockOut,
                         count = uiState.lowStockItems.size,
                     )
                 }
@@ -809,7 +812,7 @@ private fun AlertItemCard(
     val bgColor = if (isOutOfStock)
         MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
     else
-        Color(0xFFE65100).copy(alpha = 0.08f)
+        StockOut.copy(alpha = 0.08f)
 
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -979,7 +982,7 @@ private fun AddEditStockDialog(
                 if (qty > 0 && price > 0) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF2E7D32).copy(alpha = 0.1f),
+                            containerColor = StockHealthy.copy(alpha = 0.1f),
                         ),
                         shape = RoundedCornerShape(8.dp),
                     ) {
@@ -997,7 +1000,7 @@ private fun AddEditStockDialog(
                                 text = String.format("%.2f", qty * price),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32),
+                                color = StockHealthy,
                             )
                         }
                     }
@@ -1095,8 +1098,8 @@ private fun QuantityDialog(
                     else (stock.quantity - amount).coerceAtLeast(0)
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isAdd) Color(0xFF2E7D32).copy(alpha = 0.1f)
-                            else Color(0xFFE65100).copy(alpha = 0.1f),
+                            containerColor = if (isAdd) StockHealthy.copy(alpha = 0.1f)
+                            else StockOut.copy(alpha = 0.1f),
                         ),
                         shape = RoundedCornerShape(8.dp),
                     ) {
@@ -1111,7 +1114,7 @@ private fun QuantityDialog(
                                 "$newQty ${getLocalizedUnit(stock.unit)}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isAdd) Color(0xFF2E7D32) else Color(0xFFE65100),
+                                color = if (isAdd) StockHealthy else StockOut,
                             )
                         }
                     }

@@ -49,7 +49,7 @@ object DatabaseConfig {
                 RefreshTokensTable
             )
             // Add any new columns to existing tables
-            SchemaUtils.createMissingTablesAndColumns(OrdersTable, StockTable, StockTransactionsTable)
+            SchemaUtils.createMissingTablesAndColumns(VendorsTable, OrdersTable, StockTable, StockTransactionsTable)
         }
 
         // Auto-seed demo data if database is empty
@@ -67,7 +67,7 @@ object DatabaseConfig {
 
             // 1. Create demo vendor
             val vendorId = VendorsTable.insertAndGetId {
-                it[name] = "Demo Cafe"
+                it[name] = "Demo Store"
                 it[address] = "123 Main Street, Downtown"
                 it[contactPhone] = "+1234567890"
                 it[walletPhone] = "+1234567890"

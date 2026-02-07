@@ -21,7 +21,12 @@ data class RegisterRequest(
     val manager_name: String,
     val manager_phone: String,
     val manager_email: String? = null,
-    val password: String
+    val password: String,
+    val store_type: String? = null,
+    val enable_tables: Boolean = true,
+    val enable_dine_in: Boolean = true,
+    val enable_delivery: Boolean = true,
+    val digital_menu_url: String? = null,
 )
 
 @Serializable
@@ -90,7 +95,12 @@ fun Route.authRoutes() {
                 managerName = request.manager_name,
                 managerPhone = request.manager_phone,
                 managerEmail = request.manager_email,
-                password = request.password
+                password = request.password,
+                storeType = request.store_type,
+                enableTables = request.enable_tables,
+                enableDineIn = request.enable_dine_in,
+                enableDelivery = request.enable_delivery,
+                digitalMenuUrl = request.digital_menu_url,
             )
 
             call.respond(

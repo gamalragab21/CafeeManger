@@ -2,8 +2,6 @@ package net.marllex.cafeemanger.core.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -21,7 +19,7 @@ val CafeeMangerTypography = Typography(
         letterSpacing = 0.sp,
     ),
     displaySmall = TextStyle(
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 36.sp,
         lineHeight = 44.sp,
         letterSpacing = 0.sp,
@@ -54,7 +52,7 @@ val CafeeMangerTypography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.15.sp,
+        letterSpacing = 0.1.sp,
     ),
     titleSmall = TextStyle(
         fontWeight = FontWeight.Medium,
@@ -66,7 +64,7 @@ val CafeeMangerTypography = Typography(
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.5.sp,
+        letterSpacing = 0.15.sp,
     ),
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,

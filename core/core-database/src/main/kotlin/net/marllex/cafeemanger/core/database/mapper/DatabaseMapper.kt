@@ -8,6 +8,9 @@ fun VendorEntity.toDomain() = Vendor(
     id = id, name = name, logoUrl = logoUrl, address = address,
     contactPhone = contactPhone, walletPhone = walletPhone,
     defaultDeliveryFee = defaultDeliveryFee,
+    storeType = storeType, enableTables = enableTables,
+    enableDineIn = enableDineIn, enableDelivery = enableDelivery,
+    digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt, updatedAt = updatedAt
 )
 
@@ -15,6 +18,9 @@ fun Vendor.toEntity() = VendorEntity(
     id = id, name = name, logoUrl = logoUrl, address = address,
     contactPhone = contactPhone, walletPhone = walletPhone,
     defaultDeliveryFee = defaultDeliveryFee,
+    storeType = storeType, enableTables = enableTables,
+    enableDineIn = enableDineIn, enableDelivery = enableDelivery,
+    digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt, updatedAt = updatedAt
 )
 

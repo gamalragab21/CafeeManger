@@ -6,4 +6,6 @@
     <string name="notes_optional">ملاحظات (اختياري)</string>
     <string name="placing_order">جاري تقديم الطلب...</string>
     <string name="place_order">تقديم الطلب - %1$s</string>
+    <string name="channel_dine_in">محلي</string>
+    <string name="channel_delivery">توصيل</string>
 </resources>

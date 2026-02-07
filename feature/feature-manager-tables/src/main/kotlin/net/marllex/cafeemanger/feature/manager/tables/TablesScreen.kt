@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,6 +49,9 @@ import net.marllex.cafeemanger.core.model.Table
 import net.marllex.cafeemanger.core.model.TableStatus
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
+import net.marllex.cafeemanger.core.ui.theme.TableAvailable
+import net.marllex.cafeemanger.core.ui.theme.TableOccupied
+import net.marllex.cafeemanger.core.ui.theme.TableReserved
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,13 +59,16 @@ fun TablesScreen(
     viewModel: TablesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val gridColumns = if (configuration.screenWidthDp >= 840) 4 else if (isTablet) 3 else 2
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.tables)) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -78,11 +85,11 @@ fun TablesScreen(
                 onRetry = viewModel::loadTables,
             )
             else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Fixed(gridColumns),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -120,9 +127,9 @@ private fun TableCard(
     onStatusChange: (TableStatus) -> Unit,
 ) {
     val statusColor = when (table.status) {
-        TableStatus.AVAILABLE -> Color(0xFF4CAF50)
-        TableStatus.OCCUPIED -> Color(0xFFF44336)
-        TableStatus.RESERVED -> Color(0xFFFF9800)
+        TableStatus.AVAILABLE -> TableAvailable
+        TableStatus.OCCUPIED -> TableOccupied
+        TableStatus.RESERVED -> TableReserved
     }
 
     var showStatusMenu by remember { mutableStateOf(false) }

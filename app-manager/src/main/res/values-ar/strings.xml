@@ -3,17 +3,17 @@
     <string name="app_name">واصل POS - المدير</string>
     <string name="categories">الأقسام</string>
     <string name="items">الأصناف</string>
-    <string name="restaurant_profile">ملف المطعم</string>
-    <string name="edit_restaurant_info">تعديل بيانات المطعم</string>
-    <string name="restaurant_name">اسم المطعم</string>
+    <string name="store_profile">ملف المتجر</string>
+    <string name="edit_store_info">تعديل بيانات المتجر</string>
+    <string name="store_name">اسم المتجر</string>
     <string name="address">العنوان</string>
     <string name="contact_phone">رقم الهاتف</string>
     <string name="wallet_phone_optional">رقم المحفظة (اختياري)</string>
     <string name="cancel">إلغاء</string>
     <string name="save">حفظ</string>
-    <string name="restaurant_info">بيانات المطعم</string>
+    <string name="store_info">معلومات وإعدادات المتجر</string>
     <string name="edit_profile">تعديل الملف الشخصي</string>
-    <string name="restaurant">المطعم</string>
+    <string name="store">المتجر</string>
     <string name="tables">الطاولات</string>
     <string name="analytics">الإحصائيات</string>
     <string name="tax_places">ضريبة التوصيل</string>
@@ -24,4 +24,16 @@
     <string name="staff">الموظفون</string>
     <string name="profile">الملف الشخصي</string>
     <string name="stock">المخزون</string>
+    <!-- Feature toggles -->
+    <string name="store_features">مميزات المتجر</string>
+    <string name="enable_tables">الطاولات</string>
+    <string name="enable_tables_desc">تفعيل إدارة الطاولات في متجرك</string>
+    <string name="enable_dine_in">الطلب المحلي</string>
+    <string name="enable_dine_in_desc">السماح للعملاء بالطلب والأكل داخل المتجر</string>
+    <string name="enable_delivery">التوصيل</string>
+    <string name="enable_delivery_desc">تفعيل طلبات التوصيل في متجرك</string>
+    <!-- Logo -->
+    <string name="store_logo">شعار المتجر</string>
+    <string name="store_logo_url">رابط الشعار</string>
+    <string name="store_logo_url_hint">الصق رابط صورة مباشر (https://…)</string>
 </resources>

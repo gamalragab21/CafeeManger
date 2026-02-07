@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Channel labels -->
+    <string name="channel_dine_in">Dine-In</string>
+    <string name="channel_delivery">Delivery</string>
+    <!-- Payment labels -->
+    <string name="payment_cash">Cash</string>
+    <string name="payment_wallet">Wallet</string>
+    <string name="payment_card">Card</string>
+</resources>

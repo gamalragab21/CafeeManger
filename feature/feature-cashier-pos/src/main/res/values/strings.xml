@@ -6,4 +6,6 @@
     <string name="notes_optional">Notes (optional)</string>
     <string name="placing_order">Placing Order...</string>
     <string name="place_order">Place Order - %1$s</string>
+    <string name="channel_dine_in">Dine-In</string>
+    <string name="channel_delivery">Delivery</string>
 </resources>

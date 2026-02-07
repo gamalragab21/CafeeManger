@@ -13,6 +13,11 @@ data class VendorEntity(
     @ColumnInfo(name = "contact_phone") val contactPhone: String,
     @ColumnInfo(name = "wallet_phone") val walletPhone: String?,
     @ColumnInfo(name = "default_delivery_fee") val defaultDeliveryFee: Double = 0.0,
+    @ColumnInfo(name = "store_type") val storeType: String? = null,
+    @ColumnInfo(name = "enable_tables") val enableTables: Boolean = true,
+    @ColumnInfo(name = "enable_dine_in") val enableDineIn: Boolean = true,
+    @ColumnInfo(name = "enable_delivery") val enableDelivery: Boolean = true,
+    @ColumnInfo(name = "digital_menu_url") val digitalMenuUrl: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long?
 )

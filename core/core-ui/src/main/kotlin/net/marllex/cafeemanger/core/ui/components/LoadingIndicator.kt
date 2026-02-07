@@ -19,8 +19,10 @@ fun LoadingIndicator(
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary
+            modifier = Modifier.size(44.dp),
+            strokeWidth = 3.dp,
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.primaryContainer,
         )
     }
 }
@@ -30,8 +32,9 @@ fun SmallLoadingIndicator(
     modifier: Modifier = Modifier
 ) {
     CircularProgressIndicator(
-        modifier = modifier.size(24.dp),
+        modifier = modifier.size(20.dp),
         strokeWidth = 2.dp,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
+        trackColor = MaterialTheme.colorScheme.primaryContainer,
     )
 }
