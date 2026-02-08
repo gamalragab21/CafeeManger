@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "CafeeManger API",
-    "description": "Multi-Vendor Restaurant Management System API",
+    "description": "Multi-Vendor Store Management System API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,7 +9,8 @@
     { "key": "access_token", "value": "" },
     { "key": "refresh_token", "value": "" },
     { "key": "vendor_id", "value": "" },
-    { "key": "user_id", "value": "" }
+    { "key": "user_id", "value": "" },
+    { "key": "admin_password", "value": "123456" }
   ],
   "auth": {
     "type": "bearer",
@@ -25,10 +26,174 @@
       }
     },
     {
+      "name": "Admin (Owner)",
+      "description": "Admin/Owner endpoints — password-protected (no JWT needed). Use header X-Admin-Password.",
+      "item": [
+        {
+          "name": "Get All Stores",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/admin/vendors",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Store by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Store (Full Example)",
+          "description": "Update any field of any store. All fields are optional — only send what you want to change.",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Store Name\",\n  \"logo_url\": \"https://example.com/logo.png\",\n  \"address\": \"New Address\",\n  \"contact_phone\": \"+201234567890\",\n  \"wallet_phone\": \"+201234567891\",\n  \"default_delivery_fee\": 15.00,\n  \"store_type\": \"restaurant\",\n  \"enable_tables\": true,\n  \"enable_dine_in\": true,\n  \"enable_delivery\": true,\n  \"digital_menu_url\": \"https://your-server.com/menu/VENDOR_ID\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Enable/Disable Tables",
+          "description": "Toggle tables feature for a store",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enable_tables\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Enable/Disable Dine-In",
+          "description": "Toggle dine-in feature for a store",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enable_dine_in\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Enable/Disable Delivery",
+          "description": "Toggle delivery feature for a store",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enable_delivery\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Set Digital Menu URL",
+          "description": "Set or update the digital menu URL for a store",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"digital_menu_url\": \"https://your-server.com/menu/VENDOR_ID\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Set Store Logo",
+          "description": "Set or update the store logo URL",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"logo_url\": \"https://example.com/store-logo.png\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Set Store Type",
+          "description": "Set the store type (e.g. restaurant, grocery, pharmacy, retail)",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_type\": \"grocery\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delivery-Only Store Setup",
+          "description": "Configure a store for delivery-only (disable tables and dine-in)",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/admin/vendors/{{vendor_id}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Password", "value": "{{admin_password}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enable_tables\": false,\n  \"enable_dine_in\": false,\n  \"enable_delivery\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
-          "name": "Register Restaurant (Create Manager)",
+          "name": "Register Store (Create Manager)",
           "event": [
             {
               "listen": "test",
@@ -50,7 +215,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vendor_name\": \"My Cafe\",\n  \"vendor_address\": \"123 Main St, City\",\n  \"vendor_phone\": \"+201234567890\",\n  \"manager_name\": \"Ahmed Manager\",\n  \"manager_phone\": \"+201111111111\",\n  \"manager_email\": \"ahmed@mycafe.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"vendor_name\": \"My Store\",\n  \"vendor_address\": \"123 Main St, City\",\n  \"vendor_phone\": \"+201234567890\",\n  \"manager_name\": \"Ahmed Manager\",\n  \"manager_phone\": \"+201111111111\",\n  \"manager_email\": \"ahmed@mystore.com\",\n  \"password\": \"password123\",\n  \"store_type\": \"restaurant\",\n  \"enable_tables\": true,\n  \"enable_dine_in\": true,\n  \"enable_delivery\": true\n}"
             }
           }
         },
@@ -116,24 +281,24 @@
       ]
     },
     {
-      "name": "Vendor (Restaurant Profile)",
+      "name": "Vendor (Store Profile)",
       "item": [
         {
-          "name": "Get My Restaurant",
+          "name": "Get My Store",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/api/v1/vendors/me"
           }
         },
         {
-          "name": "Update My Restaurant",
+          "name": "Update My Store",
           "request": {
             "method": "PUT",
             "url": "{{base_url}}/api/v1/vendors/me",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"My Updated Cafe\",\n  \"address\": \"456 New St, City\",\n  \"contact_phone\": \"+201234567890\",\n  \"wallet_phone\": \"+201234567891\"\n}"
+              "raw": "{\n  \"name\": \"My Updated Store\",\n  \"logo_url\": \"https://example.com/logo.png\",\n  \"address\": \"456 New St, City\",\n  \"contact_phone\": \"+201234567890\",\n  \"wallet_phone\": \"+201234567891\"\n}"
             }
           }
         }
@@ -169,7 +334,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"role\": \"CASHIER\",\n  \"name\": \"Sara Cashier\",\n  \"phone\": \"+201222222222\",\n  \"email\": \"sara@mycafe.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"role\": \"CASHIER\",\n  \"name\": \"Sara Cashier\",\n  \"phone\": \"+201222222222\",\n  \"email\": \"sara@mystore.com\",\n  \"password\": \"password123\"\n}"
             }
           }
         },
@@ -181,7 +346,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"role\": \"DELIVERY\",\n  \"name\": \"Omar Delivery\",\n  \"phone\": \"+201333333333\",\n  \"email\": \"omar@mycafe.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"role\": \"DELIVERY\",\n  \"name\": \"Omar Delivery\",\n  \"phone\": \"+201333333333\",\n  \"email\": \"omar@mystore.com\",\n  \"password\": \"password123\"\n}"
             }
           }
         },

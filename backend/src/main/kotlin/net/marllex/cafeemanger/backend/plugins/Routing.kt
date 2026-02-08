@@ -25,6 +25,8 @@ fun Application.configureRouting() {
         orderSharePublicRoutes()
         // Public digital menu page
         digitalMenuRoutes()
+        // Admin routes (password-protected, no JWT)
+        adminRoutes()
 
         // Protected routes
         authenticate("auth-jwt") {
