@@ -3,53 +3,53 @@ package net.marllex.cafeemanger.core.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ════════════════════════════════════════════════════════════════════
-//  Modern Cafee Manger — Color Palette
-//  Fresh Teal + Warm Amber + Clean Neutrals
+//  Wasel POS — Color Palette
+//  Blue Primary + Cyan Accent + Warm Orange Secondary + Clean Slate
 // ════════════════════════════════════════════════════════════════════
 
-// ─── Primary: Teal — fresh, modern, trustworthy ────────────────────
-val Primary = Color(0xFF0D9488)             // Teal 600
-val PrimaryLight = Color(0xFF2DD4BF)        // Teal 400
-val PrimaryDark = Color(0xFF0F766E)         // Teal 700
+// ─── Primary: Blue — professional, trustworthy, modern POS ─────────
+val Primary = Color(0xFF1565C0)             // Blue 800
+val PrimaryLight = Color(0xFF42A5F5)        // Blue 400
+val PrimaryDark = Color(0xFF0D47A1)         // Blue 900
 val OnPrimary = Color(0xFFFFFFFF)
-val PrimaryContainer = Color(0xFFCCFBF1)    // Teal 100
-val OnPrimaryContainer = Color(0xFF134E4A)  // Teal 900
+val PrimaryContainer = Color(0xFFD1E4FF)    // Blue 50 custom
+val OnPrimaryContainer = Color(0xFF001D36)  // Blue 950
 
-// ─── Secondary: Amber — warm, inviting, food-related ───────────────
-val Secondary = Color(0xFFD97706)           // Amber 600
-val SecondaryLight = Color(0xFFFBBF24)      // Amber 400
-val SecondaryDark = Color(0xFFB45309)       // Amber 700
+// ─── Secondary: Orange — warm, action-oriented, food-related ───────
+val Secondary = Color(0xFFE65100)           // Deep Orange 800
+val SecondaryLight = Color(0xFFFF8A50)      // Orange 300
+val SecondaryDark = Color(0xFFBF360C)       // Deep Orange 900
 val OnSecondary = Color(0xFFFFFFFF)
-val SecondaryContainer = Color(0xFFFEF3C7)  // Amber 100
-val OnSecondaryContainer = Color(0xFF78350F)// Amber 900
+val SecondaryContainer = Color(0xFFFFE0B2)  // Orange 100
+val OnSecondaryContainer = Color(0xFF4E2700)
 
-// ─── Tertiary: Indigo — accent, information, complementary ─────────
-val Tertiary = Color(0xFF6366F1)            // Indigo 500
-val TertiaryLight = Color(0xFF818CF8)       // Indigo 400
-val TertiaryDark = Color(0xFF4F46E5)        // Indigo 600
+// ─── Tertiary: Cyan — fresh accent, complementary to blue ──────────
+val Tertiary = Color(0xFF00838F)            // Cyan 800
+val TertiaryLight = Color(0xFF4DD0E1)       // Cyan 300
+val TertiaryDark = Color(0xFF006064)        // Cyan 900
 val OnTertiary = Color(0xFFFFFFFF)
-val TertiaryContainer = Color(0xFFE0E7FF)   // Indigo 100
-val OnTertiaryContainer = Color(0xFF312E81) // Indigo 900
+val TertiaryContainer = Color(0xFFB2EBF2)   // Cyan 100
+val OnTertiaryContainer = Color(0xFF002022)
 
-// ─── Surfaces — clean, warm neutrals ──────────────────────────────
-val SurfaceLight = Color(0xFFFFFFFF)        // Pure white
-val SurfaceDark = Color(0xFF1C1917)         // Stone 900
-val SurfaceVariantLight = Color(0xFFF5F5F4) // Stone 100
-val SurfaceVariantDark = Color(0xFF292524)  // Stone 800
+// ─── Surfaces — cool, clean slate neutrals ────────────────────────
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceDark = Color(0xFF111827)         // Slate 900
+val SurfaceVariantLight = Color(0xFFF1F5F9) // Slate 100
+val SurfaceVariantDark = Color(0xFF1E293B)  // Slate 800
 
 // ─── Backgrounds ──────────────────────────────────────────────────
-val BackgroundLight = Color(0xFFFAFAF9)     // Stone 50 — warm white
-val BackgroundDark = Color(0xFF0C0A09)      // Stone 950
+val BackgroundLight = Color(0xFFF8FAFC)     // Slate 50
+val BackgroundDark = Color(0xFF0F172A)      // Slate 950
 
 // ─── Outline ──────────────────────────────────────────────────────
-val OutlineLight = Color(0xFFD6D3D1)        // Stone 300
-val OutlineDark = Color(0xFF44403C)         // Stone 700
-val OutlineVariantLight = Color(0xFFE7E5E4) // Stone 200
-val OutlineVariantDark = Color(0xFF57534E)  // Stone 600
+val OutlineLight = Color(0xFFCBD5E1)        // Slate 300
+val OutlineDark = Color(0xFF475569)         // Slate 600
+val OutlineVariantLight = Color(0xFFE2E8F0) // Slate 200
+val OutlineVariantDark = Color(0xFF334155)  // Slate 700
 
 // ─── Error / Success / Warning ────────────────────────────────────
 val Error = Color(0xFFDC2626)               // Red 600
-val ErrorLight = Color(0xFFFECACA)          // Red 200
+val ErrorLight = Color(0xFFFCA5A5)          // Red 300
 val OnError = Color(0xFFFFFFFF)
 val ErrorContainer = Color(0xFFFEE2E2)      // Red 100
 val OnErrorContainer = Color(0xFF991B1B)    // Red 800
@@ -64,26 +64,26 @@ val WarningLight = Color(0xFFFDBA74)        // Orange 300
 val OnWarning = Color(0xFFFFFFFF)
 val WarningContainer = Color(0xFFFFF7ED)    // Orange 50
 
-// ─── Order status colors (modernized) ─────────────────────────────
-val StatusCreated = Color(0xFF94A3B8)       // Slate 400 — neutral
-val StatusConfirmed = Color(0xFF3B82F6)     // Blue 500
+// ─── Order status colors ─────────────────────────────────────────
+val StatusCreated = Color(0xFF94A3B8)       // Slate 400
+val StatusConfirmed = Color(0xFF2563EB)     // Blue 600
 val StatusInPreparation = Color(0xFFF59E0B) // Amber 500
 val StatusServed = Color(0xFF22C55E)        // Green 500
 val StatusReady = Color(0xFF10B981)         // Emerald 500
-val StatusAssigned = Color(0xFF6366F1)      // Indigo 500
+val StatusAssigned = Color(0xFF7C3AED)      // Violet 600
 val StatusOutForDelivery = Color(0xFF8B5CF6)// Violet 500
 val StatusDelivered = Color(0xFF10B981)     // Emerald 500
 val StatusCompleted = Color(0xFF059669)     // Emerald 600
 val StatusCanceled = Color(0xFFEF4444)      // Red 500
 
 // ─── Role colors ──────────────────────────────────────────────────
-val ManagerColor = Color(0xFF0D9488)        // Teal — primary
-val CashierColor = Color(0xFF6366F1)        // Indigo — distinct
-val DeliveryColor = Color(0xFFF59E0B)       // Amber — warm
+val ManagerColor = Color(0xFF1565C0)        // Blue 800
+val CashierColor = Color(0xFF00838F)        // Cyan 800
+val DeliveryColor = Color(0xFFE65100)       // Deep Orange 800
 
 // ─── Channel colors ───────────────────────────────────────────────
-val DineInColor = Color(0xFF0D9488)         // Teal
-val DeliveryChannelColor = Color(0xFFF59E0B)// Amber
+val DineInColor = Color(0xFF1565C0)         // Blue
+val DeliveryChannelColor = Color(0xFFE65100)// Deep Orange
 
 // ─── Table status colors ──────────────────────────────────────────
 val TableAvailable = Color(0xFF10B981)      // Emerald 500

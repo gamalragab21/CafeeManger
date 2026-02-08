@@ -34,15 +34,15 @@ private val LightColorScheme = lightColorScheme(
     errorContainer = ErrorContainer,
     onErrorContainer = OnErrorContainer,
     background = BackgroundLight,
-    onBackground = Color(0xFF1C1917),       // Stone 900
+    onBackground = Color(0xFF0F172A),       // Slate 950
     surface = SurfaceLight,
-    onSurface = Color(0xFF1C1917),          // Stone 900
+    onSurface = Color(0xFF0F172A),          // Slate 950
     surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = Color(0xFF57534E),   // Stone 600
+    onSurfaceVariant = Color(0xFF475569),   // Slate 600
     outline = OutlineLight,
     outlineVariant = OutlineVariantLight,
-    inverseSurface = Color(0xFF292524),      // Stone 800
-    inverseOnSurface = Color(0xFFF5F5F4),   // Stone 100
+    inverseSurface = Color(0xFF1E293B),     // Slate 800
+    inverseOnSurface = Color(0xFFF1F5F9),   // Slate 100
     inversePrimary = PrimaryLight,
     surfaceTint = Primary,
 )
@@ -60,20 +60,20 @@ private val DarkColorScheme = darkColorScheme(
     onTertiary = OnTertiaryContainer,
     tertiaryContainer = TertiaryDark,
     onTertiaryContainer = TertiaryContainer,
-    error = Color(0xFFFCA5A5),              // Red 300
+    error = ErrorLight,
     onError = Color(0xFF7F1D1D),            // Red 900
     errorContainer = Color(0xFF991B1B),     // Red 800
     onErrorContainer = Color(0xFFFEE2E2),   // Red 100
     background = BackgroundDark,
-    onBackground = Color(0xFFF5F5F4),       // Stone 100
+    onBackground = Color(0xFFF1F5F9),       // Slate 100
     surface = SurfaceDark,
-    onSurface = Color(0xFFF5F5F4),          // Stone 100
+    onSurface = Color(0xFFF1F5F9),          // Slate 100
     surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = Color(0xFFA8A29E),   // Stone 400
+    onSurfaceVariant = Color(0xFF94A3B8),   // Slate 400
     outline = OutlineDark,
     outlineVariant = OutlineVariantDark,
-    inverseSurface = Color(0xFFF5F5F4),     // Stone 100
-    inverseOnSurface = Color(0xFF292524),   // Stone 800
+    inverseSurface = Color(0xFFF1F5F9),     // Slate 100
+    inverseOnSurface = Color(0xFF1E293B),   // Slate 800
     inversePrimary = Primary,
     surfaceTint = PrimaryLight,
 )
@@ -98,7 +98,7 @@ fun CafeeMangerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Edge-to-edge: transparent status bar, surface-colored nav bar
+            // Edge-to-edge: transparent status bar, themed nav bar
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = colorScheme.surface.toArgb()
             val insetsController = WindowCompat.getInsetsController(window, view)
