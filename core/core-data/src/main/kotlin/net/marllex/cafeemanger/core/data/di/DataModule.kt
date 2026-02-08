@@ -47,4 +47,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindStockRepository(impl: StockRepositoryImpl): StockRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkerRepository(impl: WorkerRepositoryImpl): WorkerRepository
 }

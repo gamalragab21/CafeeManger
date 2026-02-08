@@ -16,8 +16,12 @@ import net.marllex.cafeemanger.core.database.entity.*
         OrderItemEntity::class,
         StockEntity::class,
         StockTransactionEntity::class,
+        WorkerEntity::class,
+        WorkerRoleEntity::class,
+        AttendanceEntity::class,
+        SalaryPaymentEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class CafeeMangerDatabase : RoomDatabase() {
@@ -28,4 +32,5 @@ abstract class CafeeMangerDatabase : RoomDatabase() {
     abstract fun tableDao(): TableDao
     abstract fun orderDao(): OrderDao
     abstract fun stockDao(): StockDao
+    abstract fun workerDao(): WorkerDao
 }

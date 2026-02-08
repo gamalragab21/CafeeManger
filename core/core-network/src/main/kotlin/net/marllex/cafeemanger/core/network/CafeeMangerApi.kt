@@ -242,6 +242,88 @@ interface CafeeMangerApi {
     @GET("api/v1/stock/{id}/transactions")
     suspend fun getStockTransactions(@Path("id") id: String): List<StockTransactionResponse>
 
+    // ─── Workers ───────────────────────────────────────────────────
+    @GET("api/v1/workers")
+    suspend fun getWorkers(
+        @Query("active") active: Boolean? = null
+    ): List<WorkerResponse>
+
+    @GET("api/v1/workers/{id}")
+    suspend fun getWorker(@Path("id") id: String): WorkerResponse
+
+    @POST("api/v1/workers")
+    suspend fun createWorker(@Body request: CreateWorkerRequest): WorkerResponse
+
+    @PUT("api/v1/workers/{id}")
+    suspend fun updateWorker(
+        @Path("id") id: String,
+        @Body request: UpdateWorkerRequest
+    ): WorkerResponse
+
+    @DELETE("api/v1/workers/{id}")
+    suspend fun deleteWorker(@Path("id") id: String): ApiSuccessResponse
+
+    // ─── Worker Roles ───────────────────────────────────────────────
+    @GET("api/v1/worker-roles")
+    suspend fun getWorkerRoles(): List<WorkerRoleResponse>
+
+    @POST("api/v1/worker-roles")
+    suspend fun createWorkerRole(@Body request: CreateWorkerRoleRequest): WorkerRoleResponse
+
+    @DELETE("api/v1/worker-roles/{id}")
+    suspend fun deleteWorkerRole(@Path("id") id: String): ApiSuccessResponse
+
+    // ─── Attendance ─────────────────────────────────────────────────
+    @GET("api/v1/attendance")
+    suspend fun getAttendance(
+        @Query("worker_id") workerId: String? = null,
+        @Query("date") date: String? = null,
+        @Query("from_date") fromDate: String? = null,
+        @Query("to_date") toDate: String? = null,
+    ): List<AttendanceResponse>
+
+    @GET("api/v1/attendance/today")
+    suspend fun getTodayAttendance(): List<AttendanceSummaryResponse>
+
+    @GET("api/v1/attendance/summary/{workerId}")
+    suspend fun getAttendanceSummary(
+        @Path("workerId") workerId: String,
+        @Query("from_date") fromDate: String? = null,
+        @Query("to_date") toDate: String? = null,
+    ): AttendanceSummaryResponse
+
+    @POST("api/v1/attendance/check-in")
+    suspend fun checkIn(@Body request: CheckInRequest): AttendanceResponse
+
+    @POST("api/v1/attendance/check-out/{attendanceId}")
+    suspend fun checkOut(
+        @Path("attendanceId") attendanceId: String,
+        @Body request: CheckOutRequest
+    ): AttendanceResponse
+
+    @DELETE("api/v1/attendance/{id}")
+    suspend fun deleteAttendance(@Path("id") id: String): ApiSuccessResponse
+
+    // ─── Salary Payments ────────────────────────────────────────────
+    @GET("api/v1/salary-payments")
+    suspend fun getSalaryPayments(
+        @Query("worker_id") workerId: String? = null,
+        @Query("paid") paid: Boolean? = null,
+        @Query("period_type") periodType: String? = null,
+    ): List<SalaryPaymentResponse>
+
+    @POST("api/v1/salary-payments")
+    suspend fun createSalaryPayment(@Body request: CreateSalaryPaymentRequest): SalaryPaymentResponse
+
+    @PATCH("api/v1/salary-payments/{id}/pay")
+    suspend fun markSalaryPaid(
+        @Path("id") id: String,
+        @Body request: MarkPaidRequest
+    ): SalaryPaymentResponse
+
+    @PATCH("api/v1/salary-payments/{id}/unpay")
+    suspend fun markSalaryUnpaid(@Path("id") id: String): SalaryPaymentResponse
+
     // Tax places (manager: CRUD; cashier: list for delivery orders)
     @GET("api/v1/tax-places")
     suspend fun getTaxPlaces(): List<TaxPlaceResponse>

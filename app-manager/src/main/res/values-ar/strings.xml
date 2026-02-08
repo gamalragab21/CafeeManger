@@ -44,4 +44,5 @@
     <string name="link_copied">تم نسخ الرابط!</string>
     <string name="no_digital_menu">لا توجد قائمة رقمية بعد.\nتواصل مع المسؤول لإعدادها.</string>
     <string name="todays_overview">نظرة على اليوم</string>
+    <string name="roles_and_permissions">الأدوار والصلاحيات</string>
 </resources>

@@ -4,5 +4,6 @@
 
     <string name="cashier_new_order">طلب جديد</string>
     <string name="cashier_orders">الطلبات</string>
+    <string name="cashier_attendance">الحضور</string>
     <string name="cashier_settings">الإعدادات</string>
 </resources>

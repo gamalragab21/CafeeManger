@@ -45,6 +45,7 @@ dependencies {
     implementation(project(":feature:feature-manager-items"))
     implementation(project(":feature:feature-manager-tables"))
     implementation(project(":feature:feature-manager-users"))
+    implementation(project(":feature:feature-manager-staff"))
     implementation(project(":feature:feature-manager-analytics"))
     implementation(project(":feature:feature-manager-orders"))
     implementation(project(":feature:feature-manager-stock"))

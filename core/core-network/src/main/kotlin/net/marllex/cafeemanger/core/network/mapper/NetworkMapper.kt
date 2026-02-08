@@ -173,3 +173,43 @@ fun DeliveryPerformanceResponse.toDomain() = DeliveryPerformance(
     totalRevenue = totalRevenue,
     totalTax = totalTax
 )
+
+// ─── Worker Mappers ──────────────────────────────────────────────
+fun WorkerResponse.toDomain() = Worker(
+    id = id, vendorId = vendorId, workerId = workerId,
+    fullName = fullName, phone = phone, description = description,
+    role = role, salaryType = SalaryType.valueOf(salaryType),
+    salaryAmount = salaryAmount, active = active,
+    createdAt = createdAt, updatedAt = updatedAt
+)
+
+fun WorkerRoleResponse.toDomain() = WorkerRole(
+    id = id, vendorId = vendorId, name = name,
+    description = description, createdAt = createdAt
+)
+
+// ─── Attendance Mappers ──────────────────────────────────────────
+fun AttendanceResponse.toDomain() = Attendance(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, workerRole = workerRole,
+    date = date, checkIn = checkIn, checkOut = checkOut,
+    workedMinutes = workedMinutes, recordedBy = recordedBy,
+    note = note, createdAt = createdAt
+)
+
+fun AttendanceSummaryResponse.toDomain() = AttendanceSummary(
+    workerId = workerId, workerName = workerName,
+    workerRole = workerRole, totalDays = totalDays,
+    totalWorkedMinutes = totalWorkedMinutes,
+    presentToday = presentToday
+)
+
+// ─── Salary Payment Mappers ──────────────────────────────────────
+fun SalaryPaymentResponse.toDomain() = SalaryPayment(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, periodType = periodType,
+    periodStart = periodStart, periodEnd = periodEnd,
+    workedDays = workedDays, workedHours = workedHours,
+    amount = amount, paid = paid, paidAt = paidAt,
+    paidBy = paidBy, note = note, createdAt = createdAt
+)

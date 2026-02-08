@@ -44,6 +44,7 @@ dependencies {
     implementation(project(":feature:feature-cashier-pos"))
     implementation(project(":feature:feature-cashier-payment"))
     implementation(project(":feature:feature-cashier-receipt"))
+    implementation(project(":feature:feature-cashier-attendance"))
 
     // AndroidX
     implementation(libs.androidx.appcompat)

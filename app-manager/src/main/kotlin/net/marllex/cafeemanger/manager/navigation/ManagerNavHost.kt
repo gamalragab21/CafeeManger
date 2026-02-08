@@ -3,6 +3,7 @@ package net.marllex.cafeemanger.manager.navigation
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -20,7 +21,10 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ContentCopy
@@ -29,6 +33,8 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +56,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -92,6 +99,7 @@ import net.marllex.cafeemanger.feature.manager.items.ItemsScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
 import net.marllex.cafeemanger.feature.manager.stock.StockScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
+import net.marllex.cafeemanger.feature.manager.staff.StaffScreen
 import net.marllex.cafeemanger.feature.manager.users.UsersScreen
 import net.marllex.cafeemanger.manager.R
 import net.marllex.cafeemanger.manager.taxplaces.TaxPlacesScreen
@@ -251,7 +259,7 @@ fun ManagerNavHost() {
                 composable(ManagerTab.DASHBOARD.route) { DashboardScreen() }
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { UsersScreen() }
+                composable(ManagerTab.USERS.route) { StaffScreen() }
                 composable(ManagerTab.PROFILE.route) { ProfileTabContent() }
             }
         }
@@ -278,7 +286,7 @@ fun ManagerNavHost() {
                 composable(ManagerTab.DASHBOARD.route) { DashboardScreen() }
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { UsersScreen() }
+                composable(ManagerTab.USERS.route) { StaffScreen() }
                 composable(ManagerTab.PROFILE.route) { ProfileTabContent() }
             }
         }
@@ -359,7 +367,10 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
     val scope = rememberCoroutineScope()
     val copiedMsg = stringResource(R.string.link_copied)
 
-    // Auto-construct URL from BASE_URL + /menu/{vendorId}, or use custom URL
+    // Get screen info for adaptive sizing
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+
     val menuUrl = remember(vendorId, customMenuUrl) {
         when {
             !customMenuUrl.isNullOrBlank() -> customMenuUrl
@@ -371,109 +382,152 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent // Allow parent background to show
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                // 1. Enable scrolling so content is never cut off on small phones or landscape
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = if (screenWidth > 600) Arrangement.Center else Arrangement.Top,
         ) {
-            if (!menuUrl.isNullOrBlank()) {
-                val qrBitmap = remember(menuUrl) { generateQrBitmap(menuUrl, 512) }
+            // 2. Limit content width for tablets (max 480dp looks best for single-column cards)
+            Column(
+                modifier = Modifier.widthIn(max = 480.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (!menuUrl.isNullOrBlank()) {
+                    val qrBitmap = remember(menuUrl) { generateQrBitmap(menuUrl, 512) }
 
-                Icon(
-                    Icons.Filled.QrCode2, null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.digital_menu),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.scan_to_view_menu),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(20.dp))
+                    Icon(
+                        Icons.Filled.QrCode2, null,
+                        modifier = Modifier.size(if (screenWidth > 600) 48.dp else 32.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.digital_menu),
+                        style = if (screenWidth > 600) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.scan_to_view_menu),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
 
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                ) {
-                    Box(Modifier.padding(20.dp)) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.size(220.dp),
-                        )
+                    Spacer(Modifier.height(24.dp))
+
+                    // QR Card - Always remains square
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    ) {
+                        Box(Modifier.padding(if (screenWidth > 600) 32.dp else 20.dp)) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.size(if (screenWidth > 600) 280.dp else 220.dp),
+                            )
+                        }
                     }
-                }
 
-                Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(32.dp))
 
-                // Link display
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(R.string.digital_menu_link),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            menuUrl,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
+                    // Link display
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                stringResource(R.string.digital_menu_link),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                menuUrl,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                }
 
-                Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                OutlinedButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", menuUrl))
-                        scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Filled.ContentCopy, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.copy_link))
+                    // Adaptive Button - Wide on phone, wrap-content on large screens?
+                    // Usually, full-width within the 480dp limit looks most professional.
+                    Button(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", menuUrl))
+                            scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.Filled.ContentCopy, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.copy_link), style = MaterialTheme.typography.titleMedium)
+                    }
+
+                    // Added: Share Action (Very useful for tablets/business use)
+                    TextButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, menuUrl)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Link"))
+                        },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Share with Customers")
+                    }
+
+                } else {
+                    // Empty State
+                    EmptyMenuState()
                 }
-            } else {
-                // No vendor loaded yet
-                Icon(
-                    Icons.Filled.QrCode2, null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    stringResource(R.string.no_digital_menu),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
             }
         }
     }
 }
 
+@Composable
+private fun EmptyMenuState() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(
+            Icons.Filled.QrCode2, null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            stringResource(R.string.no_digital_menu),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
 private fun generateQrBitmap(content: String, size: Int): Bitmap {
     val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
     val pixels = IntArray(size * size) { idx ->
@@ -495,6 +549,7 @@ private fun ProfileTabContent() {
             add("store" to { RestaurantProfileScreen() })
             if (vendor?.enableTables != false) add("tables" to { TablesScreen() })
             add("analytics" to { AnalyticsScreen() })
+            add("Roles & Permissions" to { UsersScreen() })
             add("tax_places" to { TaxPlacesScreen() })
             add("settings" to { SettingsContent() })
         }
@@ -511,6 +566,7 @@ private fun ProfileTabContent() {
             "analytics" -> stringResource(R.string.analytics)
             "tax_places" -> stringResource(R.string.tax_places)
             "settings" -> stringResource(R.string.settings)
+            "Roles & Permissions" -> stringResource(R.string.roles_and_permissions)
             else -> key
         }
     }

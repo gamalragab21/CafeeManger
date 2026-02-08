@@ -39,6 +39,8 @@ fun Application.configureRouting() {
             analyticsRoutes()
             taxPlacesRoutes()
             stockRoutes()
+            workerRoutes()
+            attendanceRoutes()
         }
     }
 }

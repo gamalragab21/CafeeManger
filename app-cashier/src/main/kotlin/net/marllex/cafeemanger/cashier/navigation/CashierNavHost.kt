@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Settings
@@ -44,6 +45,7 @@ import net.marllex.cafeemanger.cashier.R
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.cafeemanger.feature.auth.navigation.authScreen
+import net.marllex.cafeemanger.feature.cashier.attendance.AttendanceScreen
 import net.marllex.cafeemanger.feature.cashier.payment.navigation.navigateToPayment
 import net.marllex.cafeemanger.feature.cashier.payment.navigation.paymentScreen
 import net.marllex.cafeemanger.feature.cashier.pos.navigation.navigateToPos
@@ -62,6 +64,11 @@ enum class CashierTab(
         route = "cashier/orders",
         titleRes = R.string.cashier_orders,
         icon = Icons.Filled.History,
+    ),
+    ATTENDANCE(
+        route = "cashier/attendance",
+        titleRes = R.string.cashier_attendance,
+        icon = Icons.Filled.Fingerprint,
     ),
     SETTINGS(
         route = "cashier/settings",
@@ -222,6 +229,7 @@ fun CashierNavHost() {
                         }
                     )
                 }
+                composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         LanguageSelector(modifier = Modifier.fillMaxWidth())
@@ -270,6 +278,7 @@ fun CashierNavHost() {
                         }
                     )
                 }
+                composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         LanguageSelector(modifier = Modifier.fillMaxWidth())

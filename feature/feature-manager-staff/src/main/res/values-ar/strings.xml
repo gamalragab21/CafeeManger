@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Staff Management -->
+    <string name="staff_management">إدارة الموظفين</string>
+    <string name="workers">العمال</string>
+    <string name="attendance">الحضور</string>
+    <string name="salary">الرواتب</string>
+    <string name="roles_settings">الأدوار</string>
+
+    <!-- Workers -->
+    <string name="add_worker">إضافة عامل</string>
+    <string name="edit_worker">تعديل العامل</string>
+    <string name="worker_id">رقم العامل</string>
+    <string name="full_name">الاسم الكامل</string>
+    <string name="phone">الهاتف</string>
+    <string name="description_notes">الوصف / ملاحظات</string>
+    <string name="select_role">اختر الدور</string>
+    <string name="salary_type">نوع الراتب</string>
+    <string name="daily_salary">راتب يومي</string>
+    <string name="monthly_salary">راتب شهري</string>
+    <string name="salary_amount">مبلغ الراتب (ج.م)</string>
+    <string name="active">نشط</string>
+    <string name="inactive">غير نشط</string>
+    <string name="deactivate">إلغاء التفعيل</string>
+    <string name="activate">تفعيل</string>
+    <string name="delete_worker">حذف العامل</string>
+    <string name="delete_worker_confirm">هل أنت متأكد من حذف هذا العامل؟ سيتم حذف سجلات الحضور والرواتب أيضًا.</string>
+    <string name="no_workers">لا يوجد عمال بعد. اضغط + لإضافة أول عامل.</string>
+    <string name="all">الكل</string>
+
+    <!-- Roles -->
+    <string name="add_role">إضافة دور</string>
+    <string name="role_name">اسم الدور</string>
+    <string name="role_description">الوصف (اختياري)</string>
+    <string name="no_roles">لم يتم تحديد أدوار بعد. أضف أدوارًا في الإعدادات قبل تعيين العمال.</string>
+    <string name="delete_role">حذف الدور</string>
+    <string name="delete_role_confirm">هل أنت متأكد من حذف هذا الدور؟</string>
+    <string name="predefined_roles_hint">حدد أدوار العمال هنا أولاً، ثم قم بتعيينها عند إضافة عمال.</string>
+
+    <!-- Attendance -->
+    <string name="today">اليوم</string>
+    <string name="present">حاضر</string>
+    <string name="absent">غائب</string>
+    <string name="checked_in">تم تسجيل الحضور</string>
+    <string name="checked_out">تم تسجيل الانصراف</string>
+    <string name="check_in_time">الحضور: %s</string>
+    <string name="check_out_time">الانصراف: %s</string>
+    <string name="worked">عمل: %s</string>
+    <string name="daily_view">يومي</string>
+    <string name="weekly_view">أسبوعي</string>
+    <string name="monthly_view">شهري</string>
+    <string name="who_is_working">من يعمل اليوم</string>
+    <string name="present_count">%d حاضر</string>
+    <string name="absent_count">%d غائب</string>
+    <string name="attendance_history">سجل الحضور</string>
+    <string name="no_attendance_records">لا توجد سجلات حضور.</string>
+    <string name="total_days">إجمالي الأيام: %d</string>
+    <string name="total_hours">إجمالي الساعات: %s</string>
+
+    <!-- Salary -->
+    <string name="salary_payments">مدفوعات الرواتب</string>
+    <string name="calculate_salary">حساب الراتب</string>
+    <string name="select_worker">اختر العامل</string>
+    <string name="select_period">اختر الفترة</string>
+    <string name="period_start">تاريخ البداية</string>
+    <string name="period_end">تاريخ النهاية</string>
+    <string name="day_period">يوم</string>
+    <string name="week_period">أسبوع</string>
+    <string name="month_period">شهر</string>
+    <string name="worked_days">أيام العمل: %d</string>
+    <string name="salary_amount_label">المبلغ: %s ج.م</string>
+    <string name="paid">مدفوع</string>
+    <string name="not_paid">غير مدفوع</string>
+    <string name="mark_as_paid">تحديد كمدفوع</string>
+    <string name="mark_as_unpaid">تحديد كغير مدفوع</string>
+    <string name="no_salary_records">لا توجد سجلات رواتب.</string>
+    <string name="payment_note">ملاحظة الدفع (اختياري)</string>
+
+    <!-- Common -->
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="confirm">تأكيد</string>
+    <string name="saving">جارٍ الحفظ…</string>
+    <string name="loading">جارٍ التحميل…</string>
+    <string name="error_occurred">حدث خطأ</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="egp">ج.م</string>
+
+    <string name="no_job_description">لا يوجد وصف وظيفي</string>
+</resources>

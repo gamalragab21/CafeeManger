@@ -45,11 +45,18 @@ object DatabaseConfig {
                 OrderItemsTable,
                 StockTable,
                 StockTransactionsTable,
+                WorkersTable,
+                WorkerRolesTable,
+                AttendanceTable,
+                SalaryPaymentsTable,
                 ActivityLogsTable,
                 RefreshTokensTable
             )
             // Add any new columns to existing tables
-            SchemaUtils.createMissingTablesAndColumns(VendorsTable, OrdersTable, StockTable, StockTransactionsTable)
+            SchemaUtils.createMissingTablesAndColumns(
+                VendorsTable, OrdersTable, StockTable, StockTransactionsTable,
+                WorkersTable, WorkerRolesTable, AttendanceTable, SalaryPaymentsTable
+            )
         }
 
         // Auto-seed demo data if database is empty

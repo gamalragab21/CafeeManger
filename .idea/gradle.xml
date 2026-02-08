@@ -39,6 +39,7 @@
             <option value="$PROJECT_DIR$/core/core-ui" />
             <option value="$PROJECT_DIR$/feature" />
             <option value="$PROJECT_DIR$/feature/feature-auth" />
+            <option value="$PROJECT_DIR$/feature/feature-cashier-attendance" />
             <option value="$PROJECT_DIR$/feature/feature-cashier-payment" />
             <option value="$PROJECT_DIR$/feature/feature-cashier-pos" />
             <option value="$PROJECT_DIR$/feature/feature-cashier-receipt" />
@@ -50,6 +51,7 @@
             <option value="$PROJECT_DIR$/feature/feature-manager-dashboard" />
             <option value="$PROJECT_DIR$/feature/feature-manager-items" />
             <option value="$PROJECT_DIR$/feature/feature-manager-orders" />
+            <option value="$PROJECT_DIR$/feature/feature-manager-staff" />
             <option value="$PROJECT_DIR$/feature/feature-manager-stock" />
             <option value="$PROJECT_DIR$/feature/feature-manager-tables" />
             <option value="$PROJECT_DIR$/feature/feature-manager-users" />

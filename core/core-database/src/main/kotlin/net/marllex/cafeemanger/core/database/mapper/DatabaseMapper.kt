@@ -141,3 +141,67 @@ fun StockTransaction.toEntity() = StockTransactionEntity(
     quantity = quantity, previousQuantity = previousQuantity,
     orderId = orderId, note = note, createdAt = createdAt
 )
+
+// ─── Worker Mappers ──────────────────────────────────────────────
+fun WorkerEntity.toDomain() = Worker(
+    id = id, vendorId = vendorId, workerId = workerId,
+    fullName = fullName, phone = phone, description = description,
+    role = role, salaryType = SalaryType.valueOf(salaryType),
+    salaryAmount = salaryAmount, active = active,
+    createdAt = createdAt, updatedAt = updatedAt
+)
+
+fun Worker.toEntity() = WorkerEntity(
+    id = id, vendorId = vendorId, workerId = workerId,
+    fullName = fullName, phone = phone, description = description,
+    role = role, salaryType = salaryType.name,
+    salaryAmount = salaryAmount, active = active,
+    createdAt = createdAt, updatedAt = updatedAt
+)
+
+// ─── Worker Role Mappers ─────────────────────────────────────────
+fun WorkerRoleEntity.toDomain() = WorkerRole(
+    id = id, vendorId = vendorId, name = name,
+    description = description, createdAt = createdAt
+)
+
+fun WorkerRole.toEntity() = WorkerRoleEntity(
+    id = id, vendorId = vendorId, name = name,
+    description = description, createdAt = createdAt
+)
+
+// ─── Attendance Mappers ──────────────────────────────────────────
+fun AttendanceEntity.toDomain() = Attendance(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, workerRole = workerRole,
+    date = date, checkIn = checkIn, checkOut = checkOut,
+    workedMinutes = workedMinutes, recordedBy = recordedBy,
+    note = note, createdAt = createdAt
+)
+
+fun Attendance.toEntity() = AttendanceEntity(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, workerRole = workerRole,
+    date = date, checkIn = checkIn, checkOut = checkOut,
+    workedMinutes = workedMinutes, recordedBy = recordedBy,
+    note = note, createdAt = createdAt
+)
+
+// ─── Salary Payment Mappers ──────────────────────────────────────
+fun SalaryPaymentEntity.toDomain() = SalaryPayment(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, periodType = periodType,
+    periodStart = periodStart, periodEnd = periodEnd,
+    workedDays = workedDays, workedHours = workedHours,
+    amount = amount, paid = paid, paidAt = paidAt,
+    paidBy = paidBy, note = note, createdAt = createdAt
+)
+
+fun SalaryPayment.toEntity() = SalaryPaymentEntity(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, periodType = periodType,
+    periodStart = periodStart, periodEnd = periodEnd,
+    workedDays = workedDays, workedHours = workedHours,
+    amount = amount, paid = paid, paidAt = paidAt,
+    paidBy = paidBy, note = note, createdAt = createdAt
+)

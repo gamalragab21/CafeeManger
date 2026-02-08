@@ -44,4 +44,6 @@
     <string name="link_copied">Link copied!</string>
     <string name="no_digital_menu">No digital menu configured yet.\nContact admin to set up.</string>
     <string name="todays_overview">Today\'s Overview</string>
+
+    <string name="roles_and_permissions">Roles &amp; Permissions</string>
 </resources>

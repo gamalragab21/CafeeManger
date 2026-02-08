@@ -52,10 +52,14 @@ include(":feature:feature-manager-analytics")
 include(":feature:feature-manager-orders")
 include(":feature:feature-manager-stock")
 
+// Feature modules - Manager App (Staff)
+include(":feature:feature-manager-staff")
+
 // Feature modules - Cashier App
 include(":feature:feature-cashier-pos")
 include(":feature:feature-cashier-payment")
 include(":feature:feature-cashier-receipt")
+include(":feature:feature-cashier-attendance")
 
 // Feature modules - Delivery App
 include(":feature:feature-delivery-orders")

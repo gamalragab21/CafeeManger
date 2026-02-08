@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attendance_title">الحضور</string>
+    <string name="select_worker_to_check_in">اختر العامل لتسجيل الحضور</string>
+    <string name="check_in">تسجيل حضور</string>
+    <string name="check_out">تسجيل انصراف</string>
+    <string name="authenticate_fingerprint">المصادقة ببصمة الإصبع</string>
+    <string name="fingerprint_required">مطلوب مصادقة بصمة الإصبع لتسجيل الحضور</string>
+    <string name="check_in_success">تم تسجيل الحضور بنجاح</string>
+    <string name="check_out_success">تم تسجيل الانصراف بنجاح</string>
+    <string name="already_checked_in">العامل مسجل حضوره بالفعل اليوم</string>
+    <string name="not_checked_in">العامل لم يسجل حضوره اليوم</string>
+    <string name="auth_failed">فشلت المصادقة</string>
+    <string name="biometric_not_available">المصادقة البيومترية غير متوفرة على هذا الجهاز</string>
+    <string name="present">حاضر</string>
+    <string name="absent">غائب</string>
+    <string name="today_attendance">حضور اليوم</string>
+    <string name="no_workers_available">لا يوجد عمال نشطون</string>
+    <string name="search_worker">بحث عن عامل…</string>
+    <string name="checked_out">تسجيل الانصراف</string>
+</resources>

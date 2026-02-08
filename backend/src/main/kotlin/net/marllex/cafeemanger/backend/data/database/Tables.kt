@@ -149,6 +149,73 @@ object StockTransactionsTable : UUIDTable("stock_transactions") {
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
+// ─── Workers ─────────────────────────────────────────────────────
+object WorkersTable : UUIDTable("workers") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val workerId = varchar("worker_id", 20) // Auto-generated human-readable ID (e.g. WRK-001)
+    val fullName = varchar("full_name", 255)
+    val phone = varchar("phone", 20).nullable()
+    val description = text("description").nullable()
+    val role = varchar("role", 100) // Custom role from predefined settings
+    val salaryType = varchar("salary_type", 20) // DAILY, MONTHLY
+    val salaryAmount = decimal("salary_amount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val active = bool("active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, workerId)
+    }
+}
+
+// ─── Worker Roles (Predefined in Settings) ───────────────────────
+object WorkerRolesTable : UUIDTable("worker_roles") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val name = varchar("name", 100)
+    val description = text("description").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, name)
+    }
+}
+
+// ─── Attendance ──────────────────────────────────────────────────
+object AttendanceTable : UUIDTable("attendance") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val workerId = reference("worker_id", WorkersTable)
+    val date = varchar("date", 10) // YYYY-MM-DD
+    val checkIn = timestamp("check_in")
+    val checkOut = timestamp("check_out").nullable()
+    val workedMinutes = integer("worked_minutes").nullable() // Calculated on check-out
+    val recordedBy = reference("recorded_by", UsersTable) // Cashier who recorded
+    val note = text("note").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, workerId, date) // One attendance per worker per day
+    }
+}
+
+// ─── Salary Payments ─────────────────────────────────────────────
+object SalaryPaymentsTable : UUIDTable("salary_payments") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val workerId = reference("worker_id", WorkersTable)
+    val periodType = varchar("period_type", 20) // DAY, WEEK, MONTH
+    val periodStart = varchar("period_start", 10) // YYYY-MM-DD
+    val periodEnd = varchar("period_end", 10) // YYYY-MM-DD
+    val workedDays = integer("worked_days")
+    val workedHours = integer("worked_hours").nullable()
+    val amount = decimal("amount", 10, 2)
+    val paid = bool("paid").default(false)
+    val paidAt = timestamp("paid_at").nullable()
+    val paidBy = reference("paid_by", UsersTable).nullable()
+    val note = text("note").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
 // ─── Activity Logs ───────────────────────────────────────────────
 object ActivityLogsTable : UUIDTable("activity_logs") {
     val orderId = reference("order_id", OrdersTable)
