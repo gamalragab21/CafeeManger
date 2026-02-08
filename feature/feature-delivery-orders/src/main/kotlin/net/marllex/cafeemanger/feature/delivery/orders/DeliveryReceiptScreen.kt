@@ -319,6 +319,7 @@ fun DeliveryReceiptScreen(
 
                                 // ── Digital Menu QR ──
                                 val menuUrl = vendor?.digitalMenuUrl
+                                    ?: vendor?.id?.let { "${net.marllex.cafeemanger.core.network.BuildConfig.BASE_URL.trimEnd('/')}/menu/$it" }
                                 if (!menuUrl.isNullOrBlank()) {
                                     DashedDivider()
                                     Spacer(Modifier.height(12.dp))
@@ -536,6 +537,7 @@ private fun renderReceiptBitmap(context: Context, order: Order, vendor: Vendor?)
     }
     // digital menu QR
     val menuUrl = vendor?.digitalMenuUrl
+        ?: vendor?.id?.let { "${net.marllex.cafeemanger.core.network.BuildConfig.BASE_URL.trimEnd('/')}/menu/$it" }
     val qrSize = 180
     if (!menuUrl.isNullOrBlank()) {
         h += 20

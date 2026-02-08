@@ -342,7 +342,10 @@ private fun MenuTabContent() {
                 0 -> CategoriesScreen()
                 1 -> ItemsScreen()
                 2 -> StockScreen()
-                3 -> DigitalMenuSection(digitalMenuUrl = vendor?.digitalMenuUrl)
+                3 -> DigitalMenuSection(
+                    vendorId = vendor?.id,
+                    customMenuUrl = vendor?.digitalMenuUrl,
+                )
             }
         }
     }
@@ -350,11 +353,23 @@ private fun MenuTabContent() {
 
 // ─── Digital Menu QR + Link ──────────────────────────────────────
 @Composable
-private fun DigitalMenuSection(digitalMenuUrl: String?) {
+private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copiedMsg = stringResource(R.string.link_copied)
+
+    // Auto-construct URL from BASE_URL + /menu/{vendorId}, or use custom URL
+    val menuUrl = remember(vendorId, customMenuUrl) {
+        when {
+            !customMenuUrl.isNullOrBlank() -> customMenuUrl
+            !vendorId.isNullOrBlank() -> {
+                val base = net.marllex.cafeemanger.core.network.BuildConfig.BASE_URL.trimEnd('/')
+                "$base/menu/$vendorId"
+            }
+            else -> null
+        }
+    }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
@@ -365,9 +380,8 @@ private fun DigitalMenuSection(digitalMenuUrl: String?) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            if (!digitalMenuUrl.isNullOrBlank()) {
-                // QR code
-                val qrBitmap = remember(digitalMenuUrl) { generateQrBitmap(digitalMenuUrl, 512) }
+            if (!menuUrl.isNullOrBlank()) {
+                val qrBitmap = remember(menuUrl) { generateQrBitmap(menuUrl, 512) }
 
                 Icon(
                     Icons.Filled.QrCode2, null,
@@ -418,7 +432,7 @@ private fun DigitalMenuSection(digitalMenuUrl: String?) {
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            digitalMenuUrl,
+                            menuUrl,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium,
@@ -431,7 +445,7 @@ private fun DigitalMenuSection(digitalMenuUrl: String?) {
                 OutlinedButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", digitalMenuUrl))
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", menuUrl))
                         scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -442,7 +456,7 @@ private fun DigitalMenuSection(digitalMenuUrl: String?) {
                     Text(stringResource(R.string.copy_link))
                 }
             } else {
-                // No digital menu configured
+                // No vendor loaded yet
                 Icon(
                     Icons.Filled.QrCode2, null,
                     modifier = Modifier.size(64.dp),

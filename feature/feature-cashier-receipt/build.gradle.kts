@@ -8,6 +8,7 @@ android {
 
 dependencies {
     implementation(project(":core:core-data"))
+    implementation(project(":core:core-network"))
     implementation(libs.coil.compose)
     implementation(libs.zxing.core)
     implementation(libs.zxing.android.embedded)
