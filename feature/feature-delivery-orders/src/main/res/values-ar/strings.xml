@@ -9,6 +9,10 @@
     <string name="start_delivery">بدء التوصيل</string>
     <string name="mark_delivered">تحديد كـ تم التوصيل</string>
     <string name="pick_up_order">استلام الطلب</string>
+    <string name="complete">إتمام</string>
+    <string name="view_receipt">عرض الإيصال</string>
+    <string name="items_count">%d عناصر</string>
+    <string name="order_items">عناصر الطلب</string>
     <!-- Receipt -->
     <string name="receipt">الإيصال</string>
     <string name="total">الإجمالي</string>

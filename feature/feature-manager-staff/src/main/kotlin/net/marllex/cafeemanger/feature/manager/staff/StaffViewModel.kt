@@ -66,6 +66,13 @@ class StaffViewModel @Inject constructor(
         val selectedRoleFilter: String? = null,
         val salaryPaidFilter: Boolean? = null,
 
+        // Generate Salaries Dialog
+        val showGenerateDialog: Boolean = false,
+        val generatePeriodType: String = "MONTH",
+        val generateStartDate: String = "",
+        val generateEndDate: String = "",
+        val generateResult: String? = null,
+
         // Attendance filters
         val attendanceWorkerFilter: String? = null,
         val attendanceFromDate: String = "",
@@ -364,6 +371,51 @@ class StaffViewModel @Inject constructor(
 
     fun filterSalaryByPaid(paid: Boolean?) {
         _uiState.update { it.copy(salaryPaidFilter = paid) }
+    }
+
+    // ─── Generate Salaries ──────────────────────────────────────
+
+    fun showGenerateDialog() {
+        _uiState.update {
+            it.copy(
+                showGenerateDialog = true,
+                generatePeriodType = "MONTH",
+                generateStartDate = "",
+                generateEndDate = "",
+                generateResult = null,
+            )
+        }
+    }
+
+    fun dismissGenerateDialog() {
+        _uiState.update { it.copy(showGenerateDialog = false, generateResult = null) }
+    }
+
+    fun updateGeneratePeriodType(v: String) = _uiState.update { it.copy(generatePeriodType = v) }
+    fun updateGenerateStartDate(v: String) = _uiState.update { it.copy(generateStartDate = v) }
+    fun updateGenerateEndDate(v: String) = _uiState.update { it.copy(generateEndDate = v) }
+
+    fun generateSalaries() {
+        val s = _uiState.value
+        if (s.generateStartDate.isBlank() || s.generateEndDate.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            workerRepository.generateSalaries(
+                periodType = s.generatePeriodType,
+                periodStart = s.generateStartDate,
+                periodEnd = s.generateEndDate,
+            ).onSuccess { result ->
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        generateResult = "${result.generated} generated, ${result.skipped} skipped",
+                    )
+                }
+                workerRepository.refreshSalaryPayments()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isSaving = false, error = e.message) }
+            }
+        }
     }
 
     // ─── Attendance Filters ──────────────────────────────────────

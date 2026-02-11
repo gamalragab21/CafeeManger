@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -60,6 +61,7 @@ import net.marllex.cafeemanger.feature.cashier.pos.navigation.posScreen
 import net.marllex.cafeemanger.feature.cashier.receipt.navigation.navigateToReceipt
 import net.marllex.cafeemanger.feature.cashier.receipt.navigation.receiptScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
+import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
 
 enum class CashierTab(
     val route: String,
@@ -71,6 +73,11 @@ enum class CashierTab(
         route = "cashier/orders",
         titleRes = R.string.cashier_orders,
         icon = Icons.Filled.History,
+    ),
+    TABLES(
+        route = "cashier/tables",
+        titleRes = R.string.cashier_tables,
+        icon = Icons.Filled.TableBar,
     ),
     ATTENDANCE(
         route = "cashier/attendance",
@@ -248,6 +255,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
                         }
                     )
                 }
+                composable(CashierTab.TABLES.route) { TablesScreen(readOnly = true) }
                 composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -299,6 +307,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
                         }
                     )
                 }
+                composable(CashierTab.TABLES.route) { TablesScreen(readOnly = true) }
                 composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {

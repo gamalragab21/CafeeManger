@@ -34,6 +34,9 @@ class OrdersViewModel @Inject constructor(
         val deliveryUsers: List<net.marllex.cafeemanger.core.model.User> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
+        // Delivery assignment dialog
+        val showAssignDeliveryDialog: Boolean = false,
+        val assignOrderId: String? = null,
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
@@ -128,8 +131,32 @@ class OrdersViewModel @Inject constructor(
     }
 
     fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
+        // If transitioning to ASSIGNED on a delivery order, show the delivery person picker
+        if (newStatus == OrderStatus.ASSIGNED) {
+            val order = _uiState.value.orders.find { it.id == orderId }
+            if (order?.channel == net.marllex.cafeemanger.core.model.OrderChannel.DELIVERY) {
+                _uiState.update {
+                    it.copy(showAssignDeliveryDialog = true, assignOrderId = orderId)
+                }
+                return
+            }
+        }
         viewModelScope.launch {
             orderRepository.updateOrderStatus(orderId, newStatus).onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun dismissAssignDeliveryDialog() {
+        _uiState.update { it.copy(showAssignDeliveryDialog = false, assignOrderId = null) }
+    }
+
+    fun assignDeliveryUser(deliveryUserId: String) {
+        val orderId = _uiState.value.assignOrderId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(showAssignDeliveryDialog = false, assignOrderId = null) }
+            orderRepository.assignDeliveryUser(orderId, deliveryUserId).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
             }
         }

@@ -51,4 +51,7 @@ interface WorkerRepository {
     ): Result<SalaryPayment>
     suspend fun markPaid(id: String, note: String? = null): Result<SalaryPayment>
     suspend fun markUnpaid(id: String): Result<SalaryPayment>
+    suspend fun generateSalaries(
+        periodType: String, periodStart: String, periodEnd: String
+    ): Result<GenerateSalariesResult>
 }

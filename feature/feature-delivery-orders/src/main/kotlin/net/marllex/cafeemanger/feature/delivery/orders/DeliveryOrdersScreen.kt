@@ -64,9 +64,21 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 import net.marllex.cafeemanger.core.ui.components.OrderStatusChip
+import net.marllex.cafeemanger.core.ui.components.formatStatusLabel
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,12 +161,12 @@ fun DeliveryOrdersScreen(
                                     label = { Text(stringResource(R.string.all)) },
                                 )
                             }
-                            val statuses = listOf("ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED")
+                            val statuses = listOf(OrderStatus.ASSIGNED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED)
                             items(statuses) { status ->
                                 FilterChip(
-                                    selected = uiState.selectedStatus == status,
-                                    onClick = { viewModel.filterByStatus(status) },
-                                    label = { Text(status.replace("_", " ")) },
+                                    selected = uiState.selectedStatus == status.name,
+                                    onClick = { viewModel.filterByStatus(status.name) },
+                                    label = { Text(formatStatusLabel(status)) },
                                 )
                             }
                         }
@@ -284,12 +296,40 @@ private fun DeliveryOrderCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "${order.items.size} items • ${String.format("%.2f EGP", order.total)}",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.ExtraBold
-            )
+            // Expandable order items
+            var showItems by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showItems = !showItems },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${order.items.size} ${stringResource(R.string.order_items)} • ${String.format("%.2f EGP", order.total)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Icon(
+                    if (showItems) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = showItems,
+                enter = expandVertically(),
+                exit = shrinkVertically(),
+            ) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    order.items.forEach { item ->
+                        DeliveryOrderItemRow(item = item)
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -310,7 +350,7 @@ private fun DeliveryOrderCard(
                 ) {
                     Icon(Icons.Default.Receipt, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Receipt", maxLines = 1)
+                    Text(stringResource(R.string.view_receipt), maxLines = 1)
                 }
 
                 // Primary Action: Status Update
@@ -318,7 +358,7 @@ private fun DeliveryOrderCard(
                 val (buttonText, nextStatus) = when (order.status) {
                     OrderStatus.ASSIGNED -> stringResource(R.string.start_delivery) to OrderStatus.OUT_FOR_DELIVERY
                     OrderStatus.OUT_FOR_DELIVERY -> stringResource(R.string.mark_delivered) to OrderStatus.DELIVERED
-                    OrderStatus.DELIVERED -> "Complete" to OrderStatus.COMPLETED
+                    OrderStatus.DELIVERED -> stringResource(R.string.complete) to OrderStatus.COMPLETED
                     else -> null to null
                 }
 
@@ -377,7 +417,7 @@ private fun AvailableOrderCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             order.clientName?.let {
-                Text(text = "Client: $it", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "${stringResource(R.string.client_name)}: $it", style = MaterialTheme.typography.bodyMedium)
             }
             order.clientAddress?.let {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,7 +428,7 @@ private fun AvailableOrderCard(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${order.items.size} items - Total: ${String.format("%.2f EGP", order.total)}",
+                text = "${order.items.size} ${stringResource(R.string.order_items)} - ${stringResource(R.string.total)}: ${String.format("%.2f EGP", order.total)}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -402,7 +442,7 @@ private fun AvailableOrderCard(
             ) {
                 Icon(Icons.Default.Receipt, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("View receipt")
+                Text(stringResource(R.string.view_receipt))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -415,6 +455,41 @@ private fun AvailableOrderCard(
                 Text(stringResource(R.string.pick_up_order))
             }
         }
+    }
+}
+
+@Composable
+private fun DeliveryOrderItemRow(item: OrderItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${item.quantity}x",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.itemNameSnapshot,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            item.note?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Text(
+            text = String.format("%.2f", item.itemPriceSnapshot * item.quantity),
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

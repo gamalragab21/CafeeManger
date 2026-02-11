@@ -4,5 +4,6 @@
     <string name="cashier_new_order">New Order</string>
     <string name="cashier_orders">Orders</string>
     <string name="cashier_attendance">Attendance</string>
+    <string name="cashier_tables">Tables</string>
     <string name="cashier_settings">Settings</string>
 </resources>

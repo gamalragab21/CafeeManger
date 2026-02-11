@@ -82,6 +82,10 @@
     <string name="mark_as_unpaid">Mark as Unpaid</string>
     <string name="no_salary_records">No salary records found.</string>
     <string name="payment_note">Payment Note (optional)</string>
+    <string name="generate_salaries">Generate Salaries</string>
+    <string name="generate_salaries_hint">Auto-generate salary records for all active workers based on their attendance in the selected period.</string>
+    <string name="generating">Generating…</string>
+    <string name="generated_result">%d generated, %d skipped</string>
 
     <!-- Common -->
     <string name="save">Save</string>

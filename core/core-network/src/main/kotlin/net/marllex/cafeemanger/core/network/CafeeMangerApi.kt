@@ -331,6 +331,9 @@ interface CafeeMangerApi {
     @POST("api/v1/salary-payments")
     suspend fun createSalaryPayment(@Body request: CreateSalaryPaymentRequest): SalaryPaymentResponse
 
+    @POST("api/v1/salary-payments/generate")
+    suspend fun generateSalaries(@Body request: GenerateSalariesRequest): GenerateSalariesResponse
+
     @PATCH("api/v1/salary-payments/{id}/pay")
     suspend fun markSalaryPaid(
         @Path("id") id: String,

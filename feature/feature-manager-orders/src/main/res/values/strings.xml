@@ -24,4 +24,7 @@
     <string name="view_receipt">View Receipt</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
+    <string name="assign_delivery_person">Assign Delivery Person</string>
+    <string name="select_delivery_person">Select a delivery person for this order</string>
+    <string name="no_delivery_users">No delivery persons available</string>
 </resources>

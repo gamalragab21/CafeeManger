@@ -24,4 +24,7 @@
     <string name="view_receipt">عرض الإيصال</string>
     <string name="ok">موافق</string>
     <string name="cancel">إلغاء</string>
+    <string name="assign_delivery_person">تعيين مندوب التوصيل</string>
+    <string name="select_delivery_person">اختر مندوب توصيل لهذا الطلب</string>
+    <string name="no_delivery_users">لا يوجد مندوبو توصيل متاحون</string>
 </resources>

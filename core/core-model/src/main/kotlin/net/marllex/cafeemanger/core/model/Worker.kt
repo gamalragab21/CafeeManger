@@ -87,3 +87,10 @@ data class SalaryPayment(
     val note: String? = null,
     val createdAt: Long? = null,
 )
+
+@Serializable
+data class GenerateSalariesResult(
+    val generated: Int,
+    val skipped: Int,
+    val payments: List<SalaryPayment>,
+)

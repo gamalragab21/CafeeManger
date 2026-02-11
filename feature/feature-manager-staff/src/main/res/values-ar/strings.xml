@@ -82,6 +82,10 @@
     <string name="mark_as_unpaid">تحديد كغير مدفوع</string>
     <string name="no_salary_records">لا توجد سجلات رواتب.</string>
     <string name="payment_note">ملاحظة الدفع (اختياري)</string>
+    <string name="generate_salaries">إنشاء الرواتب</string>
+    <string name="generate_salaries_hint">إنشاء سجلات رواتب تلقائياً لجميع العمال النشطين بناءً على حضورهم في الفترة المحددة.</string>
+    <string name="generating">جارٍ الإنشاء…</string>
+    <string name="generated_result">%d تم إنشاؤه، %d تم تخطيه</string>
 
     <!-- Common -->
     <string name="save">حفظ</string>

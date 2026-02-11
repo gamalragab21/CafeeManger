@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CheckCircle
@@ -204,6 +205,9 @@ fun StaffScreen(
         }
         if (uiState.showPayNoteDialog) {
             PayNoteDialog(uiState, viewModel)
+        }
+        if (uiState.showGenerateDialog) {
+            GenerateSalariesDialog(uiState, viewModel)
         }
     }
 }
@@ -828,17 +832,33 @@ private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel
             }
         }
 
-        FloatingActionButton(
-            onClick = viewModel::showSalaryDialog,
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.End,
         ) {
-            Icon(
-                Icons.Filled.Calculate,
-                contentDescription = stringResource(R.string.calculate_salary)
-            )
+            FloatingActionButton(
+                onClick = viewModel::showGenerateDialog,
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            ) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = stringResource(R.string.generate_salaries),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            FloatingActionButton(
+                onClick = viewModel::showSalaryDialog,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Calculate,
+                    contentDescription = stringResource(R.string.calculate_salary)
+                )
+            }
         }
     }
 }
@@ -1353,6 +1373,118 @@ private fun PayNoteDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewM
         dismissButton = {
             TextButton(onClick = viewModel::dismissPayNoteDialog) {
                 Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GenerateSalariesDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    AlertDialog(
+        onDismissRequest = viewModel::dismissGenerateDialog,
+        icon = {
+            Icon(
+                Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = { Text(stringResource(R.string.generate_salaries)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.generate_salaries_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                // Period type
+                Text(
+                    stringResource(R.string.select_period),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf(
+                        "DAY" to R.string.day_period,
+                        "WEEK" to R.string.week_period,
+                        "MONTH" to R.string.month_period
+                    ).forEachIndexed { index, (type, labelRes) ->
+                        SegmentedButton(
+                            selected = uiState.generatePeriodType == type,
+                            onClick = { viewModel.updateGeneratePeriodType(type) },
+                            shape = SegmentedButtonDefaults.itemShape(index, 3),
+                        ) {
+                            Text(
+                                stringResource(labelRes),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = uiState.generateStartDate,
+                    onValueChange = viewModel::updateGenerateStartDate,
+                    label = { Text(stringResource(R.string.period_start)) },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+                OutlinedTextField(
+                    value = uiState.generateEndDate,
+                    onValueChange = viewModel::updateGenerateEndDate,
+                    label = { Text(stringResource(R.string.period_end)) },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+
+                uiState.generateResult?.let { result ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(
+                            text = result,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (uiState.generateResult != null) {
+                TextButton(onClick = viewModel::dismissGenerateDialog) {
+                    Text(stringResource(R.string.confirm))
+                }
+            } else {
+                TextButton(
+                    onClick = viewModel::generateSalaries,
+                    enabled = !uiState.isSaving &&
+                            uiState.generateStartDate.isNotBlank() &&
+                            uiState.generateEndDate.isNotBlank(),
+                ) {
+                    Text(
+                        if (uiState.isSaving) stringResource(R.string.generating)
+                        else stringResource(R.string.generate_salaries)
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            if (uiState.generateResult == null) {
+                TextButton(onClick = viewModel::dismissGenerateDialog) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         },
     )

@@ -9,6 +9,10 @@
     <string name="start_delivery">Start Delivery</string>
     <string name="mark_delivered">Mark Delivered</string>
     <string name="pick_up_order">Pick Up Order</string>
+    <string name="complete">Complete</string>
+    <string name="view_receipt">View Receipt</string>
+    <string name="items_count">%d items</string>
+    <string name="order_items">Order Items</string>
     <!-- Receipt -->
     <string name="receipt">Receipt</string>
     <string name="total">Total</string>

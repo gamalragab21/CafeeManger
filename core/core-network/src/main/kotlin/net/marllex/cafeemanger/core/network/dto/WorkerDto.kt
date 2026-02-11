@@ -131,3 +131,17 @@ data class CreateSalaryPaymentRequest(
 data class MarkPaidRequest(
     val note: String? = null,
 )
+
+@Serializable
+data class GenerateSalariesRequest(
+    @SerialName("period_type") val periodType: String,
+    @SerialName("period_start") val periodStart: String,
+    @SerialName("period_end") val periodEnd: String,
+)
+
+@Serializable
+data class GenerateSalariesResponse(
+    val generated: Int,
+    val skipped: Int,
+    val payments: List<SalaryPaymentResponse>,
+)

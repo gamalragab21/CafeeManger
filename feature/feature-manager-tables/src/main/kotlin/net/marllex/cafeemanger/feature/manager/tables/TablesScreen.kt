@@ -57,6 +57,7 @@ import net.marllex.cafeemanger.core.ui.theme.TableReserved
 @Composable
 fun TablesScreen(
     viewModel: TablesViewModel = hiltViewModel(),
+    readOnly: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
@@ -73,8 +74,10 @@ fun TablesScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::showAddDialog) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Table")
+            if (!readOnly) {
+                FloatingActionButton(onClick = viewModel::showAddDialog) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Table")
+                }
             }
         },
     ) { padding ->
@@ -96,8 +99,8 @@ fun TablesScreen(
                 items(uiState.tables, key = { it.id }) { table ->
                     TableCard(
                         table = table,
-                        onEdit = { viewModel.showEditDialog(table) },
-                        onDelete = { viewModel.deleteTable(table.id) },
+                        onEdit = if (readOnly) null else {{ viewModel.showEditDialog(table) }},
+                        onDelete = if (readOnly) null else {{ viewModel.deleteTable(table.id) }},
                         onStatusChange = { viewModel.updateStatus(table, it) },
                     )
                 }
@@ -122,8 +125,8 @@ fun TablesScreen(
 @Composable
 private fun TableCard(
     table: Table,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
     onStatusChange: (TableStatus) -> Unit,
 ) {
     val statusColor = when (table.status) {
@@ -167,12 +170,18 @@ private fun TableCard(
                     )
                 }
             }
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            if (onEdit != null || onDelete != null) {
+                Row {
+                    onEdit?.let {
+                        IconButton(onClick = it) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                        }
+                    }
+                    onDelete?.let {
+                        IconButton(onClick = it) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
         }

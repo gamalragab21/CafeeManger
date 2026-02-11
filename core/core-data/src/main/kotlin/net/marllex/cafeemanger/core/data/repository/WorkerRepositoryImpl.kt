@@ -188,4 +188,19 @@ class WorkerRepositoryImpl @Inject constructor(
         workerDao.insertSalaryPayment(payment.toEntity())
         payment
     }
+
+    override suspend fun generateSalaries(
+        periodType: String, periodStart: String, periodEnd: String
+    ): Result<GenerateSalariesResult> = runCatching {
+        val response = api.generateSalaries(
+            GenerateSalariesRequest(periodType, periodStart, periodEnd)
+        )
+        val payments = response.payments.map { it.toDomain() }
+        workerDao.insertSalaryPayments(payments.map { it.toEntity() })
+        GenerateSalariesResult(
+            generated = response.generated,
+            skipped = response.skipped,
+            payments = payments,
+        )
+    }
 }
