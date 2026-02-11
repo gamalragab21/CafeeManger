@@ -66,26 +66,17 @@
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>
-    <string name="calculate_salary">Calculate Salary</string>
-    <string name="select_worker">Select Worker</string>
-    <string name="select_period">Select Period</string>
-    <string name="period_start">Start Date</string>
-    <string name="period_end">End Date</string>
-    <string name="day_period">Day</string>
-    <string name="week_period">Week</string>
-    <string name="month_period">Month</string>
     <string name="worked_days">Worked Days: %d</string>
     <string name="salary_amount_label">Amount: %s EGP</string>
     <string name="paid">Paid</string>
+    <string name="unpaid">Unpaid</string>
     <string name="not_paid">Not Paid</string>
-    <string name="mark_as_paid">Mark as Paid</string>
-    <string name="mark_as_unpaid">Mark as Unpaid</string>
     <string name="no_salary_records">No salary records found.</string>
     <string name="payment_note">Payment Note (optional)</string>
-    <string name="generate_salaries">Generate Salaries</string>
-    <string name="generate_salaries_hint">Auto-generate salary records for all active workers based on their attendance in the selected period.</string>
-    <string name="generating">Generating…</string>
-    <string name="generated_result">%d generated, %d skipped</string>
+    <string name="unpaid_balance">Unpaid Balance</string>
+    <string name="unpaid_records_count">%d unpaid</string>
+    <string name="pay_selected">Pay %d</string>
+    <string name="back">Back</string>
 
     <!-- Common -->
     <string name="save">Save</string>

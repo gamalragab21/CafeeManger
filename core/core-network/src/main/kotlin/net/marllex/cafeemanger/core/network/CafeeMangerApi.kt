@@ -328,11 +328,8 @@ interface CafeeMangerApi {
         @Query("period_type") periodType: String? = null,
     ): List<SalaryPaymentResponse>
 
-    @POST("api/v1/salary-payments")
-    suspend fun createSalaryPayment(@Body request: CreateSalaryPaymentRequest): SalaryPaymentResponse
-
-    @POST("api/v1/salary-payments/generate")
-    suspend fun generateSalaries(@Body request: GenerateSalariesRequest): GenerateSalariesResponse
+    @PATCH("api/v1/salary-payments/batch-pay")
+    suspend fun batchPaySalaries(@Body request: BatchPayRequest): List<SalaryPaymentResponse>
 
     @PATCH("api/v1/salary-payments/{id}/pay")
     suspend fun markSalaryPaid(

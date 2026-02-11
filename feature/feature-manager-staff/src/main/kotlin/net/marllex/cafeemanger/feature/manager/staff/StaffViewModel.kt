@@ -50,28 +50,15 @@ class StaffViewModel @Inject constructor(
         val showDeleteRoleDialog: Boolean = false,
         val roleToDelete: WorkerRole? = null,
 
-        // Salary Calculation Dialog
-        val showSalaryDialog: Boolean = false,
-        val salaryDialogWorkerId: String = "",
-        val salaryDialogPeriodType: String = "MONTH",
-        val salaryDialogStartDate: String = "",
-        val salaryDialogEndDate: String = "",
-
-        // Payment Note Dialog
-        val showPayNoteDialog: Boolean = false,
-        val paymentToMark: SalaryPayment? = null,
-        val paymentNote: String = "",
-
         // Selected tab filter
         val selectedRoleFilter: String? = null,
         val salaryPaidFilter: Boolean? = null,
 
-        // Generate Salaries Dialog
-        val showGenerateDialog: Boolean = false,
-        val generatePeriodType: String = "MONTH",
-        val generateStartDate: String = "",
-        val generateEndDate: String = "",
-        val generateResult: String? = null,
+        // Salary detail view (two-level navigation)
+        val selectedSalaryWorkerId: String? = null, // null = worker list, non-null = detail
+        val selectedPaymentIds: Set<String> = emptySet(),
+        val showBatchPayDialog: Boolean = false,
+        val batchPayNote: String = "",
 
         // Attendance filters
         val attendanceWorkerFilter: String? = null,
@@ -301,64 +288,49 @@ class StaffViewModel @Inject constructor(
 
     // ─── Salary ──────────────────────────────────────────────────
 
-    fun showSalaryDialog() {
+    fun selectWorkerForSalary(workerId: String?) {
         _uiState.update {
             it.copy(
-                showSalaryDialog = true,
-                salaryDialogWorkerId = "",
-                salaryDialogPeriodType = "MONTH",
-                salaryDialogStartDate = "",
-                salaryDialogEndDate = "",
+                selectedSalaryWorkerId = workerId,
+                selectedPaymentIds = emptySet(),
+                salaryPaidFilter = null,
             )
         }
     }
 
-    fun dismissSalaryDialog() {
-        _uiState.update { it.copy(showSalaryDialog = false) }
+    fun togglePaymentSelection(paymentId: String) {
+        _uiState.update {
+            val current = it.selectedPaymentIds
+            it.copy(selectedPaymentIds = if (paymentId in current) current - paymentId else current + paymentId)
+        }
     }
 
-    fun updateSalaryDialogWorkerId(v: String) = _uiState.update { it.copy(salaryDialogWorkerId = v) }
-    fun updateSalaryDialogPeriodType(v: String) = _uiState.update { it.copy(salaryDialogPeriodType = v) }
-    fun updateSalaryDialogStartDate(v: String) = _uiState.update { it.copy(salaryDialogStartDate = v) }
-    fun updateSalaryDialogEndDate(v: String) = _uiState.update { it.copy(salaryDialogEndDate = v) }
+    fun showBatchPayDialog() {
+        _uiState.update { it.copy(showBatchPayDialog = true, batchPayNote = "") }
+    }
 
-    fun calculateSalary() {
+    fun dismissBatchPayDialog() {
+        _uiState.update { it.copy(showBatchPayDialog = false) }
+    }
+
+    fun updateBatchPayNote(v: String) = _uiState.update { it.copy(batchPayNote = v) }
+
+    fun batchPay() {
         val s = _uiState.value
-        if (s.salaryDialogWorkerId.isBlank() || s.salaryDialogStartDate.isBlank() || s.salaryDialogEndDate.isBlank()) return
+        if (s.selectedPaymentIds.isEmpty()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            workerRepository.createSalaryPayment(
-                workerId = s.salaryDialogWorkerId,
-                periodType = s.salaryDialogPeriodType,
-                periodStart = s.salaryDialogStartDate,
-                periodEnd = s.salaryDialogEndDate
+            workerRepository.batchPaySalaries(
+                paymentIds = s.selectedPaymentIds.toList(),
+                note = s.batchPayNote.ifBlank { null }
             ).onSuccess {
-                _uiState.update { it.copy(isSaving = false, showSalaryDialog = false) }
+                _uiState.update {
+                    it.copy(isSaving = false, showBatchPayDialog = false, selectedPaymentIds = emptySet())
+                }
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
-        }
-    }
-
-    fun showPayNoteDialog(payment: SalaryPayment) {
-        _uiState.update { it.copy(showPayNoteDialog = true, paymentToMark = payment, paymentNote = "") }
-    }
-
-    fun dismissPayNoteDialog() {
-        _uiState.update { it.copy(showPayNoteDialog = false, paymentToMark = null) }
-    }
-
-    fun updatePaymentNote(v: String) = _uiState.update { it.copy(paymentNote = v) }
-
-    fun markPaid() {
-        val payment = _uiState.value.paymentToMark ?: return
-        viewModelScope.launch {
-            workerRepository.markPaid(payment.id, _uiState.value.paymentNote.ifBlank { null })
-                .onSuccess {
-                    _uiState.update { it.copy(showPayNoteDialog = false, paymentToMark = null) }
-                    workerRepository.refreshSalaryPayments()
-                }
         }
     }
 
@@ -371,51 +343,6 @@ class StaffViewModel @Inject constructor(
 
     fun filterSalaryByPaid(paid: Boolean?) {
         _uiState.update { it.copy(salaryPaidFilter = paid) }
-    }
-
-    // ─── Generate Salaries ──────────────────────────────────────
-
-    fun showGenerateDialog() {
-        _uiState.update {
-            it.copy(
-                showGenerateDialog = true,
-                generatePeriodType = "MONTH",
-                generateStartDate = "",
-                generateEndDate = "",
-                generateResult = null,
-            )
-        }
-    }
-
-    fun dismissGenerateDialog() {
-        _uiState.update { it.copy(showGenerateDialog = false, generateResult = null) }
-    }
-
-    fun updateGeneratePeriodType(v: String) = _uiState.update { it.copy(generatePeriodType = v) }
-    fun updateGenerateStartDate(v: String) = _uiState.update { it.copy(generateStartDate = v) }
-    fun updateGenerateEndDate(v: String) = _uiState.update { it.copy(generateEndDate = v) }
-
-    fun generateSalaries() {
-        val s = _uiState.value
-        if (s.generateStartDate.isBlank() || s.generateEndDate.isBlank()) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
-            workerRepository.generateSalaries(
-                periodType = s.generatePeriodType,
-                periodStart = s.generateStartDate,
-                periodEnd = s.generateEndDate,
-            ).onSuccess { result ->
-                _uiState.update {
-                    it.copy(
-                        isSaving = false,
-                        generateResult = "${result.generated} generated, ${result.skipped} skipped",
-                    )
-                }
-                workerRepository.refreshSalaryPayments()
-            }.onFailure { e ->
-                _uiState.update { it.copy(isSaving = false, error = e.message) }
-            }
-        }
     }
 
     // ─── Attendance Filters ──────────────────────────────────────

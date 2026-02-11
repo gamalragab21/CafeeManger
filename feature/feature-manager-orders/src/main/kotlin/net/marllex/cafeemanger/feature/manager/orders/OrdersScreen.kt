@@ -458,7 +458,7 @@ private fun AssignDeliveryDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {onDismiss()},
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel))

@@ -66,26 +66,17 @@
 
     <!-- Salary -->
     <string name="salary_payments">مدفوعات الرواتب</string>
-    <string name="calculate_salary">حساب الراتب</string>
-    <string name="select_worker">اختر العامل</string>
-    <string name="select_period">اختر الفترة</string>
-    <string name="period_start">تاريخ البداية</string>
-    <string name="period_end">تاريخ النهاية</string>
-    <string name="day_period">يوم</string>
-    <string name="week_period">أسبوع</string>
-    <string name="month_period">شهر</string>
     <string name="worked_days">أيام العمل: %d</string>
     <string name="salary_amount_label">المبلغ: %s ج.م</string>
     <string name="paid">مدفوع</string>
+    <string name="unpaid">غير مدفوع</string>
     <string name="not_paid">غير مدفوع</string>
-    <string name="mark_as_paid">تحديد كمدفوع</string>
-    <string name="mark_as_unpaid">تحديد كغير مدفوع</string>
     <string name="no_salary_records">لا توجد سجلات رواتب.</string>
     <string name="payment_note">ملاحظة الدفع (اختياري)</string>
-    <string name="generate_salaries">إنشاء الرواتب</string>
-    <string name="generate_salaries_hint">إنشاء سجلات رواتب تلقائياً لجميع العمال النشطين بناءً على حضورهم في الفترة المحددة.</string>
-    <string name="generating">جارٍ الإنشاء…</string>
-    <string name="generated_result">%d تم إنشاؤه، %d تم تخطيه</string>
+    <string name="unpaid_balance">الرصيد غير المدفوع</string>
+    <string name="unpaid_records_count">%d غير مدفوع</string>
+    <string name="pay_selected">دفع %d</string>
+    <string name="back">رجوع</string>
 
     <!-- Common -->
     <string name="save">حفظ</string>

@@ -49,7 +49,7 @@ data class UpdateUserDto(
 fun Route.userManagementRoutes() {
     route("/api/v1/users") {
         get {
-            val principal = requireRole("MANAGER")
+            val principal = requireRole("MANAGER","CASHIER")
             val role = call.parameters["role"]
 
             val users = transaction {

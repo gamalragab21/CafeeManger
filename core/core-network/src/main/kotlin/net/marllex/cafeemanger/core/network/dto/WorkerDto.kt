@@ -120,28 +120,12 @@ data class SalaryPaymentResponse(
 )
 
 @Serializable
-data class CreateSalaryPaymentRequest(
-    @SerialName("worker_id") val workerId: String,
-    @SerialName("period_type") val periodType: String,
-    @SerialName("period_start") val periodStart: String,
-    @SerialName("period_end") val periodEnd: String,
-)
-
-@Serializable
 data class MarkPaidRequest(
     val note: String? = null,
 )
 
 @Serializable
-data class GenerateSalariesRequest(
-    @SerialName("period_type") val periodType: String,
-    @SerialName("period_start") val periodStart: String,
-    @SerialName("period_end") val periodEnd: String,
-)
-
-@Serializable
-data class GenerateSalariesResponse(
-    val generated: Int,
-    val skipped: Int,
-    val payments: List<SalaryPaymentResponse>,
+data class BatchPayRequest(
+    @SerialName("payment_ids") val paymentIds: List<String>,
+    val note: String? = null,
 )

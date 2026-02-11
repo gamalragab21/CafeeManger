@@ -46,12 +46,7 @@ interface WorkerRepository {
     suspend fun refreshSalaryPayments(
         workerId: String? = null, paid: Boolean? = null, periodType: String? = null
     ): Result<List<SalaryPayment>>
-    suspend fun createSalaryPayment(
-        workerId: String, periodType: String, periodStart: String, periodEnd: String
-    ): Result<SalaryPayment>
     suspend fun markPaid(id: String, note: String? = null): Result<SalaryPayment>
     suspend fun markUnpaid(id: String): Result<SalaryPayment>
-    suspend fun generateSalaries(
-        periodType: String, periodStart: String, periodEnd: String
-    ): Result<GenerateSalariesResult>
+    suspend fun batchPaySalaries(paymentIds: List<String>, note: String? = null): Result<List<SalaryPayment>>
 }

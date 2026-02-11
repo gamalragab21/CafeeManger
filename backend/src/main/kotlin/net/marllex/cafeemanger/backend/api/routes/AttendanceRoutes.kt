@@ -13,6 +13,8 @@ import net.marllex.cafeemanger.backend.data.database.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.math.BigDecimal
+import java.time.YearMonth
 import java.util.UUID
 
 // ─── DTOs ────────────────────────────────────────────────────────
@@ -212,6 +214,66 @@ fun Route.attendanceRoutes() {
                     it[note] = request.note
                     it[createdAt] = now
                     it[updatedAt] = now
+                }
+
+                // ── Auto-generate salary record based on worker salary type ──
+                val salaryType = worker[WorkersTable.salaryType]
+                val salaryAmount = worker[WorkersTable.salaryAmount]
+
+                when (salaryType) {
+                    "DAILY" -> {
+                        // Create a daily salary record if not already exists
+                        val existingSalary = SalaryPaymentsTable.selectAll()
+                            .where {
+                                (SalaryPaymentsTable.workerId eq workerUUID) and
+                                (SalaryPaymentsTable.periodType eq "DAY") and
+                                (SalaryPaymentsTable.periodStart eq today)
+                            }.firstOrNull()
+
+                        if (existingSalary == null) {
+                            SalaryPaymentsTable.insertAndGetId {
+                                it[SalaryPaymentsTable.vendorId] = vendorUUID
+                                it[SalaryPaymentsTable.workerId] = workerUUID
+                                it[SalaryPaymentsTable.periodType] = "DAY"
+                                it[periodStart] = today
+                                it[periodEnd] = today
+                                it[workedDays] = 1
+                                it[amount] = salaryAmount
+                                it[paid] = false
+                                it[createdAt] = now
+                                it[updatedAt] = now
+                            }
+                        }
+                    }
+                    "MONTHLY" -> {
+                        // Create a monthly salary record on first check-in of the month
+                        val month = today.substring(0, 7) // "YYYY-MM"
+                        val monthStart = "$month-01"
+                        val ym = YearMonth.parse(month)
+                        val monthEnd = "$month-${ym.lengthOfMonth().toString().padStart(2, '0')}"
+
+                        val existingMonthly = SalaryPaymentsTable.selectAll()
+                            .where {
+                                (SalaryPaymentsTable.workerId eq workerUUID) and
+                                (SalaryPaymentsTable.periodType eq "MONTH") and
+                                (SalaryPaymentsTable.periodStart eq monthStart)
+                            }.firstOrNull()
+
+                        if (existingMonthly == null) {
+                            SalaryPaymentsTable.insertAndGetId {
+                                it[SalaryPaymentsTable.vendorId] = vendorUUID
+                                it[SalaryPaymentsTable.workerId] = workerUUID
+                                it[SalaryPaymentsTable.periodType] = "MONTH"
+                                it[periodStart] = monthStart
+                                it[periodEnd] = monthEnd
+                                it[workedDays] = 1
+                                it[amount] = salaryAmount
+                                it[paid] = false
+                                it[createdAt] = now
+                                it[updatedAt] = now
+                            }
+                        }
+                    }
                 }
 
                 AttendanceTable

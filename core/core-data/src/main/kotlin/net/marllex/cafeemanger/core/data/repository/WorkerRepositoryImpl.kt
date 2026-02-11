@@ -164,17 +164,6 @@ class WorkerRepositoryImpl @Inject constructor(
         payments
     }
 
-    override suspend fun createSalaryPayment(
-        workerId: String, periodType: String, periodStart: String, periodEnd: String
-    ): Result<SalaryPayment> = runCatching {
-        val response = api.createSalaryPayment(
-            CreateSalaryPaymentRequest(workerId, periodType, periodStart, periodEnd)
-        )
-        val payment = response.toDomain()
-        workerDao.insertSalaryPayment(payment.toEntity())
-        payment
-    }
-
     override suspend fun markPaid(id: String, note: String?): Result<SalaryPayment> = runCatching {
         val response = api.markSalaryPaid(id, MarkPaidRequest(note))
         val payment = response.toDomain()
@@ -189,18 +178,12 @@ class WorkerRepositoryImpl @Inject constructor(
         payment
     }
 
-    override suspend fun generateSalaries(
-        periodType: String, periodStart: String, periodEnd: String
-    ): Result<GenerateSalariesResult> = runCatching {
-        val response = api.generateSalaries(
-            GenerateSalariesRequest(periodType, periodStart, periodEnd)
-        )
-        val payments = response.payments.map { it.toDomain() }
+    override suspend fun batchPaySalaries(
+        paymentIds: List<String>, note: String?
+    ): Result<List<SalaryPayment>> = runCatching {
+        val response = api.batchPaySalaries(BatchPayRequest(paymentIds, note))
+        val payments = response.map { it.toDomain() }
         workerDao.insertSalaryPayments(payments.map { it.toEntity() })
-        GenerateSalariesResult(
-            generated = response.generated,
-            skipped = response.skipped,
-            payments = payments,
-        )
+        payments
     }
 }

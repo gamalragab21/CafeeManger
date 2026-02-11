@@ -24,11 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventBusy
@@ -200,14 +200,8 @@ fun StaffScreen(
                 onDismiss = viewModel::dismissDeleteRoleDialog,
             )
         }
-        if (uiState.showSalaryDialog) {
-            CalculateSalaryDialog(uiState, viewModel)
-        }
-        if (uiState.showPayNoteDialog) {
-            PayNoteDialog(uiState, viewModel)
-        }
-        if (uiState.showGenerateDialog) {
-            GenerateSalariesDialog(uiState, viewModel)
+        if (uiState.showBatchPayDialog) {
+            BatchPayNoteDialog(uiState, viewModel)
         }
     }
 }
@@ -766,13 +760,202 @@ private fun AttendanceRecordCard(record: Attendance) {
 
 @Composable
 private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
-    val filteredPayments = remember(uiState.salaryPayments, uiState.salaryPaidFilter) {
-        if (uiState.salaryPaidFilter == null) uiState.salaryPayments
-        else uiState.salaryPayments.filter { it.paid == uiState.salaryPaidFilter }
+    if (uiState.selectedSalaryWorkerId == null) {
+        WorkerSalaryListView(uiState, viewModel)
+    } else {
+        WorkerSalaryDetailView(uiState, viewModel, uiState.selectedSalaryWorkerId)
+    }
+}
+
+@Composable
+private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    data class WorkerSummary(
+        val workerId: String,
+        val workerName: String,
+        val workerRole: String,
+        val salaryType: String,
+        val unpaidAmount: Double,
+        val unpaidCount: Int,
+    )
+
+    val workerSummaries = remember(uiState.salaryPayments, uiState.workers, uiState.salaryPaidFilter) {
+        val grouped = uiState.salaryPayments.groupBy { it.workerId }
+        uiState.workers.mapNotNull { worker ->
+            val payments = grouped[worker.id] ?: emptyList()
+            val unpaid = payments.filter { !it.paid }
+            val summary = WorkerSummary(
+                workerId = worker.id,
+                workerName = worker.fullName,
+                workerRole = worker.role,
+                salaryType = worker.salaryType.name,
+                unpaidAmount = unpaid.sumOf { it.amount },
+                unpaidCount = unpaid.size,
+            )
+            when (uiState.salaryPaidFilter) {
+                false -> if (summary.unpaidCount > 0) summary else null
+                true -> if (payments.any { it.paid }) summary else null
+                null -> summary
+            }
+        }
+    }
+
+    Column {
+        // Filter chips
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == null,
+                    onClick = { viewModel.filterSalaryByPaid(null) },
+                    label = { Text(stringResource(R.string.all)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+            item {
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == false,
+                    onClick = { viewModel.filterSalaryByPaid(false) },
+                    label = { Text(stringResource(R.string.unpaid)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                )
+            }
+            item {
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == true,
+                    onClick = { viewModel.filterSalaryByPaid(true) },
+                    label = { Text(stringResource(R.string.paid)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+        }
+
+        if (workerSummaries.isEmpty()) {
+            EmptyState(
+                icon = Icons.Filled.Payments,
+                message = stringResource(R.string.no_salary_records),
+            )
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(workerSummaries, key = { it.workerId }) { summary ->
+                    Card(
+                        onClick = { viewModel.selectWorkerForSalary(summary.workerId) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = summary.workerName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = "${summary.workerRole} \u2022 ${summary.salaryType}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Icon(
+                                    Icons.Filled.ChevronRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (summary.unpaidCount > 0) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.unpaid_balance),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = "${summary.unpaidAmount.toBigDecimal().toPlainString()} ${stringResource(R.string.egp)}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.unpaid_records_count, summary.unpaidCount),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerSalaryDetailView(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+    workerId: String,
+) {
+    val worker = uiState.workers.find { it.id == workerId }
+    val payments = remember(uiState.salaryPayments, uiState.salaryPaidFilter, workerId) {
+        val filtered = uiState.salaryPayments.filter { it.workerId == workerId }
+        when (uiState.salaryPaidFilter) {
+            true -> filtered.filter { it.paid }
+            false -> filtered.filter { !it.paid }
+            null -> filtered
+        }.sortedByDescending { it.periodStart }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column {
+            // Header
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(0.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { viewModel.selectWorkerForSalary(null) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = worker?.fullName ?: "",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${worker?.role ?: ""} \u2022 ${worker?.salaryType?.name ?: ""}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+
             // Filter chips
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -783,9 +966,13 @@ private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel
                         selected = uiState.salaryPaidFilter == null,
                         onClick = { viewModel.filterSalaryByPaid(null) },
                         label = { Text(stringResource(R.string.all)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.salaryPaidFilter == false,
+                        onClick = { viewModel.filterSalaryByPaid(false) },
+                        label = { Text(stringResource(R.string.unpaid)) },
                     )
                 }
                 item {
@@ -793,24 +980,11 @@ private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel
                         selected = uiState.salaryPaidFilter == true,
                         onClick = { viewModel.filterSalaryByPaid(true) },
                         label = { Text(stringResource(R.string.paid)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == false,
-                        onClick = { viewModel.filterSalaryByPaid(false) },
-                        label = { Text(stringResource(R.string.not_paid)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                        ),
                     )
                 }
             }
 
-            if (filteredPayments.isEmpty()) {
+            if (payments.isEmpty()) {
                 EmptyState(
                     icon = Icons.Filled.Payments,
                     message = stringResource(R.string.no_salary_records),
@@ -820,10 +994,11 @@ private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(filteredPayments, key = { it.id }) { payment ->
-                        SalaryPaymentCard(
+                    items(payments, key = { it.id }) { payment ->
+                        SelectableSalaryPaymentCard(
                             payment = payment,
-                            onMarkPaid = { viewModel.showPayNoteDialog(payment) },
+                            selected = payment.id in uiState.selectedPaymentIds,
+                            onToggle = { viewModel.togglePaymentSelection(payment.id) },
                             onMarkUnpaid = { viewModel.markUnpaid(payment) },
                         )
                     }
@@ -832,126 +1007,95 @@ private fun SalaryTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel
             }
         }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
+        // FAB: Pay Selected
+        if (uiState.selectedPaymentIds.isNotEmpty()) {
             FloatingActionButton(
-                onClick = viewModel::showGenerateDialog,
-                shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            ) {
-                Icon(
-                    Icons.Filled.AutoAwesome,
-                    contentDescription = stringResource(R.string.generate_salaries),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
-            FloatingActionButton(
-                onClick = viewModel::showSalaryDialog,
+                onClick = viewModel::showBatchPayDialog,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Icon(
-                    Icons.Filled.Calculate,
-                    contentDescription = stringResource(R.string.calculate_salary)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null)
+                    Text(stringResource(R.string.pay_selected, uiState.selectedPaymentIds.size))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SalaryPaymentCard(
+private fun SelectableSalaryPaymentCard(
     payment: SalaryPayment,
-    onMarkPaid: () -> Unit,
+    selected: Boolean,
+    onToggle: () -> Unit,
     onMarkUnpaid: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
+        colors = if (selected) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+        ) else CardDefaults.cardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = payment.workerName ?: stringResource(R.string.worker),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "${payment.periodStart} - ${payment.periodEnd}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Checkbox for unpaid items
+            if (!payment.paid) {
+                androidx.compose.material3.Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggle() },
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (payment.periodType == "DAY") payment.periodStart
+                    else "${payment.periodStart} - ${payment.periodEnd}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = "${payment.periodType} \u2022 ${stringResource(R.string.worked_days, payment.workedDays)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${payment.amount.toBigDecimal().toPlainString()} ${stringResource(R.string.egp)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (payment.paid) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error,
+                )
                 AssistChip(
-                    onClick = {},
+                    onClick = { if (payment.paid) onMarkUnpaid() },
                     label = {
                         Text(
-                            if (payment.paid) stringResource(R.string.paid) else stringResource(R.string.not_paid),
+                            if (payment.paid) stringResource(R.string.paid) else stringResource(R.string.unpaid),
                             style = MaterialTheme.typography.labelSmall,
                         )
                     },
-                    modifier = Modifier.height(28.dp),
+                    modifier = Modifier.height(24.dp),
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = if (payment.paid)
                             MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.errorContainer,
-                        labelColor = if (payment.paid)
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onErrorContainer,
                     ),
                 )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.worked_days, payment.workedDays),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = "${
-                        payment.amount.toBigDecimal().toPlainString()
-                    } ${stringResource(R.string.egp)}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            if (!payment.paid) {
-                Button(
-                    onClick = onMarkPaid,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.mark_as_paid))
-                }
-            } else {
-                OutlinedButton(
-                    onClick = onMarkUnpaid,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text(stringResource(R.string.mark_as_unpaid))
-                }
             }
         }
     }
@@ -1240,125 +1384,15 @@ private fun AddRoleDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewM
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CalculateSalaryDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+private fun BatchPayNoteDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
     AlertDialog(
-        onDismissRequest = viewModel::dismissSalaryDialog,
-        icon = { Icon(Icons.Filled.Calculate, null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text(stringResource(R.string.calculate_salary)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Worker selector
-                var workerExpanded by remember { mutableStateOf(false) }
-                val selectedWorkerName =
-                    uiState.workers.find { it.id == uiState.salaryDialogWorkerId }?.fullName ?: ""
-
-                ExposedDropdownMenuBox(
-                    expanded = workerExpanded,
-                    onExpandedChange = { workerExpanded = it },
-                ) {
-                    OutlinedTextField(
-                        value = selectedWorkerName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.select_worker)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = workerExpanded,
-                        onDismissRequest = { workerExpanded = false },
-                    ) {
-                        uiState.workers.filter { it.active }.forEach { worker ->
-                            DropdownMenuItem(
-                                text = { Text("${worker.fullName} (${worker.workerId})") },
-                                onClick = {
-                                    viewModel.updateSalaryDialogWorkerId(worker.id)
-                                    workerExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-
-                // Period type
-                Text(
-                    stringResource(R.string.select_period),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    listOf(
-                        "DAY" to R.string.day_period,
-                        "WEEK" to R.string.week_period,
-                        "MONTH" to R.string.month_period
-                    )
-                        .forEachIndexed { index, (type, labelRes) ->
-                            SegmentedButton(
-                                selected = uiState.salaryDialogPeriodType == type,
-                                onClick = { viewModel.updateSalaryDialogPeriodType(type) },
-                                shape = SegmentedButtonDefaults.itemShape(index, 3),
-                            ) {
-                                Text(
-                                    stringResource(labelRes),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                }
-
-                OutlinedTextField(
-                    value = uiState.salaryDialogStartDate,
-                    onValueChange = viewModel::updateSalaryDialogStartDate,
-                    label = { Text(stringResource(R.string.period_start)) },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.salaryDialogEndDate,
-                    onValueChange = viewModel::updateSalaryDialogEndDate,
-                    label = { Text(stringResource(R.string.period_end)) },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = viewModel::calculateSalary,
-                enabled = !uiState.isSaving &&
-                        uiState.salaryDialogWorkerId.isNotBlank() &&
-                        uiState.salaryDialogStartDate.isNotBlank() &&
-                        uiState.salaryDialogEndDate.isNotBlank(),
-            ) {
-                Text(if (uiState.isSaving) stringResource(R.string.saving) else stringResource(R.string.calculate_salary))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissSalaryDialog) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
-}
-
-@Composable
-private fun PayNoteDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
-    AlertDialog(
-        onDismissRequest = viewModel::dismissPayNoteDialog,
-        title = { Text(stringResource(R.string.mark_as_paid)) },
+        onDismissRequest = viewModel::dismissBatchPayDialog,
+        title = { Text(stringResource(R.string.pay_selected, uiState.selectedPaymentIds.size)) },
         text = {
             OutlinedTextField(
-                value = uiState.paymentNote,
-                onValueChange = viewModel::updatePaymentNote,
+                value = uiState.batchPayNote,
+                onValueChange = viewModel::updateBatchPayNote,
                 label = { Text(stringResource(R.string.payment_note)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1366,125 +1400,21 @@ private fun PayNoteDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             )
         },
         confirmButton = {
-            TextButton(onClick = viewModel::markPaid) {
-                Text(stringResource(R.string.confirm))
+            Button(
+                onClick = viewModel::batchPay,
+                enabled = !uiState.isSaving,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (uiState.isSaving) stringResource(R.string.saving) else stringResource(R.string.confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = viewModel::dismissPayNoteDialog) {
+            TextButton(onClick = viewModel::dismissBatchPayDialog) {
                 Text(stringResource(R.string.cancel))
-            }
-        },
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GenerateSalariesDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
-    AlertDialog(
-        onDismissRequest = viewModel::dismissGenerateDialog,
-        icon = {
-            Icon(
-                Icons.Filled.AutoAwesome,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        title = { Text(stringResource(R.string.generate_salaries)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = stringResource(R.string.generate_salaries_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // Period type
-                Text(
-                    stringResource(R.string.select_period),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    listOf(
-                        "DAY" to R.string.day_period,
-                        "WEEK" to R.string.week_period,
-                        "MONTH" to R.string.month_period
-                    ).forEachIndexed { index, (type, labelRes) ->
-                        SegmentedButton(
-                            selected = uiState.generatePeriodType == type,
-                            onClick = { viewModel.updateGeneratePeriodType(type) },
-                            shape = SegmentedButtonDefaults.itemShape(index, 3),
-                        ) {
-                            Text(
-                                stringResource(labelRes),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = uiState.generateStartDate,
-                    onValueChange = viewModel::updateGenerateStartDate,
-                    label = { Text(stringResource(R.string.period_start)) },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.generateEndDate,
-                    onValueChange = viewModel::updateGenerateEndDate,
-                    label = { Text(stringResource(R.string.period_end)) },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-
-                uiState.generateResult?.let { result ->
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text(
-                            text = result,
-                            modifier = Modifier.padding(12.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (uiState.generateResult != null) {
-                TextButton(onClick = viewModel::dismissGenerateDialog) {
-                    Text(stringResource(R.string.confirm))
-                }
-            } else {
-                TextButton(
-                    onClick = viewModel::generateSalaries,
-                    enabled = !uiState.isSaving &&
-                            uiState.generateStartDate.isNotBlank() &&
-                            uiState.generateEndDate.isNotBlank(),
-                ) {
-                    Text(
-                        if (uiState.isSaving) stringResource(R.string.generating)
-                        else stringResource(R.string.generate_salaries)
-                    )
-                }
-            }
-        },
-        dismissButton = {
-            if (uiState.generateResult == null) {
-                TextButton(onClick = viewModel::dismissGenerateDialog) {
-                    Text(stringResource(R.string.cancel))
-                }
             }
         },
     )

@@ -88,30 +88,14 @@ data class SalaryPaymentDto(
 )
 
 @Serializable
-data class CreateSalaryPaymentDto(
-    val worker_id: String,
-    val period_type: String, // DAY, WEEK, MONTH
-    val period_start: String, // YYYY-MM-DD
-    val period_end: String,
-)
-
-@Serializable
 data class MarkPaidDto(
     val note: String? = null,
 )
 
 @Serializable
-data class GenerateSalariesDto(
-    val period_type: String, // DAY, WEEK, MONTH
-    val period_start: String, // YYYY-MM-DD
-    val period_end: String,
-)
-
-@Serializable
-data class GenerateSalariesResponse(
-    val generated: Int,
-    val skipped: Int,
-    val payments: List<SalaryPaymentDto>,
+data class BatchPayDto(
+    val payment_ids: List<String>,
+    val note: String? = null,
 )
 
 // ─── Routes ──────────────────────────────────────────────────────
@@ -374,167 +358,39 @@ fun Route.workerRoutes() {
             call.respond(HttpStatusCode.OK, payments)
         }
 
-        // GENERATE salary payments for all active workers in a period
-        post("/generate") {
+        // BATCH PAY multiple salary payments at once
+        patch("/batch-pay") {
             val principal = requireRole("MANAGER")
-            val request = call.receive<GenerateSalariesDto>()
-            require(request.period_type in listOf("DAY", "WEEK", "MONTH")) {
-                "Period type must be DAY, WEEK, or MONTH"
-            }
+            val request = call.receive<BatchPayDto>()
+            require(request.payment_ids.isNotEmpty()) { "At least one payment ID is required" }
 
-            val result = transaction {
+            val updated = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
                 val now = Clock.System.now()
+                val userId = UUID.fromString(principal.userId)
 
-                // Get all active workers
-                val activeWorkers = WorkersTable.selectAll()
-                    .where {
-                        (WorkersTable.vendorId eq vendorUUID) and
-                        (WorkersTable.active eq true)
-                    }.toList()
+                request.payment_ids.map { idStr ->
+                    val paymentUUID = UUID.fromString(idStr)
 
-                var generated = 0
-                var skipped = 0
-                val payments = mutableListOf<SalaryPaymentDto>()
-
-                for (worker in activeWorkers) {
-                    val workerUUID = worker[WorkersTable.id]
-
-                    // Check if a salary record already exists for this worker and period
-                    val existing = SalaryPaymentsTable.selectAll()
-                        .where {
-                            (SalaryPaymentsTable.vendorId eq vendorUUID) and
-                            (SalaryPaymentsTable.workerId eq workerUUID) and
-                            (SalaryPaymentsTable.periodType eq request.period_type) and
-                            (SalaryPaymentsTable.periodStart eq request.period_start) and
-                            (SalaryPaymentsTable.periodEnd eq request.period_end)
-                        }.firstOrNull()
-
-                    if (existing != null) {
-                        skipped++
-                        continue
-                    }
-
-                    // Count attendance in period
-                    val attendanceRecords = AttendanceTable.selectAll()
-                        .where {
-                            (AttendanceTable.workerId eq workerUUID) and
-                            (AttendanceTable.date greaterEq request.period_start) and
-                            (AttendanceTable.date lessEq request.period_end)
-                        }.toList()
-
-                    val workedDays = attendanceRecords.size
-                    val workedMinutes = attendanceRecords.sumOf {
-                        it[AttendanceTable.workedMinutes] ?: 0
-                    }
-                    val workedHours = workedMinutes / 60
-
-                    // Calculate salary
-                    val salaryType = worker[WorkersTable.salaryType]
-                    val salaryAmount = worker[WorkersTable.salaryAmount].toDouble()
-                    val calculatedAmount = when (salaryType) {
-                        "DAILY" -> salaryAmount * workedDays
-                        "MONTHLY" -> salaryAmount
-                        else -> 0.0
-                    }
-
-                    val id = SalaryPaymentsTable.insertAndGetId {
-                        it[SalaryPaymentsTable.vendorId] = vendorUUID
-                        it[SalaryPaymentsTable.workerId] = workerUUID
-                        it[SalaryPaymentsTable.periodType] = request.period_type
-                        it[periodStart] = request.period_start
-                        it[periodEnd] = request.period_end
-                        it[SalaryPaymentsTable.workedDays] = workedDays
-                        it[SalaryPaymentsTable.workedHours] = workedHours
-                        it[amount] = BigDecimal.valueOf(calculatedAmount)
-                        it[paid] = false
-                        it[createdAt] = now
+                    SalaryPaymentsTable.update({
+                        (SalaryPaymentsTable.id eq paymentUUID) and
+                        (SalaryPaymentsTable.vendorId eq vendorUUID)
+                    }) {
+                        it[paid] = true
+                        it[paidAt] = now
+                        it[paidBy] = userId
+                        it[note] = request.note
                         it[updatedAt] = now
                     }
 
-                    val payment = SalaryPaymentsTable
+                    SalaryPaymentsTable
                         .innerJoin(WorkersTable, { SalaryPaymentsTable.workerId }, { WorkersTable.id })
                         .selectAll()
-                        .where { SalaryPaymentsTable.id eq id }
-                        .first().toSalaryPaymentDto()
-
-                    payments.add(payment)
-                    generated++
-                }
-
-                GenerateSalariesResponse(
-                    generated = generated,
-                    skipped = skipped,
-                    payments = payments,
-                )
+                        .where { SalaryPaymentsTable.id eq paymentUUID }
+                        .firstOrNull()?.toSalaryPaymentDto()
+                }.filterNotNull()
             }
-            call.respond(HttpStatusCode.Created, result)
-        }
-
-        // CREATE salary payment (calculate from attendance)
-        post {
-            val principal = requireRole("MANAGER")
-            val request = call.receive<CreateSalaryPaymentDto>()
-            require(request.period_type in listOf("DAY", "WEEK", "MONTH")) {
-                "Period type must be DAY, WEEK, or MONTH"
-            }
-
-            val payment = transaction {
-                val vendorUUID = UUID.fromString(principal.vendorId)
-                val workerUUID = UUID.fromString(request.worker_id)
-
-                // Get worker info
-                val worker = WorkersTable.selectAll()
-                    .where {
-                        (WorkersTable.id eq workerUUID) and
-                        (WorkersTable.vendorId eq vendorUUID)
-                    }.firstOrNull() ?: throw NoSuchElementException("Worker not found")
-
-                // Count attendance in period
-                val attendanceRecords = AttendanceTable.selectAll()
-                    .where {
-                        (AttendanceTable.workerId eq workerUUID) and
-                        (AttendanceTable.date greaterEq request.period_start) and
-                        (AttendanceTable.date lessEq request.period_end)
-                    }.toList()
-
-                val workedDays = attendanceRecords.size
-                val workedMinutes = attendanceRecords.sumOf {
-                    it[AttendanceTable.workedMinutes] ?: 0
-                }
-                val workedHours = workedMinutes / 60
-
-                // Calculate salary
-                val salaryType = worker[WorkersTable.salaryType]
-                val salaryAmount = worker[WorkersTable.salaryAmount].toDouble()
-                val calculatedAmount = when (salaryType) {
-                    "DAILY" -> salaryAmount * workedDays
-                    "MONTHLY" -> salaryAmount // Full monthly amount
-                    else -> 0.0
-                }
-
-                val now = Clock.System.now()
-                val id = SalaryPaymentsTable.insertAndGetId {
-                    it[SalaryPaymentsTable.vendorId] = vendorUUID
-                    it[SalaryPaymentsTable.workerId] = workerUUID
-                    it[SalaryPaymentsTable.periodType] = request.period_type
-                    it[periodStart] = request.period_start
-                    it[periodEnd] = request.period_end
-                    it[SalaryPaymentsTable.workedDays] = workedDays
-                    it[SalaryPaymentsTable.workedHours] = workedHours
-                    it[amount] = BigDecimal.valueOf(calculatedAmount)
-                    it[paid] = false
-                    it[createdAt] = now
-                    it[updatedAt] = now
-                }
-
-                SalaryPaymentsTable
-                    .innerJoin(WorkersTable, { SalaryPaymentsTable.workerId }, { WorkersTable.id })
-                    .selectAll()
-                    .where { SalaryPaymentsTable.id eq id }
-                    .first().toSalaryPaymentDto()
-            }
-            call.respond(HttpStatusCode.Created, payment)
+            call.respond(HttpStatusCode.OK, updated)
         }
 
         // MARK as paid / unpaid
