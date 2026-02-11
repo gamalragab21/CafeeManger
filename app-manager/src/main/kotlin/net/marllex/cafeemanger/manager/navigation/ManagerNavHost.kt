@@ -89,7 +89,9 @@ import androidx.navigation.compose.rememberNavController
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
+import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
+import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.cafeemanger.feature.auth.navigation.authScreen
 import net.marllex.cafeemanger.feature.manager.analytics.AnalyticsScreen
@@ -220,12 +222,24 @@ private fun ManagerNavRail(
 
 // ─── Main Nav Host ───────────────────────────────────────────────
 @Composable
-fun ManagerNavHost() {
+fun ManagerNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
+    val scope = rememberCoroutineScope()
+
+    val onSignOut: () -> Unit = remember(navController, scope) {
+        {
+            scope.launch {
+                authRepository.logout()
+                navController.navigate(AUTH_ROUTE) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
 
     val showNav = ManagerTab.entries.any { tab ->
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
@@ -260,7 +274,7 @@ fun ManagerNavHost() {
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
                 composable(ManagerTab.USERS.route) { StaffScreen() }
-                composable(ManagerTab.PROFILE.route) { ProfileTabContent() }
+                composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
             }
         }
     } else {
@@ -287,7 +301,7 @@ fun ManagerNavHost() {
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
                 composable(ManagerTab.USERS.route) { StaffScreen() }
-                composable(ManagerTab.PROFILE.route) { ProfileTabContent() }
+                composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
             }
         }
     }
@@ -538,7 +552,7 @@ private fun generateQrBitmap(content: String, size: Int): Bitmap {
 
 // ─── Profile Sub-Tabs ────────────────────────────────────────────
 @Composable
-private fun ProfileTabContent() {
+private fun ProfileTabContent(onSignOut: () -> Unit) {
     // Build tabs dynamically based on vendor feature flags
     val profileVm: RestaurantProfileViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val profileState by profileVm.uiState.collectAsStateWithLifecycle()
@@ -551,7 +565,7 @@ private fun ProfileTabContent() {
             add("analytics" to { AnalyticsScreen() })
             add("Roles & Permissions" to { UsersScreen() })
             add("tax_places" to { TaxPlacesScreen() })
-            add("settings" to { SettingsContent() })
+            add("settings" to { SettingsContent(onSignOut = onSignOut) })
         }
     }
 
@@ -613,12 +627,14 @@ private fun ProfileTabContent() {
 }
 
 @Composable
-private fun SettingsContent() {
+private fun SettingsContent(onSignOut: () -> Unit) {
     Column(
         modifier = Modifier.padding(16.dp),
     ) {
         LanguageSelector(
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(Modifier.height(24.dp))
+        SignOutButton(onSignOut = onSignOut)
     }
 }

@@ -21,7 +21,7 @@ import net.marllex.cafeemanger.core.database.entity.*
         AttendanceEntity::class,
         SalaryPaymentEntity::class,
     ],
-    version = 7,
+    version = 8, // Added isMenuItem, alertEnabled to StockEntity, itemName to StockTransactionEntity
     exportSchema = false
 )
 abstract class CafeeMangerDatabase : RoomDatabase() {

@@ -3,8 +3,71 @@
     <!-- Channel labels -->
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
+    <string name="channel_takeaway">سفري</string>
+
     <!-- Payment labels -->
     <string name="payment_cash">نقدي</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
+
+    <!-- Order Status -->
+    <string name="status_created">جديد</string>
+    <string name="status_in_preparation">قيد التحضير</string>
+    <string name="status_ready">جاهز</string>
+    <string name="status_assigned">تم التعيين</string>
+    <string name="status_out_for_delivery">في الطريق</string>
+    <string name="status_delivered">تم التوصيل</string>
+    <string name="status_completed">مكتمل</string>
+    <string name="status_canceled">ملغي</string>
+
+    <!-- User Roles -->
+    <string name="role_manager">مدير</string>
+    <string name="role_cashier">كاشير</string>
+    <string name="role_delivery">توصيل</string>
+    <string name="role_admin">مشرف</string>
+
+    <!-- Stock Transaction Types -->
+    <string name="stock_type_add">إضافة</string>
+    <string name="stock_type_deduct">خصم</string>
+    <string name="stock_type_adjust">تعديل</string>
+
+    <!-- Attendance Types -->
+    <string name="attendance_attend">حضور</string>
+    <string name="attendance_absent">غياب</string>
+    <string name="attendance_leave">إجازة</string>
+
+    <!-- Salary Period Types -->
+    <string name="salary_daily">يومي</string>
+    <string name="salary_weekly">أسبوعي</string>
+    <string name="salary_monthly">شهري</string>
+
+    <!-- Table Status -->
+    <string name="table_available">متاح</string>
+    <string name="table_occupied">مشغول</string>
+    <string name="table_reserved">محجوز</string>
+
+    <!-- Common -->
+    <string name="loading">جاري التحميل…</string>
+    <string name="error">خطأ</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="edit">تعديل</string>
+    <string name="add">إضافة</string>
+    <string name="confirm">تأكيد</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="all">الكل</string>
+    <string name="none">لا شيء</string>
+    <string name="search">بحث</string>
+    <string name="filter">تصفية</string>
+    <string name="clear">مسح</string>
+    <string name="ok">موافق</string>
+    <string name="done">تم</string>
+    <string name="close">إغلاق</string>
+    <string name="settings">الإعدادات</string>
+    <string name="logout">تسجيل الخروج</string>
+    <string name="signout">تسجيل الخروج</string>
+    <string name="signout_confirm">هل أنت متأكد من تسجيل الخروج؟</string>
 </resources>

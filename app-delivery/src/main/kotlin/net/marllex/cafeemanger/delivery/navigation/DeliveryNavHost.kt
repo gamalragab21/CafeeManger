@@ -43,7 +43,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
+import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.delivery.R
 import net.marllex.cafeemanger.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.cafeemanger.feature.auth.navigation.authScreen
@@ -170,13 +177,25 @@ private fun DeliveryNavRail(
 
 // ─── Main Nav Host ───────────────────────────────────────────────
 @Composable
-fun DeliveryNavHost() {
+fun DeliveryNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
+    val scope = rememberCoroutineScope()
+
+    val onSignOut: () -> Unit = remember(navController, scope) {
+        {
+            scope.launch {
+                authRepository.logout()
+                navController.navigate(AUTH_ROUTE) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
 
     val showNav = DeliveryTab.entries.any { tab ->
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
@@ -224,6 +243,8 @@ fun DeliveryNavHost() {
         composable(DeliveryTab.SETTINGS.route) {
             Column(modifier = Modifier.padding(16.dp)) {
                 LanguageSelector(modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(24.dp))
+                SignOutButton(onSignOut = onSignOut)
             }
         }
 

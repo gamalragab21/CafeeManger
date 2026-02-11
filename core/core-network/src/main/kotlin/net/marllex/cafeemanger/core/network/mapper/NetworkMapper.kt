@@ -115,18 +115,44 @@ fun StockResponse.toDomain() = Stock(
     minQuantity = minQuantity,
     costPrice = costPrice,
     unit = unit,
+    isMenuItem = isMenuItem,
+    alertEnabled = alertEnabled,
     lastUpdatedAt = updatedAt ?: (createdAt ?: System.currentTimeMillis()),
 )
 
 fun StockTransactionResponse.toDomain() = StockTransaction(
     id = id,
     stockId = stockId,
+    itemName = itemName,
     type = StockTransactionType.valueOf(type),
     quantity = quantity,
     previousQuantity = previousQuantity,
     orderId = orderId,
     note = note,
     createdAt = createdAt ?: System.currentTimeMillis(),
+)
+
+fun StockAlertResponse.toDomain() = StockAlert(
+    id = id,
+    itemName = itemName,
+    quantity = quantity,
+    minQuantity = minQuantity,
+    unit = unit,
+    isOutOfStock = isOutOfStock,
+    isMenuItem = isMenuItem,
+)
+
+fun StockAnalyticsSummaryResponse.toDomain() = StockSummary(
+    totalItems = totalItems,
+    totalValue = totalValue,
+    lowStockCount = lowStockCount,
+    outOfStockCount = outOfStockCount,
+    healthyStockCount = healthyCount,
+    menuItemsCount = menuItemsCount,
+    independentItemsCount = independentItemsCount,
+    totalTransactionsToday = totalTransactionsToday,
+    totalAddedToday = totalAddedToday,
+    totalDeductedToday = totalDeductedToday,
 )
 
 // ─── Analytics Mappers ───────────────────────────────────────────

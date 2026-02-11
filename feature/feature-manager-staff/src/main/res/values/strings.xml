@@ -37,6 +37,8 @@
     <string name="delete_role_confirm">Are you sure you want to delete this role?</string>
     <string name="predefined_roles_hint">Define worker roles here first, then assign them when adding workers.</string>
 
+    <string name="worker">Worker</string>
+
     <!-- Attendance -->
     <string name="today">Today</string>
     <string name="present">Present</string>
@@ -56,6 +58,11 @@
     <string name="no_attendance_records">No attendance records found.</string>
     <string name="total_days">Total Days: %d</string>
     <string name="total_hours">Total Hours: %s</string>
+    <string name="filter_by_worker">Filter by Worker</string>
+    <string name="all_workers">All Workers</string>
+    <string name="from_date">From Date</string>
+    <string name="to_date">To Date</string>
+    <string name="filter_by_status">Filter by Status</string>
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>

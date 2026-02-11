@@ -2,5 +2,26 @@
 <resources>
     <string name="orders">الطلبات</string>
     <string name="all">الكل</string>
-
+    <string name="filters">التصفية</string>
+    <string name="clear_filters">مسح التصفية</string>
+    <string name="date_filter">التاريخ</string>
+    <string name="today">اليوم</string>
+    <string name="custom_date">تاريخ مخصص</string>
+    <string name="all_dates">كل التواريخ</string>
+    <string name="all_cashiers">كل الكاشير</string>
+    <string name="all_delivery">كل التوصيل</string>
+    <string name="orders_found">طلب تم العثور عليه</string>
+    <string name="cashier">الكاشير</string>
+    <string name="delivery">التوصيل</string>
+    <string name="client">العميل</string>
+    <string name="phone">الهاتف</string>
+    <string name="order_items">عناصر الطلب</string>
+    <string name="subtotal">المجموع الفرعي</string>
+    <string name="tax">الضريبة</string>
+    <string name="total">الإجمالي</string>
+    <string name="notes">ملاحظات</string>
+    <string name="address">العنوان</string>
+    <string name="view_receipt">عرض الإيصال</string>
+    <string name="ok">موافق</string>
+    <string name="cancel">إلغاء</string>
 </resources>

@@ -119,25 +119,28 @@ fun StockEntity.toDomain() = Stock(
     id = id, vendorId = vendorId, itemId = itemId,
     itemName = itemName, quantity = quantity,
     minQuantity = minQuantity, costPrice = costPrice,
-    unit = unit, lastUpdatedAt = lastUpdatedAt
+    unit = unit, isMenuItem = isMenuItem, alertEnabled = alertEnabled,
+    lastUpdatedAt = lastUpdatedAt
 )
 
 fun Stock.toEntity() = StockEntity(
     id = id, vendorId = vendorId, itemId = itemId,
     itemName = itemName, quantity = quantity,
     minQuantity = minQuantity, costPrice = costPrice,
-    unit = unit, lastUpdatedAt = lastUpdatedAt
+    unit = unit, isMenuItem = isMenuItem, alertEnabled = alertEnabled,
+    lastUpdatedAt = lastUpdatedAt
 )
 
 fun StockTransactionEntity.toDomain() = StockTransaction(
-    id = id, stockId = stockId,
+    id = id, stockId = stockId, itemName = itemName,
     type = StockTransactionType.valueOf(type),
     quantity = quantity, previousQuantity = previousQuantity,
     orderId = orderId, note = note, createdAt = createdAt
 )
 
 fun StockTransaction.toEntity() = StockTransactionEntity(
-    id = id, stockId = stockId, type = type.name,
+    id = id, stockId = stockId, itemName = itemName,
+    type = type.name,
     quantity = quantity, previousQuantity = previousQuantity,
     orderId = orderId, note = note, createdAt = createdAt
 )

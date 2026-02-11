@@ -128,12 +128,14 @@ object OrderItemsTable : UUIDTable("order_items") {
 // ─── Stock ───────────────────────────────────────────────────────
 object StockTable : UUIDTable("stock") {
     val vendorId = reference("vendor_id", VendorsTable)
-    val itemId = reference("item_id", ItemsTable)
+    val itemId = reference("item_id", ItemsTable).nullable() // Now nullable - can be independent stock item
     val itemName = varchar("item_name", 255)
     val quantity = integer("quantity").default(0)
     val minQuantity = integer("min_quantity").default(5)
     val costPrice = decimal("cost_price", 10, 2).default(java.math.BigDecimal.ZERO)
     val unit = varchar("unit", 50).default("pcs")
+    val isMenuItem = bool("is_menu_item").default(true) // true = linked to menu, false = independent stock
+    val alertEnabled = bool("alert_enabled").default(true) // Enable low stock alerts
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }

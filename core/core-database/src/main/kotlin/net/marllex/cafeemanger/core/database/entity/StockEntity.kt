@@ -8,12 +8,14 @@ import androidx.room.PrimaryKey
 data class StockEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "vendor_id") val vendorId: String,
-    @ColumnInfo(name = "item_id") val itemId: String,
+    @ColumnInfo(name = "item_id") val itemId: String? = null, // Nullable for independent stock items
     @ColumnInfo(name = "item_name") val itemName: String,
     val quantity: Int,
     @ColumnInfo(name = "min_quantity") val minQuantity: Int,
     @ColumnInfo(name = "cost_price") val costPrice: Double,
     val unit: String,
+    @ColumnInfo(name = "is_menu_item") val isMenuItem: Boolean = true,
+    @ColumnInfo(name = "alert_enabled") val alertEnabled: Boolean = true,
     @ColumnInfo(name = "last_updated_at") val lastUpdatedAt: Long,
 )
 
@@ -21,6 +23,7 @@ data class StockEntity(
 data class StockTransactionEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "stock_id") val stockId: String,
+    @ColumnInfo(name = "item_name") val itemName: String? = null,
     val type: String,
     val quantity: Int,
     @ColumnInfo(name = "previous_quantity") val previousQuantity: Int,

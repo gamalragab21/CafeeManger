@@ -15,6 +15,7 @@ import net.marllex.cafeemanger.core.domain.repository.StockRepository
 import net.marllex.cafeemanger.core.model.Item
 import net.marllex.cafeemanger.core.model.Stock
 import net.marllex.cafeemanger.core.model.StockSummary
+import net.marllex.cafeemanger.core.model.StockTransaction
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,7 +31,7 @@ class StockViewModel @Inject constructor(
         val summary: StockSummary = StockSummary(),
 
         // Tab/filter
-        val selectedTab: Int = 0, // 0=Overview, 1=Items, 2=Alerts
+        val selectedTab: Int = 0, // 0=Overview, 1=Items, 2=Alerts, 3=Transactions
 
         // Search
         val searchQuery: String = "",
@@ -42,12 +43,15 @@ class StockViewModel @Inject constructor(
         // Add/Edit Stock Dialog
         val showAddDialog: Boolean = false,
         val editingStock: Stock? = null,
+        val dialogIsIndependent: Boolean = false, // true = text input, false = menu item selection
         val dialogSelectedItemId: String = "",
         val dialogSelectedItemName: String = "",
+        val dialogCustomItemName: String = "", // For independent items (free text)
         val dialogQuantity: String = "",
         val dialogMinQuantity: String = "5",
         val dialogCostPrice: String = "",
         val dialogUnit: String = "pcs",
+        val dialogAlertEnabled: Boolean = true,
         val isSaving: Boolean = false,
 
         // Add/Deduct Quantity Dialog
@@ -60,29 +64,37 @@ class StockViewModel @Inject constructor(
         // Delete confirmation
         val showDeleteDialog: Boolean = false,
         val deletingStock: Stock? = null,
+
+        // Transactions
+        val transactions: List<StockTransaction> = emptyList(),
+        val transactionsLoading: Boolean = false,
     ) {
         val filteredStockItems: List<Stock>
             get() = if (searchQuery.isBlank()) stockItems
             else stockItems.filter { it.itemName.contains(searchQuery, ignoreCase = true) }
 
         val lowStockItems: List<Stock>
-            get() = stockItems.filter { it.isLowStock }
+            get() = stockItems.filter { it.isLowStock && it.alertEnabled }
 
         val outOfStockItems: List<Stock>
-            get() = stockItems.filter { it.isOutOfStock }
+            get() = stockItems.filter { it.isOutOfStock && it.alertEnabled }
 
         val alertItems: List<Stock>
-            get() = stockItems.filter { it.isLowStock || it.isOutOfStock }
+            get() = stockItems.filter { (it.isLowStock || it.isOutOfStock) && it.alertEnabled }
 
         val topValueItems: List<Stock>
             get() = stockItems.sortedByDescending { it.totalValue }.take(5)
 
-        // Items that don't have stock tracking yet
+        // Items that don't have stock tracking yet (menu-linked)
         val unTrackedItems: List<Item>
             get() {
-                val trackedItemIds = stockItems.map { it.itemId }.toSet()
+                val trackedItemIds = stockItems.mapNotNull { it.itemId }.toSet()
                 return availableItems.filter { it.id !in trackedItemIds }
             }
+
+        // Stats for independent vs menu items
+        val menuItemsCount: Int get() = stockItems.count { it.isMenuItem }
+        val independentItemsCount: Int get() = stockItems.count { !it.isMenuItem }
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -139,12 +151,15 @@ class StockViewModel @Inject constructor(
             it.copy(
                 showAddDialog = true,
                 editingStock = null,
+                dialogIsIndependent = false,
                 dialogSelectedItemId = "",
                 dialogSelectedItemName = "",
+                dialogCustomItemName = "",
                 dialogQuantity = "",
                 dialogMinQuantity = "5",
                 dialogCostPrice = "",
                 dialogUnit = "pcs",
+                dialogAlertEnabled = true,
             )
         }
     }
@@ -154,12 +169,15 @@ class StockViewModel @Inject constructor(
             it.copy(
                 showAddDialog = true,
                 editingStock = stock,
-                dialogSelectedItemId = stock.itemId,
-                dialogSelectedItemName = stock.itemName,
+                dialogIsIndependent = !stock.isMenuItem,
+                dialogSelectedItemId = stock.itemId ?: "",
+                dialogSelectedItemName = if (stock.isMenuItem) stock.itemName else "",
+                dialogCustomItemName = if (!stock.isMenuItem) stock.itemName else "",
                 dialogQuantity = stock.quantity.toString(),
                 dialogMinQuantity = stock.minQuantity.toString(),
                 dialogCostPrice = stock.costPrice.toString(),
                 dialogUnit = stock.unit,
+                dialogAlertEnabled = stock.alertEnabled,
             )
         }
     }
@@ -168,20 +186,40 @@ class StockViewModel @Inject constructor(
         _uiState.update { it.copy(showAddDialog = false, editingStock = null) }
     }
 
+    fun toggleDialogMode(isIndependent: Boolean) {
+        _uiState.update {
+            it.copy(
+                dialogIsIndependent = isIndependent,
+                dialogSelectedItemId = "",
+                dialogSelectedItemName = "",
+                dialogCustomItemName = "",
+            )
+        }
+    }
+
     fun selectItem(item: Item) {
         _uiState.update {
             it.copy(dialogSelectedItemId = item.id, dialogSelectedItemName = item.name)
         }
     }
 
+    fun updateDialogCustomItemName(v: String) { _uiState.update { it.copy(dialogCustomItemName = v) } }
     fun updateDialogQuantity(v: String) { _uiState.update { it.copy(dialogQuantity = v) } }
     fun updateDialogMinQuantity(v: String) { _uiState.update { it.copy(dialogMinQuantity = v) } }
     fun updateDialogCostPrice(v: String) { _uiState.update { it.copy(dialogCostPrice = v) } }
     fun updateDialogUnit(v: String) { _uiState.update { it.copy(dialogUnit = v) } }
+    fun updateDialogAlertEnabled(v: Boolean) { _uiState.update { it.copy(dialogAlertEnabled = v) } }
 
     fun saveStockItem() {
         val s = _uiState.value
-        if (s.dialogSelectedItemId.isBlank() || s.dialogQuantity.isBlank() || s.dialogCostPrice.isBlank()) return
+
+        // Validation
+        val itemName = if (s.dialogIsIndependent) s.dialogCustomItemName else s.dialogSelectedItemName
+        val itemId = if (s.dialogIsIndependent) null else s.dialogSelectedItemId.takeIf { it.isNotBlank() }
+
+        if (itemName.isBlank() || s.dialogQuantity.isBlank() || s.dialogCostPrice.isBlank()) return
+        if (!s.dialogIsIndependent && s.dialogSelectedItemId.isBlank()) return
+
         val quantity = s.dialogQuantity.toIntOrNull() ?: return
         val minQuantity = s.dialogMinQuantity.toIntOrNull() ?: 5
         val costPrice = s.dialogCostPrice.toDoubleOrNull() ?: return
@@ -192,19 +230,22 @@ class StockViewModel @Inject constructor(
             val result = if (s.editingStock != null) {
                 stockRepository.updateStockItem(
                     id = s.editingStock.id,
+                    itemName = if (!s.editingStock.isMenuItem) itemName else null, // Only update name for independent items
                     quantity = quantity,
                     minQuantity = minQuantity,
                     costPrice = costPrice,
                     unit = s.dialogUnit,
+                    alertEnabled = s.dialogAlertEnabled,
                 )
             } else {
                 stockRepository.addStockItem(
-                    itemId = s.dialogSelectedItemId,
-                    itemName = s.dialogSelectedItemName,
+                    itemId = itemId,
+                    itemName = itemName,
                     quantity = quantity,
                     minQuantity = minQuantity,
                     costPrice = costPrice,
                     unit = s.dialogUnit,
+                    alertEnabled = s.dialogAlertEnabled,
                 )
             }
 
@@ -213,6 +254,20 @@ class StockViewModel @Inject constructor(
             }.onFailure { e ->
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
+        }
+    }
+
+    // ─── Transactions Tab ────────────────────────────────────────
+    fun loadTransactions() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(transactionsLoading = true) }
+            stockRepository.getAllTransactions(limit = 100)
+                .onSuccess { transactions ->
+                    _uiState.update { it.copy(transactions = transactions, transactionsLoading = false) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(transactionsLoading = false, error = e.message) }
+                }
         }
     }
 

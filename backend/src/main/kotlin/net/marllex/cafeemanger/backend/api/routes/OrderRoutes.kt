@@ -185,6 +185,7 @@ fun Route.orderRoutes() {
 
         get {
             val principal = currentUser()
+            println("principal== ${principal.role}")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
             val cashierId = call.parameters["cashier_id"]?.let { UUID.fromString(it) }

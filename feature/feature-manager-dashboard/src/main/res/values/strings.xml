@@ -4,4 +4,16 @@
     <string name="today_s_orders">Today\'s Orders</string>
     <string name="today_s_revenue">Today\'s Revenue</string>
     <string name="recent_orders">Recent Orders</string>
+    <string name="stock_overview">Stock Overview</string>
+    <string name="total_items">Total Items</string>
+    <string name="stock_alerts">Stock Alerts</string>
+    <string name="stock_value">Stock Value</string>
+    <string name="low">Low</string>
+    <string name="out">Out</string>
+    <string name="by_channel">By Channel</string>
+    <string name="by_status">By Status</string>
+    <string name="by_payment">By Payment</string>
+    <string name="low_stock_items">Low Stock Items</string>
+    <string name="out_of_stock_items">Out of Stock Items</string>
+    <string name="tap_to_expand">Tap for details</string>
 </resources>

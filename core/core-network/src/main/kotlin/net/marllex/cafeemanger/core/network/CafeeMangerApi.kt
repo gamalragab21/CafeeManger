@@ -240,7 +240,23 @@ interface CafeeMangerApi {
     suspend fun deleteStock(@Path("id") id: String): ApiSuccessResponse
 
     @GET("api/v1/stock/{id}/transactions")
-    suspend fun getStockTransactions(@Path("id") id: String): List<StockTransactionResponse>
+    suspend fun getStockItemTransactions(@Path("id") id: String): List<StockTransactionResponse>
+
+    // ─── Stock Analytics ──────────────────────────────────────────────
+    @GET("api/v1/stock/analytics/transactions")
+    suspend fun getStockTransactions(
+        @Query("stock_id") stockId: String? = null,
+        @Query("type") type: String? = null,
+        @Query("from") from: Long? = null,
+        @Query("to") to: Long? = null,
+        @Query("limit") limit: Int = 100
+    ): List<StockTransactionResponse>
+
+    @GET("api/v1/stock/analytics/alerts")
+    suspend fun getStockAlerts(): List<StockAlertResponse>
+
+    @GET("api/v1/stock/analytics/summary")
+    suspend fun getStockAnalyticsSummary(): StockAnalyticsSummaryResponse
 
     // ─── Workers ───────────────────────────────────────────────────
     @GET("api/v1/workers")

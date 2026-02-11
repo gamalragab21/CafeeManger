@@ -10,13 +10,16 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
+import net.marllex.cafeemanger.core.domain.repository.UserManagementRepository
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderStatus
+import net.marllex.cafeemanger.core.model.UserRole
 import javax.inject.Inject
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
+    private val userRepository: UserManagementRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -27,14 +30,37 @@ class OrdersViewModel @Inject constructor(
         val selectedDeliveryUserId: String? = null,
         val fromDate: Long? = null,
         val toDate: Long? = null,
+        val cashiers: List<net.marllex.cafeemanger.core.model.User> = emptyList(),
+        val deliveryUsers: List<net.marllex.cafeemanger.core.model.User> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
-    )
+    ) {
+        val hasActiveFilters: Boolean
+            get() = selectedStatus != null || selectedChannel != null ||
+                    selectedCashierId != null || selectedDeliveryUserId != null ||
+                    fromDate != null || toDate != null
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { loadOrders() }
+    init {
+        loadOrders()
+        loadUsers()
+    }
+
+    private fun loadUsers() {
+        viewModelScope.launch {
+            userRepository.getUsers(UserRole.CASHIER).collect { cashiers ->
+                _uiState.update { it.copy(cashiers = cashiers) }
+            }
+        }
+        viewModelScope.launch {
+            userRepository.getUsers(UserRole.DELIVERY).collect { deliveryUsers ->
+                _uiState.update { it.copy(deliveryUsers = deliveryUsers) }
+            }
+        }
+    }
 
     fun loadOrders() {
         viewModelScope.launch {
@@ -76,6 +102,20 @@ class OrdersViewModel @Inject constructor(
 
     fun filterByDateRange(from: Long?, to: Long?) {
         _uiState.update { it.copy(fromDate = from, toDate = to) }
+        loadOrders()
+    }
+
+    fun clearAllFilters() {
+        _uiState.update {
+            it.copy(
+                selectedStatus = null,
+                selectedChannel = null,
+                selectedCashierId = null,
+                selectedDeliveryUserId = null,
+                fromDate = null,
+                toDate = null
+            )
+        }
         loadOrders()
     }
 

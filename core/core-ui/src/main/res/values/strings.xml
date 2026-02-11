@@ -3,8 +3,71 @@
     <!-- Channel labels -->
     <string name="channel_dine_in">Dine-In</string>
     <string name="channel_delivery">Delivery</string>
+    <string name="channel_takeaway">Takeaway</string>
+
     <!-- Payment labels -->
     <string name="payment_cash">Cash</string>
     <string name="payment_wallet">Wallet</string>
     <string name="payment_card">Card</string>
+
+    <!-- Order Status -->
+    <string name="status_created">Created</string>
+    <string name="status_in_preparation">In Preparation</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_assigned">Assigned</string>
+    <string name="status_out_for_delivery">Out for Delivery</string>
+    <string name="status_delivered">Delivered</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_canceled">Canceled</string>
+
+    <!-- User Roles -->
+    <string name="role_manager">Manager</string>
+    <string name="role_cashier">Cashier</string>
+    <string name="role_delivery">Delivery</string>
+    <string name="role_admin">Admin</string>
+
+    <!-- Stock Transaction Types -->
+    <string name="stock_type_add">Add</string>
+    <string name="stock_type_deduct">Deduct</string>
+    <string name="stock_type_adjust">Adjust</string>
+
+    <!-- Attendance Types -->
+    <string name="attendance_attend">Attend</string>
+    <string name="attendance_absent">Absent</string>
+    <string name="attendance_leave">Leave</string>
+
+    <!-- Salary Period Types -->
+    <string name="salary_daily">Daily</string>
+    <string name="salary_weekly">Weekly</string>
+    <string name="salary_monthly">Monthly</string>
+
+    <!-- Table Status -->
+    <string name="table_available">Available</string>
+    <string name="table_occupied">Occupied</string>
+    <string name="table_reserved">Reserved</string>
+
+    <!-- Common -->
+    <string name="loading">Loading…</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="add">Add</string>
+    <string name="confirm">Confirm</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="all">All</string>
+    <string name="none">None</string>
+    <string name="search">Search</string>
+    <string name="filter">Filter</string>
+    <string name="clear">Clear</string>
+    <string name="ok">OK</string>
+    <string name="done">Done</string>
+    <string name="close">Close</string>
+    <string name="settings">Settings</string>
+    <string name="logout">Logout</string>
+    <string name="signout">Sign Out</string>
+    <string name="signout_confirm">Are you sure you want to sign out?</string>
 </resources>

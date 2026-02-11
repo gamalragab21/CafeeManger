@@ -204,12 +204,16 @@ private fun StockContent(
                 stringResource(R.string.stock_overview),
                 stringResource(R.string.items_list),
                 stringResource(R.string.alerts),
+                stringResource(R.string.transactions),
             )
             tabs.forEachIndexed { index, title ->
                 val isSelected = uiState.selectedTab == index
                 Tab(
                     selected = isSelected,
-                    onClick = { viewModel.selectTab(index) },
+                    onClick = {
+                        viewModel.selectTab(index)
+                        if (index == 3) viewModel.loadTransactions()
+                    },
                     selectedContentColor = MaterialTheme.colorScheme.primary,
                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     text = {
@@ -250,6 +254,7 @@ private fun StockContent(
             0 -> OverviewTab(uiState, viewModel)
             1 -> ItemsTab(uiState, viewModel)
             2 -> AlertsTab(uiState, viewModel)
+            3 -> TransactionsTab(uiState)
         }
     }
 }
@@ -592,14 +597,35 @@ private fun StockItemCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stock.itemName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stock.itemName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        // Independent item badge
+                        if (!stock.isMenuItem) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.independent_item),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 // Status chip
                 Box(
                     modifier = Modifier
@@ -609,9 +635,9 @@ private fun StockItemCard(
                 ) {
                     Text(
                         text = when {
-                            stock.isOutOfStock -> "Out of Stock"
-                            stock.isLowStock -> "Low Stock"
-                            else -> "Healthy"
+                            stock.isOutOfStock -> stringResource(R.string.out_of_stock)
+                            stock.isLowStock -> stringResource(R.string.low_stock)
+                            else -> stringResource(R.string.healthy)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = statusColor,
@@ -859,6 +885,17 @@ private fun AddEditStockDialog(
     val isEditing = uiState.editingStock != null
     var itemDropdownExpanded by remember { mutableStateOf(false) }
 
+    // Check if form is valid
+    val isFormValid = if (uiState.dialogIsIndependent) {
+        uiState.dialogCustomItemName.isNotBlank() &&
+        uiState.dialogQuantity.isNotBlank() &&
+        uiState.dialogCostPrice.isNotBlank()
+    } else {
+        uiState.dialogSelectedItemId.isNotBlank() &&
+        uiState.dialogQuantity.isNotBlank() &&
+        uiState.dialogCostPrice.isNotBlank()
+    }
+
     AlertDialog(
         onDismissRequest = viewModel::dismissAddDialog,
         title = {
@@ -869,62 +906,121 @@ private fun AddEditStockDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Item selector (only for new items)
+                // Mode selector (only for new items)
                 if (!isEditing) {
-                    ExposedDropdownMenuBox(
-                        expanded = itemDropdownExpanded,
-                        onExpandedChange = { itemDropdownExpanded = it },
+                    Text(
+                        text = stringResource(R.string.item_type),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        FilterChip(
+                            selected = !uiState.dialogIsIndependent,
+                            onClick = { viewModel.toggleDialogMode(false) },
+                            label = { Text(stringResource(R.string.menu_item)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            ),
+                            modifier = Modifier.weight(1f),
+                        )
+                        FilterChip(
+                            selected = uiState.dialogIsIndependent,
+                            onClick = { viewModel.toggleDialogMode(true) },
+                            label = { Text(stringResource(R.string.independent_item)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                selectedLabelColor = Color.White
+                            ),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                // Item selector or Text input based on mode
+                if (!isEditing) {
+                    if (uiState.dialogIsIndependent) {
+                        // Text input for independent items
+                        OutlinedTextField(
+                            value = uiState.dialogCustomItemName,
+                            onValueChange = viewModel::updateDialogCustomItemName,
+                            label = { Text(stringResource(R.string.item_name)) },
+                            placeholder = { Text(stringResource(R.string.enter_item_name)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        // Dropdown for menu items
+                        ExposedDropdownMenuBox(
+                            expanded = itemDropdownExpanded,
+                            onExpandedChange = { itemDropdownExpanded = it },
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.dialogSelectedItemName,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text(stringResource(R.string.select_item)) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemDropdownExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                            )
+                            ExposedDropdownMenu(
+                                expanded = itemDropdownExpanded,
+                                onDismissRequest = { itemDropdownExpanded = false },
+                            ) {
+                                uiState.unTrackedItems.forEach { item ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(item.name, fontWeight = FontWeight.Medium)
+                                                Text(
+                                                    "Price: ${String.format("%.2f", item.price)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.selectItem(item)
+                                            itemDropdownExpanded = false
+                                        },
+                                    )
+                                }
+                                if (uiState.unTrackedItems.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.all_items_tracked)) },
+                                        onClick = { itemDropdownExpanded = false },
+                                        enabled = false,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Editing - show name (editable for independent, readonly for menu)
+                    if (uiState.editingStock?.isMenuItem == false) {
+                        OutlinedTextField(
+                            value = uiState.dialogCustomItemName,
+                            onValueChange = viewModel::updateDialogCustomItemName,
+                            label = { Text(stringResource(R.string.item_name)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
                         OutlinedTextField(
                             value = uiState.dialogSelectedItemName,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text(stringResource(R.string.select_item)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemDropdownExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
                         )
-                        ExposedDropdownMenu(
-                            expanded = itemDropdownExpanded,
-                            onDismissRequest = { itemDropdownExpanded = false },
-                        ) {
-                            uiState.unTrackedItems.forEach { item ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(item.name, fontWeight = FontWeight.Medium)
-                                            Text(
-                                                "Price: ${String.format("%.2f", item.price)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        viewModel.selectItem(item)
-                                        itemDropdownExpanded = false
-                                    },
-                                )
-                            }
-                            if (uiState.unTrackedItems.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("All items are already tracked") },
-                                    onClick = { itemDropdownExpanded = false },
-                                    enabled = false,
-                                )
-                            }
-                        }
                     }
-                } else {
-                    OutlinedTextField(
-                        value = uiState.dialogSelectedItemName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.select_item)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = false,
-                    )
                 }
 
                 // Quantity
@@ -976,6 +1072,22 @@ private fun AddEditStockDialog(
                     }
                 }
 
+                // Alert toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(R.string.low_stock_alert),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = uiState.dialogAlertEnabled,
+                        onCheckedChange = viewModel::updateDialogAlertEnabled,
+                    )
+                }
+
                 // Total value preview
                 val qty = uiState.dialogQuantity.toIntOrNull() ?: 0
                 val price = uiState.dialogCostPrice.toDoubleOrNull() ?: 0.0
@@ -1010,10 +1122,7 @@ private fun AddEditStockDialog(
         confirmButton = {
             TextButton(
                 onClick = viewModel::saveStockItem,
-                enabled = !uiState.isSaving
-                        && uiState.dialogSelectedItemId.isNotBlank()
-                        && uiState.dialogQuantity.isNotBlank()
-                        && uiState.dialogCostPrice.isNotBlank(),
+                enabled = !uiState.isSaving && isFormValid,
             ) {
                 Text(
                     if (uiState.isSaving) stringResource(R.string.saving)
@@ -1164,6 +1273,153 @@ private fun DeleteConfirmDialog(
             }
         },
     )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Transactions Tab
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun TransactionsTab(uiState: StockViewModel.UiState) {
+    if (uiState.transactionsLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingIndicator()
+        }
+    } else if (uiState.transactions.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Outlined.Inventory2,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.no_transactions),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(uiState.transactions, key = { it.id }) { transaction ->
+                TransactionCard(transaction)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionCard(transaction: net.marllex.cafeemanger.core.model.StockTransaction) {
+    val typeColor = when (transaction.type) {
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADD -> StockHealthy
+        net.marllex.cafeemanger.core.model.StockTransactionType.DEDUCT -> StockOut
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADJUST -> MaterialTheme.colorScheme.primary
+    }
+
+    val typeIcon = when (transaction.type) {
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADD -> Icons.Outlined.TrendingUp
+        net.marllex.cafeemanger.core.model.StockTransactionType.DEDUCT -> Icons.Outlined.TrendingDown
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADJUST -> Icons.Filled.Edit
+    }
+
+    val typeLabel = when (transaction.type) {
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADD -> stringResource(R.string.stock_added)
+        net.marllex.cafeemanger.core.model.StockTransactionType.DEDUCT -> stringResource(R.string.stock_deducted)
+        net.marllex.cafeemanger.core.model.StockTransactionType.ADJUST -> stringResource(R.string.stock_adjusted)
+    }
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = typeColor.copy(alpha = 0.08f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(typeColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    typeIcon,
+                    contentDescription = null,
+                    tint = typeColor,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.itemName ?: "Unknown Item",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = typeLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = typeColor,
+                )
+                transaction.note?.let { note ->
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            // Quantity change
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = when (transaction.type) {
+                        net.marllex.cafeemanger.core.model.StockTransactionType.ADD -> "+${transaction.quantity}"
+                        net.marllex.cafeemanger.core.model.StockTransactionType.DEDUCT -> "-${transaction.quantity}"
+                        net.marllex.cafeemanger.core.model.StockTransactionType.ADJUST -> "${transaction.quantity}"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = typeColor,
+                )
+                Text(
+                    text = "${transaction.previousQuantity} → ${transaction.newQuantity}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // Format date
+                val dateStr = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                    .format(java.util.Date(transaction.createdAt))
+                Text(
+                    text = dateStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════

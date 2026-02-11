@@ -2,4 +2,26 @@
 <resources>
     <string name="orders">Orders</string>
     <string name="all">All</string>
+    <string name="filters">Filters</string>
+    <string name="clear_filters">Clear Filters</string>
+    <string name="date_filter">Date</string>
+    <string name="today">Today</string>
+    <string name="custom_date">Custom</string>
+    <string name="all_dates">All Dates</string>
+    <string name="all_cashiers">All Cashiers</string>
+    <string name="all_delivery">All Delivery</string>
+    <string name="orders_found">orders found</string>
+    <string name="cashier">Cashier</string>
+    <string name="delivery">Delivery</string>
+    <string name="client">Client</string>
+    <string name="phone">Phone</string>
+    <string name="order_items">Order Items</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="tax">Tax</string>
+    <string name="total">Total</string>
+    <string name="notes">Notes</string>
+    <string name="address">Address</string>
+    <string name="view_receipt">View Receipt</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
 </resources>

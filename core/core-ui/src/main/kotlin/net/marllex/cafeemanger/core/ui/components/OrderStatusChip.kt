@@ -36,6 +36,20 @@ fun OrderStatusChip(
 }
 
 @Composable
+fun formatStatusLabel(status: OrderStatus): String {
+    return when (status) {
+        OrderStatus.CREATED -> stringResource(R.string.status_created)
+        OrderStatus.IN_PREPARATION -> stringResource(R.string.status_in_preparation)
+        OrderStatus.READY -> stringResource(R.string.status_ready)
+        OrderStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+        OrderStatus.OUT_FOR_DELIVERY -> stringResource(R.string.status_out_for_delivery)
+        OrderStatus.DELIVERED -> stringResource(R.string.status_delivered)
+        OrderStatus.COMPLETED -> stringResource(R.string.status_completed)
+        OrderStatus.CANCELED -> stringResource(R.string.status_canceled)
+    }
+}
+
+@Composable
 fun ChannelChip(
     channel: String,
     modifier: Modifier = Modifier
@@ -100,6 +114,3 @@ private fun getStatusColors(status: OrderStatus): Pair<Color, Color> {
     }
 }
 
-private fun formatStatusLabel(status: OrderStatus): String {
-    return status.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
-}

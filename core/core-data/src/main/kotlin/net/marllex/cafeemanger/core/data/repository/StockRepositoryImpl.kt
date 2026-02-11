@@ -8,6 +8,8 @@ import net.marllex.cafeemanger.core.database.mapper.toEntity
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.domain.repository.StockRepository
 import net.marllex.cafeemanger.core.model.Stock
+import net.marllex.cafeemanger.core.model.StockAlert
+import net.marllex.cafeemanger.core.model.StockSummary
 import net.marllex.cafeemanger.core.model.StockTransaction
 import net.marllex.cafeemanger.core.network.CafeeMangerApi
 import net.marllex.cafeemanger.core.network.dto.AdjustQuantityRequest
@@ -57,20 +59,23 @@ class StockRepositoryImpl @Inject constructor(
     // ─── Write operations (API first, then sync local) ──────────
 
     override suspend fun addStockItem(
-        itemId: String,
+        itemId: String?,
         itemName: String,
         quantity: Int,
         minQuantity: Int,
         costPrice: Double,
         unit: String,
+        alertEnabled: Boolean,
     ): Result<Stock> = runCatching {
         val response = api.createStock(
             CreateStockRequest(
                 itemId = itemId,
+                itemName = if (itemId == null) itemName else null, // Only send itemName for independent items
                 quantity = quantity,
                 minQuantity = minQuantity,
                 costPrice = costPrice,
                 unit = unit,
+                alertEnabled = alertEnabled,
             )
         )
         val stock = response.toDomain()
@@ -80,18 +85,22 @@ class StockRepositoryImpl @Inject constructor(
 
     override suspend fun updateStockItem(
         id: String,
+        itemName: String?,
         quantity: Int?,
         minQuantity: Int?,
         costPrice: Double?,
         unit: String?,
+        alertEnabled: Boolean?,
     ): Result<Stock> = runCatching {
         val response = api.updateStock(
             id,
             UpdateStockRequest(
+                itemName = itemName,
                 quantity = quantity,
                 minQuantity = minQuantity,
                 costPrice = costPrice,
                 unit = unit,
+                alertEnabled = alertEnabled,
             )
         )
         val stock = response.toDomain()
@@ -127,5 +136,25 @@ class StockRepositoryImpl @Inject constructor(
         api.deleteStock(id)
         stockDao.deleteTransactionsByStockId(id)
         stockDao.deleteStock(id)
+    }
+
+    // ─── Stock Analytics ────────────────────────────────────────
+
+    override suspend fun getAllTransactions(
+        stockId: String?,
+        type: String?,
+        from: Long?,
+        to: Long?,
+        limit: Int
+    ): Result<List<StockTransaction>> = runCatching {
+        api.getStockTransactions(stockId, type, from, to, limit).map { it.toDomain() }
+    }
+
+    override suspend fun getStockAlerts(): Result<List<StockAlert>> = runCatching {
+        api.getStockAlerts().map { it.toDomain() }
+    }
+
+    override suspend fun getAnalyticsSummary(): Result<StockSummary> = runCatching {
+        api.getStockAnalyticsSummary().toDomain()
     }
 }

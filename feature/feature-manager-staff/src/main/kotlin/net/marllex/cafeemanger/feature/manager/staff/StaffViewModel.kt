@@ -65,6 +65,12 @@ class StaffViewModel @Inject constructor(
         // Selected tab filter
         val selectedRoleFilter: String? = null,
         val salaryPaidFilter: Boolean? = null,
+
+        // Attendance filters
+        val attendanceWorkerFilter: String? = null,
+        val attendanceFromDate: String = "",
+        val attendanceToDate: String = "",
+        val attendanceStatusFilter: String? = null, // "PRESENT", "ABSENT", or null for all
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -359,6 +365,46 @@ class StaffViewModel @Inject constructor(
     fun filterSalaryByPaid(paid: Boolean?) {
         _uiState.update { it.copy(salaryPaidFilter = paid) }
     }
+
+    // ─── Attendance Filters ──────────────────────────────────────
+
+    fun setAttendanceWorkerFilter(workerId: String?) {
+        _uiState.update { it.copy(attendanceWorkerFilter = workerId) }
+        applyAttendanceFilters()
+    }
+
+    fun setAttendanceFromDate(date: String) {
+        _uiState.update { it.copy(attendanceFromDate = date) }
+        applyAttendanceFilters()
+    }
+
+    fun setAttendanceToDate(date: String) {
+        _uiState.update { it.copy(attendanceToDate = date) }
+        applyAttendanceFilters()
+    }
+
+    fun setAttendanceStatusFilter(status: String?) {
+        _uiState.update { it.copy(attendanceStatusFilter = status) }
+    }
+
+    private fun applyAttendanceFilters() {
+        val s = _uiState.value
+        refreshAttendance(
+            workerId = s.attendanceWorkerFilter,
+            fromDate = s.attendanceFromDate.ifBlank { null },
+            toDate = s.attendanceToDate.ifBlank { null },
+        )
+    }
+
+    val filteredAttendanceRecords: List<Attendance>
+        get() {
+            val s = _uiState.value
+            return when (s.attendanceStatusFilter) {
+                "PRESENT" -> s.attendanceRecords.filter { it.checkIn > 0 }
+                "ABSENT" -> s.attendanceRecords.filter { it.checkIn <= 0 }
+                else -> s.attendanceRecords
+            }
+        }
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }

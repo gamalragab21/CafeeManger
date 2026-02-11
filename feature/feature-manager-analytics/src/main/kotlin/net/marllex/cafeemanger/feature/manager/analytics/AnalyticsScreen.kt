@@ -236,15 +236,23 @@ private fun AnalyticsContent(
                                 datePresets.forEach { (key, label, start) ->
                                     FilterChip(
                                         selected = datePreset == key,
-                                        onClick = { onApplyFilters(selectedCashierId, selectedDeliveryUserId, start, now) },
+                                        onClick = { onApplyFilters(selectedCashierId, selectedDeliveryUserId, start, if (start != null) now else null) },
                                         label = { Text(label) }
                                     )
+                                }
+
+                                // Custom date chip with selected range display
+                                val customLabel = if (datePreset == "CUSTOM" && fromDate != null && toDate != null) {
+                                    val dateFormat = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
+                                    "${dateFormat.format(java.util.Date(fromDate))} - ${dateFormat.format(java.util.Date(toDate))}"
+                                } else {
+                                    stringResource(R.string.custom)
                                 }
 
                                 FilterChip(
                                     selected = datePreset == "CUSTOM",
                                     onClick = { showDatePicker = true },
-                                    label = { Text("Custom") },
+                                    label = { Text(customLabel) },
                                     leadingIcon = {
                                         Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(16.dp))
                                     }
@@ -658,42 +666,172 @@ private fun AnalyticsContent(
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.daily_breakdown),
-                    style = MaterialTheme.typography.titleLarge
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.daily_breakdown),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    // Summary hint
+                    Text(
+                        text = "${dailyData.size} ${stringResource(R.string.days)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Daily summary card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.period_summary),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.total_orders),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${dailyData.sumOf { it.orders }}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = stringResource(R.string.total_revenue),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = formatAmount(dailyData.sumOf { it.revenue }),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = stringResource(R.string.avg_daily),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = formatAmount(dailyData.sumOf { it.revenue } / dailyData.size.coerceAtLeast(1)),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             val maxRevenue = dailyData.maxOfOrNull { it.revenue } ?: 1.0
+            val maxOrders = dailyData.maxOfOrNull { it.orders } ?: 1
             items(dailyData) { daily ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Date header with day name
+                        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        val dayFormat = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
+                        val displayFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+                        val parsedDate = try { dateFormat.parse(daily.date) } catch (e: Exception) { null }
+                        val dayName = parsedDate?.let { dayFormat.format(it) } ?: ""
+                        val displayDate = parsedDate?.let { displayFormat.format(it) } ?: daily.date
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = displayDate,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = dayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = formatAmount(daily.revenue),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "${daily.orders} ${stringResource(R.string.orders_label)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Revenue progress bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = daily.date,
-                                style = MaterialTheme.typography.bodyMedium
+                                text = stringResource(R.string.revenue),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.width(60.dp)
                             )
-                            Text(
-                                text = "${daily.orders} orders",
-                                style = MaterialTheme.typography.bodySmall
+                            LinearProgressIndicator(
+                                progress = { (daily.revenue / maxRevenue).toFloat() },
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { (daily.revenue / maxRevenue).toFloat() },
+
+                        // Orders progress bar
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text(
-                            text = formatAmount(daily.revenue),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.orders_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.width(60.dp)
+                            )
+                            LinearProgressIndicator(
+                                progress = { (daily.orders.toFloat() / maxOrders) },
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
                     }
                 }
             }

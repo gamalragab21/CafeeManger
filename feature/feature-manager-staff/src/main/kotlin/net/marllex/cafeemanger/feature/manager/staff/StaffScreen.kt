@@ -527,30 +527,153 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        // Recent attendance records
-        if (uiState.attendanceRecords.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.attendance_history),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
+        // Attendance History with Filters
+        item {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.attendance_history),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        }
 
-            items(uiState.attendanceRecords) { record ->
+        // Filter section
+        item {
+            AttendanceFilters(
+                workers = uiState.workers,
+                selectedWorkerId = uiState.attendanceWorkerFilter,
+                fromDate = uiState.attendanceFromDate,
+                toDate = uiState.attendanceToDate,
+                statusFilter = uiState.attendanceStatusFilter,
+                onWorkerSelected = viewModel::setAttendanceWorkerFilter,
+                onFromDateChanged = viewModel::setAttendanceFromDate,
+                onToDateChanged = viewModel::setAttendanceToDate,
+                onStatusFilterChanged = viewModel::setAttendanceStatusFilter,
+            )
+        }
+
+        val filteredRecords = uiState.attendanceRecords.let { records ->
+            when (uiState.attendanceStatusFilter) {
+                "PRESENT" -> records.filter { it.checkIn > 0 }
+                "ABSENT" -> records.filter { it.checkIn <= 0 }
+                else -> records
+            }
+        }
+
+        if (filteredRecords.isNotEmpty()) {
+            items(filteredRecords) { record ->
                 AttendanceRecordCard(record)
             }
         }
 
-        if (uiState.todaySummary.isEmpty() && uiState.attendanceRecords.isEmpty()) {
+        if (uiState.todaySummary.isEmpty() && filteredRecords.isEmpty()) {
             item {
                 EmptyState(
                     icon = Icons.Filled.EventBusy,
                     message = stringResource(R.string.no_attendance_records),
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttendanceFilters(
+    workers: List<Worker>,
+    selectedWorkerId: String?,
+    fromDate: String,
+    toDate: String,
+    statusFilter: String?,
+    onWorkerSelected: (String?) -> Unit,
+    onFromDateChanged: (String) -> Unit,
+    onToDateChanged: (String) -> Unit,
+    onStatusFilterChanged: (String?) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Worker filter dropdown
+        var workerExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = workerExpanded,
+            onExpandedChange = { workerExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = workers.find { it.id == selectedWorkerId }?.fullName ?: stringResource(R.string.all_workers),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.filter_by_worker)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerExpanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                singleLine = true,
+            )
+            ExposedDropdownMenu(
+                expanded = workerExpanded,
+                onDismissRequest = { workerExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.all_workers)) },
+                    onClick = {
+                        onWorkerSelected(null)
+                        workerExpanded = false
+                    },
+                )
+                workers.forEach { worker ->
+                    DropdownMenuItem(
+                        text = { Text(worker.fullName) },
+                        onClick = {
+                            onWorkerSelected(worker.id)
+                            workerExpanded = false
+                        },
+                    )
+                }
+            }
+        }
+
+        // Date range filters
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = fromDate,
+                onValueChange = onFromDateChanged,
+                label = { Text(stringResource(R.string.from_date)) },
+                placeholder = { Text("YYYY-MM-DD") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = toDate,
+                onValueChange = onToDateChanged,
+                label = { Text(stringResource(R.string.to_date)) },
+                placeholder = { Text("YYYY-MM-DD") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+            )
+        }
+
+        // Status filter chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = statusFilter == null,
+                onClick = { onStatusFilterChanged(null) },
+                label = { Text(stringResource(R.string.all)) },
+            )
+            FilterChip(
+                selected = statusFilter == "PRESENT",
+                onClick = { onStatusFilterChanged(if (statusFilter == "PRESENT") null else "PRESENT") },
+                label = { Text(stringResource(R.string.present)) },
+            )
+            FilterChip(
+                selected = statusFilter == "ABSENT",
+                onClick = { onStatusFilterChanged(if (statusFilter == "ABSENT") null else "ABSENT") },
+                label = { Text(stringResource(R.string.absent)) },
+            )
         }
     }
 }
@@ -593,7 +716,7 @@ private fun AttendanceRecordCard(record: Attendance) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = record.workerName ?: "Worker",
+                    text = record.workerName ?: stringResource(R.string.worker),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                 )
@@ -738,7 +861,7 @@ private fun SalaryPaymentCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = payment.workerName ?: "Worker",
+                        text = payment.workerName ?: stringResource(R.string.worker),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1022,7 +1145,7 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    prefix = { Text("EGP ") } // Helping cashier with currency view
+                    prefix = { Text("${stringResource(R.string.egp)} ") }
                 )
 
                 OutlinedTextField(

@@ -32,4 +32,10 @@
     <string name="last_7_days">Last 7 days</string>
     <string name="last_30_days">Last 30 days</string>
     <string name="all_time">All time</string>
+    <string name="custom">Custom</string>
+    <string name="days">days</string>
+    <string name="period_summary">Period Summary</string>
+    <string name="total_revenue">Total Revenue</string>
+    <string name="avg_daily">Avg/Day</string>
+    <string name="orders_label">Orders</string>
 </resources>

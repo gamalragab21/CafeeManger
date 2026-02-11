@@ -2,6 +2,7 @@ package net.marllex.cafeemanger.core.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 import net.marllex.cafeemanger.core.model.Stock
+import net.marllex.cafeemanger.core.model.StockAlert
 import net.marllex.cafeemanger.core.model.StockSummary
 import net.marllex.cafeemanger.core.model.StockTransaction
 
@@ -14,25 +15,41 @@ interface StockRepository {
     fun getTransactions(stockId: String): Flow<List<StockTransaction>>
     suspend fun refreshStock(): Result<List<Stock>>
 
+    // Add stock item - supports both menu-linked and independent items
     suspend fun addStockItem(
-        itemId: String,
+        itemId: String? = null, // null for independent items
         itemName: String,
         quantity: Int,
         minQuantity: Int,
         costPrice: Double,
         unit: String,
+        alertEnabled: Boolean = true,
     ): Result<Stock>
 
     suspend fun updateStockItem(
         id: String,
+        itemName: String? = null, // Only for independent items
         quantity: Int? = null,
         minQuantity: Int? = null,
         costPrice: Double? = null,
         unit: String? = null,
+        alertEnabled: Boolean? = null,
     ): Result<Stock>
 
     suspend fun addQuantity(stockId: String, quantity: Int, note: String? = null): Result<Stock>
     suspend fun deductQuantity(stockId: String, quantity: Int, orderId: String? = null, note: String? = null): Result<Stock>
     suspend fun deductByItemId(itemId: String, quantity: Int, orderId: String? = null): Result<Unit>
     suspend fun deleteStockItem(id: String): Result<Unit>
+
+    // Stock Analytics
+    suspend fun getAllTransactions(
+        stockId: String? = null,
+        type: String? = null,
+        from: Long? = null,
+        to: Long? = null,
+        limit: Int = 100
+    ): Result<List<StockTransaction>>
+
+    suspend fun getStockAlerts(): Result<List<StockAlert>>
+    suspend fun getAnalyticsSummary(): Result<StockSummary>
 }

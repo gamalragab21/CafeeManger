@@ -7,6 +7,8 @@
     <string name="salary">الرواتب</string>
     <string name="roles_settings">الأدوار</string>
 
+    <string name="worker">عامل</string>
+
     <!-- Workers -->
     <string name="add_worker">إضافة عامل</string>
     <string name="edit_worker">تعديل العامل</string>
@@ -56,6 +58,11 @@
     <string name="no_attendance_records">لا توجد سجلات حضور.</string>
     <string name="total_days">إجمالي الأيام: %d</string>
     <string name="total_hours">إجمالي الساعات: %s</string>
+    <string name="filter_by_worker">فلتر حسب العامل</string>
+    <string name="all_workers">جميع العمال</string>
+    <string name="from_date">من تاريخ</string>
+    <string name="to_date">إلى تاريخ</string>
+    <string name="filter_by_status">فلتر حسب الحالة</string>
 
     <!-- Salary -->
     <string name="salary_payments">مدفوعات الرواتب</string>
