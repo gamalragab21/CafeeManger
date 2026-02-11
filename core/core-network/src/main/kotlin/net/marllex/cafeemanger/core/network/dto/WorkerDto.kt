@@ -17,6 +17,8 @@ data class WorkerResponse(
     @SerialName("salary_type") val salaryType: String,
     @SerialName("salary_amount") val salaryAmount: Double,
     val active: Boolean = true,
+    @SerialName("user_id") val userId: String? = null,
+    @SerialName("is_login_enabled") val isLoginEnabled: Boolean = false,
     @SerialName("created_at") val createdAt: Long? = null,
     @SerialName("updated_at") val updatedAt: Long? = null,
 )
@@ -29,6 +31,9 @@ data class CreateWorkerRequest(
     val role: String,
     @SerialName("salary_type") val salaryType: String,
     @SerialName("salary_amount") val salaryAmount: Double = 0.0,
+    @SerialName("is_login_enabled") val isLoginEnabled: Boolean = false,
+    val password: String? = null,
+    @SerialName("login_role") val loginRole: String? = null,
 )
 
 @Serializable

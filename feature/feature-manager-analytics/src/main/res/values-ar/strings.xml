@@ -38,4 +38,5 @@
     <string name="total_revenue">إجمالي الإيرادات</string>
     <string name="avg_daily">المتوسط/يوم</string>
     <string name="orders_label">الطلبات</string>
+    <string name="daily_legend">الأشرطة تُظهر النسبة من أعلى يوم في الفترة</string>
 </resources>

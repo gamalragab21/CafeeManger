@@ -10,7 +10,8 @@ interface WorkerRepository {
     suspend fun refreshWorkers(): Result<List<Worker>>
     suspend fun createWorker(
         fullName: String, phone: String?, description: String?,
-        role: String, salaryType: SalaryType, salaryAmount: Double
+        role: String, salaryType: SalaryType, salaryAmount: Double,
+        isLoginEnabled: Boolean = false, password: String? = null, loginRole: String? = null
     ): Result<Worker>
     suspend fun updateWorker(
         id: String, fullName: String?, phone: String?,

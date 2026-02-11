@@ -90,4 +90,37 @@
     <string name="egp">ج.م</string>
 
     <string name="no_job_description">لا يوجد وصف وظيفي</string>
+
+    <!-- Delivery Dashboard -->
+    <string name="delivery_dashboard">التوصيل</string>
+    <string name="available">متاح</string>
+    <string name="busy">مشغول</string>
+    <string name="active_orders_count">%d طلبات نشطة</string>
+    <string name="no_active_orders">لا توجد طلبات نشطة</string>
+    <string name="no_delivery_persons">لا يوجد مناديب توصيل</string>
+
+    <!-- Announcements -->
+    <string name="announcements">الإعلانات</string>
+    <string name="create_announcement">إعلان جديد</string>
+    <string name="announcement_title">العنوان</string>
+    <string name="announcement_message">الرسالة</string>
+    <string name="announcement_target">إرسال إلى</string>
+    <string name="announcement_priority">الأولوية</string>
+    <string name="send_announcement">إرسال</string>
+    <string name="target_all">جميع الموظفين</string>
+    <string name="target_cashiers">جميع الكاشير</string>
+    <string name="target_delivery">جميع مناديب التوصيل</string>
+    <string name="target_specific">شخص محدد</string>
+    <string name="priority_normal">عادي</string>
+    <string name="priority_urgent">عاجل</string>
+    <string name="no_announcements">لا توجد إعلانات</string>
+
+    <!-- Worker Login -->
+    <string name="enable_login">تفعيل تسجيل الدخول</string>
+    <string name="enable_login_hint">السماح لهذا العامل بتسجيل الدخول للتطبيق. سيتم تتبع الحضور تلقائيًا.</string>
+    <string name="password">كلمة المرور</string>
+    <string name="login_role">دور تسجيل الدخول</string>
+    <string name="can_login">يمكنه الدخول</string>
+    <string name="cashier_role">كاشير</string>
+    <string name="delivery_role">توصيل</string>
 </resources>

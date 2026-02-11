@@ -154,6 +154,7 @@ object StockTransactionsTable : UUIDTable("stock_transactions") {
 // ─── Workers ─────────────────────────────────────────────────────
 object WorkersTable : UUIDTable("workers") {
     val vendorId = reference("vendor_id", VendorsTable)
+    val userId = reference("user_id", UsersTable).nullable() // Linked user for login-enabled workers
     val workerId = varchar("worker_id", 20) // Auto-generated human-readable ID (e.g. WRK-001)
     val fullName = varchar("full_name", 255)
     val phone = varchar("phone", 20).nullable()
@@ -216,6 +217,28 @@ object SalaryPaymentsTable : UUIDTable("salary_payments") {
     val note = text("note").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Announcements ──────────────────────────────────────────────
+object AnnouncementsTable : UUIDTable("announcements") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val senderId = reference("sender_id", UsersTable)
+    val targetType = varchar("target_type", 20) // ALL, CASHIERS, DELIVERY, SPECIFIC
+    val targetUserId = reference("target_user_id", UsersTable).nullable()
+    val title = varchar("title", 255)
+    val message = text("message")
+    val priority = varchar("priority", 20).default("NORMAL") // NORMAL, URGENT
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+object AnnouncementReadsTable : UUIDTable("announcement_reads") {
+    val announcementId = reference("announcement_id", AnnouncementsTable)
+    val userId = reference("user_id", UsersTable)
+    val readAt = timestamp("read_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(announcementId, userId)
+    }
 }
 
 // ─── Activity Logs ───────────────────────────────────────────────

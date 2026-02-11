@@ -11,6 +11,7 @@ data class OrderEntity(
     val channel: String,
     val status: String,
     @ColumnInfo(name = "table_id") val tableId: String?,
+    @ColumnInfo(name = "table_number") val tableNumber: String? = null,
     @ColumnInfo(name = "cashier_id") val cashierId: String,
     @ColumnInfo(name = "cashier_name") val cashierName: String? = null,
     @ColumnInfo(name = "delivery_user_id") val deliveryUserId: String?,

@@ -50,12 +50,15 @@ object DatabaseConfig {
                 AttendanceTable,
                 SalaryPaymentsTable,
                 ActivityLogsTable,
-                RefreshTokensTable
+                RefreshTokensTable,
+                AnnouncementsTable,
+                AnnouncementReadsTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
                 VendorsTable, OrdersTable, StockTable, StockTransactionsTable,
-                WorkersTable, WorkerRolesTable, AttendanceTable, SalaryPaymentsTable
+                WorkersTable, WorkerRolesTable, AttendanceTable, SalaryPaymentsTable,
+                AnnouncementsTable, AnnouncementReadsTable,
             )
         }
 

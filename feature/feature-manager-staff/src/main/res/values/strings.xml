@@ -89,4 +89,37 @@
     <string name="retry">Retry</string>
     <string name="egp">EGP</string>
     <string name="no_job_description">No Job Description</string>
+
+    <!-- Delivery Dashboard -->
+    <string name="delivery_dashboard">Delivery</string>
+    <string name="available">Available</string>
+    <string name="busy">Busy</string>
+    <string name="active_orders_count">%d active orders</string>
+    <string name="no_active_orders">No active orders</string>
+    <string name="no_delivery_persons">No delivery persons found</string>
+
+    <!-- Announcements -->
+    <string name="announcements">Announcements</string>
+    <string name="create_announcement">New Announcement</string>
+    <string name="announcement_title">Title</string>
+    <string name="announcement_message">Message</string>
+    <string name="announcement_target">Send To</string>
+    <string name="announcement_priority">Priority</string>
+    <string name="send_announcement">Send</string>
+    <string name="target_all">All Staff</string>
+    <string name="target_cashiers">Cashiers</string>
+    <string name="target_delivery">Delivery</string>
+    <string name="target_specific">Specific Person</string>
+    <string name="priority_normal">Normal</string>
+    <string name="priority_urgent">Urgent</string>
+    <string name="no_announcements">No announcements yet</string>
+
+    <!-- Worker Login -->
+    <string name="enable_login">Enable App Login</string>
+    <string name="enable_login_hint">Allow this worker to login to the app. Attendance will be tracked automatically.</string>
+    <string name="password">Password</string>
+    <string name="login_role">Login Role</string>
+    <string name="can_login">Can Login</string>
+    <string name="cashier_role">Cashier</string>
+    <string name="delivery_role">Delivery</string>
 </resources>

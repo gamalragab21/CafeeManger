@@ -38,4 +38,5 @@
     <string name="total_revenue">Total Revenue</string>
     <string name="avg_daily">Avg/Day</string>
     <string name="orders_label">Orders</string>
+    <string name="daily_legend">Bars show % of highest day in period</string>
 </resources>

@@ -41,6 +41,7 @@ fun Application.configureRouting() {
             stockRoutes()
             workerRoutes()
             attendanceRoutes()
+            announcementRoutes()
         }
     }
 }

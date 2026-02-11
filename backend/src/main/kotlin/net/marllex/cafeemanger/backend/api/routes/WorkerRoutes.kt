@@ -8,6 +8,7 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.cafeemanger.backend.api.middleware.requireRole
 import net.marllex.cafeemanger.backend.data.database.*
+import net.marllex.cafeemanger.backend.domain.service.AuthService
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -20,6 +21,7 @@ import java.util.UUID
 data class WorkerDto(
     val id: String,
     val vendor_id: String,
+    val user_id: String? = null,
     val worker_id: String,
     val full_name: String,
     val phone: String? = null,
@@ -28,6 +30,7 @@ data class WorkerDto(
     val salary_type: String,
     val salary_amount: Double,
     val active: Boolean = true,
+    val is_login_enabled: Boolean = false,
     val created_at: Long? = null,
     val updated_at: Long? = null,
 )
@@ -40,6 +43,9 @@ data class CreateWorkerDto(
     val role: String,
     val salary_type: String, // DAILY, MONTHLY
     val salary_amount: Double = 0.0,
+    val is_login_enabled: Boolean = false,
+    val password: String? = null,
+    val login_role: String? = null, // CASHIER or DELIVERY (user role for login)
 )
 
 @Serializable
@@ -246,6 +252,25 @@ fun Route.workerRoutes() {
 
                 val workerId = "WRK-%03d".format(nextNum)
 
+                // If login enabled, create a User record first
+                var linkedUserId: UUID? = null
+                if (request.is_login_enabled && !request.password.isNullOrBlank() && !request.phone.isNullOrBlank()) {
+                    val userRole = request.login_role ?: "CASHIER"
+                    require(userRole in listOf("CASHIER", "DELIVERY")) { "Login role must be CASHIER or DELIVERY" }
+
+                    val passwordHash = AuthService.hashPassword(request.password)
+                    linkedUserId = UsersTable.insertAndGetId {
+                        it[UsersTable.vendorId] = vendorUUID
+                        it[UsersTable.role] = userRole
+                        it[name] = request.full_name
+                        it[UsersTable.phone] = request.phone
+                        it[UsersTable.passwordHash] = passwordHash
+                        it[UsersTable.active] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }.value
+                }
+
                 val id = WorkersTable.insertAndGetId {
                     it[WorkersTable.vendorId] = vendorUUID
                     it[WorkersTable.workerId] = workerId
@@ -256,6 +281,7 @@ fun Route.workerRoutes() {
                     it[salaryType] = request.salary_type
                     it[salaryAmount] = BigDecimal.valueOf(request.salary_amount)
                     it[active] = true
+                    linkedUserId?.let { uid -> it[userId] = uid }
                     it[createdAt] = now
                     it[updatedAt] = now
                 }
@@ -460,6 +486,7 @@ fun Route.workerRoutes() {
 private fun ResultRow.toWorkerDto() = WorkerDto(
     id = this[WorkersTable.id].toString(),
     vendor_id = this[WorkersTable.vendorId].toString(),
+    user_id = this[WorkersTable.userId]?.toString(),
     worker_id = this[WorkersTable.workerId],
     full_name = this[WorkersTable.fullName],
     phone = this[WorkersTable.phone],
@@ -468,6 +495,7 @@ private fun ResultRow.toWorkerDto() = WorkerDto(
     salary_type = this[WorkersTable.salaryType],
     salary_amount = this[WorkersTable.salaryAmount].toDouble(),
     active = this[WorkersTable.active],
+    is_login_enabled = this[WorkersTable.userId] != null,
     created_at = this[WorkersTable.createdAt].toEpochMilliseconds(),
     updated_at = this[WorkersTable.updatedAt].toEpochMilliseconds(),
 )

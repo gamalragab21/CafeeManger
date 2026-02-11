@@ -16,6 +16,8 @@ data class WorkerEntity(
     @ColumnInfo(name = "salary_type") val salaryType: String,
     @ColumnInfo(name = "salary_amount") val salaryAmount: Double,
     val active: Boolean,
+    @ColumnInfo(name = "user_id") val userId: String? = null,
+    @ColumnInfo(name = "is_login_enabled") val isLoginEnabled: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long?,
     @ColumnInfo(name = "updated_at") val updatedAt: Long?,
 )

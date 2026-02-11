@@ -14,6 +14,8 @@ data class Worker(
     val salaryType: SalaryType = SalaryType.DAILY,
     val salaryAmount: Double = 0.0,
     val active: Boolean = true,
+    val userId: String? = null,
+    val isLoginEnabled: Boolean = false,
     val createdAt: Long? = null,
     val updatedAt: Long? = null,
 )

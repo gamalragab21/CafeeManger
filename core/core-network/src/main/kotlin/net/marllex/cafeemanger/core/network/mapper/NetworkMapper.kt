@@ -75,6 +75,7 @@ fun OrderResponse.toDomain() = Order(
     channel = OrderChannel.valueOf(channel),
     status = OrderStatus.valueOf(status),
     tableId = tableId,
+    tableNumber = tableNumber,
     cashierId = cashierId,
     cashierName = cashierName,
     deliveryUserId = deliveryUserId,
@@ -206,6 +207,7 @@ fun WorkerResponse.toDomain() = Worker(
     fullName = fullName, phone = phone, description = description,
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
+    userId = userId, isLoginEnabled = isLoginEnabled,
     createdAt = createdAt, updatedAt = updatedAt
 )
 

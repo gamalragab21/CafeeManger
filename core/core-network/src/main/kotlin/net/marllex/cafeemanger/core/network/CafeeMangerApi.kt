@@ -150,6 +150,9 @@ interface CafeeMangerApi {
         @Path("id") id: String
     ): ShareReceiptResponse
 
+    @GET("api/v1/orders/delivery-dashboard")
+    suspend fun getDeliveryDashboard(): List<DeliveryDashboardItemResponse>
+
     @GET("api/v1/orders/delivery/mine")
     suspend fun getMyDeliveryOrders(
         @Query("status") status: String? = null
@@ -355,4 +358,20 @@ interface CafeeMangerApi {
 
     @DELETE("api/v1/tax-places/{id}")
     suspend fun deleteTaxPlace(@Path("id") id: String): ApiSuccessResponse
+
+    // ─── Announcements ─────────────────────────────────────────────
+    @GET("api/v1/announcements")
+    suspend fun getAnnouncements(): List<AnnouncementResponse>
+
+    @POST("api/v1/announcements")
+    suspend fun createAnnouncement(@Body request: CreateAnnouncementRequest): AnnouncementResponse
+
+    @GET("api/v1/announcements/unread-count")
+    suspend fun getUnreadAnnouncementCount(): UnreadCountResponse
+
+    @POST("api/v1/announcements/{id}/read")
+    suspend fun markAnnouncementRead(@Path("id") id: String): ApiSuccessResponse
+
+    @DELETE("api/v1/announcements/{id}")
+    suspend fun deleteAnnouncement(@Path("id") id: String): ApiSuccessResponse
 }

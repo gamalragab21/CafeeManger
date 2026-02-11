@@ -37,6 +37,9 @@ class StaffViewModel @Inject constructor(
         val dialogRole: String = "",
         val dialogSalaryType: SalaryType = SalaryType.DAILY,
         val dialogSalaryAmount: String = "",
+        val dialogIsLoginEnabled: Boolean = false,
+        val dialogPassword: String = "",
+        val dialogLoginRole: String = "CASHIER",
         val isSaving: Boolean = false,
 
         // Add Role Dialog
@@ -143,6 +146,9 @@ class StaffViewModel @Inject constructor(
                 dialogRole = worker?.role ?: "",
                 dialogSalaryType = worker?.salaryType ?: SalaryType.DAILY,
                 dialogSalaryAmount = worker?.salaryAmount?.let { a -> if (a > 0) a.toBigDecimal().toPlainString() else "" } ?: "",
+                dialogIsLoginEnabled = worker?.isLoginEnabled ?: false,
+                dialogPassword = "",
+                dialogLoginRole = "CASHIER",
             )
         }
     }
@@ -157,6 +163,9 @@ class StaffViewModel @Inject constructor(
     fun updateDialogRole(v: String) = _uiState.update { it.copy(dialogRole = v) }
     fun updateDialogSalaryType(v: SalaryType) = _uiState.update { it.copy(dialogSalaryType = v) }
     fun updateDialogSalaryAmount(v: String) = _uiState.update { it.copy(dialogSalaryAmount = v) }
+    fun updateDialogIsLoginEnabled(v: Boolean) = _uiState.update { it.copy(dialogIsLoginEnabled = v) }
+    fun updateDialogPassword(v: String) = _uiState.update { it.copy(dialogPassword = v) }
+    fun updateDialogLoginRole(v: String) = _uiState.update { it.copy(dialogLoginRole = v) }
 
     fun saveWorker() {
         val s = _uiState.value
@@ -189,7 +198,10 @@ class StaffViewModel @Inject constructor(
                     description = s.dialogDescription.ifBlank { null },
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType,
-                    salaryAmount = amount
+                    salaryAmount = amount,
+                    isLoginEnabled = s.dialogIsLoginEnabled,
+                    password = if (s.dialogIsLoginEnabled) s.dialogPassword.ifBlank { null } else null,
+                    loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null
                 ).onSuccess {
                     _uiState.update { it.copy(isSaving = false, showAddWorkerDialog = false) }
                     loadData()

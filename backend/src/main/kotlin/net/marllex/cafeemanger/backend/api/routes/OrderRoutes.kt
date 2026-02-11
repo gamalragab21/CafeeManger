@@ -22,6 +22,7 @@ import net.marllex.cafeemanger.backend.data.database.StockTable
 import net.marllex.cafeemanger.backend.data.database.StockTransactionsTable
 import net.marllex.cafeemanger.backend.data.database.TaxPlacesTable
 import net.marllex.cafeemanger.backend.data.database.VendorsTable
+import net.marllex.cafeemanger.backend.data.database.TablesTable
 import net.marllex.cafeemanger.backend.data.database.UsersTable
 import net.marllex.cafeemanger.backend.domain.service.OrderService
 import net.marllex.cafeemanger.backend.config.JwtConfig
@@ -86,6 +87,7 @@ data class OrderDto(
     val channel: String,
     val status: String,
     val table_id: String? = null,
+    val table_number: String? = null,
     val cashier_id: String,
     val cashier_name: String? = null,
     val delivery_user_id: String? = null,
@@ -122,6 +124,26 @@ data class PaginatedOrders(
     val orders: List<OrderDto>, val total: Int, val has_more: Boolean
 )
 
+@Serializable
+data class DeliveryDashboardItemDto(
+    val delivery_user_id: String,
+    val delivery_user_name: String,
+    val delivery_user_phone: String,
+    val status: String,
+    val active_order_count: Int,
+    val active_orders: List<DeliveryOrderSummaryDto>,
+)
+
+@Serializable
+data class DeliveryOrderSummaryDto(
+    val order_id: String,
+    val status: String,
+    val client_name: String? = null,
+    val client_address: String? = null,
+    val total: Double,
+    val created_at: Long,
+)
+
 fun Route.orderRoutes() {
     val orderService by KoinJavaComponent.inject<OrderService>(
         clazz = OrderService::class.java
@@ -130,6 +152,48 @@ fun Route.orderRoutes() {
 
     route("/api/v1/orders") {
         // IMPORTANT: specific paths MUST come before /{id} to avoid route conflict
+
+        get("/delivery-dashboard") {
+            val principal = requireRole("MANAGER", "CASHIER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val dashboard = transaction {
+                val deliveryUsers = UsersTable.selectAll().where {
+                    (UsersTable.vendorId eq vendorUUID) and (UsersTable.role eq "DELIVERY") and (UsersTable.active eq true)
+                }.toList()
+
+                val activeStatuses = listOf("ASSIGNED", "OUT_FOR_DELIVERY")
+
+                deliveryUsers.map { user ->
+                    val userId = user[UsersTable.id].value
+                    val activeOrders = OrdersTable.selectAll().where {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                        (OrdersTable.deliveryUserId eq userId) and
+                        (OrdersTable.status inList activeStatuses)
+                    }.orderBy(OrdersTable.createdAt, SortOrder.DESC).map { row ->
+                        DeliveryOrderSummaryDto(
+                            order_id = row[OrdersTable.id].toString(),
+                            status = row[OrdersTable.status],
+                            client_name = row[OrdersTable.clientName],
+                            client_address = row[OrdersTable.clientAddress],
+                            total = row[OrdersTable.total].toDouble(),
+                            created_at = row[OrdersTable.createdAt].toEpochMilliseconds(),
+                        )
+                    }
+
+                    DeliveryDashboardItemDto(
+                        delivery_user_id = userId.toString(),
+                        delivery_user_name = user[UsersTable.name],
+                        delivery_user_phone = user[UsersTable.phone],
+                        status = if (activeOrders.isEmpty()) "AVAILABLE" else "BUSY",
+                        active_order_count = activeOrders.size,
+                        active_orders = activeOrders,
+                    )
+                }
+            }
+            call.respond(HttpStatusCode.OK, dashboard)
+        }
+
         get("/delivery/available") {
             val principal = requireRole("DELIVERY")
 
@@ -222,11 +286,16 @@ fun Route.orderRoutes() {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
                 }
+                val tableIds = orderRows.mapNotNull { it[OrdersTable.tableId] }.distinct()
+                val tablesMap = if (tableIds.isEmpty()) emptyMap() else {
+                    TablesTable.selectAll().where { TablesTable.id inList tableIds }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                }
                 val results = orderRows.map { orderRow ->
                     val items =
                         OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
                             .map { it.toOrderItemDto() }
-                    orderRow.toOrderDto(items, usersMap)
+                    orderRow.toOrderDto(items, usersMap, tablesMap)
                 }
                 results to totalCount
             }
@@ -251,7 +320,11 @@ fun Route.orderRoutes() {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
                 }
-                orderRow.toOrderDto(items, usersMap)
+                val tablesMap = orderRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                orderRow.toOrderDto(items, usersMap, tablesMap)
             }
             call.respond(HttpStatusCode.OK, order)
         }
@@ -416,7 +489,11 @@ fun Route.orderRoutes() {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
                 }
-                orderRow.toOrderDto(orderItems, usersMap)
+                val tablesMap = orderRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                orderRow.toOrderDto(orderItems, usersMap, tablesMap)
             }
             call.respond(HttpStatusCode.Created, order)
         }
@@ -427,7 +504,7 @@ fun Route.orderRoutes() {
             val request = call.receive<UpdateStatusDto>()
 
             val order = transaction {
-                val targetStatus = if (request.status == "DELIVERED") "COMPLETED" else request.status
+                val targetStatus = request.status
                 val current = OrdersTable.selectAll().where {
                     (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
@@ -440,6 +517,17 @@ fun Route.orderRoutes() {
                 OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
                     it[status] = targetStatus
                     it[updatedAt] = Clock.System.now()
+                }
+
+                // Auto-free table when dine-in order is completed
+                if (targetStatus == "COMPLETED" && current[OrdersTable.channel] == "DINE_IN") {
+                    val tableUUID = current[OrdersTable.tableId]
+                    if (tableUUID != null) {
+                        TablesTable.update({ TablesTable.id eq tableUUID }) {
+                            it[TablesTable.status] = "AVAILABLE"
+                            it[updatedAt] = Clock.System.now()
+                        }
+                    }
                 }
 
                 ActivityLogsTable.insert {
@@ -460,7 +548,11 @@ fun Route.orderRoutes() {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
                 }
-                updatedRow.toOrderDto(items, usersMap)
+                val tablesMap = updatedRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                updatedRow.toOrderDto(items, usersMap, tablesMap)
             }
             call.respond(HttpStatusCode.OK, order)
         }
@@ -552,13 +644,16 @@ fun Route.orderRoutes() {
 
 
 private fun ResultRow.toOrderDto(
-    items: List<OrderItemDto> = emptyList(), usersMap: Map<UUID, String> = emptyMap()
+    items: List<OrderItemDto> = emptyList(),
+    usersMap: Map<UUID, String> = emptyMap(),
+    tablesMap: Map<UUID, String> = emptyMap(),
 ) = OrderDto(
     id = this[OrdersTable.id].toString(),
     vendor_id = this[OrdersTable.vendorId].toString(),
     channel = this[OrdersTable.channel],
     status = this[OrdersTable.status],
     table_id = this[OrdersTable.tableId]?.toString(),
+    table_number = this[OrdersTable.tableId]?.let { tablesMap[it.value] },
     cashier_id = this[OrdersTable.cashierId].toString(),
     cashier_name = usersMap[this[OrdersTable.cashierId].value],
     delivery_user_id = this[OrdersTable.deliveryUserId]?.toString(),

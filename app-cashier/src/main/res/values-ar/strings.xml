@@ -7,4 +7,6 @@
     <string name="cashier_attendance">الحضور</string>
     <string name="cashier_tables">الطاولات</string>
     <string name="cashier_settings">الإعدادات</string>
+    <string name="cashier_delivery">التوصيل</string>
+    <string name="cashier_announcements">الإعلانات</string>
 </resources>

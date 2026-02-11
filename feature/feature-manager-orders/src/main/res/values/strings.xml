@@ -27,4 +27,7 @@
     <string name="assign_delivery_person">Assign Delivery Person</string>
     <string name="select_delivery_person">Select a delivery person for this order</string>
     <string name="no_delivery_users">No delivery persons available</string>
+    <string name="channel_dine_in">Dine-In</string>
+    <string name="channel_delivery">Delivery</string>
+    <string name="table_label">Table</string>
 </resources>

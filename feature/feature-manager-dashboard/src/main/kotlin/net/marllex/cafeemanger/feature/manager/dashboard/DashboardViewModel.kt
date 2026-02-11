@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
 import net.marllex.cafeemanger.core.domain.repository.StockRepository
 import net.marllex.cafeemanger.core.domain.repository.VendorRepository
@@ -23,10 +24,12 @@ class DashboardViewModel @Inject constructor(
     private val vendorRepository: VendorRepository,
     private val orderRepository: OrderRepository,
     private val stockRepository: StockRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     data class UiState(
         val vendor: Vendor? = null,
+        val userName: String? = null,
         val recentOrders: List<Order> = emptyList(),
         val activeOrdersCount: Int = 0,
         val todayOrdersCount: Int = 0,
@@ -51,6 +54,11 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loadDashboard()
+        viewModelScope.launch {
+            authRepository.currentUser.collect { user ->
+                _uiState.update { it.copy(userName = user?.name) }
+            }
+        }
     }
 
     fun loadDashboard() {

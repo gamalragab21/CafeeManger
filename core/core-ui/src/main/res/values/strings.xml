@@ -14,6 +14,7 @@
     <string name="status_created">Created</string>
     <string name="status_in_preparation">In Preparation</string>
     <string name="status_ready">Ready</string>
+    <string name="status_on_table">On Table</string>
     <string name="status_assigned">Assigned</string>
     <string name="status_out_for_delivery">Out for Delivery</string>
     <string name="status_delivered">Delivered</string>
@@ -70,4 +71,5 @@
     <string name="logout">Logout</string>
     <string name="signout">Sign Out</string>
     <string name="signout_confirm">Are you sure you want to sign out?</string>
+    <string name="welcome_message">Welcome, %1$s</string>
 </resources>

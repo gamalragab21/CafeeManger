@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -291,9 +292,49 @@ fun OrdersScreen(
                     }
                 }
 
+                // Channel filter chips (All / Dine-In / Delivery)
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        FilterChip(
+                            selected = uiState.selectedChannel == null,
+                            onClick = { viewModel.filterByChannel(null) },
+                            label = { Text(stringResource(R.string.all)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
+                            ),
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = uiState.selectedChannel == "DINE_IN",
+                            onClick = { viewModel.filterByChannel("DINE_IN") },
+                            label = { Text(stringResource(R.string.channel_dine_in)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
+                            ),
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = uiState.selectedChannel == "DELIVERY",
+                            onClick = { viewModel.filterByChannel("DELIVERY") },
+                            label = { Text(stringResource(R.string.channel_delivery)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
+                            ),
+                        )
+                    }
+                }
+
                 // Status filter chips
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
@@ -511,12 +552,24 @@ private fun OrderCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- Channel & Payment (Flowing) ---
+            // --- Channel, Table & Payment (Flowing) ---
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 ChannelChip(channel = order.channel.name)
+                order.tableNumber?.let { tableNum ->
+                    Text(
+                        text = "${stringResource(R.string.table_label)} $tableNum",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
                 PaymentMethodChip(method = order.paymentMethod.name)
             }
 

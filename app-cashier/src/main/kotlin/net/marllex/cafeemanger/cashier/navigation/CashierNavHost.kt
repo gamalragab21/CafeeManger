@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PointOfSale
@@ -44,10 +46,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.cashier.R
+import net.marllex.cafeemanger.core.ui.R as CoreR
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.core.ui.components.SignOutButton
@@ -61,6 +68,8 @@ import net.marllex.cafeemanger.feature.cashier.pos.navigation.posScreen
 import net.marllex.cafeemanger.feature.cashier.receipt.navigation.navigateToReceipt
 import net.marllex.cafeemanger.feature.cashier.receipt.navigation.receiptScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
+import net.marllex.cafeemanger.feature.manager.staff.AnnouncementsScreen
+import net.marllex.cafeemanger.feature.manager.staff.DeliveryDashboardScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
 
 enum class CashierTab(
@@ -78,6 +87,16 @@ enum class CashierTab(
         route = "cashier/tables",
         titleRes = R.string.cashier_tables,
         icon = Icons.Filled.TableBar,
+    ),
+    DELIVERY(
+        route = "cashier/delivery",
+        titleRes = R.string.cashier_delivery,
+        icon = Icons.Filled.DeliveryDining,
+    ),
+    ANNOUNCEMENTS(
+        route = "cashier/announcements",
+        titleRes = R.string.cashier_announcements,
+        icon = Icons.Filled.Campaign,
     ),
     ATTENDANCE(
         route = "cashier/attendance",
@@ -194,6 +213,7 @@ private fun CashierNavRail(
 }
 
 // ─── Main Nav Host ───────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CashierNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
@@ -202,6 +222,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
+    val currentUser by authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
 
     val onSignOut: () -> Unit = remember(navController, scope) {
         {
@@ -228,6 +249,23 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     thickness = 0.5.dp,
                 )
             }
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (showNav) {
+                    currentUser?.name?.let { name ->
+                        TopAppBar(
+                            title = {
+                                Text(
+                                    text = stringResource(CoreR.string.welcome_message, name),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
             NavHost(
                 navController = navController,
                 startDestination = AUTH_ROUTE,
@@ -256,6 +294,8 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     )
                 }
                 composable(CashierTab.TABLES.route) { TablesScreen(readOnly = true) }
+                composable(CashierTab.DELIVERY.route) { DeliveryDashboardScreen() }
+                composable(CashierTab.ANNOUNCEMENTS.route) { AnnouncementsScreen() }
                 composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -274,10 +314,29 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     onBack = { navController.navigateToPos() },
                 )
             }
+            } // Column
         }
     } else {
         // Phone: Bottom NavigationBar
         Scaffold(
+            topBar = {
+                if (showNav) {
+                    currentUser?.name?.let { name ->
+                        TopAppBar(
+                            title = {
+                                Text(
+                                    text = stringResource(CoreR.string.welcome_message, name),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 if (showNav) CashierBottomBar(navController, currentDestination)
             }
@@ -308,6 +367,8 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     )
                 }
                 composable(CashierTab.TABLES.route) { TablesScreen(readOnly = true) }
+                composable(CashierTab.DELIVERY.route) { DeliveryDashboardScreen() }
+                composable(CashierTab.ANNOUNCEMENTS.route) { AnnouncementsScreen() }
                 composable(CashierTab.ATTENDANCE.route) { AttendanceScreen() }
                 composable(CashierTab.SETTINGS.route) {
                     Column(modifier = Modifier.padding(16.dp)) {

@@ -38,12 +38,14 @@ class WorkerRepositoryImpl @Inject constructor(
 
     override suspend fun createWorker(
         fullName: String, phone: String?, description: String?,
-        role: String, salaryType: SalaryType, salaryAmount: Double
+        role: String, salaryType: SalaryType, salaryAmount: Double,
+        isLoginEnabled: Boolean, password: String?, loginRole: String?
     ): Result<Worker> = runCatching {
         val response = api.createWorker(
             CreateWorkerRequest(
                 fullName = fullName, phone = phone, description = description,
-                role = role, salaryType = salaryType.name, salaryAmount = salaryAmount
+                role = role, salaryType = salaryType.name, salaryAmount = salaryAmount,
+                isLoginEnabled = isLoginEnabled, password = password, loginRole = loginRole
             )
         )
         val worker = response.toDomain()

@@ -46,6 +46,7 @@ dependencies {
     implementation(project(":feature:feature-delivery-orders"))
     implementation(project(":feature:feature-delivery-navigation"))
     implementation(project(":feature:feature-delivery-status"))
+    implementation(project(":feature:feature-manager-staff"))
     implementation("androidx.print:print:1.1.0")
 
     // AndroidX

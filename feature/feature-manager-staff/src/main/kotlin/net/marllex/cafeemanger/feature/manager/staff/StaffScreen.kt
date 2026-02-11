@@ -57,6 +57,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -109,6 +110,8 @@ fun StaffScreen(
         stringResource(R.string.attendance),
         stringResource(R.string.salary),
         stringResource(R.string.roles_settings),
+        stringResource(R.string.delivery_dashboard),
+        stringResource(R.string.announcements),
     )
 
     Scaffold(
@@ -126,8 +129,9 @@ fun StaffScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = selectedTab,
+                edgePadding = 16.dp,
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary,
                 divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
@@ -160,18 +164,24 @@ fun StaffScreen(
                 }
             }
 
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null && uiState.workers.isEmpty() -> ErrorView(
-                    message = uiState.error!!, onRetry = viewModel::loadData
-                )
+            when (selectedTab) {
+                4 -> DeliveryDashboardScreen()
+                5 -> AnnouncementsScreen(isManager = true)
+                else -> {
+                    when {
+                        uiState.isLoading -> LoadingIndicator()
+                        uiState.error != null && uiState.workers.isEmpty() -> ErrorView(
+                            message = uiState.error!!, onRetry = viewModel::loadData
+                        )
 
-                else -> Box(modifier = Modifier.fillMaxSize()) {
-                    when (selectedTab) {
-                        0 -> WorkersTab(uiState, viewModel)
-                        1 -> AttendanceTab(uiState, viewModel)
-                        2 -> SalaryTab(uiState, viewModel)
-                        3 -> RolesTab(uiState, viewModel)
+                        else -> Box(modifier = Modifier.fillMaxSize()) {
+                            when (selectedTab) {
+                                0 -> WorkersTab(uiState, viewModel)
+                                1 -> AttendanceTab(uiState, viewModel)
+                                2 -> SalaryTab(uiState, viewModel)
+                                3 -> RolesTab(uiState, viewModel)
+                            }
+                        }
                     }
                 }
             }
@@ -352,6 +362,22 @@ private fun WorkerCard(
                                 labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         )
+                        if (worker.isLoginEnabled) {
+                            AssistChip(
+                                onClick = {},
+                                label = {
+                                    Text(
+                                        stringResource(R.string.can_login),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
+                                modifier = Modifier.height(24.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                ),
+                            )
+                        }
                     }
                 }
 
@@ -1320,12 +1346,77 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
                     shape = RoundedCornerShape(12.dp),
                     minLines = 2,
                 )
+
+                // Login section (only for new workers)
+                if (!isEdit) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.enable_login),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                stringResource(R.string.enable_login_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = uiState.dialogIsLoginEnabled,
+                            onCheckedChange = viewModel::updateDialogIsLoginEnabled,
+                        )
+                    }
+
+                    if (uiState.dialogIsLoginEnabled) {
+                        OutlinedTextField(
+                            value = uiState.dialogPassword,
+                            onValueChange = viewModel::updateDialogPassword,
+                            label = { Text(stringResource(R.string.password)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        )
+
+                        // Login role selector
+                        Text(
+                            stringResource(R.string.login_role),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            SegmentedButton(
+                                selected = uiState.dialogLoginRole == "CASHIER",
+                                onClick = { viewModel.updateDialogLoginRole("CASHIER") },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            ) {
+                                Text(stringResource(R.string.cashier_role))
+                            }
+                            SegmentedButton(
+                                selected = uiState.dialogLoginRole == "DELIVERY",
+                                onClick = { viewModel.updateDialogLoginRole("DELIVERY") },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            ) {
+                                Text(stringResource(R.string.delivery_role))
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            Button( // Changed to filled Button for better primary action visibility
+            Button(
                 onClick = viewModel::saveWorker,
-                enabled = !uiState.isSaving && uiState.dialogName.isNotBlank() && uiState.dialogRole.isNotBlank(),
+                enabled = !uiState.isSaving && uiState.dialogName.isNotBlank() && uiState.dialogRole.isNotBlank()
+                    && (!uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (uiState.isSaving) {

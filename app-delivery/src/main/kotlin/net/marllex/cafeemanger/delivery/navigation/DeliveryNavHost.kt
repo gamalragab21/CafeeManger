@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
@@ -45,10 +46,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
+import net.marllex.cafeemanger.core.ui.R as CoreR
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.delivery.R
@@ -61,6 +67,7 @@ import net.marllex.cafeemanger.feature.delivery.orders.navigation.deliveryReceip
 import net.marllex.cafeemanger.feature.delivery.orders.navigation.navigateToDeliveryReceipt
 import net.marllex.cafeemanger.feature.delivery.status.navigation.deliveryStatusScreen
 import net.marllex.cafeemanger.feature.delivery.status.navigation.navigateToDeliveryStatus
+import net.marllex.cafeemanger.feature.manager.staff.AnnouncementsScreen
 
 enum class DeliveryTab(
     val route: String,
@@ -69,6 +76,7 @@ enum class DeliveryTab(
 ) {
     ORDERS("delivery/orders", R.string.my_orders_menu, Icons.Filled.DeliveryDining),
     HISTORY("delivery/history", R.string.history, Icons.Filled.History),
+    ANNOUNCEMENTS("delivery/announcements", R.string.announcements_menu, Icons.Filled.Campaign),
     MAP("delivery/map", R.string.map, Icons.Filled.Map),
     SETTINGS("delivery/settings", R.string.settings, Icons.Filled.Settings),
 }
@@ -176,6 +184,7 @@ private fun DeliveryNavRail(
 }
 
 // ─── Main Nav Host ───────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveryNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
@@ -185,6 +194,7 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
+    val currentUser by authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
 
     val onSignOut: () -> Unit = remember(navController, scope) {
         {
@@ -240,6 +250,8 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
             },
         )
 
+        composable(DeliveryTab.ANNOUNCEMENTS.route) { AnnouncementsScreen() }
+
         composable(DeliveryTab.SETTINGS.route) {
             Column(modifier = Modifier.padding(16.dp)) {
                 LanguageSelector(modifier = Modifier.fillMaxWidth())
@@ -276,18 +288,54 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
                     thickness = 0.5.dp,
                 )
             }
-            NavHost(
-                navController = navController,
-                startDestination = AUTH_ROUTE,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                builder = navGraphBuilder,
-            )
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (showNav) {
+                    currentUser?.name?.let { name ->
+                        TopAppBar(
+                            title = {
+                                Text(
+                                    text = stringResource(CoreR.string.welcome_message, name),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+                NavHost(
+                    navController = navController,
+                    startDestination = AUTH_ROUTE,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    builder = navGraphBuilder,
+                )
+            }
         }
     } else {
         // Phone: Bottom NavigationBar
         Scaffold(
+            topBar = {
+                if (showNav) {
+                    currentUser?.name?.let { name ->
+                        TopAppBar(
+                            title = {
+                                Text(
+                                    text = stringResource(CoreR.string.welcome_message, name),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 if (showNav) DeliveryBottomBar(navController, currentDestination)
             }

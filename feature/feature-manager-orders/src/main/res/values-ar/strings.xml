@@ -27,4 +27,7 @@
     <string name="assign_delivery_person">تعيين مندوب التوصيل</string>
     <string name="select_delivery_person">اختر مندوب توصيل لهذا الطلب</string>
     <string name="no_delivery_users">لا يوجد مندوبو توصيل متاحون</string>
+    <string name="channel_dine_in">محلي</string>
+    <string name="channel_delivery">توصيل</string>
+    <string name="table_label">طاولة</string>
 </resources>

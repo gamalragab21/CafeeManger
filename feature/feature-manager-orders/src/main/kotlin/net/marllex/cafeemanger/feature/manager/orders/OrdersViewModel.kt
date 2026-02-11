@@ -54,6 +54,10 @@ class OrdersViewModel @Inject constructor(
 
     private fun loadUsers() {
         viewModelScope.launch {
+            // Refresh from API first to populate local DB
+            userRepository.refreshUsers()
+        }
+        viewModelScope.launch {
             userRepository.getUsers(UserRole.CASHIER).collect { cashiers ->
                 _uiState.update { it.copy(cashiers = cashiers) }
             }

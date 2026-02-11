@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.FilterList
@@ -749,6 +750,40 @@ private fun AnalyticsContent(
 
             val maxRevenue = dailyData.maxOfOrNull { it.revenue } ?: 1.0
             val maxOrders = dailyData.maxOfOrNull { it.orders } ?: 1
+
+            // Legend explaining what the bars mean
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.daily_legend),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                                Text(stringResource(R.string.revenue), style = MaterialTheme.typography.labelSmall)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.secondary, CircleShape))
+                                Text(stringResource(R.string.orders_label), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+
             items(dailyData) { daily ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -796,40 +831,70 @@ private fun AnalyticsContent(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Revenue progress bar
+                        // Revenue progress bar with icon and percentage
+                        val revenuePercent = ((daily.revenue / maxRevenue) * 100).toInt()
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                Icons.Filled.TrendingUp, null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(R.string.revenue),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.width(60.dp)
+                                modifier = Modifier.width(56.dp)
                             )
                             LinearProgressIndicator(
                                 progress = { (daily.revenue / maxRevenue).toFloat() },
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.primary,
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "$revenuePercent%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.width(36.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Orders progress bar
+                        // Orders progress bar with icon and percentage
+                        val ordersPercent = ((daily.orders.toFloat() / maxOrders) * 100).toInt()
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                Icons.Filled.ShoppingCart, null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(R.string.orders_label),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.width(60.dp)
+                                modifier = Modifier.width(56.dp)
                             )
                             LinearProgressIndicator(
                                 progress = { (daily.orders.toFloat() / maxOrders) },
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.secondary,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "$ordersPercent%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.width(36.dp)
                             )
                         }
                     }

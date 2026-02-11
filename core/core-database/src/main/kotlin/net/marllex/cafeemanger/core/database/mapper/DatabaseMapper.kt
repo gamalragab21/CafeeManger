@@ -75,7 +75,8 @@ fun OrderEntity.toDomain(items: List<OrderItem> = emptyList()) = Order(
     id = id, vendorId = vendorId,
     channel = OrderChannel.valueOf(channel),
     status = OrderStatus.valueOf(status),
-    tableId = tableId, cashierId = cashierId,
+    tableId = tableId, tableNumber = tableNumber,
+    cashierId = cashierId,
     cashierName = cashierName, deliveryUserId = deliveryUserId,
     deliveryUserName = deliveryUserName,
     clientName = clientName, clientPhone = clientPhone,
@@ -89,7 +90,8 @@ fun OrderEntity.toDomain(items: List<OrderItem> = emptyList()) = Order(
 
 fun Order.toEntity() = OrderEntity(
     id = id, vendorId = vendorId, channel = channel.name,
-    status = status.name, tableId = tableId, cashierId = cashierId,
+    status = status.name, tableId = tableId, tableNumber = tableNumber,
+    cashierId = cashierId,
     cashierName = cashierName, deliveryUserId = deliveryUserId,
     deliveryUserName = deliveryUserName,
     clientName = clientName, clientPhone = clientPhone,
@@ -151,6 +153,7 @@ fun WorkerEntity.toDomain() = Worker(
     fullName = fullName, phone = phone, description = description,
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
+    userId = userId, isLoginEnabled = isLoginEnabled,
     createdAt = createdAt, updatedAt = updatedAt
 )
 
@@ -159,6 +162,7 @@ fun Worker.toEntity() = WorkerEntity(
     fullName = fullName, phone = phone, description = description,
     role = role, salaryType = salaryType.name,
     salaryAmount = salaryAmount, active = active,
+    userId = userId, isLoginEnabled = isLoginEnabled,
     createdAt = createdAt, updatedAt = updatedAt
 )
 

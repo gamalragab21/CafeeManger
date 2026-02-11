@@ -114,11 +114,11 @@ fun DashboardScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        if (uiState.vendor?.address != null) {
+                        uiState.userName?.let { name ->
                             Text(
-                                text = uiState.vendor!!.address,
+                                text = stringResource(CoreR.string.welcome_message, name),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
