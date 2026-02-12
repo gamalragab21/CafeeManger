@@ -18,4 +18,9 @@
     <string name="app_settings">إعدادات التطبيق</string>
     <string name="language">اللغة</string>
     <string name="not_available">غير متوفر</string>
+    <!-- Store Info -->
+    <string name="store_info">معلومات المتجر</string>
+    <string name="store_name">اسم المتجر</string>
+    <string name="store_address">العنوان</string>
+    <string name="store_phone">هاتف التواصل</string>
 </resources>

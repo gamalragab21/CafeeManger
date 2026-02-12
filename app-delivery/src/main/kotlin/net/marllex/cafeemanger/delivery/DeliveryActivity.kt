@@ -6,6 +6,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import dagger.hilt.android.AndroidEntryPoint
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.ui.theme.CafeeMangerTheme
 import net.marllex.cafeemanger.delivery.navigation.DeliveryNavHost
 import javax.inject.Inject
@@ -14,6 +15,7 @@ import javax.inject.Inject
 class DeliveryActivity : AppCompatActivity() {
 
     @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var vendorRepository: VendorRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

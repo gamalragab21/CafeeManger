@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,19 +25,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -46,9 +51,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
@@ -57,14 +60,16 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,6 +83,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -99,9 +105,9 @@ import net.marllex.cafeemanger.feature.manager.categories.CategoriesScreen
 import net.marllex.cafeemanger.feature.manager.dashboard.DashboardScreen
 import net.marllex.cafeemanger.feature.manager.items.ItemsScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
+import net.marllex.cafeemanger.feature.manager.staff.StaffScreen
 import net.marllex.cafeemanger.feature.manager.stock.StockScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
-import net.marllex.cafeemanger.feature.manager.staff.StaffScreen
 import net.marllex.cafeemanger.feature.manager.users.UsersScreen
 import net.marllex.cafeemanger.manager.R
 import net.marllex.cafeemanger.manager.taxplaces.TaxPlacesScreen
@@ -492,7 +498,9 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                             clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", menuUrl))
                             scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
                         },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                     ) {
                         Icon(Icons.Filled.ContentCopy, null, Modifier.size(20.dp))
@@ -551,90 +559,216 @@ private fun generateQrBitmap(content: String, size: Int): Bitmap {
 }
 
 // ─── Profile Sub-Tabs ────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileTabContent(onSignOut: () -> Unit) {
-    // Build tabs dynamically based on vendor feature flags
     val profileVm: RestaurantProfileViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val profileState by profileVm.uiState.collectAsStateWithLifecycle()
     val vendor = profileState.vendor
 
-    val tabEntries = remember(vendor?.enableTables) {
-        buildList<Pair<String, @Composable () -> Unit>> {
-            add("store" to { RestaurantProfileScreen() })
-            if (vendor?.enableTables != false) add("tables" to { TablesScreen() })
-            add("analytics" to { AnalyticsScreen() })
-            add("Roles & Permissions" to { UsersScreen() })
-            add("tax_places" to { TaxPlacesScreen() })
-            add("settings" to { SettingsContent(onSignOut = onSignOut) })
-        }
-    }
-
+    // Sub-screen state: null = main tabs, or a sub-screen key
+    var activeSubScreen by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    // Reset tab if current tab is out of bounds
-    if (selectedTab >= tabEntries.size) selectedTab = 0
 
-    val tabLabels = tabEntries.map { (key, _) ->
-        when (key) {
-            "store" -> stringResource(R.string.store)
-            "tables" -> stringResource(R.string.tables)
-            "analytics" -> stringResource(R.string.analytics)
-            "tax_places" -> stringResource(R.string.tax_places)
-            "settings" -> stringResource(R.string.settings)
-            "Roles & Permissions" -> stringResource(R.string.roles_and_permissions)
-            else -> key
-        }
-    }
+    val mainTabs = listOf(
+        stringResource(R.string.store),
+        stringResource(R.string.analytics),
+        stringResource(R.string.settings),
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScrollableTabRow(
-            selectedTabIndex = selectedTab,
-            edgePadding = 16.dp,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
-            indicator = { tabPositions ->
-                if (selectedTab < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+        when (activeSubScreen) {
+            "tables" -> {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.tables)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                TablesScreen()
             }
-        ) {
-            tabLabels.forEachIndexed { index, title ->
-                val isSelected = selectedTab == index
-                Tab(
-                    selected = isSelected,
-                    onClick = { selectedTab = index },
-                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    text = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1,
+
+            "users" -> {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.roles_and_permissions)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                UsersScreen()
+            }
+
+            "tax_places" -> {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.tax_places)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                TaxPlacesScreen()
+            }
+
+            else -> {
+                // 3-tab TabRow
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+                    indicator = { tabPositions ->
+                        if (selectedTab < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                ) {
+                    mainTabs.forEachIndexed { index, title ->
+                        val isSelected = selectedTab == index
+                        Tab(
+                            selected = isSelected,
+                            onClick = { selectedTab = index },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                )
+                            },
                         )
                     }
-                )
-            }
-        }
+                }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            tabEntries.getOrNull(selectedTab)?.second?.invoke()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (selectedTab) {
+                        0 -> RestaurantProfileScreen()
+                        1 -> AnalyticsScreen()
+                        2 -> SettingsContent(
+                            vendor = vendor,
+                            onSignOut = onSignOut,
+                            onNavigateToTables = { activeSubScreen = "tables" },
+                            onNavigateToUsers = { activeSubScreen = "users" },
+                            onNavigateToTaxPlaces = { activeSubScreen = "tax_places" },
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SettingsContent(onSignOut: () -> Unit) {
+private fun SettingsContent(
+    vendor: net.marllex.cafeemanger.core.model.Vendor?,
+    onSignOut: () -> Unit,
+    onNavigateToTables: () -> Unit,
+    onNavigateToUsers: () -> Unit,
+    onNavigateToTaxPlaces: () -> Unit,
+) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
     Column(
-        modifier = Modifier.padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        LanguageSelector(
-            modifier = Modifier.fillMaxWidth(),
+        // Quick Access Section
+        Text(
+            text = stringResource(R.string.store_features),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
         )
-        Spacer(Modifier.height(24.dp))
+
+        // Navigation cards for sub-screens
+        if (vendor?.enableTables != false) {
+            SettingsNavigationCard(
+                icon = Icons.Filled.TableBar,
+                title = stringResource(R.string.tables),
+                onClick = onNavigateToTables,
+            )
+        }
+
+        SettingsNavigationCard(
+            icon = Icons.Filled.Security,
+            title = stringResource(R.string.roles_and_permissions),
+            onClick = onNavigateToUsers,
+        )
+
+        SettingsNavigationCard(
+            icon = Icons.Filled.LocalShipping,
+            title = stringResource(R.string.tax_places),
+            onClick = onNavigateToTaxPlaces,
+        )
+
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(4.dp))
+
+        // Language
+        Text(
+            text = stringResource(R.string.settings),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                LanguageSelector(modifier = Modifier.fillMaxWidth())
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
         SignOutButton(onSignOut = onSignOut)
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsNavigationCard(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }

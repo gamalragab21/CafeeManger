@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import dagger.hilt.android.AndroidEntryPoint
 import net.marllex.cafeemanger.cashier.navigation.CashierNavHost
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.ui.theme.CafeeMangerTheme
 import javax.inject.Inject
 
@@ -14,13 +15,14 @@ import javax.inject.Inject
 class CashierActivity : AppCompatActivity() {
 
     @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var vendorRepository: VendorRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             CafeeMangerTheme {
-                CashierNavHost(authRepository = authRepository)
+                CashierNavHost(authRepository = authRepository, vendorRepository = vendorRepository)
             }
         }
     }

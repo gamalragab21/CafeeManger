@@ -68,7 +68,6 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.model.UserRole
-import net.marllex.cafeemanger.core.ui.R as CoreR
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.delivery.R
@@ -82,6 +81,7 @@ import net.marllex.cafeemanger.feature.delivery.orders.navigation.navigateToDeli
 import net.marllex.cafeemanger.feature.delivery.status.navigation.deliveryStatusScreen
 import net.marllex.cafeemanger.feature.delivery.status.navigation.navigateToDeliveryStatus
 import net.marllex.cafeemanger.feature.manager.staff.AnnouncementsScreen
+import net.marllex.cafeemanger.core.ui.R as CoreR
 
 enum class DeliveryTab(
     val route: String,
@@ -488,7 +488,9 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
                     thickness = 0.5.dp,
                 )
             }
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            Column(modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()) {
                 if (showNav) {
                     currentUser?.name?.let { name ->
                         TopAppBar(

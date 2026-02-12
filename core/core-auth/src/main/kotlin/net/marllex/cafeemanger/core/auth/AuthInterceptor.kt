@@ -75,6 +75,16 @@ class AuthInterceptor @Inject constructor(
         try {
             val response = api.refreshToken(RefreshTokenRequest(refreshToken))
             tokenManager.saveTokens(response.accessToken, response.refreshToken)
+            // Also update cached user info
+            val user = response.user
+            tokenManager.saveUserInfo(
+                userId = user.id,
+                vendorId = user.vendorId,
+                role = user.role,
+                name = user.name,
+                phone = user.phone,
+                email = user.email,
+            )
         } catch (e: Exception) {
             tokenManager.clearTokens()
         }

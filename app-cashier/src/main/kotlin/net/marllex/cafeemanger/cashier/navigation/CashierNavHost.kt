@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -74,11 +76,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.cashier.R
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.model.UserRole
-import net.marllex.cafeemanger.core.ui.R as CoreR
+import net.marllex.cafeemanger.core.model.Vendor
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.feature.auth.navigation.AUTH_ROUTE
@@ -94,6 +98,7 @@ import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
 import net.marllex.cafeemanger.feature.manager.staff.AnnouncementsScreen
 import net.marllex.cafeemanger.feature.manager.staff.DeliveryDashboardScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
+import net.marllex.cafeemanger.core.ui.R as CoreR
 
 // Tabs in bottom navigation (most-used)
 enum class CashierTab(
@@ -229,6 +234,7 @@ private fun CashierDrawerContent(
     currentDestination: NavDestination?,
     userName: String?,
     userRole: String?,
+    vendor: Vendor?,
     onItemClick: () -> Unit,
 ) {
     ModalDrawerSheet(
@@ -239,25 +245,45 @@ private fun CashierDrawerContent(
                 .fillMaxWidth()
                 .padding(24.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.Person,
+            // Store logo
+            if (!vendor?.logoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = vendor?.logoUrl,
                     contentDescription = null,
-                    modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Store,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
+            // Store name
             Text(
-                text = userName ?: "",
+                text = vendor?.name ?: "",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+            )
+            // User name + role
+            Text(
+                text = userName ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (userRole != null) {
                 Text(
@@ -302,6 +328,7 @@ private fun CashierProfileScreen(
     userPhone: String?,
     userEmail: String?,
     userRole: String?,
+    vendor: Vendor?,
     onSignOut: () -> Unit,
 ) {
     val configuration = LocalConfiguration.current
@@ -315,7 +342,7 @@ private fun CashierProfileScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        // Profile header card
+        // Profile header card with store logo
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -330,21 +357,40 @@ private fun CashierProfileScreen(
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Person,
+                    if (!vendor?.logoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = vendor?.logoUrl,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentScale = ContentScale.Crop,
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Store,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = vendor?.name ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = userName ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.headlineSmall,
@@ -357,6 +403,48 @@ private fun CashierProfileScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        // Store Info section
+        if (vendor != null) {
+            item {
+                Text(
+                    text = stringResource(R.string.store_info),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Column(modifier = Modifier.padding(4.dp)) {
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_name),
+                            value = vendor.name,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_address),
+                            value = vendor.address,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_phone),
+                            value = vendor.contactPhone,
+                        )
+                    }
                 }
             }
         }
@@ -480,7 +568,7 @@ private fun formatRoleLabel(role: UserRole?): String {
 // ─── Main Nav Host ───────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CashierNavHost(authRepository: AuthRepository) {
+fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepository) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -488,6 +576,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
     val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
+    val vendor by vendorRepository.getMyVendor().collectAsStateWithLifecycle(initialValue = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val onSignOut: () -> Unit = remember(navController, scope) {
@@ -538,6 +627,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
                 userPhone = currentUser?.phone,
                 userEmail = currentUser?.email,
                 userRole = roleLabel,
+                vendor = vendor,
                 onSignOut = onSignOut,
             )
         }
@@ -562,6 +652,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     currentDestination = currentDestination,
                     userName = currentUser?.name,
                     userRole = roleLabel,
+                    vendor = vendor,
                     onItemClick = { scope.launch { drawerState.close() } },
                 )
             },
@@ -574,7 +665,9 @@ fun CashierNavHost(authRepository: AuthRepository) {
                         thickness = 0.5.dp,
                     )
                 }
-                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Column(modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()) {
                     if (showNav) {
                         TopAppBar(
                             title = {
@@ -617,6 +710,7 @@ fun CashierNavHost(authRepository: AuthRepository) {
                     currentDestination = currentDestination,
                     userName = currentUser?.name,
                     userRole = roleLabel,
+                    vendor = vendor,
                     onItemClick = { scope.launch { drawerState.close() } },
                 )
             },
