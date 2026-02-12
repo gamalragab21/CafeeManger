@@ -54,6 +54,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -101,6 +102,7 @@ import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.cafeemanger.feature.auth.navigation.authScreen
 import net.marllex.cafeemanger.feature.manager.analytics.AnalyticsScreen
+import net.marllex.cafeemanger.feature.manager.analytics.EnhancedAnalyticsScreen
 import net.marllex.cafeemanger.feature.manager.categories.CategoriesScreen
 import net.marllex.cafeemanger.feature.manager.dashboard.DashboardScreen
 import net.marllex.cafeemanger.feature.manager.items.ItemsScreen
@@ -329,10 +331,12 @@ private fun MenuTabContent() {
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(
+        // Use ScrollableTabRow for horizontal scrolling support
+        ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary,
+            edgePadding = 16.dp, // Padding on edges for better scrolling
             divider = {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             },
@@ -655,7 +659,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (selectedTab) {
                         0 -> RestaurantProfileScreen()
-                        1 -> AnalyticsScreen()
+                        1 -> EnhancedAnalyticsScreen()
                         2 -> SettingsContent(
                             vendor = vendor,
                             onSignOut = onSignOut,

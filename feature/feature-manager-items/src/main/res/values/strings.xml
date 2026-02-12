@@ -11,4 +11,7 @@
     <string name="saving">Saving...</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
+    <string name="categories">Categories</string>
+    <string name="items">items</string>
+    <string name="unavailable">Unavailable</string>
 </resources>

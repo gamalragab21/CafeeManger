@@ -55,6 +55,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderStatus
 import androidx.compose.foundation.background
@@ -89,6 +93,14 @@ fun DeliveryOrdersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Auto-refresh when screen becomes visible
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.loadOrders()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -123,8 +135,8 @@ fun DeliveryOrdersScreen(
         },
     ) { padding ->
         when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
+            uiState.isLoading && uiState.orders.isEmpty() && uiState.availableOrders.isEmpty() -> LoadingIndicator()
+            uiState.error != null && uiState.orders.isEmpty() && uiState.availableOrders.isEmpty() -> ErrorView(
                 message = uiState.error!!,
                 onRetry = viewModel::loadOrders,
             )

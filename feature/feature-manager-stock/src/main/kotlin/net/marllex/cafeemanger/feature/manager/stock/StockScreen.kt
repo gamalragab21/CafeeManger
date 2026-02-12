@@ -2,7 +2,12 @@ package net.marllex.cafeemanger.feature.manager.stock
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,21 +21,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -73,11 +83,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -186,68 +199,15 @@ private fun StockContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        // Tab Row
-        TabRow(
-            selectedTabIndex = uiState.selectedTab,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            indicator = { tabPositions ->
-                if (uiState.selectedTab < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+        // Modern Tab Selector with Cards
+        ModernTabSelector(
+            selectedTab = uiState.selectedTab,
+            alertCount = uiState.alertItems.size,
+            onTabSelected = { index ->
+                viewModel.selectTab(index)
+                if (index == 3) viewModel.loadTransactions()
             }
-        ) {
-            val tabs = listOf(
-                stringResource(R.string.stock_overview),
-                stringResource(R.string.items_list),
-                stringResource(R.string.alerts),
-                stringResource(R.string.transactions),
-            )
-            tabs.forEachIndexed { index, title ->
-                val isSelected = uiState.selectedTab == index
-                Tab(
-                    selected = isSelected,
-                    onClick = {
-                        viewModel.selectTab(index)
-                        if (index == 3) viewModel.loadTransactions()
-                    },
-                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    text = {
-                        if (index == 2 && uiState.alertItems.isNotEmpty()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.error),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = "${uiState.alertItems.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onError,
-                                    )
-                                }
-                            }
-                        } else {
-                            Text(
-                                text = title,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                        }
-                    }
-                )
-            }
-        }
+        )
 
         // Content
         when (uiState.selectedTab) {
@@ -255,6 +215,193 @@ private fun StockContent(
             1 -> ItemsTab(uiState, viewModel)
             2 -> AlertsTab(uiState, viewModel)
             3 -> TransactionsTab(uiState)
+        }
+    }
+}
+
+@Composable
+private fun ModernTabSelector(
+    selectedTab: Int,
+    alertCount: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Tab data with icons and colors
+    val tabs = listOf(
+        TabData(
+            title = stringResource(R.string.stock_overview),
+            icon = Icons.Default.Dashboard,
+            color = Color(0xFF6366F1) // Indigo
+        ),
+        TabData(
+            title = stringResource(R.string.items_list),
+            icon = Icons.Default.Inventory,
+            color = Color(0xFF10B981) // Green
+        ),
+        TabData(
+            title = stringResource(R.string.alerts),
+            icon = Icons.Default.Warning,
+            color = Color(0xFFF59E0B), // Amber
+            badge = if (alertCount > 0) alertCount else null
+        ),
+        TabData(
+            title = stringResource(R.string.transactions),
+            icon = Icons.Default.Receipt,
+            color = Color(0xFF8B5CF6) // Purple
+        )
+    )
+
+    // Horizontal scrollable tab row for different screen sizes
+    LazyRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        itemsIndexed(tabs) { index, tab ->
+            ModernTabCard(
+                tab = tab,
+                isSelected = selectedTab == index,
+                onClick = { onTabSelected(index) }
+            )
+        }
+    }
+}
+
+private data class TabData(
+    val title: String,
+    val icon: ImageVector,
+    val color: Color,
+    val badge: Int? = null
+)
+
+@Composable
+private fun ModernTabCard(
+    tab: TabData,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val animatedElevation by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 0.dp,
+        animationSpec = tween(300)
+    )
+    
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .width(140.dp)
+            .height(100.dp)
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+            },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected)
+                tab.color.copy(alpha = 0.15f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = animatedElevation
+        ),
+        border = if (isSelected)
+            BorderStroke(2.dp, tab.color)
+        else
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Icon with badge
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected)
+                                    tab.color.copy(alpha = 0.2f)
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            tab.icon,
+                            contentDescription = null,
+                            tint = if (isSelected) tab.color else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    // Badge for alerts
+                    tab.badge?.let { count ->
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (count > 99) "99+" else count.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onError,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+
+                // Title
+                Text(
+                    text = tab.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) tab.color else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 16.sp
+                )
+            }
+
+            // Selection indicator
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(tab.color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }

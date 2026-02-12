@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,6 +78,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.widthIn
@@ -91,6 +96,7 @@ import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 import net.marllex.cafeemanger.core.ui.components.OrderStatusChip
 import net.marllex.cafeemanger.core.ui.components.PaymentMethodChip
 import net.marllex.cafeemanger.core.ui.components.formatStatusLabel
+import net.marllex.cafeemanger.feature.manager.orders.components.ModernFilterSection
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -102,6 +108,8 @@ fun OrdersScreen(
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
     val fallbackViewReceipt: (String) -> Unit = remember(viewModel, context) {
         { orderId ->
             viewModel.shareReceipt(orderId) { url ->
@@ -110,10 +118,14 @@ fun OrdersScreen(
         }
     }
 
+    // Auto-refresh when screen becomes visible
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.loadOrders()
+        }
+    }
+
     var showDatePicker by remember { mutableStateOf(false) }
-    var showCashierMenu by remember { mutableStateOf(false) }
-    var showDeliveryMenu by remember { mutableStateOf(false) }
-    var showFilters by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -121,259 +133,37 @@ fun OrdersScreen(
                 title = { Text(stringResource(R.string.orders)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                actions = {
-                    // Filter toggle button
-                    IconButton(onClick = { showFilters = !showFilters }) {
-                        Icon(
-                            Icons.Default.FilterList,
-                            contentDescription = stringResource(R.string.filters),
-                            tint = if (uiState.hasActiveFilters) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    // Clear filters button (only show when filters are active)
-                    if (uiState.hasActiveFilters) {
-                        IconButton(onClick = { viewModel.clearAllFilters() }) {
-                            Icon(
-                                Icons.Default.Clear,
-                                contentDescription = stringResource(R.string.clear_filters),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
+                )
             )
         },
     ) { padding ->
         when {
-            uiState.isLoading -> LoadingIndicator()
+            uiState.isLoading && uiState.orders.isEmpty() -> LoadingIndicator()
             uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
                 message = uiState.error!!,
                 onRetry = viewModel::loadOrders,
             )
 
             else -> Column(modifier = Modifier.padding(padding)) {
-                // Expandable Filters Section
-                AnimatedVisibility(
-                    visible = showFilters,
-                    enter = expandVertically(),
-                    exit = shrinkVertically()
-                ) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            // Date filter row
-                            Text(
-                                text = stringResource(R.string.date_filter),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val now = System.currentTimeMillis()
-                                val todayStart = java.util.Calendar.getInstance().apply {
-                                    set(java.util.Calendar.HOUR_OF_DAY, 0)
-                                    set(java.util.Calendar.MINUTE, 0)
-                                    set(java.util.Calendar.SECOND, 0)
-                                    set(java.util.Calendar.MILLISECOND, 0)
-                                }.timeInMillis
-
-                                FilterChip(
-                                    selected = uiState.fromDate == todayStart,
-                                    onClick = { viewModel.filterByDateRange(todayStart, now) },
-                                    label = { Text(stringResource(R.string.today)) }
-                                )
-                                FilterChip(
-                                    selected = uiState.fromDate != null && uiState.fromDate != todayStart && uiState.toDate != null,
-                                    onClick = { showDatePicker = true },
-                                    label = {
-                                        if (uiState.fromDate != null && uiState.fromDate != todayStart) {
-                                            val dateFormat = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
-                                            Text("${dateFormat.format(java.util.Date(uiState.fromDate!!))} - ${dateFormat.format(java.util.Date(uiState.toDate ?: now))}")
-                                        } else {
-                                            Text(stringResource(R.string.custom_date))
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.CalendarMonth, null, Modifier.size(16.dp))
-                                    }
-                                )
-                                if (uiState.fromDate != null) {
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { viewModel.filterByDateRange(null, null) },
-                                        label = { Text(stringResource(R.string.all_dates)) }
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Cashier and Delivery filter dropdowns
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Cashier dropdown
-                                Box(modifier = Modifier.weight(1f)) {
-                                    val cashierLabel = uiState.selectedCashierId?.let { id ->
-                                        uiState.cashiers.find { it.id == id }?.name ?: id.takeLast(6)
-                                    } ?: stringResource(R.string.all_cashiers)
-
-                                    FilterChip(
-                                        selected = uiState.selectedCashierId != null,
-                                        onClick = { showCashierMenu = true },
-                                        label = { Text(cashierLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) }
-                                    )
-                                    DropdownMenu(
-                                        expanded = showCashierMenu,
-                                        onDismissRequest = { showCashierMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.all_cashiers)) },
-                                            onClick = {
-                                                showCashierMenu = false
-                                                viewModel.filterByCashier(null)
-                                            }
-                                        )
-                                        uiState.cashiers.forEach { cashier ->
-                                            DropdownMenuItem(
-                                                text = { Text(cashier.name) },
-                                                onClick = {
-                                                    showCashierMenu = false
-                                                    viewModel.filterByCashier(cashier.id)
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Delivery dropdown
-                                Box(modifier = Modifier.weight(1f)) {
-                                    val deliveryLabel = uiState.selectedDeliveryUserId?.let { id ->
-                                        uiState.deliveryUsers.find { it.id == id }?.name ?: id.takeLast(6)
-                                    } ?: stringResource(R.string.all_delivery)
-
-                                    FilterChip(
-                                        selected = uiState.selectedDeliveryUserId != null,
-                                        onClick = { showDeliveryMenu = true },
-                                        label = { Text(deliveryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) }
-                                    )
-                                    DropdownMenu(
-                                        expanded = showDeliveryMenu,
-                                        onDismissRequest = { showDeliveryMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.all_delivery)) },
-                                            onClick = {
-                                                showDeliveryMenu = false
-                                                viewModel.filterByDelivery(null)
-                                            }
-                                        )
-                                        uiState.deliveryUsers.forEach { delivery ->
-                                            DropdownMenuItem(
-                                                text = { Text(delivery.name) },
-                                                onClick = {
-                                                    showDeliveryMenu = false
-                                                    viewModel.filterByDelivery(delivery.id)
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Channel filter chips (All / Dine-In / Delivery)
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = uiState.selectedChannel == null,
-                            onClick = { viewModel.filterByChannel(null) },
-                            label = { Text(stringResource(R.string.all)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
-                            ),
-                        )
-                    }
-                    item {
-                        FilterChip(
-                            selected = uiState.selectedChannel == "DINE_IN",
-                            onClick = { viewModel.filterByChannel("DINE_IN") },
-                            label = { Text(stringResource(R.string.channel_dine_in)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
-                            ),
-                        )
-                    }
-                    item {
-                        FilterChip(
-                            selected = uiState.selectedChannel == "DELIVERY",
-                            onClick = { viewModel.filterByChannel("DELIVERY") },
-                            label = { Text(stringResource(R.string.channel_delivery)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
-                            ),
-                        )
-                    }
-                }
-
-                // Status filter chips - filtered by selected channel
-                val visibleStatuses = when (uiState.selectedChannel) {
-                    "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
-                    "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
-                    else -> OrderStatus.entries.toList()
-                }
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = uiState.selectedStatus == null,
-                            onClick = { viewModel.filterByStatus(null) },
-                            label = { Text(stringResource(R.string.all)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                        )
-                    }
-                    items(visibleStatuses) { status ->
-                        FilterChip(
-                            selected = uiState.selectedStatus == status.name,
-                            onClick = { viewModel.filterByStatus(status.name) },
-                            label = { Text(formatStatusLabel(status)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                        )
-                    }
-                }
+                // Modern Filter Section
+                ModernFilterSection(
+                    selectedChannel = uiState.selectedChannel,
+                    selectedStatus = uiState.selectedStatus,
+                    selectedCashierId = uiState.selectedCashierId,
+                    selectedDeliveryUserId = uiState.selectedDeliveryUserId,
+                    fromDate = uiState.fromDate,
+                    toDate = uiState.toDate,
+                    cashiers = uiState.cashiers,
+                    deliveryUsers = uiState.deliveryUsers,
+                    hasActiveFilters = uiState.hasActiveFilters,
+                    onChannelSelected = viewModel::filterByChannel,
+                    onStatusSelected = viewModel::filterByStatus,
+                    onCashierSelected = viewModel::filterByCashier,
+                    onDeliverySelected = viewModel::filterByDelivery,
+                    onDateRangeSelected = viewModel::filterByDateRange,
+                    onClearAll = viewModel::clearAllFilters,
+                    onShowDatePicker = { showDatePicker = true }
+                )
 
                 // Orders count info
                 if (uiState.orders.isNotEmpty()) {
@@ -446,6 +236,7 @@ fun OrdersScreen(
     if (uiState.showAssignDeliveryDialog) {
         AssignDeliveryDialog(
             deliveryUsers = uiState.deliveryUsers,
+            isLoading = uiState.isLoading,
             onAssign = viewModel::assignDeliveryUser,
             onDismiss = viewModel::dismissAssignDeliveryDialog,
         )
@@ -476,11 +267,12 @@ fun OrdersScreen(
 @Composable
 private fun AssignDeliveryDialog(
     deliveryUsers: List<net.marllex.cafeemanger.core.model.User>,
+    isLoading: Boolean,
     onAssign: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isLoading) onDismiss() },
         icon = {
             Icon(
                 Icons.Filled.DeliveryDining,
@@ -503,33 +295,57 @@ private fun AssignDeliveryDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    deliveryUsers.forEach { user ->
-                        Card(
+                    
+                    if (isLoading) {
+                        // Show loading indicator
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onAssign(user.id) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator()
+                                Text(
+                                    text = stringResource(R.string.assigning),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        // Show delivery users list
+                        deliveryUsers.forEach { user ->
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .clickable { onAssign(user.id) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                ),
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = user.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                    Text(
-                                        text = user.phone,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = user.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            text = user.phone,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -537,9 +353,12 @@ private fun AssignDeliveryDialog(
                 }
             }
         },
-        confirmButton = {onDismiss()},
+        confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
                 Text(stringResource(R.string.cancel))
             }
         },

@@ -16,4 +16,9 @@
     <string name="low_stock_items">أصناف مخزون منخفض</string>
     <string name="out_of_stock_items">أصناف نفدت</string>
     <string name="tap_to_expand">اضغط للتفاصيل</string>
+    <string name="quick_overview">نظرة سريعة</string>
+    <string name="in_progress">قيد التنفيذ</string>
+    <string name="completed_today">مكتمل اليوم</string>
+    <string name="critical">حرج</string>
+    <string name="items">عناصر</string>
 </resources>

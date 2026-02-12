@@ -181,10 +181,30 @@ class OrdersViewModel @Inject constructor(
     fun assignDeliveryUser(deliveryUserId: String) {
         val orderId = _uiState.value.assignOrderId ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(showAssignDeliveryDialog = false, assignOrderId = null) }
-            orderRepository.assignDeliveryUser(orderId, deliveryUserId).onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
+            // Don't close dialog immediately - wait for API response
+            _uiState.update { it.copy(isLoading = true) }
+            
+            orderRepository.assignDeliveryUser(orderId, deliveryUserId)
+                .onSuccess {
+                    // Close dialog only on success
+                    _uiState.update { 
+                        it.copy(
+                            showAssignDeliveryDialog = false, 
+                            assignOrderId = null,
+                            isLoading = false
+                        ) 
+                    }
+                    loadOrders() // Refresh orders list
+                }
+                .onFailure { e ->
+                    // Keep dialog open on error, show error message
+                    _uiState.update { 
+                        it.copy(
+                            error = e.message,
+                            isLoading = false
+                        ) 
+                    }
+                }
         }
     }
 

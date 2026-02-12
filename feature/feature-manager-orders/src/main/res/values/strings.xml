@@ -27,9 +27,15 @@
     <string name="assign_delivery_person">Assign Delivery Person</string>
     <string name="select_delivery_person">Select a delivery person for this order</string>
     <string name="no_delivery_users">No delivery persons available</string>
+    <string name="assigning">Assigning order…</string>
     <string name="channel_dine_in">Dine-In</string>
     <string name="channel_delivery">Delivery</string>
     <string name="table_label">Table</string>
     <string name="edit_order">Edit Order</string>
     <string name="save_changes">Save Changes</string>
+    <string name="filter_by_person">Filter by Person</string>
+    <string name="active_filters">active filters</string>
+    <string name="tap_to_filter">Tap to filter orders</string>
+    <string name="channel">Channel</string>
+    <string name="status">Status</string>
 </resources>

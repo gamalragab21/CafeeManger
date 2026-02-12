@@ -16,4 +16,9 @@
     <string name="low_stock_items">Low Stock Items</string>
     <string name="out_of_stock_items">Out of Stock Items</string>
     <string name="tap_to_expand">Tap for details</string>
+    <string name="quick_overview">Quick Overview</string>
+    <string name="in_progress">In Progress</string>
+    <string name="completed_today">Completed Today</string>
+    <string name="critical">Critical</string>
+    <string name="items">items</string>
 </resources>

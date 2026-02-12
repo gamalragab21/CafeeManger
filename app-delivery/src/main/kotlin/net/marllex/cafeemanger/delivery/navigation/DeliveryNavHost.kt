@@ -96,7 +96,7 @@ enum class DeliveryTab(
     ORDERS("delivery/orders", R.string.my_orders_menu, Icons.Filled.DeliveryDining),
     HISTORY("delivery/history", R.string.history, Icons.Filled.History),
     ANNOUNCEMENTS("delivery/announcements", R.string.announcements_menu, Icons.Filled.Campaign),
-    MAP("delivery/map", R.string.map, Icons.Filled.Map),
+//    MAP("delivery/map", R.string.map, Icons.Filled.Map),
     PROFILE("delivery/profile", R.string.delivery_profile, Icons.Filled.Person),
 }
 
