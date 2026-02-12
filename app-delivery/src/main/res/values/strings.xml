@@ -6,4 +6,15 @@
     <string name="map">Map</string>
     <string name="settings">Settings</string>
     <string name="announcements_menu">Alerts</string>
+    <string name="delivery_profile">Profile</string>
+    <!-- Profile Screen -->
+    <string name="my_profile">My Profile</string>
+    <string name="your_name">Name</string>
+    <string name="your_phone">Phone</string>
+    <string name="your_email">Email</string>
+    <string name="your_role">Role</string>
+    <string name="account_info">Account Information</string>
+    <string name="app_settings">App Settings</string>
+    <string name="language">Language</string>
+    <string name="not_available">N/A</string>
 </resources>

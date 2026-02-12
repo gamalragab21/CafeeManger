@@ -46,4 +46,5 @@
     <string name="todays_overview">Today\'s Overview</string>
 
     <string name="roles_and_permissions">Roles &amp; Permissions</string>
+    <string name="manager_name">Your Name</string>
 </resources>

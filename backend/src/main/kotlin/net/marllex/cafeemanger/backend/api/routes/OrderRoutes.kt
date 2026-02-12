@@ -9,6 +9,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
@@ -43,6 +44,7 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.deleteWhere
 import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
 import java.util.UUID
@@ -67,6 +69,18 @@ data class CreateOrderDto(
 @Serializable
 data class CreateOrderItemDto(
     val item_id: String, val quantity: Int, val note: String? = null
+)
+
+@Serializable
+data class UpdateOrderDto(
+    val client_name: String? = null,
+    val client_phone: String? = null,
+    val client_address: String? = null,
+    val notes: String? = null,
+    val payment_method: String? = null,
+    val delivery_fee: Double? = null,
+    val tax_place_id: String? = null,
+    val items: List<CreateOrderItemDto>? = null,
 )
 
 @Serializable
@@ -362,6 +376,20 @@ fun Route.orderRoutes() {
             val request = call.receive<CreateOrderDto>()
             require(request.items.isNotEmpty()) { "Order must have at least one item" }
 
+            // Validate channel value
+            val validChannels = listOf("DINE_IN", "DELIVERY")
+            require(request.channel in validChannels) { "Invalid channel. Must be one of: ${validChannels.joinToString()}" }
+
+            // Validate table for DINE_IN orders
+            if (request.channel == "DINE_IN" && request.table_id != null) {
+                transaction {
+                    val table = TablesTable.selectAll().where {
+                        (TablesTable.id eq UUID.fromString(request.table_id)) and
+                        (TablesTable.vendorId eq UUID.fromString(principal.vendorId))
+                    }.firstOrNull() ?: throw NoSuchElementException("Table not found")
+                }
+            }
+
             val order = transaction {
                 // Calculate totals from item snapshots
                 var subtotal = BigDecimal.ZERO
@@ -472,6 +500,16 @@ fun Route.orderRoutes() {
                     }
                 }
 
+                // Auto-set table to OCCUPIED for dine-in orders
+                if (request.channel == "DINE_IN" && request.table_id != null) {
+                    TablesTable.update({
+                        TablesTable.id eq UUID.fromString(request.table_id)
+                    }) {
+                        it[TablesTable.status] = "OCCUPIED"
+                        it[updatedAt] = Clock.System.now()
+                    }
+                }
+
                 // Log activity
                 ActivityLogsTable.insert {
                     it[ActivityLogsTable.orderId] = orderId
@@ -496,6 +534,155 @@ fun Route.orderRoutes() {
                 orderRow.toOrderDto(orderItems, usersMap, tablesMap)
             }
             call.respond(HttpStatusCode.Created, order)
+        }
+
+        put("/{id}") {
+            val principal = requireRole("CASHIER", "MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<UpdateOrderDto>()
+
+            val order = transaction {
+                val current = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and
+                    (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+
+                val currentStatus = current[OrdersTable.status]
+                if (currentStatus in listOf("COMPLETED", "CANCELED")) {
+                    throw IllegalStateException("Cannot edit a $currentStatus order")
+                }
+
+                // Update order fields
+                OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) { stmt ->
+                    request.client_name?.let { stmt[clientName] = it }
+                    request.client_phone?.let { stmt[clientPhone] = it }
+                    request.client_address?.let { stmt[clientAddress] = it }
+                    request.notes?.let { stmt[notes] = it }
+                    request.payment_method?.let { stmt[paymentMethod] = it }
+                    stmt[updatedAt] = Clock.System.now()
+                }
+
+                // If items are provided, replace them and recalculate totals
+                if (request.items != null && request.items.isNotEmpty()) {
+                    // Restore stock from old items
+                    val vendorUUID = UUID.fromString(principal.vendorId)
+                    val oldItems = OrderItemsTable.selectAll()
+                        .where { OrderItemsTable.orderId eq UUID.fromString(id) }.toList()
+                    oldItems.forEach { oldItem ->
+                        val itemUUID = oldItem[OrderItemsTable.itemId]
+                        val stockRow = StockTable.selectAll().where {
+                            (StockTable.itemId eq itemUUID) and (StockTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+                        if (stockRow != null) {
+                            val oldQty = stockRow[StockTable.quantity]
+                            val restoredQty = oldQty + oldItem[OrderItemsTable.quantity]
+                            StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                it[quantity] = restoredQty
+                                it[updatedAt] = Clock.System.now()
+                            }
+                        }
+                    }
+
+                    // Delete old items
+                    OrderItemsTable.deleteWhere { OrderItemsTable.orderId eq UUID.fromString(id) }
+
+                    // Insert new items and calculate totals
+                    var subtotal = BigDecimal.ZERO
+                    val newOrderItems = request.items.map { orderItem ->
+                        val item = ItemsTable.selectAll()
+                            .where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
+                            .firstOrNull() ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
+                        val price = item[ItemsTable.price]
+                        subtotal += price * BigDecimal(orderItem.quantity)
+
+                        val oiId = OrderItemsTable.insertAndGetId {
+                            it[OrderItemsTable.orderId] = UUID.fromString(id)
+                            it[itemId] = UUID.fromString(orderItem.item_id)
+                            it[itemNameSnapshot] = item[ItemsTable.name]
+                            it[itemPriceSnapshot] = price
+                            it[OrderItemsTable.quantity] = orderItem.quantity
+                            it[note] = orderItem.note
+                            it[createdAt] = Clock.System.now()
+                        }
+
+                        // Deduct stock for new item
+                        val stockRow = StockTable.selectAll().where {
+                            (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and (StockTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+                        if (stockRow != null) {
+                            val oldQty = stockRow[StockTable.quantity]
+                            val newQty = (oldQty - orderItem.quantity).coerceAtLeast(0)
+                            StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                it[quantity] = newQty
+                                it[updatedAt] = Clock.System.now()
+                            }
+                        }
+
+                        OrderItemDto(
+                            id = oiId.toString(), order_id = id,
+                            item_id = orderItem.item_id,
+                            item_name_snapshot = item[ItemsTable.name],
+                            item_price_snapshot = price.toDouble(),
+                            quantity = orderItem.quantity, note = orderItem.note
+                        )
+                    }
+
+                    // Recalculate totals
+                    val channel = current[OrdersTable.channel]
+                    val deliveryFeeAmount = if (channel == "DELIVERY") {
+                        request.delivery_fee?.let { BigDecimal.valueOf(it) } ?: current[OrdersTable.deliveryFee]
+                    } else BigDecimal.ZERO
+
+                    var taxAmount = BigDecimal.ZERO
+                    val taxPlaceIdUuid: UUID? = request.tax_place_id?.let { UUID.fromString(it) }
+                        ?: current[OrdersTable.taxPlaceId]?.value
+                    if (channel == "DELIVERY" && taxPlaceIdUuid != null) {
+                        val taxPlace = TaxPlacesTable.selectAll().where {
+                            (TaxPlacesTable.id eq taxPlaceIdUuid) and
+                            (TaxPlacesTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+                        taxPlace?.let {
+                            taxAmount = it[TaxPlacesTable.taxPercent].setScale(2, java.math.RoundingMode.HALF_UP)
+                        }
+                    }
+                    val total = subtotal + deliveryFeeAmount + taxAmount
+
+                    OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) { stmt ->
+                        stmt[OrdersTable.subtotal] = subtotal
+                        stmt[deliveryFee] = deliveryFeeAmount
+                        stmt[tax] = taxAmount
+                        stmt[OrdersTable.total] = total
+                        request.delivery_fee?.let { stmt[deliveryFee] = BigDecimal.valueOf(it) }
+                        request.tax_place_id?.let { stmt[OrdersTable.taxPlaceId] = UUID.fromString(it) }
+                    }
+                }
+
+                // Log activity
+                ActivityLogsTable.insert {
+                    it[orderId] = UUID.fromString(id)
+                    it[userId] = UUID.fromString(principal.userId)
+                    it[action] = "ORDER_UPDATED"
+                    it[payload] = """{"updated_fields":"items,details"}"""
+                    it[createdAt] = Clock.System.now()
+                }
+
+                val updatedRow = OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }.first()
+                val items = OrderItemsTable.selectAll()
+                    .where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                    .map { it.toOrderItemDto() }
+                val userIds = listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId])
+                    .filterNotNull().distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                val tablesMap = updatedRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                updatedRow.toOrderDto(items, usersMap, tablesMap)
+            }
+            call.respond(HttpStatusCode.OK, order)
         }
 
         patch("/{id}/status") {

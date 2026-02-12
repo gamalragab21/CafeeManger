@@ -70,6 +70,8 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalConfiguration
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 
@@ -81,6 +83,9 @@ fun PosScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCartSheet by remember { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val horizontalPadding = if (isTablet) 24.dp else 16.dp
 
     Scaffold(
         topBar = {
@@ -128,7 +133,12 @@ fun PosScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadMenu,
             )
-            else -> Column(modifier = Modifier.padding(padding)) {
+            else -> Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.TopCenter,
+            ) { Column(
+                modifier = Modifier.then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth()),
+            ) {
                 // Channel selector – only show enabled channels
                 val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery) {
                     buildList {
@@ -141,7 +151,7 @@ fun PosScreen(
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = horizontalPadding, vertical = 8.dp),
                     ) {
                         availableChannels.forEachIndexed { index, channel ->
                             SegmentedButton(
@@ -162,7 +172,7 @@ fun PosScreen(
 
                 // Category filter
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
@@ -190,7 +200,7 @@ fun PosScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontalPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filteredItems, key = { it.id }) { item ->
@@ -201,7 +211,7 @@ fun PosScreen(
                         )
                     }
                 }
-            }
+            } }
         }
 
         if (showCartSheet && uiState.cart.isNotEmpty()) {

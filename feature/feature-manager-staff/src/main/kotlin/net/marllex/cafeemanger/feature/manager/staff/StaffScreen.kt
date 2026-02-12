@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.DeliveryDining
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -105,19 +107,34 @@ fun StaffScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
+    // Sub-screen state: null = main tabs, "delivery" or "announcements"
+    var activeSubScreen by remember { mutableStateOf<String?>(null) }
     val tabs = listOf(
         stringResource(R.string.workers),
         stringResource(R.string.attendance),
         stringResource(R.string.salary),
         stringResource(R.string.roles_settings),
-        stringResource(R.string.delivery_dashboard),
-        stringResource(R.string.announcements),
     )
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.staff_management)) },
+                title = {
+                    Text(
+                        when (activeSubScreen) {
+                            "delivery" -> stringResource(R.string.delivery_dashboard)
+                            "announcements" -> stringResource(R.string.announcements)
+                            else -> stringResource(R.string.staff_management)
+                        }
+                    )
+                },
+                navigationIcon = {
+                    if (activeSubScreen != null) {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -129,45 +146,127 @@ fun StaffScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                edgePadding = 16.dp,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
-                indicator = { tabPositions ->
-                    if (selectedTab < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+            when (activeSubScreen) {
+                "delivery" -> DeliveryDashboardScreen()
+                "announcements" -> AnnouncementsScreen(isManager = true)
+                else -> {
+                    // Quick Access cards
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Card(
+                            onClick = { activeSubScreen = "delivery" },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.DeliveryDining,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                                Column {
+                                    Text(
+                                        stringResource(R.string.delivery_dashboard),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                    Text(
+                                        stringResource(R.string.view_delivery_dashboard),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+
+                        Card(
+                            onClick = { activeSubScreen = "announcements" },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Campaign,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                                Column {
+                                    Text(
+                                        stringResource(R.string.announcements),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    )
+                                    Text(
+                                        stringResource(R.string.view_announcements),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    val isSelected = selectedTab == index
-                    Tab(
-                        selected = isSelected,
-                        onClick = { selectedTab = index },
-                        selectedContentColor = MaterialTheme.colorScheme.primary,
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        text = {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+
+                    // 4-tab TabRow
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+                        indicator = { tabPositions ->
+                            if (selectedTab < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        },
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedTab == index
+                            Tab(
+                                selected = isSelected,
+                                onClick = { selectedTab = index },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
                             )
                         }
-                    )
-                }
-            }
+                    }
 
-            when (selectedTab) {
-                4 -> DeliveryDashboardScreen()
-                5 -> AnnouncementsScreen(isManager = true)
-                else -> {
                     when {
                         uiState.isLoading -> LoadingIndicator()
                         uiState.error != null && uiState.workers.isEmpty() -> ErrorView(

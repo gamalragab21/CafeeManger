@@ -114,6 +114,11 @@
     <string name="priority_urgent">Urgent</string>
     <string name="no_announcements">No announcements yet</string>
 
+    <!-- Quick Access -->
+    <string name="quick_access">Quick Access</string>
+    <string name="view_delivery_dashboard">View delivery person status and active orders</string>
+    <string name="view_announcements">Send and manage staff announcements</string>
+
     <!-- Worker Login -->
     <string name="enable_login">Enable App Login</string>
     <string name="enable_login_hint">Allow this worker to login to the app. Attendance will be tracked automatically.</string>

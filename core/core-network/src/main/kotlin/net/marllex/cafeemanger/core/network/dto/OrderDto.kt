@@ -73,6 +73,18 @@ data class CreateOrderItemRequest(
 )
 
 @Serializable
+data class UpdateOrderRequest(
+    @SerialName("client_name") val clientName: String? = null,
+    @SerialName("client_phone") val clientPhone: String? = null,
+    @SerialName("client_address") val clientAddress: String? = null,
+    val notes: String? = null,
+    @SerialName("payment_method") val paymentMethod: String? = null,
+    @SerialName("delivery_fee") val deliveryFee: Double? = null,
+    @SerialName("tax_place_id") val taxPlaceId: String? = null,
+    val items: List<CreateOrderItemRequest>? = null,
+)
+
+@Serializable
 data class UpdateOrderStatusRequest(
     val status: String
 )

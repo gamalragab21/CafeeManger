@@ -115,6 +115,11 @@
     <string name="priority_urgent">عاجل</string>
     <string name="no_announcements">لا توجد إعلانات</string>
 
+    <!-- Quick Access -->
+    <string name="quick_access">وصول سريع</string>
+    <string name="view_delivery_dashboard">عرض حالة مناديب التوصيل والطلبات النشطة</string>
+    <string name="view_announcements">إرسال وإدارة إعلانات الموظفين</string>
+
     <!-- Worker Login -->
     <string name="enable_login">تفعيل تسجيل الدخول</string>
     <string name="enable_login_hint">السماح لهذا العامل بتسجيل الدخول للتطبيق. سيتم تتبع الحضور تلقائيًا.</string>

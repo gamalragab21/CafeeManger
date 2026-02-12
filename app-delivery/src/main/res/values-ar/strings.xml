@@ -7,5 +7,15 @@
     <string name="map">الخريطة</string>
     <string name="settings">الإعدادات</string>
     <string name="announcements_menu">الإعلانات</string>
-
+    <string name="delivery_profile">الملف</string>
+    <!-- Profile Screen -->
+    <string name="my_profile">ملفي الشخصي</string>
+    <string name="your_name">الاسم</string>
+    <string name="your_phone">الهاتف</string>
+    <string name="your_email">البريد الإلكتروني</string>
+    <string name="your_role">الدور</string>
+    <string name="account_info">معلومات الحساب</string>
+    <string name="app_settings">إعدادات التطبيق</string>
+    <string name="language">اللغة</string>
+    <string name="not_available">غير متوفر</string>
 </resources>

@@ -6,6 +6,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
+import net.marllex.cafeemanger.backend.api.middleware.currentUser
 import net.marllex.cafeemanger.backend.api.middleware.requireRole
 import net.marllex.cafeemanger.backend.data.database.UsersTable
 import org.jetbrains.exposed.sql.*
@@ -62,6 +63,30 @@ fun Route.userManagementRoutes() {
                     .map { it.toUserDto() }
             }
             call.respond(HttpStatusCode.OK, users)
+        }
+
+        // Self-update profile (any authenticated user)
+        put("/me") {
+            val principal = currentUser()
+            val request = call.receive<UpdateUserDto>()
+
+            val updated = transaction {
+                UsersTable.update({
+                    UsersTable.id eq UUID.fromString(principal.userId)
+                }) { stmt ->
+                    request.name?.let { stmt[name] = it }
+                    request.phone?.let { stmt[phone] = it }
+                    request.email?.let { stmt[email] = it }
+                    // Don't allow self role/active change via /me
+                    request.password?.let { pwd ->
+                        stmt[passwordHash] = BCrypt.hashpw(pwd, BCrypt.gensalt())
+                    }
+                    stmt[updatedAt] = Clock.System.now()
+                }
+                UsersTable.selectAll().where { UsersTable.id eq UUID.fromString(principal.userId) }
+                    .firstOrNull()?.toUserDto() ?: throw NoSuchElementException("User not found")
+            }
+            call.respond(HttpStatusCode.OK, updated)
         }
 
         get("/{id}") {

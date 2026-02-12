@@ -105,6 +105,9 @@ interface CafeeMangerApi {
     @POST("api/v1/users")
     suspend fun createUser(@Body request: CreateUserRequest): UserResponse
 
+    @PUT("api/v1/users/me")
+    suspend fun updateMyProfile(@Body request: UpdateUserRequest): UserResponse
+
     @PUT("api/v1/users/{id}")
     suspend fun updateUser(
         @Path("id") id: String,
@@ -132,6 +135,12 @@ interface CafeeMangerApi {
 
     @POST("api/v1/orders")
     suspend fun createOrder(@Body request: CreateOrderRequest): OrderResponse
+
+    @PUT("api/v1/orders/{id}")
+    suspend fun updateOrder(
+        @Path("id") id: String,
+        @Body request: UpdateOrderRequest
+    ): OrderResponse
 
     @PATCH("api/v1/orders/{id}/status")
     suspend fun updateOrderStatus(

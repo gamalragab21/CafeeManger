@@ -12,8 +12,11 @@ import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.OrderRepository
 import net.marllex.cafeemanger.core.domain.repository.UserManagementRepository
 import net.marllex.cafeemanger.core.model.Order
+import net.marllex.cafeemanger.core.model.OrderChannel
+import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.model.OrderStatus
 import net.marllex.cafeemanger.core.model.UserRole
+import net.marllex.cafeemanger.core.network.dto.CreateOrderItemRequest
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,6 +40,15 @@ class OrdersViewModel @Inject constructor(
         // Delivery assignment dialog
         val showAssignDeliveryDialog: Boolean = false,
         val assignOrderId: String? = null,
+        // Edit order dialog
+        val showEditOrderDialog: Boolean = false,
+        val editingOrder: Order? = null,
+        val editItems: List<OrderItem> = emptyList(),
+        val editClientName: String = "",
+        val editClientPhone: String = "",
+        val editClientAddress: String = "",
+        val editNotes: String = "",
+        val isEditSaving: Boolean = false,
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
@@ -93,7 +105,17 @@ class OrdersViewModel @Inject constructor(
     }
 
     fun filterByChannel(channel: String?) {
-        _uiState.update { it.copy(selectedChannel = channel) }
+        val currentStatus = _uiState.value.selectedStatus
+        // Clear status filter if it's incompatible with new channel
+        val resetStatus = if (currentStatus != null && channel != null) {
+            val availableStatuses = when (channel) {
+                "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
+                "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
+                else -> OrderStatus.entries.toList()
+            }
+            if (availableStatuses.none { it.name == currentStatus }) null else currentStatus
+        } else currentStatus
+        _uiState.update { it.copy(selectedChannel = channel, selectedStatus = resetStatus) }
         loadOrders()
     }
 
@@ -162,6 +184,77 @@ class OrdersViewModel @Inject constructor(
             _uiState.update { it.copy(showAssignDeliveryDialog = false, assignOrderId = null) }
             orderRepository.assignDeliveryUser(orderId, deliveryUserId).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    // ─── Edit Order ────────────────────────────────────────────────
+    fun showEditOrder(order: Order) {
+        _uiState.update {
+            it.copy(
+                showEditOrderDialog = true,
+                editingOrder = order,
+                editItems = order.items,
+                editClientName = order.clientName ?: "",
+                editClientPhone = order.clientPhone ?: "",
+                editClientAddress = order.clientAddress ?: "",
+                editNotes = order.notes ?: "",
+            )
+        }
+    }
+
+    fun dismissEditOrderDialog() {
+        _uiState.update { it.copy(showEditOrderDialog = false, editingOrder = null) }
+    }
+
+    fun updateEditClientName(v: String) = _uiState.update { it.copy(editClientName = v) }
+    fun updateEditClientPhone(v: String) = _uiState.update { it.copy(editClientPhone = v) }
+    fun updateEditClientAddress(v: String) = _uiState.update { it.copy(editClientAddress = v) }
+    fun updateEditNotes(v: String) = _uiState.update { it.copy(editNotes = v) }
+
+    fun updateEditItemQuantity(itemId: String, quantity: Int) {
+        _uiState.update { state ->
+            if (quantity <= 0) {
+                state.copy(editItems = state.editItems.filter { it.id != itemId })
+            } else {
+                state.copy(editItems = state.editItems.map {
+                    if (it.id == itemId) it.copy(quantity = quantity) else it
+                })
+            }
+        }
+    }
+
+    fun removeEditItem(itemId: String) {
+        _uiState.update { state ->
+            state.copy(editItems = state.editItems.filter { it.id != itemId })
+        }
+    }
+
+    fun saveEditOrder() {
+        val s = _uiState.value
+        val order = s.editingOrder ?: return
+        if (s.editItems.isEmpty()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isEditSaving = true) }
+            orderRepository.updateOrder(
+                id = order.id,
+                clientName = s.editClientName.ifBlank { null },
+                clientPhone = s.editClientPhone.ifBlank { null },
+                clientAddress = if (order.channel == OrderChannel.DELIVERY) s.editClientAddress.ifBlank { null } else null,
+                notes = s.editNotes.ifBlank { null },
+                items = s.editItems.map {
+                    CreateOrderItemRequest(
+                        itemId = it.itemId,
+                        quantity = it.quantity,
+                        note = it.note,
+                    )
+                },
+            ).onSuccess {
+                _uiState.update { it.copy(isEditSaving = false, showEditOrderDialog = false, editingOrder = null) }
+                loadOrders()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isEditSaving = false, error = e.message) }
             }
         }
     }

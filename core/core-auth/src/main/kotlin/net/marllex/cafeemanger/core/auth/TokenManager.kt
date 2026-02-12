@@ -36,6 +36,9 @@ class TokenManager @Inject constructor(
             .remove(KEY_USER_ID)
             .remove(KEY_VENDOR_ID)
             .remove(KEY_USER_ROLE)
+            .remove(KEY_USER_NAME)
+            .remove(KEY_USER_PHONE)
+            .remove(KEY_USER_EMAIL)
             .apply()
         _isLoggedIn.value = false
     }
@@ -78,17 +81,23 @@ class TokenManager @Inject constructor(
     }
 
     // Cache user info locally for quick access
-    fun saveUserInfo(userId: String, vendorId: String, role: String) {
+    fun saveUserInfo(userId: String, vendorId: String, role: String, name: String, phone: String, email: String? = null) {
         encryptedPrefs.edit()
             .putString(KEY_USER_ID, userId)
             .putString(KEY_VENDOR_ID, vendorId)
             .putString(KEY_USER_ROLE, role)
+            .putString(KEY_USER_NAME, name)
+            .putString(KEY_USER_PHONE, phone)
+            .putString(KEY_USER_EMAIL, email)
             .apply()
     }
 
     fun getCachedUserId(): String? = encryptedPrefs.getString(KEY_USER_ID, null)
     fun getCachedVendorId(): String? = encryptedPrefs.getString(KEY_VENDOR_ID, null)
     fun getCachedUserRole(): String? = encryptedPrefs.getString(KEY_USER_ROLE, null)
+    fun getCachedUserName(): String? = encryptedPrefs.getString(KEY_USER_NAME, null)
+    fun getCachedUserPhone(): String? = encryptedPrefs.getString(KEY_USER_PHONE, null)
+    fun getCachedUserEmail(): String? = encryptedPrefs.getString(KEY_USER_EMAIL, null)
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "access_token"
@@ -96,5 +105,8 @@ class TokenManager @Inject constructor(
         private const val KEY_USER_ID = "user_id"
         private const val KEY_VENDOR_ID = "vendor_id"
         private const val KEY_USER_ROLE = "user_role"
+        private const val KEY_USER_NAME = "user_name"
+        private const val KEY_USER_PHONE = "user_phone"
+        private const val KEY_USER_EMAIL = "user_email"
     }
 }

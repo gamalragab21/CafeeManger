@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Store
@@ -60,8 +61,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.model.Vendor
+import net.marllex.cafeemanger.core.network.CafeeMangerApi
+import net.marllex.cafeemanger.core.network.dto.UpdateUserRequest
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 import net.marllex.cafeemanger.manager.R
@@ -70,6 +74,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RestaurantProfileViewModel @Inject constructor(
     private val vendorRepository: VendorRepository,
+    private val authRepository: AuthRepository,
+    private val api: CafeeMangerApi,
 ) : ViewModel() {
 
     data class UiState(
@@ -84,12 +90,25 @@ class RestaurantProfileViewModel @Inject constructor(
         val editContactPhone: String = "",
         val editWalletPhone: String = "",
         val editLogoUrl: String = "",
+        val managerName: String = "",
+        val editManagerName: String = "",
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { loadVendor() }
+    init {
+        loadVendor()
+        loadManagerName()
+    }
+
+    private fun loadManagerName() {
+        viewModelScope.launch {
+            authRepository.currentUser.collect { user ->
+                _uiState.update { it.copy(managerName = user?.name ?: "", editManagerName = user?.name ?: "") }
+            }
+        }
+    }
 
     fun loadVendor() {
         viewModelScope.launch {
@@ -121,6 +140,7 @@ class RestaurantProfileViewModel @Inject constructor(
                 editContactPhone = v.contactPhone,
                 editWalletPhone = v.walletPhone ?: "",
                 editLogoUrl = v.logoUrl ?: "",
+                editManagerName = it.managerName,
             )
         }
     }
@@ -131,13 +151,14 @@ class RestaurantProfileViewModel @Inject constructor(
     fun updateContactPhone(v: String) { _uiState.update { it.copy(editContactPhone = v) } }
     fun updateWalletPhone(v: String) { _uiState.update { it.copy(editWalletPhone = v) } }
     fun updateLogoUrl(v: String) { _uiState.update { it.copy(editLogoUrl = v) } }
+    fun updateManagerName(v: String) { _uiState.update { it.copy(editManagerName = v) } }
 
     fun saveProfile() {
         val s = _uiState.value
         if (s.editName.isBlank() || s.editAddress.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            // Manager only sends basic info + logo. Feature flags are NOT sent (admin-only via API).
+            // Save vendor info
             vendorRepository.updateVendor(
                 name = s.editName,
                 logoUrl = s.editLogoUrl.ifBlank { null },
@@ -145,6 +166,15 @@ class RestaurantProfileViewModel @Inject constructor(
                 contactPhone = s.editContactPhone,
                 walletPhone = s.editWalletPhone.ifBlank { null },
             ).onSuccess {
+                // Also update manager name if changed
+                if (s.editManagerName.isNotBlank() && s.editManagerName != s.managerName) {
+                    try {
+                        api.updateMyProfile(UpdateUserRequest(name = s.editManagerName))
+                        _uiState.update { it.copy(managerName = s.editManagerName) }
+                        // Force refresh user in auth so welcome message updates
+                        authRepository.refreshToken()
+                    } catch (_: Exception) { /* Non-critical, vendor profile was still saved */ }
+                }
                 _uiState.update { it.copy(isSaving = false, isEditing = false, saveSuccess = true) }
             }.onFailure { e ->
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
@@ -215,6 +245,10 @@ fun RestaurantProfileScreen(
                                 )
                             }
                         }
+                        // Manager's personal name
+                        item {
+                            OutlinedTextField(value = uiState.editManagerName, onValueChange = viewModel::updateManagerName, label = { Text(stringResource(R.string.manager_name)) }, leadingIcon = { Icon(Icons.Filled.Person, null) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                        }
                         item {
                             OutlinedTextField(value = uiState.editName, onValueChange = viewModel::updateName, label = { Text(stringResource(R.string.store_name)) }, leadingIcon = { Icon(Icons.Filled.Store, null) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
                         }
@@ -253,6 +287,7 @@ fun RestaurantProfileScreen(
                                 }
                             }
                         }
+                        item { ProfileInfoRow(Icons.Filled.Person, stringResource(R.string.manager_name), uiState.managerName.ifBlank { "-" }) }
                         item { ProfileInfoRow(Icons.Filled.LocationOn, stringResource(R.string.address), uiState.vendor?.address ?: "-") }
                         item { ProfileInfoRow(Icons.Filled.Phone, stringResource(R.string.contact_phone), uiState.vendor?.contactPhone ?: "-") }
                         item { ProfileInfoRow(Icons.Filled.Wallet, stringResource(R.string.wallet_phone_optional), uiState.vendor?.walletPhone ?: "-") }

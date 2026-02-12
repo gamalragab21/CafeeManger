@@ -34,6 +34,14 @@ interface OrderRepository {
         items: List<CreateOrderItemRequest>
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
+    suspend fun updateOrder(
+        id: String,
+        clientName: String? = null, clientPhone: String? = null,
+        clientAddress: String? = null, notes: String? = null,
+        paymentMethod: String? = null, deliveryFee: Double? = null,
+        taxPlaceId: String? = null,
+        items: List<CreateOrderItemRequest>? = null,
+    ): Result<Order>
     suspend fun updateOrderStatus(id: String, status: OrderStatus): Result<Order>
     suspend fun assignDeliveryUser(id: String, deliveryUserId: String): Result<Order>
     suspend fun shareReceipt(id: String): Result<ReceiptShareLink>

@@ -28,12 +28,20 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.DropdownMenu
@@ -74,6 +82,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import net.marllex.cafeemanger.core.model.Order
+import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.OrderItem
 import net.marllex.cafeemanger.core.model.OrderStatus
 import net.marllex.cafeemanger.core.ui.components.ChannelChip
@@ -332,7 +341,12 @@ fun OrdersScreen(
                     }
                 }
 
-                // Status filter chips
+                // Status filter chips - filtered by selected channel
+                val visibleStatuses = when (uiState.selectedChannel) {
+                    "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
+                    "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
+                    else -> OrderStatus.entries.toList()
+                }
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -348,7 +362,7 @@ fun OrdersScreen(
                             ),
                         )
                     }
-                    items(OrderStatus.entries.toList()) { status ->
+                    items(visibleStatuses) { status ->
                         FilterChip(
                             selected = uiState.selectedStatus == status.name,
                             onClick = { viewModel.filterByStatus(status.name) },
@@ -382,7 +396,10 @@ fun OrdersScreen(
                         OrderCard(
                             order = order,
                             onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
-                            onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) }
+                            onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
+                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
+                                { viewModel.showEditOrder(order) }
+                            } else null,
                         )
                     }
                 }
@@ -431,6 +448,27 @@ fun OrdersScreen(
             deliveryUsers = uiState.deliveryUsers,
             onAssign = viewModel::assignDeliveryUser,
             onDismiss = viewModel::dismissAssignDeliveryDialog,
+        )
+    }
+
+    // Edit order dialog
+    if (uiState.showEditOrderDialog && uiState.editingOrder != null) {
+        EditOrderDialog(
+            order = uiState.editingOrder!!,
+            editItems = uiState.editItems,
+            clientName = uiState.editClientName,
+            clientPhone = uiState.editClientPhone,
+            clientAddress = uiState.editClientAddress,
+            notes = uiState.editNotes,
+            isSaving = uiState.isEditSaving,
+            onClientNameChange = viewModel::updateEditClientName,
+            onClientPhoneChange = viewModel::updateEditClientPhone,
+            onClientAddressChange = viewModel::updateEditClientAddress,
+            onNotesChange = viewModel::updateEditNotes,
+            onQuantityChange = viewModel::updateEditItemQuantity,
+            onRemoveItem = viewModel::removeEditItem,
+            onSave = viewModel::saveEditOrder,
+            onDismiss = viewModel::dismissEditOrderDialog,
         )
     }
 }
@@ -514,6 +552,7 @@ private fun OrderCard(
     order: Order,
     onStatusUpdate: (OrderStatus) -> Unit,
     onViewReceipt: () -> Unit,
+    onEdit: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -658,13 +697,28 @@ private fun OrderCard(
 
             // --- Action Buttons ---
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onViewReceipt,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Filled.Receipt, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.view_receipt))
+                OutlinedButton(
+                    onClick = onViewReceipt,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.Receipt, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.view_receipt))
+                }
+                if (onEdit != null) {
+                    OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.edit_order))
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             val nextStatuses = getNextStatuses(order)
@@ -747,4 +801,134 @@ private fun OrderItemRow(item: OrderItem) {
 
 private fun getNextStatuses(order: Order): List<OrderStatus> {
     return OrderStatus.entries.filter { order.status.canTransitionTo(it, order.channel) }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EditOrderDialog(
+    order: Order,
+    editItems: List<OrderItem>,
+    clientName: String,
+    clientPhone: String,
+    clientAddress: String,
+    notes: String,
+    isSaving: Boolean,
+    onClientNameChange: (String) -> Unit,
+    onClientPhoneChange: (String) -> Unit,
+    onClientAddressChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onQuantityChange: (String, Int) -> Unit,
+    onRemoveItem: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_order)) },
+        text = {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Items section
+                item {
+                    Text(
+                        stringResource(R.string.order_items),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                items(editItems, key = { it.id }) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text("${String.format("%.2f", item.itemPriceSnapshot)} x ${item.quantity} = ${String.format("%.2f", item.totalPrice)}",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { onQuantityChange(item.id, item.quantity - 1) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                                Text("${item.quantity}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { onQuantityChange(item.id, item.quantity + 1) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = { onRemoveItem(item.id) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // New total
+                item {
+                    val newSubtotal = editItems.sumOf { it.totalPrice }
+                    HorizontalDivider()
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(stringResource(R.string.subtotal), fontWeight = FontWeight.Bold)
+                        Text(String.format("%.2f", newSubtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                // Client info
+                item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
+                item {
+                    OutlinedTextField(
+                        value = clientName, onValueChange = onClientNameChange,
+                        label = { Text(stringResource(R.string.client)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = clientPhone, onValueChange = onClientPhoneChange,
+                        label = { Text(stringResource(R.string.phone)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+                if (order.channel == net.marllex.cafeemanger.core.model.OrderChannel.DELIVERY) {
+                    item {
+                        OutlinedTextField(
+                            value = clientAddress, onValueChange = onClientAddressChange,
+                            label = { Text(stringResource(R.string.address)) },
+                            singleLine = true, modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        )
+                    }
+                }
+                item {
+                    OutlinedTextField(
+                        value = notes, onValueChange = onNotesChange,
+                        label = { Text(stringResource(R.string.notes)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        minLines = 2,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                enabled = !isSaving && editItems.isNotEmpty(),
+            ) {
+                if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Text(stringResource(R.string.save_changes))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
 }

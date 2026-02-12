@@ -83,8 +83,14 @@ class TablesViewModel @Inject constructor(
     }
 
     fun updateStatus(table: Table, newStatus: TableStatus) {
+        if (table.status == newStatus) return  // no-op if same status
         viewModelScope.launch {
             tableRepository.updateTableStatus(table.id, newStatus.name)
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                    // Refresh to reset UI to actual server state
+                    tableRepository.refreshTables()
+                }
         }
     }
 

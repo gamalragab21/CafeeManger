@@ -141,6 +141,29 @@ class OrderRepositoryImpl @Inject constructor(
         order
     }
 
+    override suspend fun updateOrder(
+        id: String,
+        clientName: String?, clientPhone: String?,
+        clientAddress: String?, notes: String?,
+        paymentMethod: String?, deliveryFee: Double?,
+        taxPlaceId: String?,
+        items: List<CreateOrderItemRequest>?,
+    ): Result<Order> = runCatching {
+        val response = api.updateOrder(
+            id, UpdateOrderRequest(
+                clientName = clientName, clientPhone = clientPhone,
+                clientAddress = clientAddress, notes = notes,
+                paymentMethod = paymentMethod, deliveryFee = deliveryFee,
+                taxPlaceId = taxPlaceId, items = items,
+            )
+        )
+        val order = response.toDomain()
+        orderDao.insertOrder(order.toEntity())
+        orderDao.deleteOrderItems(order.id)
+        orderDao.insertOrderItems(order.items.map { it.toEntity() })
+        order
+    }
+
     override suspend fun fetchOrder(id: String): Result<Order> =
         runCatching {
             val response = api.getOrder(id)

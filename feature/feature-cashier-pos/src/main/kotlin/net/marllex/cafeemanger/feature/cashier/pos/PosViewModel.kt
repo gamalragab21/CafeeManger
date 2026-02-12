@@ -213,9 +213,10 @@ class PosViewModel @Inject constructor(
                 items = orderItems,
             ).onSuccess { order ->
                 _uiState.update { it.copy(isSubmitting = false, createdOrder = order, cart = emptyList()) }
-                // Auto-set table to OCCUPIED for dine-in orders
+                // Table is automatically set to OCCUPIED by backend for dine-in orders
+                // Refresh tables to reflect the new status locally
                 if (s.channel == OrderChannel.DINE_IN && s.selectedTableId != null) {
-                    tableRepository.updateTableStatus(s.selectedTableId, "OCCUPIED")
+                    tableRepository.refreshTables()
                 }
                 onSuccess(order)
             }.onFailure { e ->

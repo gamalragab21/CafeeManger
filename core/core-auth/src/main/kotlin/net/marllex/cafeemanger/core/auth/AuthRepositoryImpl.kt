@@ -24,12 +24,37 @@ class AuthRepositoryImpl @Inject constructor(
 
     override val isLoggedIn: Flow<Boolean> = tokenManager.isLoggedIn
 
+    init {
+        // Restore user from cache on app restart (so welcome message shows immediately)
+        restoreUserFromCache()
+    }
+
+    private fun restoreUserFromCache() {
+        val userId = tokenManager.getCachedUserId() ?: return
+        val vendorId = tokenManager.getCachedVendorId() ?: return
+        val roleName = tokenManager.getCachedUserRole() ?: return
+        val name = tokenManager.getCachedUserName() ?: return
+        val phone = tokenManager.getCachedUserPhone() ?: return
+        val email = tokenManager.getCachedUserEmail()
+
+        val role = try { UserRole.valueOf(roleName) } catch (_: Exception) { return }
+
+        _currentUser.value = User(
+            id = userId,
+            vendorId = vendorId,
+            role = role,
+            name = name,
+            phone = phone,
+            email = email,
+        )
+    }
+
     override suspend fun login(phone: String, password: String): Result<User> = runCatching {
         val response = api.login(LoginRequest(phone, password))
         tokenManager.saveTokens(response.accessToken, response.refreshToken)
 
         val user = response.user.toDomain()
-        tokenManager.saveUserInfo(user.id, user.vendorId, user.role.name)
+        tokenManager.saveUserInfo(user.id, user.vendorId, user.role.name, user.name, user.phone, user.email)
         _currentUser.value = user
         user
     }
@@ -49,6 +74,11 @@ class AuthRepositoryImpl @Inject constructor(
             ?: throw IllegalStateException("No refresh token available")
         val response = api.refreshToken(RefreshTokenRequest(refreshToken))
         tokenManager.saveTokens(response.accessToken, response.refreshToken)
+
+        // Update cached user info from refresh response
+        val user = response.user.toDomain()
+        tokenManager.saveUserInfo(user.id, user.vendorId, user.role.name, user.name, user.phone, user.email)
+        _currentUser.value = user
     }
 
     override fun getCurrentUserId(): String? =

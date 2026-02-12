@@ -30,4 +30,6 @@
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
     <string name="table_label">طاولة</string>
+    <string name="edit_order">تعديل الطلب</string>
+    <string name="save_changes">حفظ التعديلات</string>
 </resources>
