@@ -22,7 +22,10 @@ class DeliveryActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             CafeeMangerTheme {
-                DeliveryNavHost(authRepository = authRepository)
+                DeliveryNavHost(
+                    authRepository = authRepository,
+                    vendorRepository = vendorRepository,
+                )
             }
         }
     }

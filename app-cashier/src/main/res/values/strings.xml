@@ -24,4 +24,6 @@
     <string name="store_name">Store Name</string>
     <string name="store_address">Address</string>
     <string name="store_phone">Contact Phone</string>
+    <string name="wallet_phone">Wallet Phone</string>
+    <string name="app_version">Version 1.0.0</string>
 </resources>

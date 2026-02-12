@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -65,9 +67,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import net.marllex.cafeemanger.core.domain.repository.AuthRepository
+import net.marllex.cafeemanger.core.domain.repository.VendorRepository
 import net.marllex.cafeemanger.core.model.UserRole
+import net.marllex.cafeemanger.core.model.Vendor
 import net.marllex.cafeemanger.core.ui.components.LanguageSelector
 import net.marllex.cafeemanger.core.ui.components.SignOutButton
 import net.marllex.cafeemanger.delivery.R
@@ -204,6 +209,7 @@ private fun DeliveryProfileScreen(
     userPhone: String?,
     userEmail: String?,
     userRole: String?,
+    vendor: Vendor?,
     onSignOut: () -> Unit,
 ) {
     val configuration = LocalConfiguration.current
@@ -217,7 +223,7 @@ private fun DeliveryProfileScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        // Profile header card
+        // Profile header card with store logo
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -232,21 +238,40 @@ private fun DeliveryProfileScreen(
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Person,
+                    if (!vendor?.logoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = vendor?.logoUrl,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentScale = ContentScale.Crop,
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Store,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = vendor?.name ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = userName ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.headlineSmall,
@@ -263,7 +288,59 @@ private fun DeliveryProfileScreen(
             }
         }
 
-        // Account Info
+        // Store Info section
+        if (vendor != null) {
+            item {
+                Text(
+                    text = stringResource(R.string.store_info),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Column(modifier = Modifier.padding(4.dp)) {
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_name),
+                            value = vendor.name,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_address),
+                            value = vendor.address,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        ProfileInfoRow(
+                            label = stringResource(R.string.store_phone),
+                            value = vendor.contactPhone,
+                        )
+                        vendor.walletPhone?.let { walletPhone ->
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            ProfileInfoRow(
+                                label = stringResource(R.string.wallet_phone),
+                                value = walletPhone,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Account Info section
         item {
             Text(
                 text = stringResource(R.string.account_info),
@@ -342,6 +419,36 @@ private fun DeliveryProfileScreen(
         item {
             Spacer(Modifier.height(8.dp))
             SignOutButton(onSignOut = onSignOut)
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // App Info
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.app_version),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -382,7 +489,10 @@ private fun formatRoleLabel(role: UserRole?): String {
 // ─── Main Nav Host ───────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeliveryNavHost(authRepository: AuthRepository) {
+fun DeliveryNavHost(
+    authRepository: AuthRepository,
+    vendorRepository: VendorRepository,
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -391,6 +501,7 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
     val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
+    val vendor by vendorRepository.getMyVendor().collectAsStateWithLifecycle(initialValue = null)
 
     val onSignOut: () -> Unit = remember(navController, scope) {
         {
@@ -456,6 +567,7 @@ fun DeliveryNavHost(authRepository: AuthRepository) {
                 userPhone = currentUser?.phone,
                 userEmail = currentUser?.email,
                 userRole = roleLabel,
+                vendor = vendor,
                 onSignOut = onSignOut,
             )
         }

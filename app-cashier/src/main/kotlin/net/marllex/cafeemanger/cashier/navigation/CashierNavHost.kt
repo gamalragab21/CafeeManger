@@ -444,6 +444,16 @@ private fun CashierProfileScreen(
                             label = stringResource(R.string.store_phone),
                             value = vendor.contactPhone,
                         )
+                        vendor.walletPhone?.let { walletPhone ->
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            ProfileInfoRow(
+                                label = stringResource(R.string.wallet_phone),
+                                value = walletPhone,
+                            )
+                        }
                     }
                 }
             }
@@ -528,6 +538,36 @@ private fun CashierProfileScreen(
         item {
             Spacer(Modifier.height(8.dp))
             SignOutButton(onSignOut = onSignOut)
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // App Info
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.app_version),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
