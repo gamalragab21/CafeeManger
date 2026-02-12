@@ -11,14 +11,51 @@
 
     <!-- Workers -->
     <string name="add_worker">إضافة عامل</string>
+    <string name="add_worker_step_1">إضافة عامل - المعلومات الأساسية</string>
+    <string name="add_worker_step_2">إضافة عامل - الوصول للنظام</string>
+    <string name="add_worker_step_3">إضافة عامل - إعداد الراتب</string>
     <string name="edit_worker">تعديل العامل</string>
     <string name="worker_id">رقم العامل</string>
     <string name="full_name">الاسم الكامل</string>
     <string name="phone">الهاتف</string>
     <string name="description_notes">الوصف / ملاحظات</string>
     <string name="select_role">اختر الدور</string>
+    
+    <!-- Worker Type -->
+    <string name="worker_type">نوع العامل</string>
+    <string name="normal_worker">عامل عادي</string>
+    <string name="normal_worker_desc">موظف عادي مع تتبع الحضور اليدوي</string>
+    <string name="main_worker">عامل رئيسي</string>
+    <string name="main_worker_desc">مستخدم نظام مع وصول للتطبيق وحضور تلقائي</string>
+    <string name="no_app_access">بدون وصول للتطبيق</string>
+    <string name="has_app_access">لديه وصول للتطبيق</string>
+    <string name="role_auto_set">سيتم تعيين دور العامل تلقائيًا إلى: %s</string>
+    <string name="main_worker_role_info">سيتم تعيين الدور تلقائيًا بناءً على وصول التطبيق في الخطوة التالية</string>
+    <string name="basic_info">المعلومات الأساسية</string>
+    <string name="system_access">الوصول للنظام</string>
+    
+    <!-- System Access -->
+    <string name="system_access_setup">إعداد الوصول للنظام</string>
+    <string name="system_access_desc">تكوين تسجيل الدخول والدور لهذا العامل</string>
+    <string name="app_role">دور التطبيق</string>
+    <string name="cashier_role_desc">الوصول لتطبيق الكاشير للطلبات والمبيعات</string>
+    <string name="delivery_role_desc">الوصول لتطبيق التوصيل لتنفيذ الطلبات</string>
+    <string name="manager_role_desc">الوصول لتطبيق المدير للإدارة الكاملة</string>
+    <string name="manager_role">مدير</string>
+    <string name="login_credentials">بيانات تسجيل الدخول</string>
+    <string name="login_phone">هاتف تسجيل الدخول</string>
+    <string name="password_hint">6 أحرف على الأقل</string>
+    <string name="email_optional">البريد الإلكتروني (اختياري)</string>
+    
+    <!-- Salary -->
+    <string name="salary_configuration">إعداد الراتب</string>
+    <string name="summary">الملخص</string>
+    <string name="create_worker">إنشاء العامل</string>
+    <string name="next">التالي</string>
+    
     <string name="salary_type">نوع الراتب</string>
     <string name="daily_salary">راتب يومي</string>
+    <string name="weekly_salary">راتب أسبوعي</string>
     <string name="monthly_salary">راتب شهري</string>
     <string name="salary_amount">مبلغ الراتب (ج.م)</string>
     <string name="active">نشط</string>

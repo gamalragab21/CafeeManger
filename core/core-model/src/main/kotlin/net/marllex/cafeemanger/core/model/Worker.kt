@@ -23,6 +23,7 @@ data class Worker(
 @Serializable
 enum class SalaryType {
     DAILY,
+    WEEKLY,
     MONTHLY
 }
 

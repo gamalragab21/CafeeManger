@@ -28,18 +28,21 @@ class StaffViewModel @Inject constructor(
         // Salary
         val salaryPayments: List<SalaryPayment> = emptyList(),
 
-        // Add Worker Dialog
+        // Add Worker Dialog - Multi-Step
         val showAddWorkerDialog: Boolean = false,
         val editingWorker: Worker? = null,
+        val dialogStep: Int = 1, // 1 = Basic Info, 2 = System Access, 3 = Salary
         val dialogName: String = "",
         val dialogPhone: String = "",
         val dialogDescription: String = "",
         val dialogRole: String = "",
+        val dialogWorkerType: WorkerType = WorkerType.NORMAL, // NEW: Normal or Main Worker
         val dialogSalaryType: SalaryType = SalaryType.DAILY,
         val dialogSalaryAmount: String = "",
         val dialogIsLoginEnabled: Boolean = false,
         val dialogPassword: String = "",
         val dialogLoginRole: String = "CASHIER",
+        val dialogEmail: String = "", // NEW: Email for main workers
         val isSaving: Boolean = false,
 
         // Add Role Dialog
@@ -69,6 +72,12 @@ class StaffViewModel @Inject constructor(
         val attendanceToDate: String = "",
         val attendanceStatusFilter: String? = null, // "PRESENT", "ABSENT", or null for all
     )
+
+    // NEW: Worker Type Enum
+    enum class WorkerType {
+        NORMAL,  // Regular worker, no system access
+        MAIN     // System user with app access (Cashier/Delivery/Manager)
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -140,32 +149,99 @@ class StaffViewModel @Inject constructor(
             it.copy(
                 showAddWorkerDialog = true,
                 editingWorker = worker,
+                dialogStep = 1, // Always start at step 1
                 dialogName = worker?.fullName ?: "",
                 dialogPhone = worker?.phone ?: "",
                 dialogDescription = worker?.description ?: "",
                 dialogRole = worker?.role ?: "",
+                dialogWorkerType = if (worker?.isLoginEnabled == true) WorkerType.MAIN else WorkerType.NORMAL,
                 dialogSalaryType = worker?.salaryType ?: SalaryType.DAILY,
                 dialogSalaryAmount = worker?.salaryAmount?.let { a -> if (a > 0) a.toBigDecimal().toPlainString() else "" } ?: "",
                 dialogIsLoginEnabled = worker?.isLoginEnabled ?: false,
                 dialogPassword = "",
                 dialogLoginRole = "CASHIER",
+                dialogEmail = "",
             )
         }
     }
 
     fun dismissWorkerDialog() {
-        _uiState.update { it.copy(showAddWorkerDialog = false, editingWorker = null) }
+        _uiState.update { it.copy(showAddWorkerDialog = false, editingWorker = null, dialogStep = 1) }
+    }
+
+    // NEW: Dialog Navigation
+    fun nextDialogStep() {
+        val currentStep = _uiState.value.dialogStep
+        val workerType = _uiState.value.dialogWorkerType
+        
+        when (currentStep) {
+            1 -> {
+                // From Basic Info -> System Access (if Main Worker) or Salary (if Normal Worker)
+                val nextStep = if (workerType == WorkerType.MAIN) 2 else 3
+                _uiState.update { it.copy(dialogStep = nextStep) }
+            }
+            2 -> {
+                // From System Access -> Salary
+                _uiState.update { it.copy(dialogStep = 3) }
+            }
+        }
+    }
+
+    fun previousDialogStep() {
+        val currentStep = _uiState.value.dialogStep
+        val workerType = _uiState.value.dialogWorkerType
+        
+        when (currentStep) {
+            2 -> {
+                // From System Access -> Basic Info
+                _uiState.update { it.copy(dialogStep = 1) }
+            }
+            3 -> {
+                // From Salary -> System Access (if Main Worker) or Basic Info (if Normal Worker)
+                val prevStep = if (workerType == WorkerType.MAIN) 2 else 1
+                _uiState.update { it.copy(dialogStep = prevStep) }
+            }
+        }
     }
 
     fun updateDialogName(v: String) = _uiState.update { it.copy(dialogName = v) }
     fun updateDialogPhone(v: String) = _uiState.update { it.copy(dialogPhone = v) }
     fun updateDialogDescription(v: String) = _uiState.update { it.copy(dialogDescription = v) }
     fun updateDialogRole(v: String) = _uiState.update { it.copy(dialogRole = v) }
+    fun updateDialogWorkerType(v: WorkerType) = _uiState.update { 
+        it.copy(
+            dialogWorkerType = v,
+            dialogIsLoginEnabled = v == WorkerType.MAIN,
+            // Auto-set role based on login role for main workers
+            dialogRole = if (v == WorkerType.MAIN) {
+                when (it.dialogLoginRole) {
+                    "CASHIER" -> "Cashier"
+                    "DELIVERY" -> "Delivery"
+                    "MANAGER" -> "Manager"
+                    else -> "Cashier"
+                }
+            } else it.dialogRole
+        ) 
+    }
     fun updateDialogSalaryType(v: SalaryType) = _uiState.update { it.copy(dialogSalaryType = v) }
     fun updateDialogSalaryAmount(v: String) = _uiState.update { it.copy(dialogSalaryAmount = v) }
     fun updateDialogIsLoginEnabled(v: Boolean) = _uiState.update { it.copy(dialogIsLoginEnabled = v) }
     fun updateDialogPassword(v: String) = _uiState.update { it.copy(dialogPassword = v) }
-    fun updateDialogLoginRole(v: String) = _uiState.update { it.copy(dialogLoginRole = v) }
+    fun updateDialogLoginRole(v: String) = _uiState.update { 
+        it.copy(
+            dialogLoginRole = v,
+            // Auto-update role when login role changes for main workers
+            dialogRole = if (it.dialogWorkerType == WorkerType.MAIN) {
+                when (v) {
+                    "CASHIER" -> "Cashier"
+                    "DELIVERY" -> "Delivery"
+                    "MANAGER" -> "Manager"
+                    else -> "Cashier"
+                }
+            } else it.dialogRole
+        )
+    }
+    fun updateDialogEmail(v: String) = _uiState.update { it.copy(dialogEmail = v) }
 
     fun saveWorker() {
         val s = _uiState.value

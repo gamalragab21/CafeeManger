@@ -9,14 +9,51 @@
 
     <!-- Workers -->
     <string name="add_worker">Add Worker</string>
+    <string name="add_worker_step_1">Add Worker - Basic Info</string>
+    <string name="add_worker_step_2">Add Worker - System Access</string>
+    <string name="add_worker_step_3">Add Worker - Salary Setup</string>
     <string name="edit_worker">Edit Worker</string>
     <string name="worker_id">Worker ID</string>
     <string name="full_name">Full Name</string>
     <string name="phone">Phone</string>
     <string name="description_notes">Description / Notes</string>
     <string name="select_role">Select Role</string>
+    
+    <!-- Worker Type -->
+    <string name="worker_type">Worker Type</string>
+    <string name="normal_worker">Normal Worker</string>
+    <string name="normal_worker_desc">Regular staff with manual attendance tracking</string>
+    <string name="main_worker">Main Worker</string>
+    <string name="main_worker_desc">System user with app access and automatic attendance</string>
+    <string name="no_app_access">No App Access</string>
+    <string name="has_app_access">Has App Access</string>
+    <string name="role_auto_set">Worker role will be automatically set to: %s</string>
+    <string name="main_worker_role_info">Role will be set automatically based on app access in the next step</string>
+    <string name="basic_info">Basic Info</string>
+    <string name="system_access">System Access</string>
+    
+    <!-- System Access -->
+    <string name="system_access_setup">System Access Setup</string>
+    <string name="system_access_desc">Configure app login and role for this worker</string>
+    <string name="app_role">App Role</string>
+    <string name="cashier_role_desc">Access to Cashier App for POS and orders</string>
+    <string name="delivery_role_desc">Access to Delivery App for order fulfillment</string>
+    <string name="manager_role_desc">Access to Manager App for full management</string>
+    <string name="manager_role">Manager</string>
+    <string name="login_credentials">Login Credentials</string>
+    <string name="login_phone">Login Phone</string>
+    <string name="password_hint">Minimum 6 characters</string>
+    <string name="email_optional">Email (Optional)</string>
+    
+    <!-- Salary -->
+    <string name="salary_configuration">Salary Configuration</string>
+    <string name="summary">Summary</string>
+    <string name="create_worker">Create Worker</string>
+    <string name="next">Next</string>
+    
     <string name="salary_type">Salary Type</string>
     <string name="daily_salary">Daily Salary</string>
+    <string name="weekly_salary">Weekly Salary</string>
     <string name="monthly_salary">Monthly Salary</string>
     <string name="salary_amount">Salary Amount (EGP)</string>
     <string name="active">Active</string>

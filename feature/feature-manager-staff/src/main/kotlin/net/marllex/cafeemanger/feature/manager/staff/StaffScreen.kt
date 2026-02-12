@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonOff
@@ -88,6 +89,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.marllex.cafeemanger.core.model.Attendance
@@ -509,8 +511,11 @@ private fun WorkerCard(
             ) {
                 Column {
                     Text(
-                        text = if (worker.salaryType == SalaryType.DAILY)
-                            stringResource(R.string.daily_salary) else stringResource(R.string.monthly_salary),
+                        text = when (worker.salaryType) {
+                            SalaryType.DAILY -> stringResource(R.string.daily_salary)
+                            SalaryType.WEEKLY -> stringResource(R.string.weekly_salary)
+                            SalaryType.MONTHLY -> stringResource(R.string.monthly_salary)
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1311,6 +1316,599 @@ private fun RolesTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel)
 
 // ─── Dialogs ─────────────────────────────────────────────────────
 
+// Step Indicator Component
+@Composable
+private fun StepIndicator(
+    currentStep: Int,
+    totalSteps: Int,
+    isMainWorker: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Step 1: Basic Info
+        StepCircle(
+            stepNumber = 1,
+            isActive = currentStep == 1,
+            isCompleted = currentStep > 1,
+            label = stringResource(R.string.basic_info)
+        )
+        
+        if (currentStep > 1 || isMainWorker) {
+            StepConnector(isCompleted = currentStep > 1)
+        }
+        
+        // Step 2: System Access (only for Main Workers)
+        if (isMainWorker) {
+            StepCircle(
+                stepNumber = 2,
+                isActive = currentStep == 2,
+                isCompleted = currentStep > 2,
+                label = stringResource(R.string.system_access)
+            )
+            
+            if (currentStep > 2 || totalSteps > 2) {
+                StepConnector(isCompleted = currentStep > 2)
+            }
+        }
+        
+        // Step 3: Salary (always shown, but numbered differently)
+        StepCircle(
+            stepNumber = if (isMainWorker) 3 else 2,
+            isActive = currentStep == 3,
+            isCompleted = false,
+            label = stringResource(R.string.salary_configuration)
+        )
+    }
+}
+
+@Composable
+private fun StepCircle(
+    stepNumber: Int,
+    isActive: Boolean,
+    isCompleted: Boolean,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(80.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        isCompleted -> MaterialTheme.colorScheme.primary
+                        isActive -> MaterialTheme.colorScheme.primaryContainer
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isCompleted) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = stepNumber.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        isActive -> MaterialTheme.colorScheme.onPrimaryContainer
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun StepConnector(isCompleted: Boolean) {
+    Box(
+        modifier = Modifier
+            .width(40.dp)
+            .height(2.dp)
+            .background(
+                if (isCompleted) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+    )
+}
+
+// Step 1: Basic Info + Worker Type
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Step1BasicInfoContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = uiState.dialogName,
+            onValueChange = viewModel::updateDialogName,
+            label = { Text(stringResource(R.string.full_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        OutlinedTextField(
+            value = uiState.dialogPhone,
+            onValueChange = viewModel::updateDialogPhone,
+            label = { Text(stringResource(R.string.phone)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        OutlinedTextField(
+            value = uiState.dialogDescription,
+            onValueChange = viewModel::updateDialogDescription,
+            label = { Text(stringResource(R.string.description_notes)) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            minLines = 2,
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        // Worker Type Selection
+        Text(
+            stringResource(R.string.worker_type),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SegmentedButton(
+                selected = uiState.dialogWorkerType == StaffViewModel.WorkerType.NORMAL,
+                onClick = { viewModel.updateDialogWorkerType(StaffViewModel.WorkerType.NORMAL) },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.normal_worker))
+                    Text(
+                        stringResource(R.string.no_app_access),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+            SegmentedButton(
+                selected = uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN,
+                onClick = { viewModel.updateDialogWorkerType(StaffViewModel.WorkerType.MAIN) },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.main_worker))
+                    Text(
+                        stringResource(R.string.has_app_access),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+
+        // Role selector - Only show for Normal Workers
+        if (uiState.dialogWorkerType == StaffViewModel.WorkerType.NORMAL) {
+            var roleExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = roleExpanded,
+                onExpandedChange = { roleExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = uiState.dialogRole,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.select_role)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+                ExposedDropdownMenu(
+                    expanded = roleExpanded,
+                    onDismissRequest = { roleExpanded = false },
+                ) {
+                    uiState.workerRoles.forEach { role ->
+                        DropdownMenuItem(
+                            text = { Text(role.name) },
+                            onClick = {
+                                viewModel.updateDialogRole(role.name)
+                                roleExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        } else {
+            // Show info card for Main Workers
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.main_worker_role_info),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Step 2: System Access (Main Workers only)
+@Composable
+private fun Step2SystemAccessContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            stringResource(R.string.system_access_setup),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        
+        Text(
+            stringResource(R.string.system_access_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        
+        Spacer(Modifier.height(4.dp))
+        
+        // App Role Selection
+        Text(
+            stringResource(R.string.app_role),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SegmentedButton(
+                selected = uiState.dialogLoginRole == "CASHIER",
+                onClick = { viewModel.updateDialogLoginRole("CASHIER") },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+            ) {
+                Text(stringResource(R.string.cashier_role))
+            }
+            SegmentedButton(
+                selected = uiState.dialogLoginRole == "DELIVERY",
+                onClick = { viewModel.updateDialogLoginRole("DELIVERY") },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+            ) {
+                Text(stringResource(R.string.delivery_role))
+            }
+            SegmentedButton(
+                selected = uiState.dialogLoginRole == "MANAGER",
+                onClick = { viewModel.updateDialogLoginRole("MANAGER") },
+                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+            ) {
+                Text(stringResource(R.string.manager_role))
+            }
+        }
+
+        OutlinedTextField(
+            value = uiState.dialogPassword,
+            onValueChange = viewModel::updateDialogPassword,
+            label = { Text(stringResource(R.string.password)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            supportingText = {
+                Text(stringResource(R.string.password_hint))
+            }
+        )
+        
+        // Show selected role info
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.role_auto_set,
+                        when (uiState.dialogLoginRole) {
+                            "CASHIER" -> stringResource(R.string.cashier_role)
+                            "DELIVERY" -> stringResource(R.string.delivery_role)
+                            "MANAGER" -> stringResource(R.string.manager_role)
+                            else -> ""
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// Step 3: Salary Configuration with Summary
+@Composable
+private fun Step3SalaryContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Salary type
+        Text(
+            stringResource(R.string.salary_type),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.DAILY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.DAILY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+            ) {
+                Text(stringResource(R.string.daily_salary))
+            }
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.WEEKLY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.WEEKLY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+            ) {
+                Text(stringResource(R.string.weekly_salary))
+            }
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.MONTHLY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.MONTHLY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+            ) {
+                Text(stringResource(R.string.monthly_salary))
+            }
+        }
+
+        OutlinedTextField(
+            value = uiState.dialogSalaryAmount,
+            onValueChange = viewModel::updateDialogSalaryAmount,
+            label = { Text(stringResource(R.string.salary_amount)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            prefix = { Text("${stringResource(R.string.egp)} ") }
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        // Summary Card
+        Text(
+            stringResource(R.string.summary),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SummaryRow(stringResource(R.string.full_name), uiState.dialogName)
+                SummaryRow(stringResource(R.string.phone), uiState.dialogPhone.ifBlank { "-" })
+                SummaryRow(
+                    stringResource(R.string.worker_type),
+                    if (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN)
+                        stringResource(R.string.main_worker)
+                    else stringResource(R.string.normal_worker)
+                )
+                if (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN) {
+                    SummaryRow(
+                        stringResource(R.string.app_role),
+                        when (uiState.dialogLoginRole) {
+                            "CASHIER" -> stringResource(R.string.cashier_role)
+                            "DELIVERY" -> stringResource(R.string.delivery_role)
+                            "MANAGER" -> stringResource(R.string.manager_role)
+                            else -> "-"
+                        }
+                    )
+                }
+                SummaryRow(
+                    stringResource(R.string.select_role),
+                    uiState.dialogRole.ifBlank { "-" }
+                )
+                SummaryRow(
+                    stringResource(R.string.salary_type),
+                    when (uiState.dialogSalaryType) {
+                        SalaryType.DAILY -> stringResource(R.string.daily_salary)
+                        SalaryType.WEEKLY -> stringResource(R.string.weekly_salary)
+                        SalaryType.MONTHLY -> stringResource(R.string.monthly_salary)
+                    }
+                )
+                SummaryRow(
+                    stringResource(R.string.salary_amount),
+                    "${uiState.dialogSalaryAmount.ifBlank { "0" }} ${stringResource(R.string.egp)}"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+// Edit Worker Content (Single Screen)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditWorkerContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = uiState.dialogName,
+            onValueChange = viewModel::updateDialogName,
+            label = { Text(stringResource(R.string.full_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        OutlinedTextField(
+            value = uiState.dialogPhone,
+            onValueChange = viewModel::updateDialogPhone,
+            label = { Text(stringResource(R.string.phone)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        var roleExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = roleExpanded,
+            onExpandedChange = { roleExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = uiState.dialogRole,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.select_role)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                shape = RoundedCornerShape(12.dp),
+            )
+            ExposedDropdownMenu(
+                expanded = roleExpanded,
+                onDismissRequest = { roleExpanded = false },
+            ) {
+                uiState.workerRoles.forEach { role ->
+                    DropdownMenuItem(
+                        text = { Text(role.name) },
+                        onClick = {
+                            viewModel.updateDialogRole(role.name)
+                            roleExpanded = false
+                        },
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = uiState.dialogDescription,
+            onValueChange = viewModel::updateDialogDescription,
+            label = { Text(stringResource(R.string.description_notes)) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            minLines = 2,
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        Text(
+            stringResource(R.string.salary_type),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.DAILY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.DAILY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+            ) {
+                Text(stringResource(R.string.daily_salary))
+            }
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.WEEKLY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.WEEKLY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+            ) {
+                Text(stringResource(R.string.weekly_salary))
+            }
+            SegmentedButton(
+                selected = uiState.dialogSalaryType == SalaryType.MONTHLY,
+                onClick = { viewModel.updateDialogSalaryType(SalaryType.MONTHLY) },
+                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+            ) {
+                Text(stringResource(R.string.monthly_salary))
+            }
+        }
+
+        OutlinedTextField(
+            value = uiState.dialogSalaryAmount,
+            onValueChange = viewModel::updateDialogSalaryAmount,
+            label = { Text(stringResource(R.string.salary_amount)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            prefix = { Text("${stringResource(R.string.egp)} ") }
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
@@ -1319,11 +1917,38 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp
 
+    // Validation helpers
+    fun isStep1Valid(): Boolean {
+        return uiState.dialogName.isNotBlank() && 
+               (isEdit || uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN || uiState.dialogRole.isNotBlank())
+    }
+    
+    fun isStep2Valid(): Boolean {
+        return uiState.dialogPassword.length >= 6
+    }
+    
+    fun isStep3Valid(): Boolean {
+        return uiState.dialogSalaryAmount.toDoubleOrNull() != null && 
+               uiState.dialogSalaryAmount.toDoubleOrNull()!! > 0
+    }
+    
+    fun isFormValid(): Boolean {
+        return uiState.dialogName.isNotBlank() && 
+               uiState.dialogRole.isNotBlank() &&
+               (!uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6)
+    }
+
+    // Determine dialog title based on step
+    val dialogTitle = when {
+        isEdit -> stringResource(R.string.edit_worker)
+        uiState.dialogStep == 1 -> stringResource(R.string.add_worker_step_1)
+        uiState.dialogStep == 2 -> stringResource(R.string.add_worker_step_2)
+        else -> stringResource(R.string.add_worker_step_3)
+    }
+
     AlertDialog(
         onDismissRequest = viewModel::dismissWorkerDialog,
-        modifier = Modifier
-            // Limit width on tablets so it doesn't stretch to the edges
-            .widthIn(max = if (screenWidth > 600) 480.dp else 560.dp),
+        modifier = Modifier.widthIn(max = if (screenWidth > 600) 520.dp else 560.dp),
         icon = {
             Icon(
                 if (isEdit) Icons.Filled.Edit else Icons.Filled.PersonAdd,
@@ -1332,202 +1957,102 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
             )
         },
         title = {
-            Text(
-                if (isEdit) stringResource(R.string.edit_worker)
-                else stringResource(R.string.add_worker),
-                style = MaterialTheme.typography.headlineSmall
-            )
+            Column {
+                Text(
+                    dialogTitle,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                // Step indicator for multi-step flow (only for new workers)
+                if (!isEdit) {
+                    Spacer(Modifier.height(8.dp))
+                    StepIndicator(
+                        currentStep = uiState.dialogStep,
+                        totalSteps = if (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN) 3 else 2,
+                        isMainWorker = uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN
+                    )
+                }
+            }
         },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
-                    // 1. Crucial for adaptive screens: allow scrolling when keyboard is up
                     .verticalScroll(scrollState)
-                    // 2. Remove fixed height and use a weight-based approach or no height limit
-                    // so it fits different aspect ratios
                     .fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = uiState.dialogName,
-                    onValueChange = viewModel::updateDialogName,
-                    label = { Text(stringResource(R.string.full_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-
-                OutlinedTextField(
-                    value = uiState.dialogPhone,
-                    onValueChange = viewModel::updateDialogPhone,
-                    label = { Text(stringResource(R.string.phone)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-
-                // Role selector
-                var roleExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = roleExpanded,
-                    onExpandedChange = { roleExpanded = it },
-                ) {
-                    OutlinedTextField(
-                        value = uiState.dialogRole,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.select_role)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = roleExpanded,
-                        onDismissRequest = { roleExpanded = false },
-                    ) {
-                        uiState.workerRoles.forEach { role ->
-                            DropdownMenuItem(
-                                text = { Text(role.name) },
-                                onClick = {
-                                    viewModel.updateDialogRole(role.name)
-                                    roleExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                // Salary type
-                Text(
-                    stringResource(R.string.salary_type),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    SegmentedButton(
-                        selected = uiState.dialogSalaryType == SalaryType.DAILY,
-                        onClick = { viewModel.updateDialogSalaryType(SalaryType.DAILY) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    ) {
-                        Text(stringResource(R.string.daily_salary))
-                    }
-                    SegmentedButton(
-                        selected = uiState.dialogSalaryType == SalaryType.MONTHLY,
-                        onClick = { viewModel.updateDialogSalaryType(SalaryType.MONTHLY) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    ) {
-                        Text(stringResource(R.string.monthly_salary))
-                    }
-                }
-
-                OutlinedTextField(
-                    value = uiState.dialogSalaryAmount,
-                    onValueChange = viewModel::updateDialogSalaryAmount,
-                    label = { Text(stringResource(R.string.salary_amount)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    prefix = { Text("${stringResource(R.string.egp)} ") }
-                )
-
-                OutlinedTextField(
-                    value = uiState.dialogDescription,
-                    onValueChange = viewModel::updateDialogDescription,
-                    label = { Text(stringResource(R.string.description_notes)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    minLines = 2,
-                )
-
-                // Login section (only for new workers)
-                if (!isEdit) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.enable_login),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                stringResource(R.string.enable_login_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        androidx.compose.material3.Switch(
-                            checked = uiState.dialogIsLoginEnabled,
-                            onCheckedChange = viewModel::updateDialogIsLoginEnabled,
-                        )
-                    }
-
-                    if (uiState.dialogIsLoginEnabled) {
-                        OutlinedTextField(
-                            value = uiState.dialogPassword,
-                            onValueChange = viewModel::updateDialogPassword,
-                            label = { Text(stringResource(R.string.password)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        )
-
-                        // Login role selector
-                        Text(
-                            stringResource(R.string.login_role),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        SingleChoiceSegmentedButtonRow(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SegmentedButton(
-                                selected = uiState.dialogLoginRole == "CASHIER",
-                                onClick = { viewModel.updateDialogLoginRole("CASHIER") },
-                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                            ) {
-                                Text(stringResource(R.string.cashier_role))
-                            }
-                            SegmentedButton(
-                                selected = uiState.dialogLoginRole == "DELIVERY",
-                                onClick = { viewModel.updateDialogLoginRole("DELIVERY") },
-                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                            ) {
-                                Text(stringResource(R.string.delivery_role))
-                            }
-                        }
+                // Edit mode: Show all fields in single screen
+                if (isEdit) {
+                    EditWorkerContent(uiState, viewModel)
+                } else {
+                    // Multi-step flow for new workers
+                    when (uiState.dialogStep) {
+                        1 -> Step1BasicInfoContent(uiState, viewModel)
+                        2 -> Step2SystemAccessContent(uiState, viewModel)
+                        3 -> Step3SalaryContent(uiState, viewModel)
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = viewModel::saveWorker,
-                enabled = !uiState.isSaving && uiState.dialogName.isNotBlank() && uiState.dialogRole.isNotBlank()
-                    && (!uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
-                    Spacer(Modifier.width(8.dp))
+            if (isEdit) {
+                // Edit mode: Single Save button
+                Button(
+                    onClick = viewModel::saveWorker,
+                    enabled = !uiState.isSaving && isFormValid(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (uiState.isSaving) stringResource(R.string.saving) else stringResource(R.string.save))
                 }
-                Text(if (uiState.isSaving) stringResource(R.string.saving) else stringResource(R.string.save))
+            } else {
+                // Multi-step mode: Next/Save button
+                val isLastStep = (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN && uiState.dialogStep == 3) ||
+                                 (uiState.dialogWorkerType == StaffViewModel.WorkerType.NORMAL && uiState.dialogStep == 3)
+                
+                Button(
+                    onClick = {
+                        if (isLastStep) {
+                            viewModel.saveWorker()
+                        } else {
+                            viewModel.nextDialogStep()
+                        }
+                    },
+                    enabled = when (uiState.dialogStep) {
+                        1 -> isStep1Valid()
+                        2 -> isStep2Valid()
+                        3 -> !uiState.isSaving && isFormValid()
+                        else -> false
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        when {
+                            uiState.isSaving -> stringResource(R.string.saving)
+                            isLastStep -> stringResource(R.string.create_worker)
+                            else -> stringResource(R.string.next)
+                        }
+                    )
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = viewModel::dismissWorkerDialog) {
-                Text(stringResource(R.string.cancel))
+            if (!isEdit && uiState.dialogStep > 1) {
+                // Show Back button for multi-step flow
+                TextButton(onClick = viewModel::previousDialogStep) {
+                    Text(stringResource(R.string.back))
+                }
+            } else {
+                // Show Cancel button
+                TextButton(onClick = viewModel::dismissWorkerDialog) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         },
     )
