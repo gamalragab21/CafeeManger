@@ -91,6 +91,7 @@ class DashboardViewModel @Inject constructor(
 
                 UiState(
                     vendor = vendor,
+                    userName = _uiState.value.userName, // Preserve userName from the separate flow
                     recentOrders = orders.take(10),
                     activeOrdersCount = activeOrders.size,
                     todayOrdersCount = todayOrders.size,

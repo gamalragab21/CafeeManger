@@ -21,4 +21,5 @@
     <string name="completed_today">Completed Today</string>
     <string name="critical">Critical</string>
     <string name="items">items</string>
+    <string name="ai_assistant">Ai assistant</string>
 </resources>

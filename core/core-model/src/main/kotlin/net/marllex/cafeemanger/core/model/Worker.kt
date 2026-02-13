@@ -16,6 +16,9 @@ data class Worker(
     val active: Boolean = true,
     val userId: String? = null,
     val isLoginEnabled: Boolean = false,
+    val hasPin: Boolean = false,
+    val qrCodeVersion: Int = 1,
+    val pinUpdatedAt: Long? = null,
     val createdAt: Long? = null,
     val updatedAt: Long? = null,
 )

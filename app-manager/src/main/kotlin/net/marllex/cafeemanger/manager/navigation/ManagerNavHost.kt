@@ -89,10 +89,12 @@ import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
@@ -104,10 +106,12 @@ import net.marllex.cafeemanger.feature.auth.navigation.authScreen
 import net.marllex.cafeemanger.feature.manager.analytics.AnalyticsScreen
 import net.marllex.cafeemanger.feature.manager.analytics.EnhancedAnalyticsScreen
 import net.marllex.cafeemanger.feature.manager.categories.CategoriesScreen
+import net.marllex.cafeemanger.feature.manager.chatbot.navigation.chatbotScreen
 import net.marllex.cafeemanger.feature.manager.dashboard.DashboardScreen
 import net.marllex.cafeemanger.feature.manager.items.ItemsScreen
 import net.marllex.cafeemanger.feature.manager.orders.OrdersScreen
 import net.marllex.cafeemanger.feature.manager.staff.StaffScreen
+import net.marllex.cafeemanger.feature.manager.staff.WorkerQrCodeScreen
 import net.marllex.cafeemanger.feature.manager.stock.StockScreen
 import net.marllex.cafeemanger.feature.manager.tables.TablesScreen
 import net.marllex.cafeemanger.feature.manager.users.UsersScreen
@@ -278,11 +282,34 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     },
                     appType = "MANAGER",
                 )
-                composable(ManagerTab.DASHBOARD.route) { DashboardScreen() }
+                composable(ManagerTab.DASHBOARD.route) { 
+                    DashboardScreen(
+                        onNavigateToChatbot = { 
+                            navController.navigate("chatbot")
+                        }
+                    )
+                }
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { StaffScreen() }
+                composable(ManagerTab.USERS.route) { 
+                    StaffScreen(
+                        onNavigateToWorkerQrCode = { workerId ->
+                            navController.navigate("worker_qr_code/$workerId")
+                        }
+                    )
+                }
                 composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
+                composable(
+                    route = "worker_qr_code/{workerId}",
+                    arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                ) {
+                    WorkerQrCodeScreen(
+                        onNavigateBack = { navController.navigateUp() }
+                    )
+                }
+                chatbotScreen(
+                    onNavigateBack = { navController.navigateUp() }
+                )
             }
         }
     } else {
@@ -305,11 +332,34 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     },
                     appType = "MANAGER",
                 )
-                composable(ManagerTab.DASHBOARD.route) { DashboardScreen() }
+                composable(ManagerTab.DASHBOARD.route) { 
+                    DashboardScreen(
+                        onNavigateToChatbot = { 
+                            navController.navigate("chatbot")
+                        }
+                    )
+                }
                 composable(ManagerTab.ORDERS.route) { OrdersScreen() }
                 composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { StaffScreen() }
+                composable(ManagerTab.USERS.route) { 
+                    StaffScreen(
+                        onNavigateToWorkerQrCode = { workerId ->
+                            navController.navigate("worker_qr_code/$workerId")
+                        }
+                    )
+                }
                 composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
+                composable(
+                    route = "worker_qr_code/{workerId}",
+                    arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                ) {
+                    WorkerQrCodeScreen(
+                        onNavigateBack = { navController.navigateUp() }
+                    )
+                }
+                chatbotScreen(
+                    onNavigateBack = { navController.navigateUp() }
+                )
             }
         }
     }

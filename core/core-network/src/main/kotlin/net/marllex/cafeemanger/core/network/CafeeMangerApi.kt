@@ -1,6 +1,8 @@
 package net.marllex.cafeemanger.core.network
 
 import net.marllex.cafeemanger.core.network.dto.*
+import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface CafeeMangerApi {
@@ -291,6 +293,20 @@ interface CafeeMangerApi {
     @DELETE("api/v1/workers/{id}")
     suspend fun deleteWorker(@Path("id") id: String): ApiSuccessResponse
 
+    // PIN & QR Code Management
+    @POST("api/v1/workers/{id}/pin")
+    suspend fun updateWorkerPin(
+        @Path("id") workerId: String,
+        @Body request: UpdatePinRequest
+    ): ApiSuccessResponse
+
+    @GET("api/v1/workers/{id}/qr-code")
+    @Streaming
+    suspend fun getWorkerQrCode(@Path("id") workerId: String): Response<ResponseBody>
+
+    @POST("api/v1/workers/{id}/qr-code/regenerate")
+    suspend fun regenerateWorkerQrCode(@Path("id") workerId: String): QrCodeResponse
+
     // ─── Worker Roles ───────────────────────────────────────────────
     @GET("api/v1/worker-roles")
     suspend fun getWorkerRoles(): List<WorkerRoleResponse>
@@ -323,11 +339,26 @@ interface CafeeMangerApi {
     @POST("api/v1/attendance/check-in")
     suspend fun checkIn(@Body request: CheckInRequest): AttendanceResponse
 
+    @POST("api/v1/attendance/check-in/pin")
+    suspend fun checkInWithPin(@Body request: CheckInWithPinRequest): AttendanceResponse
+
+    @POST("api/v1/attendance/check-in/qr")
+    suspend fun checkInWithQr(@Body request: CheckInWithQrRequest): AttendanceResponse
+
     @POST("api/v1/attendance/check-out/{attendanceId}")
     suspend fun checkOut(
         @Path("attendanceId") attendanceId: String,
         @Body request: CheckOutRequest
     ): AttendanceResponse
+
+    @POST("api/v1/attendance/check-out/{attendanceId}/pin")
+    suspend fun checkOutWithPin(
+        @Path("attendanceId") attendanceId: String,
+        @Body request: CheckOutWithPinRequest
+    ): AttendanceResponse
+
+    @POST("api/v1/attendance/check-out/qr")
+    suspend fun checkOutWithQr(@Body request: CheckOutWithQrRequest): AttendanceResponse
 
     @DELETE("api/v1/attendance/{id}")
     suspend fun deleteAttendance(@Path("id") id: String): ApiSuccessResponse
@@ -383,4 +414,11 @@ interface CafeeMangerApi {
 
     @DELETE("api/v1/announcements/{id}")
     suspend fun deleteAnnouncement(@Path("id") id: String): ApiSuccessResponse
+
+    // ─── Chatbot ─────────────────────────────────────────────────
+    @POST("api/v1/chatbot/query")
+    suspend fun sendChatbotQuery(@Body request: ChatbotQueryRequest): ChatbotQueryResponse
+
+    @GET("api/v1/chatbot/suggestions")
+    suspend fun getChatbotSuggestions(): ChatbotSuggestionsResponse
 }

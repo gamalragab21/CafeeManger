@@ -1,19 +1,29 @@
 package net.marllex.cafeemanger.backend.api.routes
 
 import io.ktor.http.*
+import io.ktor.server.application.log
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import net.marllex.cafeemanger.backend.api.middleware.requireRole
 import net.marllex.cafeemanger.backend.data.database.*
 import net.marllex.cafeemanger.backend.domain.service.AuthService
+import net.marllex.cafeemanger.backend.domain.service.OrderService
+import net.marllex.cafeemanger.backend.domain.service.PinService
+import net.marllex.cafeemanger.backend.domain.service.QrCodeService
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.java.KoinJavaComponent
+import org.koin.ktor.ext.inject
 import java.math.BigDecimal
 import java.util.UUID
+import kotlin.getValue
 
 // ─── DTOs ────────────────────────────────────────────────────────
 
@@ -31,6 +41,9 @@ data class WorkerDto(
     val salary_amount: Double,
     val active: Boolean = true,
     val is_login_enabled: Boolean = false,
+    val has_pin: Boolean = false,
+    val qr_code_version: Int = 1,
+    val pin_updated_at: Long? = null,
     val created_at: Long? = null,
     val updated_at: Long? = null,
 )
@@ -43,6 +56,7 @@ data class CreateWorkerDto(
     val role: String,
     val salary_type: String, // DAILY, MONTHLY
     val salary_amount: Double = 0.0,
+    val pin: String? = null, // OPTIONAL: 4-6 digit PIN (required only for PIN authentication)
     val is_login_enabled: Boolean = false,
     val password: String? = null,
     val login_role: String? = null, // CASHIER or DELIVERY (user role for login)
@@ -57,6 +71,7 @@ data class UpdateWorkerDto(
     val salary_type: String? = null,
     val salary_amount: Double? = null,
     val active: Boolean? = null,
+    val pin: String? = null, // Optional: Update PIN
 )
 
 @Serializable
@@ -104,9 +119,27 @@ data class BatchPayDto(
     val note: String? = null,
 )
 
+@Serializable
+data class UpdatePinDto(
+    val pin: String, // New 4-6 digit PIN
+)
+
+@Serializable
+data class QrCodeResponse(
+    @SerialName("qr_code_data") val qr_code_data: String,
+    @SerialName("qr_code_version") val qr_code_version: Int,
+)
+
 // ─── Routes ──────────────────────────────────────────────────────
 
 fun Route.workerRoutes() {
+    // Inject services at route level to avoid lazy initialization issues
+    val pinService by KoinJavaComponent.inject<PinService>(
+        clazz = PinService::class.java
+    )
+    val qrCodeService by KoinJavaComponent.inject<QrCodeService>(
+        clazz = QrCodeService::class.java
+    )
     // ── Worker Roles (Predefined in Settings) ────────────────────
     route("/api/v1/worker-roles") {
         // GET all worker roles
@@ -227,10 +260,15 @@ fun Route.workerRoutes() {
         post {
             val principal = requireRole("MANAGER")
             val request = call.receive<CreateWorkerDto>()
+            
             require(request.full_name.isNotBlank()) { "Full name is required" }
             require(request.role.isNotBlank()) { "Role is required" }
             require(request.salary_type in listOf("DAILY", "MONTHLY")) {
                 "Salary type must be DAILY or MONTHLY"
+            }
+            // PIN is optional - only validate if provided
+            if (!request.pin.isNullOrBlank()) {
+                require(pinService.isValidPin(request.pin)) { "PIN must be 4-6 digits" }
             }
 
             val worker = transaction {
@@ -251,6 +289,13 @@ fun Route.workerRoutes() {
                 } else 1
 
                 val workerId = "WRK-%03d".format(nextNum)
+
+                // Hash PIN only if provided
+                val pinHash = if (!request.pin.isNullOrBlank()) {
+                    pinService.hashPin(request.pin)
+                } else {
+                    null
+                }
 
                 // If login enabled, create a User record first
                 var linkedUserId: UUID? = null
@@ -281,9 +326,28 @@ fun Route.workerRoutes() {
                     it[salaryType] = request.salary_type
                     it[salaryAmount] = BigDecimal.valueOf(request.salary_amount)
                     it[active] = true
+                    if (pinHash != null) {
+                        it[WorkersTable.pinHash] = pinHash
+                        it[WorkersTable.pinUpdatedAt] = now
+                    }
+                    it[WorkersTable.qrCodeVersion] = 1
                     linkedUserId?.let { uid -> it[userId] = uid }
                     it[createdAt] = now
                     it[updatedAt] = now
+                }
+
+                // Generate QR code data
+                val qrData = qrCodeService.generateQrCodeData(
+                    workerId = id.toString(),
+                    name = request.full_name,
+                    role = request.role,
+                    version = 1
+                )
+                val qrDataJson = Json.encodeToString(qrData)
+
+                // Update worker with QR code data
+                WorkersTable.update({ WorkersTable.id eq id }) {
+                    it[qrCodeData] = qrDataJson
                 }
 
                 WorkersTable.selectAll().where { WorkersTable.id eq id }.first().toWorkerDto()
@@ -302,31 +366,73 @@ fun Route.workerRoutes() {
                     "Salary type must be DAILY or MONTHLY"
                 }
             }
-
-            val updated = transaction {
-                val workerUUID = UUID.fromString(id)
-                val vendorUUID = UUID.fromString(principal.vendorId)
-
-                WorkersTable.update({
-                    (WorkersTable.id eq workerUUID) and
-                    (WorkersTable.vendorId eq vendorUUID)
-                }) { stmt ->
-                    request.full_name?.let { stmt[fullName] = it }
-                    request.phone?.let { stmt[phone] = it }
-                    request.description?.let { stmt[description] = it }
-                    request.role?.let { stmt[role] = it }
-                    request.salary_type?.let { stmt[salaryType] = it }
-                    request.salary_amount?.let { stmt[salaryAmount] = BigDecimal.valueOf(it) }
-                    request.active?.let { stmt[active] = it }
-                    stmt[updatedAt] = Clock.System.now()
-                }
-
-                WorkersTable.selectAll()
-                    .where { WorkersTable.id eq workerUUID }
-                    .firstOrNull()?.toWorkerDto()
-                    ?: throw NoSuchElementException("Worker not found")
+            
+            request.pin?.let { pin ->
+                require(pinService.isValidPin(pin)) { "PIN must be 4-6 digits" }
             }
-            call.respond(HttpStatusCode.OK, updated)
+
+            try {
+                val updated = transaction {
+                    val workerUUID = UUID.fromString(id)
+                    val vendorUUID = UUID.fromString(principal.vendorId)
+                    val now = Clock.System.now()
+
+                    // Get current worker data for QR regeneration if needed
+                    val currentWorker = WorkersTable.selectAll()
+                        .where { (WorkersTable.id eq workerUUID) and (WorkersTable.vendorId eq vendorUUID) }
+                        .firstOrNull() ?: throw NoSuchElementException("Worker not found")
+
+                    val needsQrRegeneration = request.full_name != null || request.role != null
+
+                    WorkersTable.update({
+                        (WorkersTable.id eq workerUUID) and
+                        (WorkersTable.vendorId eq vendorUUID)
+                    }) { stmt ->
+                        request.full_name?.let { stmt[fullName] = it }
+                        request.phone?.let { stmt[phone] = it }
+                        request.description?.let { stmt[description] = it }
+                        request.role?.let { stmt[role] = it }
+                        request.salary_type?.let { stmt[salaryType] = it }
+                        request.salary_amount?.let { stmt[salaryAmount] = BigDecimal.valueOf(it) }
+                        request.active?.let { stmt[active] = it }
+                        request.pin?.let { pin ->
+                            stmt[WorkersTable.pinHash] = pinService.hashPin(pin)
+                            stmt[WorkersTable.pinUpdatedAt] = now
+                        }
+                        stmt[updatedAt] = now
+                    }
+
+                    // Regenerate QR code if name or role changed
+                    if (needsQrRegeneration) {
+                        val updatedWorker = WorkersTable.selectAll()
+                            .where { WorkersTable.id eq workerUUID }
+                            .first()
+                        
+                        val newVersion = currentWorker[WorkersTable.qrCodeVersion] + 1
+                        val qrData = qrCodeService.generateQrCodeData(
+                            workerId = workerUUID.toString(),
+                            name = request.full_name ?: currentWorker[WorkersTable.fullName],
+                            role = request.role ?: currentWorker[WorkersTable.role],
+                            version = newVersion
+                        )
+                        val qrDataJson = Json.encodeToString(qrData)
+
+                        WorkersTable.update({ WorkersTable.id eq workerUUID }) {
+                            it[WorkersTable.qrCodeData] = qrDataJson
+                            it[WorkersTable.qrCodeVersion] = newVersion
+                        }
+                    }
+
+                    WorkersTable.selectAll()
+                        .where { WorkersTable.id eq workerUUID }
+                        .firstOrNull()?.toWorkerDto()
+                        ?: throw NoSuchElementException("Worker not found")
+                }
+                call.respond(HttpStatusCode.OK, updated)
+            } catch (e: Exception) {
+                call.application.log.error("Error updating worker: ${e.message}", e)
+                throw IllegalStateException("Failed to update worker: ${e.message}")
+            }
         }
 
         // DELETE worker
@@ -349,6 +455,127 @@ fun Route.workerRoutes() {
                 if (deleted == 0) throw NoSuchElementException("Worker not found")
             }
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // UPDATE worker PIN
+        post("/{id}/pin") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<UpdatePinDto>()
+
+            require(pinService.isValidPin(request.pin)) { "PIN must be 4-6 digits" }
+
+            transaction {
+                val workerUUID = UUID.fromString(id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val now = Clock.System.now()
+
+                val updated = WorkersTable.update({
+                    (WorkersTable.id eq workerUUID) and
+                    (WorkersTable.vendorId eq vendorUUID)
+                }) {
+                    it[WorkersTable.pinHash] = pinService.hashPin(request.pin)
+                    it[WorkersTable.pinUpdatedAt] = now
+                    it[updatedAt] = now
+                }
+
+                if (updated == 0) throw NoSuchElementException("Worker not found")
+            }
+            call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // GET worker QR code as PNG image
+        get("/{id}/qr-code") {
+            val principal = requireRole("MANAGER", "CASHIER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            val imageBytes = transaction {
+                val workerUUID = UUID.fromString(id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                val worker = WorkersTable.selectAll()
+                    .where {
+                        (WorkersTable.id eq workerUUID) and
+                        (WorkersTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: throw NoSuchElementException("Worker not found")
+
+                var qrDataJson = worker[WorkersTable.qrCodeData]
+                
+                // If worker doesn't have QR code, generate it now
+                if (qrDataJson == null) {
+                    val qrData = qrCodeService.generateQrCodeData(
+                        workerId = workerUUID.toString(),
+                        name = worker[WorkersTable.fullName],
+                        role = worker[WorkersTable.role],
+                        version = 1
+                    )
+                    qrDataJson = Json.encodeToString(qrData)
+                    
+                    // Save QR code data to worker
+                    WorkersTable.update({ WorkersTable.id eq workerUUID }) {
+                        it[qrCodeData] = qrDataJson
+                        it[qrCodeVersion] = 1
+                    }
+                }
+
+                val qrData = Json.decodeFromString<net.marllex.cafeemanger.backend.domain.service.QrCodeData>(qrDataJson)
+                qrCodeService.generateQrCodeImage(qrData, size = 500) // Larger QR code
+            }
+
+            call.respondBytes(imageBytes, ContentType.Image.PNG)
+        }
+
+        // REGENERATE worker QR code
+        post("/{id}/qr-code/regenerate") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            try {
+                val response = transaction {
+                    val workerUUID = UUID.fromString(id)
+                    val vendorUUID = UUID.fromString(principal.vendorId)
+
+                    val worker = WorkersTable.selectAll()
+                        .where {
+                            (WorkersTable.id eq workerUUID) and
+                            (WorkersTable.vendorId eq vendorUUID)
+                        }.firstOrNull() ?: throw NoSuchElementException("Worker not found")
+
+                    val currentVersion = worker[WorkersTable.qrCodeVersion]
+                    val newVersion = currentVersion + 1
+                    
+                    call.application.log.info("Regenerating QR code for worker $workerUUID: version $currentVersion -> $newVersion")
+                    
+                    val qrData = qrCodeService.generateQrCodeData(
+                        workerId = workerUUID.toString(),
+                        name = worker[WorkersTable.fullName],
+                        role = worker[WorkersTable.role],
+                        version = newVersion
+                    )
+                    val qrDataJson = Json.encodeToString(qrData)
+
+                    val updated = WorkersTable.update({ WorkersTable.id eq workerUUID }) {
+                        it[qrCodeData] = qrDataJson
+                        it[qrCodeVersion] = newVersion
+                        it[updatedAt] = Clock.System.now()
+                    }
+                    
+                    if (updated == 0) {
+                        throw IllegalStateException("Failed to update worker QR code")
+                    }
+                    
+                    call.application.log.info("QR code regenerated successfully for worker $workerUUID")
+
+                    QrCodeResponse(
+                        qr_code_data = qrDataJson,
+                        qr_code_version = newVersion
+                    )
+                }
+                call.respond(HttpStatusCode.OK, response)
+            } catch (e: Exception) {
+                call.application.log.error("Error regenerating QR code: ${e.message}", e)
+                throw IllegalStateException("Failed to regenerate QR code: ${e.message}")
+            }
         }
     }
 
@@ -496,6 +723,9 @@ private fun ResultRow.toWorkerDto() = WorkerDto(
     salary_amount = this[WorkersTable.salaryAmount].toDouble(),
     active = this[WorkersTable.active],
     is_login_enabled = this[WorkersTable.userId] != null,
+    has_pin = this[WorkersTable.pinHash] != null,
+    qr_code_version = this[WorkersTable.qrCodeVersion],
+    pin_updated_at = this[WorkersTable.pinUpdatedAt]?.toEpochMilliseconds(),
     created_at = this[WorkersTable.createdAt].toEpochMilliseconds(),
     updated_at = this[WorkersTable.updatedAt].toEpochMilliseconds(),
 )

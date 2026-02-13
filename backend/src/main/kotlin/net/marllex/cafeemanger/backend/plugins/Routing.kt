@@ -42,6 +42,7 @@ fun Application.configureRouting() {
             workerRoutes()
             attendanceRoutes()
             announcementRoutes()
+            chatbotRoutes()
         }
     }
 }

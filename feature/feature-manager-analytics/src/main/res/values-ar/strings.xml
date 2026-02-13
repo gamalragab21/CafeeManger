@@ -151,4 +151,48 @@
     <string name="report_ready">التقرير جاهز!</string>
     <string name="report_generated_successfully">تم إنشاء التقرير بنجاح</string>
     <string name="export_options">اختر طريقة التصدير:</string>
+    
+    <!-- NEW CRITICAL ANALYTICS FEATURES -->
+    <!-- Time Comparison -->
+    <string name="compare_with_past">📊 مقارنة مع الماضي</string>
+    <string name="compare_hint">شاهد أداءك مقارنة بالسابق</string>
+    <string name="vs_yesterday">مقارنة بالأمس</string>
+    <string name="vs_last_week">مقارنة بالأسبوع الماضي</string>
+    <string name="vs_last_month">مقارنة بالشهر الماضي</string>
+    <string name="no_comparison">لا توجد مقارنة متاحة</string>
+    <string name="was_value">كان: %1$s</string>
+    
+    <!-- Daily Goal -->
+    <string name="daily_goal">🎯 الهدف اليومي</string>
+    <string name="daily_goal_hint">تتبع هدفك اليومي</string>
+    <string name="daily_target">الهدف اليومي</string>
+    <string name="goal_achieved">🎉 تم تحقيق الهدف! عمل رائع!</string>
+    <string name="almost_there">💪 أوشكت على الوصول! استمر!</string>
+    <string name="halfway_there">📈 نصف الطريق! تقدم جيد!</string>
+    <string name="keep_going">🚀 استمر! يمكنك فعلها!</string>
+    
+    <!-- Peak Hours -->
+    <string name="peak_hours">⏰ أوقات الذروة</string>
+    <string name="peak_hours_hint">متى تحصل على معظم الطلبات</string>
+    <string name="busiest_times">أوقاتك الأكثر ازدحاماً</string>
+    <string name="lunch_time">ذروة الغداء</string>
+    <string name="dinner_time">ذروة العشاء</string>
+    <string name="afternoon">بعد الظهر</string>
+    <string name="morning">الصباح</string>
+    
+    <!-- Profit & Loss -->
+    <string name="profit_loss">💼 الأرباح والخسائر</string>
+    <string name="profit_loss_hint">دخلك ومصروفاتك</string>
+    <string name="income">الدخل</string>
+    <string name="expenses">المصروفات</string>
+    <string name="profit_margin_value">هامش الربح: %1$s%%</string>
+    
+    <!-- Customer Insights -->
+    <string name="customer_insights">👥 رؤى العملاء</string>
+    <string name="customer_insights_hint">اعرف عملاءك بشكل أفضل</string>
+    <string name="per_order_average">متوسط كل طلب</string>
+    <string name="customer_types">أنواع العملاء</string>
+    <string name="new_customers">عملاء جدد</string>
+    <string name="returning_customers">عملاء عائدون</string>
+    <string name="loyalty_message">65% من العملاء يعودون! ولاء رائع!</string>
 </resources>

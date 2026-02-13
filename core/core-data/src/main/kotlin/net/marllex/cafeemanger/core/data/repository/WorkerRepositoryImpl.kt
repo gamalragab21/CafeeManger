@@ -8,6 +8,7 @@ import net.marllex.cafeemanger.core.domain.repository.AuthRepository
 import net.marllex.cafeemanger.core.domain.repository.WorkerRepository
 import net.marllex.cafeemanger.core.model.*
 import net.marllex.cafeemanger.core.network.CafeeMangerApi
+import net.marllex.cafeemanger.core.network.datasource.WorkerNetworkDataSource
 import net.marllex.cafeemanger.core.network.dto.*
 import net.marllex.cafeemanger.core.network.mapper.toDomain
 import javax.inject.Inject
@@ -16,6 +17,7 @@ class WorkerRepositoryImpl @Inject constructor(
     private val api: CafeeMangerApi,
     private val workerDao: WorkerDao,
     private val authRepository: AuthRepository,
+    private val workerNetworkDataSource: WorkerNetworkDataSource,
 ) : WorkerRepository {
 
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
@@ -39,13 +41,15 @@ class WorkerRepositoryImpl @Inject constructor(
     override suspend fun createWorker(
         fullName: String, phone: String?, description: String?,
         role: String, salaryType: SalaryType, salaryAmount: Double,
-        isLoginEnabled: Boolean, password: String?, loginRole: String?
+        isLoginEnabled: Boolean, password: String?, loginRole: String?,
+        pin: String
     ): Result<Worker> = runCatching {
         val response = api.createWorker(
             CreateWorkerRequest(
                 fullName = fullName, phone = phone, description = description,
                 role = role, salaryType = salaryType.name, salaryAmount = salaryAmount,
-                isLoginEnabled = isLoginEnabled, password = password, loginRole = loginRole
+                isLoginEnabled = isLoginEnabled, password = password, loginRole = loginRole,
+                pin = pin
             )
         )
         val worker = response.toDomain()
@@ -56,13 +60,13 @@ class WorkerRepositoryImpl @Inject constructor(
     override suspend fun updateWorker(
         id: String, fullName: String?, phone: String?,
         description: String?, role: String?, salaryType: String?,
-        salaryAmount: Double?, active: Boolean?
+        salaryAmount: Double?, pin: String?, active: Boolean?
     ): Result<Worker> = runCatching {
         val response = api.updateWorker(
             id, UpdateWorkerRequest(
                 fullName = fullName, phone = phone, description = description,
                 role = role, salaryType = salaryType, salaryAmount = salaryAmount,
-                active = active
+                pin = pin, active = active
             )
         )
         val worker = response.toDomain()
@@ -143,6 +147,34 @@ class WorkerRepositoryImpl @Inject constructor(
         attendance
     }
 
+    override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> = runCatching {
+        val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
+        val attendance = response.toDomain()
+        workerDao.insertAttendance(attendance.toEntity())
+        attendance
+    }
+
+    override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> = runCatching {
+        val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
+        val attendance = response.toDomain()
+        workerDao.insertAttendance(attendance.toEntity())
+        attendance
+    }
+
+    override suspend fun checkInWithQr(qrData: String): Result<Attendance> = runCatching {
+        val response = api.checkInWithQr(CheckInWithQrRequest(qrData))
+        val attendance = response.toDomain()
+        workerDao.insertAttendance(attendance.toEntity())
+        attendance
+    }
+
+    override suspend fun checkOutWithQr(qrData: String): Result<Attendance> = runCatching {
+        val response = api.checkOutWithQr(CheckOutWithQrRequest(qrData))
+        val attendance = response.toDomain()
+        workerDao.insertAttendance(attendance.toEntity())
+        attendance
+    }
+
     override suspend fun deleteAttendance(id: String): Result<Unit> = runCatching {
         api.deleteAttendance(id)
         workerDao.deleteAttendance(id)
@@ -187,5 +219,25 @@ class WorkerRepositoryImpl @Inject constructor(
         val payments = response.map { it.toDomain() }
         workerDao.insertSalaryPayments(payments.map { it.toEntity() })
         payments
+    }
+
+    // ─── PIN & QR Code Management ────────────────────────────────
+
+    override suspend fun updateWorkerPin(workerId: String, pin: String): Result<Unit> = runCatching {
+        api.updateWorkerPin(workerId, UpdatePinRequest(pin))
+        // Refresh worker to get updated hasPin and pinUpdatedAt
+        val response = api.getWorker(workerId)
+        workerDao.insertWorker(response.toDomain().toEntity())
+    }
+
+    override suspend fun getWorkerQrCode(workerId: String): Result<ByteArray> = runCatching {
+        workerNetworkDataSource.getWorkerQrCode(workerId)
+    }
+
+    override suspend fun regenerateWorkerQrCode(workerId: String): Result<Unit> = runCatching {
+        api.regenerateWorkerQrCode(workerId)
+        // Refresh worker to get updated qrCodeVersion
+        val response = api.getWorker(workerId)
+        workerDao.insertWorker(response.toDomain().toEntity())
     }
 }

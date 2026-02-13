@@ -55,6 +55,9 @@ include(":feature:feature-manager-stock")
 // Feature modules - Manager App (Staff)
 include(":feature:feature-manager-staff")
 
+// Feature modules - Manager App (Chatbot)
+include(":feature:feature-manager-chatbot")
+
 // Feature modules - Cashier App
 include(":feature:feature-cashier-pos")
 include(":feature:feature-cashier-payment")

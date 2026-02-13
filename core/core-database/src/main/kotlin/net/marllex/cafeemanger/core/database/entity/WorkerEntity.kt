@@ -18,6 +18,9 @@ data class WorkerEntity(
     val active: Boolean,
     @ColumnInfo(name = "user_id") val userId: String? = null,
     @ColumnInfo(name = "is_login_enabled") val isLoginEnabled: Boolean = false,
+    @ColumnInfo(name = "has_pin") val hasPin: Boolean = false,
+    @ColumnInfo(name = "qr_code_version") val qrCodeVersion: Int = 1,
+    @ColumnInfo(name = "pin_updated_at") val pinUpdatedAt: Long? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long?,
     @ColumnInfo(name = "updated_at") val updatedAt: Long?,
 )

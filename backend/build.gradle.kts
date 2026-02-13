@@ -65,6 +65,10 @@ dependencies {
     // Password Hashing
     implementation("org.mindrot:jbcrypt:0.4")
 
+    // QR Code Generation
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:javase:3.5.3")
+
     // Logging
     implementation("ch.qos.logback:logback-classic:1.5.12")
 

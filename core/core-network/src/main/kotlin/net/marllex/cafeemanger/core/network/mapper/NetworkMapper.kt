@@ -208,6 +208,7 @@ fun WorkerResponse.toDomain() = Worker(
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
     userId = userId, isLoginEnabled = isLoginEnabled,
+    hasPin = hasPin, qrCodeVersion = qrCodeVersion, pinUpdatedAt = pinUpdatedAt,
     createdAt = createdAt, updatedAt = updatedAt
 )
 

@@ -19,6 +19,9 @@ data class WorkerResponse(
     val active: Boolean = true,
     @SerialName("user_id") val userId: String? = null,
     @SerialName("is_login_enabled") val isLoginEnabled: Boolean = false,
+    @SerialName("has_pin") val hasPin: Boolean = false,
+    @SerialName("qr_code_version") val qrCodeVersion: Int = 1,
+    @SerialName("pin_updated_at") val pinUpdatedAt: Long? = null,
     @SerialName("created_at") val createdAt: Long? = null,
     @SerialName("updated_at") val updatedAt: Long? = null,
 )
@@ -34,6 +37,7 @@ data class CreateWorkerRequest(
     @SerialName("is_login_enabled") val isLoginEnabled: Boolean = false,
     val password: String? = null,
     @SerialName("login_role") val loginRole: String? = null,
+    val pin: String,
 )
 
 @Serializable
@@ -44,6 +48,7 @@ data class UpdateWorkerRequest(
     val role: String? = null,
     @SerialName("salary_type") val salaryType: String? = null,
     @SerialName("salary_amount") val salaryAmount: Double? = null,
+    val pin: String? = null,
     val active: Boolean? = null,
 )
 
@@ -62,6 +67,17 @@ data class WorkerRoleResponse(
 data class CreateWorkerRoleRequest(
     val name: String,
     val description: String? = null,
+)
+
+@Serializable
+data class UpdatePinRequest(
+    val pin: String,
+)
+
+@Serializable
+data class QrCodeResponse(
+    @SerialName("qr_code_version") val qrCodeVersion: Int,
+    @SerialName("qr_code_data") val qrCodeData: String,
 )
 
 // ─── Attendance DTOs ─────────────────────────────────────────────
@@ -86,6 +102,27 @@ data class AttendanceResponse(
 data class CheckInRequest(
     @SerialName("worker_id") val workerId: String,
     val note: String? = null,
+)
+
+@Serializable
+data class CheckInWithPinRequest(
+    @SerialName("worker_id") val workerId: String,
+    val pin: String,
+)
+
+@Serializable
+data class CheckOutWithPinRequest(
+    val pin: String,
+)
+
+@Serializable
+data class CheckInWithQrRequest(
+    @SerialName("qr_data") val qrData: String,
+)
+
+@Serializable
+data class CheckOutWithQrRequest(
+    @SerialName("qr_data") val qrData: String,
 )
 
 @Serializable

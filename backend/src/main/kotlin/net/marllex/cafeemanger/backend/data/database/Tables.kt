@@ -163,6 +163,10 @@ object WorkersTable : UUIDTable("workers") {
     val salaryType = varchar("salary_type", 20) // DAILY, MONTHLY
     val salaryAmount = decimal("salary_amount", 10, 2).default(java.math.BigDecimal.ZERO)
     val active = bool("active").default(true)
+    val pinHash = varchar("pin_hash", 255).nullable() // bcrypt hash of worker PIN
+    val qrCodeData = text("qr_code_data").nullable() // JSON string with worker info
+    val qrCodeVersion = integer("qr_code_version").default(1) // Increment on regeneration
+    val pinUpdatedAt = timestamp("pin_updated_at").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 
@@ -192,6 +196,8 @@ object AttendanceTable : UUIDTable("attendance") {
     val checkOut = timestamp("check_out").nullable()
     val workedMinutes = integer("worked_minutes").nullable() // Calculated on check-out
     val recordedBy = reference("recorded_by", UsersTable) // Cashier who recorded
+    val authMethod = varchar("auth_method", 20).default("MANUAL") // PIN, QR, MANUAL, BIOMETRIC (legacy)
+    val authMetadata = text("auth_metadata").nullable() // JSON with additional auth info
     val note = text("note").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
@@ -199,6 +205,17 @@ object AttendanceTable : UUIDTable("attendance") {
     init {
         uniqueIndex(vendorId, workerId, date) // One attendance per worker per day
     }
+}
+
+// ─── Attendance Authentication Logs ──────────────────────────────
+object AttendanceAuthLogsTable : UUIDTable("attendance_auth_logs") {
+    val workerId = reference("worker_id", WorkersTable)
+    val cashierId = reference("cashier_id", UsersTable)
+    val authMethod = varchar("auth_method", 20) // PIN, QR, MANUAL
+    val success = bool("success")
+    val failureReason = varchar("failure_reason", 255).nullable()
+    val ipAddress = varchar("ip_address", 45).nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
 // ─── Salary Payments ─────────────────────────────────────────────

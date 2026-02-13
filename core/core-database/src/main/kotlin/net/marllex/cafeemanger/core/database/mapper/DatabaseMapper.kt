@@ -154,6 +154,7 @@ fun WorkerEntity.toDomain() = Worker(
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
     userId = userId, isLoginEnabled = isLoginEnabled,
+    hasPin = hasPin, qrCodeVersion = qrCodeVersion, pinUpdatedAt = pinUpdatedAt,
     createdAt = createdAt, updatedAt = updatedAt
 )
 
@@ -163,6 +164,7 @@ fun Worker.toEntity() = WorkerEntity(
     role = role, salaryType = salaryType.name,
     salaryAmount = salaryAmount, active = active,
     userId = userId, isLoginEnabled = isLoginEnabled,
+    hasPin = hasPin, qrCodeVersion = qrCodeVersion, pinUpdatedAt = pinUpdatedAt,
     createdAt = createdAt, updatedAt = updatedAt
 )
 

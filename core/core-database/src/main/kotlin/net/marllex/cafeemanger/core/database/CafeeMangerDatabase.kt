@@ -21,7 +21,7 @@ import net.marllex.cafeemanger.core.database.entity.*
         AttendanceEntity::class,
         SalaryPaymentEntity::class,
     ],
-    version = 10, // Added userId & isLoginEnabled to WorkerEntity
+    version = 11, // Added hasPin, qrCodeVersion, pinUpdatedAt to WorkerEntity
     exportSchema = false
 )
 abstract class CafeeMangerDatabase : RoomDatabase() {

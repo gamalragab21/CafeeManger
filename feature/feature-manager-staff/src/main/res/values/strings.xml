@@ -164,4 +164,39 @@
     <string name="can_login">Can Login</string>
     <string name="cashier_role">Cashier</string>
     <string name="delivery_role">Delivery</string>
+
+    <!-- PIN Management -->
+    <string name="worker_pin">Worker PIN</string>
+    <string name="pin_required">PIN (Required)</string>
+    <string name="confirm_pin">Confirm PIN</string>
+    <string name="pin_must_match">PINs must match</string>
+    <string name="pin_length_error">PIN must be 4-6 digits</string>
+    <string name="pin_length_hint">4-6 digits required</string>
+    <string name="edit_pin">Edit PIN</string>
+    <string name="update_pin">Update PIN</string>
+    <string name="pin_updated_successfully">PIN updated successfully</string>
+    <string name="last_updated">Last updated</string>
+    <string name="new_pin">New PIN</string>
+    <string name="current_pin">Current PIN</string>
+
+    <!-- QR Code -->
+    <string name="worker_qr_code">Worker QR Code</string>
+    <string name="view_qr_code">View QR Code</string>
+    <string name="download_qr">Download QR</string>
+    <string name="download_qr_only">Download QR Only</string>
+    <string name="download_full_badge">Download Full Badge</string>
+    <string name="employee_badge">Employee Badge</string>
+    <string name="print_badge">Print Badge</string>
+    <string name="share_qr">Share QR</string>
+    <string name="regenerate_qr">Regenerate QR</string>
+    <string name="qr_version">Version: %d</string>
+    <string name="scan_to_check_in">Scan to Check In/Out</string>
+    <string name="regenerate_warning">Regenerating will invalidate the old QR code. Print a new badge after regeneration.</string>
+    <string name="confirm_regenerate">Are you sure you want to regenerate this QR code?</string>
+    <string name="qr_regenerated">QR code regenerated successfully</string>
+    <string name="qr_downloaded">QR code saved to %s</string>
+    <string name="download_failed">Failed to download QR code</string>
+    <string name="worker_badge">Worker Badge</string>
+    <string name="cafe_manager_system">Cafe Manager System</string>
+    <string name="employee_identification">Employee Identification</string>
 </resources>

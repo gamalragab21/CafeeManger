@@ -33,10 +33,17 @@ fun Application.configureStatusPages() {
             )
         }
         exception<Throwable> { call, cause ->
-            call.application.log.error("Unhandled error", cause)
+            // Log the full stack trace for debugging
+            call.application.log.error("Unhandled error: ${cause.message}", cause)
+            cause.printStackTrace()
+
             call.respond(
                 HttpStatusCode.InternalServerError,
-                ErrorResponse("Internal Server Error", "An unexpected error occurred")
+                ErrorResponse(
+                    "Internal Server Error",
+
+                    cause.message ?: "An unexpected error occurred"
+                )
             )
         }
     }

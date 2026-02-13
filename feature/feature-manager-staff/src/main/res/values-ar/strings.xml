@@ -165,4 +165,39 @@
     <string name="can_login">يمكنه الدخول</string>
     <string name="cashier_role">كاشير</string>
     <string name="delivery_role">توصيل</string>
+
+    <!-- PIN Management -->
+    <string name="worker_pin">رقم PIN للعامل</string>
+    <string name="pin_required">رقم PIN (مطلوب)</string>
+    <string name="confirm_pin">تأكيد رقم PIN</string>
+    <string name="pin_must_match">يجب أن يتطابق رقم PIN</string>
+    <string name="pin_length_error">يجب أن يكون رقم PIN من 4-6 أرقام</string>
+    <string name="pin_length_hint">مطلوب 4-6 أرقام</string>
+    <string name="edit_pin">تعديل رقم PIN</string>
+    <string name="update_pin">تحديث رقم PIN</string>
+    <string name="pin_updated_successfully">تم تحديث رقم PIN بنجاح</string>
+    <string name="last_updated">آخر تحديث</string>
+    <string name="new_pin">رقم PIN جديد</string>
+    <string name="current_pin">رقم PIN الحالي</string>
+
+    <!-- QR Code -->
+    <string name="worker_qr_code">رمز QR للعامل</string>
+    <string name="view_qr_code">عرض رمز QR</string>
+    <string name="download_qr">تحميل رمز QR</string>
+    <string name="download_qr_only">تحميل رمز QR فقط</string>
+    <string name="download_full_badge">تحميل البطاقة الكاملة</string>
+    <string name="employee_badge">بطاقة الموظف</string>
+    <string name="print_badge">طباعة البطاقة</string>
+    <string name="share_qr">مشاركة رمز QR</string>
+    <string name="regenerate_qr">إعادة إنشاء رمز QR</string>
+    <string name="qr_version">الإصدار: %d</string>
+    <string name="scan_to_check_in">امسح للحضور/الانصراف</string>
+    <string name="regenerate_warning">إعادة الإنشاء ستلغي رمز QR القديم. اطبع بطاقة جديدة بعد إعادة الإنشاء.</string>
+    <string name="confirm_regenerate">هل أنت متأكد من إعادة إنشاء رمز QR هذا؟</string>
+    <string name="qr_regenerated">تم إعادة إنشاء رمز QR بنجاح</string>
+    <string name="qr_downloaded">تم حفظ رمز QR في %s</string>
+    <string name="download_failed">فشل تحميل رمز QR</string>
+    <string name="worker_badge">بطاقة العامل</string>
+    <string name="cafe_manager_system">نظام إدارة المقهى</string>
+    <string name="employee_identification">بطاقة تعريف الموظف</string>
 </resources>

@@ -43,6 +43,10 @@ class StaffViewModel @Inject constructor(
         val dialogPassword: String = "",
         val dialogLoginRole: String = "CASHIER",
         val dialogEmail: String = "", // NEW: Email for main workers
+        val dialogPin: String = "",
+        val dialogPinConfirm: String = "",
+        val showDialogPin: Boolean = false,
+        val showDialogPinConfirm: Boolean = false,
         val isSaving: Boolean = false,
 
         // Add Role Dialog
@@ -161,6 +165,10 @@ class StaffViewModel @Inject constructor(
                 dialogPassword = "",
                 dialogLoginRole = "CASHIER",
                 dialogEmail = "",
+                dialogPin = "",
+                dialogPinConfirm = "",
+                showDialogPin = false,
+                showDialogPinConfirm = false,
             )
         }
     }
@@ -242,10 +250,37 @@ class StaffViewModel @Inject constructor(
         )
     }
     fun updateDialogEmail(v: String) = _uiState.update { it.copy(dialogEmail = v) }
+    fun updateDialogPin(v: String) {
+        // Only allow numeric input, max 6 digits
+        if (v.all { it.isDigit() } && v.length <= 6) {
+            _uiState.update { it.copy(dialogPin = v) }
+        }
+    }
+    fun updateDialogPinConfirm(v: String) {
+        // Only allow numeric input, max 6 digits
+        if (v.all { it.isDigit() } && v.length <= 6) {
+            _uiState.update { it.copy(dialogPinConfirm = v) }
+        }
+    }
+    fun toggleShowDialogPin() = _uiState.update { it.copy(showDialogPin = !it.showDialogPin) }
+    fun toggleShowDialogPinConfirm() = _uiState.update { it.copy(showDialogPinConfirm = !it.showDialogPinConfirm) }
 
     fun saveWorker() {
         val s = _uiState.value
         if (s.dialogName.isBlank() || s.dialogRole.isBlank()) return
+        
+        // Validate PIN
+        if (s.editingWorker == null) {
+            // New worker: PIN is required
+            if (s.dialogPin.length < 4 || s.dialogPin.length > 6) return
+            if (s.dialogPin != s.dialogPinConfirm) return
+        } else {
+            // Edit worker: PIN is optional, but if provided must be valid
+            if (s.dialogPin.isNotEmpty()) {
+                if (s.dialogPin.length < 4 || s.dialogPin.length > 6) return
+                if (s.dialogPin != s.dialogPinConfirm) return
+            }
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -260,6 +295,7 @@ class StaffViewModel @Inject constructor(
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType.name,
                     salaryAmount = amount,
+                    pin = s.dialogPin.ifBlank { null }, // Only send PIN if not empty
                     active = null
                 ).onSuccess {
                     _uiState.update { it.copy(isSaving = false, showAddWorkerDialog = false, editingWorker = null) }
@@ -277,7 +313,8 @@ class StaffViewModel @Inject constructor(
                     salaryAmount = amount,
                     isLoginEnabled = s.dialogIsLoginEnabled,
                     password = if (s.dialogIsLoginEnabled) s.dialogPassword.ifBlank { null } else null,
-                    loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null
+                    loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null,
+                    pin = s.dialogPin
                 ).onSuccess {
                     _uiState.update { it.copy(isSaving = false, showAddWorkerDialog = false) }
                     loadData()

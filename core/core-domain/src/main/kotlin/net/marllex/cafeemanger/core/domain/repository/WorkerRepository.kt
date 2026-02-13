@@ -11,14 +11,20 @@ interface WorkerRepository {
     suspend fun createWorker(
         fullName: String, phone: String?, description: String?,
         role: String, salaryType: SalaryType, salaryAmount: Double,
-        isLoginEnabled: Boolean = false, password: String? = null, loginRole: String? = null
+        isLoginEnabled: Boolean = false, password: String? = null, loginRole: String? = null,
+        pin: String
     ): Result<Worker>
     suspend fun updateWorker(
         id: String, fullName: String?, phone: String?,
         description: String?, role: String?, salaryType: String?,
-        salaryAmount: Double?, active: Boolean?
+        salaryAmount: Double?, pin: String? = null, active: Boolean?
     ): Result<Worker>
     suspend fun deleteWorker(id: String): Result<Unit>
+    
+    // PIN & QR Code Management
+    suspend fun updateWorkerPin(workerId: String, pin: String): Result<Unit>
+    suspend fun getWorkerQrCode(workerId: String): Result<ByteArray>
+    suspend fun regenerateWorkerQrCode(workerId: String): Result<Unit>
 
     // Worker Roles
     fun getWorkerRoles(): Flow<List<WorkerRole>>
@@ -39,6 +45,10 @@ interface WorkerRepository {
     ): Result<AttendanceSummary>
     suspend fun checkIn(workerId: String, note: String? = null): Result<Attendance>
     suspend fun checkOut(attendanceId: String, note: String? = null): Result<Attendance>
+    suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance>
+    suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance>
+    suspend fun checkInWithQr(qrData: String): Result<Attendance>
+    suspend fun checkOutWithQr(qrData: String): Result<Attendance>
     suspend fun deleteAttendance(id: String): Result<Unit>
 
     // Salary Payments

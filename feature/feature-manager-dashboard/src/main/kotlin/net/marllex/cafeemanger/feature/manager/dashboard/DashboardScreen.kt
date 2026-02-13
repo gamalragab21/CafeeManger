@@ -78,7 +78,11 @@ import net.marllex.cafeemanger.core.ui.R as CoreR
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
+    onNavigateToChatbot: () -> Unit = {},
 ) {
     // Use the modern dashboard implementation
-    ModernDashboardScreen(viewModel = viewModel)
+    ModernDashboardScreen(
+        viewModel = viewModel,
+        onNavigateToChatbot = onNavigateToChatbot
+    )
 }

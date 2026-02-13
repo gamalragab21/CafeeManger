@@ -1,8 +1,6 @@
 package net.marllex.cafeemanger.feature.cashier.attendance
 
 import android.widget.Toast
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,11 +19,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
+import net.marllex.cafeemanger.feature.cashier.attendance.components.PinEntryDialog
+import net.marllex.cafeemanger.feature.cashier.attendance.components.QrScannerDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -37,48 +35,66 @@ fun AttendanceScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Handle biometric prompt when action is pending
-    LaunchedEffect(uiState.pendingAction) {
-        if (uiState.pendingAction != null) {
-            val activity = context as? FragmentActivity
-            if (activity != null) {
-                val biometricManager = BiometricManager.from(context)
-                val canAuth = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-
-                if (canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
-                    val executor = ContextCompat.getMainExecutor(context)
-                    val callback = object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            viewModel.onBiometricSuccess()
-                        }
-                        override fun onAuthenticationFailed() {
-                            // Don't cancel yet, user can retry
-                        }
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
-                                errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                                viewModel.onBiometricFailed()
-                            } else {
-                                viewModel.onBiometricFailed()
-                            }
+    // Show PIN dialog
+    if (uiState.showPinDialog && uiState.selectedWorker != null) {
+        PinEntryDialog(
+            workerName = uiState.selectedWorker!!.fullName,
+            onPinEntered = { pin ->
+                when (uiState.authAction) {
+                    AttendanceViewModel.AuthAction.CheckIn -> {
+                        viewModel.checkInWithPin(uiState.selectedWorker!!.id, pin)
+                    }
+                    AttendanceViewModel.AuthAction.CheckOut -> {
+                        uiState.selectedAttendanceId?.let { attendanceId ->
+                            viewModel.checkOutWithPin(attendanceId, pin)
                         }
                     }
-                    val prompt = BiometricPrompt(activity, executor, callback)
-                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                        .setTitle(context.getString(R.string.authenticate_fingerprint))
-                        .setSubtitle(context.getString(R.string.fingerprint_required))
-                        .setNegativeButtonText(context.getString(android.R.string.cancel))
-                        .build()
-                    prompt.authenticate(promptInfo)
-                } else {
-                    // Biometric not available, proceed without it
-                    viewModel.onBiometricSuccess()
+                    null -> {}
                 }
-            } else {
-                // Not a FragmentActivity, proceed without biometric
-                viewModel.onBiometricSuccess()
-            }
-        }
+            },
+            onDismiss = viewModel::dismissPinDialog,
+        )
+    }
+
+    // Show QR scanner
+    if (uiState.showQrScanner) {
+        QrScannerDialog(
+            title = when (uiState.authAction) {
+                AttendanceViewModel.AuthAction.CheckIn -> stringResource(R.string.scan_qr_to_check_in)
+                AttendanceViewModel.AuthAction.CheckOut -> stringResource(R.string.scan_qr_to_check_out)
+                null -> stringResource(R.string.scan_qr_code)
+            },
+            onQrCodeScanned = { qrData ->
+                when (uiState.authAction) {
+                    AttendanceViewModel.AuthAction.CheckIn -> {
+                        viewModel.checkInWithQr(qrData)
+                    }
+                    AttendanceViewModel.AuthAction.CheckOut -> {
+                        viewModel.checkOutWithQr(qrData)
+                    }
+                    null -> {}
+                }
+            },
+            onDismiss = viewModel::dismissQrScanner,
+        )
+    }
+
+    // Show QR error dialog
+    if (uiState.showQrErrorDialog) {
+        QrErrorDialog(
+            errorMessage = uiState.qrErrorMessage ?: stringResource(R.string.qr_scan_failed),
+            onRetry = viewModel::retryQrScan,
+            onDismiss = viewModel::dismissQrErrorDialog,
+        )
+    }
+
+    // Show PIN error dialog
+    if (uiState.showPinErrorDialog) {
+        PinErrorDialog(
+            errorMessage = uiState.pinErrorMessage ?: stringResource(R.string.pin_auth_failed),
+            onRetry = viewModel::retryPinEntry,
+            onDismiss = viewModel::dismissPinErrorDialog,
+        )
     }
 
     // Show toast messages
@@ -93,11 +109,7 @@ fun AttendanceScreen(
             viewModel.clearMessages()
         }
         uiState.error?.let { msg ->
-            val text = when (msg) {
-                "auth_failed" -> context.getString(R.string.auth_failed)
-                else -> msg
-            }
-            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.clearMessages()
         }
     }
@@ -183,6 +195,33 @@ fun AttendanceScreen(
                         }
                     }
 
+                    // Quick action buttons for QR scanning
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = viewModel::showQrScannerForCheckIn,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Icon(Icons.Filled.QrCodeScanner, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.check_in_with_qr))
+                            }
+                            OutlinedButton(
+                                onClick = viewModel::showQrScannerForCheckOut,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Icon(Icons.Filled.QrCodeScanner, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.check_out_with_qr))
+                            }
+                        }
+                    }
+
                     // Search bar
                     item {
                         OutlinedTextField(
@@ -241,10 +280,10 @@ fun AttendanceScreen(
                             isCheckedOut = isCheckedOut,
                             checkInTime = todayRecord?.checkIn,
                             checkOutTime = todayRecord?.checkOut,
-                            onCheckIn = { viewModel.requestCheckIn(worker.id, worker.fullName) },
-                            onCheckOut = {
+                            onCheckInWithPin = { viewModel.showPinDialogForCheckIn(worker) },
+                            onCheckOutWithPin = {
                                 todayRecord?.let {
-                                    viewModel.requestCheckOut(it.id, worker.fullName)
+                                    viewModel.showPinDialogForCheckOut(worker, it.id)
                                 }
                             },
                         )
@@ -264,8 +303,8 @@ private fun WorkerAttendanceCard(
     isCheckedOut: Boolean,
     checkInTime: Long?,
     checkOutTime: Long?,
-    onCheckIn: () -> Unit,
-    onCheckOut: () -> Unit,
+    onCheckInWithPin: () -> Unit,
+    onCheckOutWithPin: () -> Unit,
 ) {
     val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
 
@@ -351,24 +390,24 @@ private fun WorkerAttendanceCard(
             when {
                 !isPresent -> {
                     Button(
-                        onClick = onCheckIn,
+                        onClick = onCheckInWithPin,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Icon(Icons.Filled.Fingerprint, null, Modifier.size(20.dp))
+                        Icon(Icons.Filled.Pin, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.check_in))
+                        Text(stringResource(R.string.check_in_with_pin))
                     }
                 }
                 isPresent && !isCheckedOut -> {
                     OutlinedButton(
-                        onClick = onCheckOut,
+                        onClick = onCheckOutWithPin,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Icon(Icons.Filled.Fingerprint, null, Modifier.size(20.dp))
+                        Icon(Icons.Filled.Pin, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.check_out))
+                        Text(stringResource(R.string.check_out_with_pin))
                     }
                 }
                 else -> {
@@ -384,4 +423,220 @@ private fun WorkerAttendanceCard(
             }
         }
     }
+}
+
+
+@Composable
+private fun QrErrorDialog(
+    errorMessage: String,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.qr_scan_failed),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Show common error explanations
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.possible_reasons),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        
+                        val reasons = listOf(
+                            stringResource(R.string.qr_error_invalid),
+                            stringResource(R.string.qr_error_expired),
+                            stringResource(R.string.qr_error_worker_not_found),
+                            stringResource(R.string.qr_error_already_checked_in)
+                        )
+                        
+                        reasons.forEach { reason ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = reason,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    Icons.Filled.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.try_again))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+
+@Composable
+private fun PinErrorDialog(
+    errorMessage: String,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.pin_auth_failed),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Show common error explanations
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.possible_reasons),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        
+                        val reasons = listOf(
+                            stringResource(R.string.pin_error_incorrect),
+                            stringResource(R.string.pin_error_no_pin_set),
+                            stringResource(R.string.pin_error_too_many_attempts),
+                            stringResource(R.string.pin_error_worker_not_found)
+                        )
+                        
+                        reasons.forEach { reason ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = reason,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Pin,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.try_again))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }

@@ -49,6 +49,7 @@ dependencies {
     implementation(project(":feature:feature-manager-analytics"))
     implementation(project(":feature:feature-manager-orders"))
     implementation(project(":feature:feature-manager-stock"))
+    implementation(project(":feature:feature-manager-chatbot"))
 
     // Image loading
     implementation(libs.coil.compose)

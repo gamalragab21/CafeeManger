@@ -24,6 +24,7 @@
     <string name="staff">الموظفون</string>
     <string name="profile">الملف الشخصي</string>
     <string name="stock">المخزون</string>
+    <string name="ai_assistant">المساعد الذكي</string>
     <!-- Feature toggles -->
     <string name="store_features">مميزات المتجر</string>
     <string name="enable_tables">الطاولات</string>

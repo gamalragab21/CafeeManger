@@ -192,6 +192,8 @@ class AnalyticsViewModel @Inject constructor(
                         revenueByChannel = revenueByChannel,
                         revenueByPayment = revenueByPayment,
                         topItems = topItems,
+                        fromDate = fromDate,
+                        toDate = toDate,
                         isLoading = false
                     ) 
                 }

@@ -151,4 +151,48 @@
     <string name="report_ready">Report Ready!</string>
     <string name="report_generated_successfully">Your report has been generated successfully</string>
     <string name="export_options">Choose how to export:</string>
+    
+    <!-- NEW CRITICAL ANALYTICS FEATURES -->
+    <!-- Time Comparison -->
+    <string name="compare_with_past">📊 Compare with Past</string>
+    <string name="compare_hint">See how you\'re doing vs before</string>
+    <string name="vs_yesterday">vs Yesterday</string>
+    <string name="vs_last_week">vs Last Week</string>
+    <string name="vs_last_month">vs Last Month</string>
+    <string name="no_comparison">No comparison available</string>
+    <string name="was_value">Was: %1$s</string>
+    
+    <!-- Daily Goal -->
+    <string name="daily_goal">🎯 Daily Goal</string>
+    <string name="daily_goal_hint">Track your daily target</string>
+    <string name="daily_target">Daily Target</string>
+    <string name="goal_achieved">🎉 Goal achieved! Great job!</string>
+    <string name="almost_there">💪 Almost there! Keep it up!</string>
+    <string name="halfway_there">📈 Halfway there! Good progress!</string>
+    <string name="keep_going">🚀 Keep going! You can do it!</string>
+    
+    <!-- Peak Hours -->
+    <string name="peak_hours">⏰ Busiest Times</string>
+    <string name="peak_hours_hint">When you get most orders</string>
+    <string name="busiest_times">Your Busiest Times</string>
+    <string name="lunch_time">Lunch Rush</string>
+    <string name="dinner_time">Dinner Rush</string>
+    <string name="afternoon">Afternoon</string>
+    <string name="morning">Morning</string>
+    
+    <!-- Profit & Loss -->
+    <string name="profit_loss">💼 Profit &amp; Loss</string>
+    <string name="profit_loss_hint">Your income and expenses</string>
+    <string name="income">Income</string>
+    <string name="expenses">Expenses</string>
+    <string name="profit_margin_value">Profit Margin: %1$s%%</string>
+    
+    <!-- Customer Insights -->
+    <string name="customer_insights">👥 Customer Insights</string>
+    <string name="customer_insights_hint">Know your customers better</string>
+    <string name="per_order_average">Average per order</string>
+    <string name="customer_types">Customer Types</string>
+    <string name="new_customers">New Customers</string>
+    <string name="returning_customers">Returning Customers</string>
+    <string name="loyalty_message">65% of customers come back! Great loyalty!</string>
 </resources>

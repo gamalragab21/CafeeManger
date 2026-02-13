@@ -4,18 +4,56 @@
     <string name="select_worker_to_check_in">اختر العامل لتسجيل الحضور</string>
     <string name="check_in">تسجيل حضور</string>
     <string name="check_out">تسجيل انصراف</string>
-    <string name="authenticate_fingerprint">المصادقة ببصمة الإصبع</string>
-    <string name="fingerprint_required">مطلوب مصادقة بصمة الإصبع لتسجيل الحضور</string>
     <string name="check_in_success">تم تسجيل الحضور بنجاح</string>
     <string name="check_out_success">تم تسجيل الانصراف بنجاح</string>
     <string name="already_checked_in">العامل مسجل حضوره بالفعل اليوم</string>
     <string name="not_checked_in">العامل لم يسجل حضوره اليوم</string>
     <string name="auth_failed">فشلت المصادقة</string>
-    <string name="biometric_not_available">المصادقة البيومترية غير متوفرة على هذا الجهاز</string>
     <string name="present">حاضر</string>
     <string name="absent">غائب</string>
     <string name="today_attendance">حضور اليوم</string>
     <string name="no_workers_available">لا يوجد عمال نشطون</string>
     <string name="search_worker">بحث عن عامل…</string>
-    <string name="checked_out">تسجيل الانصراف</string>
+    <string name="checked_out">تم الانصراف</string>
+    
+    <!-- PIN Authentication -->
+    <string name="enter_pin">أدخل الرقم السري</string>
+    <string name="pin_length_hint">أدخل رقم سري من 4-6 أرقام</string>
+    <string name="confirm">تأكيد</string>
+    <string name="incorrect_pin">رقم سري خاطئ</string>
+    <string name="too_many_attempts">محاولات كثيرة فاشلة. حاول مرة أخرى بعد %d ثانية</string>
+    <string name="worker_has_no_pin">العامل ليس لديه رقم سري</string>
+    
+    <!-- QR Code Authentication -->
+    <string name="scan_qr_code">مسح رمز QR</string>
+    <string name="scan_qr_to_check_in">مسح QR لتسجيل الحضور</string>
+    <string name="scan_qr_to_check_out">مسح QR لتسجيل الانصراف</string>
+    <string name="scan_worker_badge">مسح بطاقة العامل</string>
+    <string name="align_qr_code">قم بمحاذاة رمز QR داخل الإطار</string>
+    <string name="invalid_qr_code">رمز QR غير صالح</string>
+    <string name="qr_code_expired">انتهت صلاحية رمز QR. يرجى إعادة الإنشاء</string>
+    
+    <!-- Authentication Options -->
+    <string name="check_in_with_pin">تسجيل حضور بالرقم السري</string>
+    <string name="check_in_with_qr">تسجيل حضور برمز QR</string>
+    <string name="check_out_with_pin">تسجيل انصراف بالرقم السري</string>
+    <string name="check_out_with_qr">تسجيل انصراف برمز QR</string>
+    <string name="or">أو</string>
+    
+    <!-- QR Error Dialog -->
+    <string name="qr_scan_failed">فشل مسح رمز QR</string>
+    <string name="possible_reasons">الأسباب المحتملة:</string>
+    <string name="qr_error_invalid">رمز QR غير صالح أو تالف</string>
+    <string name="qr_error_expired">انتهت صلاحية رمز QR (أعد إنشاءه من تطبيق المدير)</string>
+    <string name="qr_error_worker_not_found">العامل غير موجود أو غير نشط</string>
+    <string name="qr_error_already_checked_in">العامل مسجل حضوره بالفعل اليوم</string>
+    <string name="try_again">حاول مرة أخرى</string>
+    <string name="cancel">إلغاء</string>
+    
+    <!-- PIN Error Dialog -->
+    <string name="pin_auth_failed">فشلت مصادقة الرقم السري</string>
+    <string name="pin_error_incorrect">رقم سري خاطئ</string>
+    <string name="pin_error_no_pin_set">العامل ليس لديه رقم سري (اتصل بالمدير)</string>
+    <string name="pin_error_too_many_attempts">محاولات كثيرة فاشلة (انتظر قبل المحاولة مرة أخرى)</string>
+    <string name="pin_error_worker_not_found">العامل غير موجود أو غير نشط</string>
 </resources>

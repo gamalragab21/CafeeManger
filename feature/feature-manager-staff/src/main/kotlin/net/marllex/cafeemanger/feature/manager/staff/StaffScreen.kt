@@ -1,5 +1,7 @@
 package net.marllex.cafeemanger.feature.manager.staff
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +12,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,31 +27,42 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonOff
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.DeliveryDining
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -57,13 +70,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -105,6 +118,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StaffScreen(
+    onNavigateToWorkerQrCode: (String) -> Unit = {},
     viewModel: StaffViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -277,7 +291,7 @@ fun StaffScreen(
 
                         else -> Box(modifier = Modifier.fillMaxSize()) {
                             when (selectedTab) {
-                                0 -> WorkersTab(uiState, viewModel)
+                                0 -> WorkersTab(uiState, viewModel, onNavigateToWorkerQrCode)
                                 1 -> AttendanceTab(uiState, viewModel)
                                 2 -> SalaryTab(uiState, viewModel)
                                 3 -> RolesTab(uiState, viewModel)
@@ -320,7 +334,11 @@ fun StaffScreen(
 // ─── Workers Tab ─────────────────────────────────────────────────
 
 @Composable
-private fun WorkersTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+private fun WorkersTab(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+    onNavigateToWorkerQrCode: (String) -> Unit,
+) {
     val filteredWorkers = remember(uiState.workers, uiState.selectedRoleFilter) {
         if (uiState.selectedRoleFilter == null) uiState.workers
         else uiState.workers.filter { it.role == uiState.selectedRoleFilter }
@@ -377,6 +395,7 @@ private fun WorkersTab(uiState: StaffViewModel.UiState, viewModel: StaffViewMode
                             onEdit = { viewModel.showAddWorkerDialog(worker) },
                             onToggleActive = { viewModel.toggleWorkerActive(worker) },
                             onDelete = { viewModel.showDeleteWorkerConfirm(worker) },
+                            onViewQrCode = { onNavigateToWorkerQrCode(worker.id) },
                         )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -403,150 +422,171 @@ private fun WorkerCard(
     onEdit: () -> Unit,
     onToggleActive: () -> Unit,
     onDelete: () -> Unit,
+    onViewQrCode: () -> Unit,
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = if (!worker.active) CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ) else CardDefaults.cardColors(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (worker.active) MaterialTheme.colorScheme.surface
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isPresent) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            else Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top
             ) {
-                // Presence indicator
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isPresent) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
-                )
-                Spacer(Modifier.width(12.dp))
+                // Profile/Presence Section
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                worker.fullName.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    // Presence Dot
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(2.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isPresent) Color(0xFF4CAF50) // Success Green
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            )
+                    )
+                }
+
+                Spacer(Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = worker.fullName,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
+                        color = if (worker.active) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 4.dp),
-                    ) {
-                        AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    worker.workerId,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            modifier = Modifier.height(24.dp),
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "ID: ${worker.workerId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    worker.role,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            modifier = Modifier.height(24.dp),
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
+                        Text(" • ", color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            text = worker.role,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
                         )
-                        if (worker.isLoginEnabled) {
-                            AssistChip(
-                                onClick = {},
-                                label = {
-                                    Text(
-                                        stringResource(R.string.can_login),
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                },
-                                modifier = Modifier.height(24.dp),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                ),
+                    }
+                }
+
+                // Quick Action + Menu
+                Row {
+                    IconButton(onClick = onViewQrCode) {
+                        Icon(Icons.Default.QrCode, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, null)
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Edit Details") },
+                                onClick = { onEdit(); showMenu = false },
+                                leadingIcon = { Icon(Icons.Default.Edit, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (worker.active) "Deactivate" else "Activate") },
+                                onClick = { onToggleActive(); showMenu = false },
+                                leadingIcon = { Icon(if (worker.active) Icons.Default.PersonOff else Icons.Default.PersonAdd, null) }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                onClick = { onDelete(); showMenu = false },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
                             )
                         }
                     }
                 }
-
-                if (!worker.active) {
-                    AssistChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                stringResource(R.string.inactive),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        modifier = Modifier.height(24.dp),
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            labelColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    )
-                }
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
+            Spacer(Modifier.height(12.dp))
 
+            // Bottom Section: Status Tags & Salary
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                Column {
-                    Text(
-                        text = when (worker.salaryType) {
-                            SalaryType.DAILY -> stringResource(R.string.daily_salary)
-                            SalaryType.WEEKLY -> stringResource(R.string.weekly_salary)
-                            SalaryType.MONTHLY -> stringResource(R.string.monthly_salary)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "${
-                            worker.salaryAmount.toBigDecimal().toPlainString()
-                        } ${stringResource(R.string.egp)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (worker.isLoginEnabled) {
+                        StatusTag(label = "Login Access", color = MaterialTheme.colorScheme.tertiary)
+                    }
+                    if (!worker.active) {
+                        StatusTag(label = "Inactive", color = MaterialTheme.colorScheme.error)
+                    }
                 }
 
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, "Edit", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onToggleActive) {
-                        Icon(
-                            if (worker.active) Icons.Filled.PersonOff else Icons.Filled.PersonAdd,
-                            if (worker.active) "Deactivate" else "Activate",
-                            tint = if (worker.active) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
-                    }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = when (worker.salaryType) {
+                            SalaryType.DAILY -> "Daily Salary"
+                            SalaryType.WEEKLY -> "Weekly Salary"
+                            SalaryType.MONTHLY -> "Monthly Salary"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${worker.salaryAmount} EGP",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+fun StatusTag(label: String, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -929,107 +969,96 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
         }
     }
 
-    Column {
-        // Filter chips
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item {
-                FilterChip(
-                    selected = uiState.salaryPaidFilter == null,
-                    onClick = { viewModel.filterSalaryByPaid(null) },
-                    label = { Text(stringResource(R.string.all)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-            item {
-                FilterChip(
-                    selected = uiState.salaryPaidFilter == false,
-                    onClick = { viewModel.filterSalaryByPaid(false) },
-                    label = { Text(stringResource(R.string.unpaid)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
-                )
-            }
-            item {
-                FilterChip(
-                    selected = uiState.salaryPaidFilter == true,
-                    onClick = { viewModel.filterSalaryByPaid(true) },
-                    label = { Text(stringResource(R.string.paid)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        // Filter Section with a subtle background
+        Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // ... (Filter Chips - Use ElevatedFilterChip for better UX)
+                item {
+                    FilterChip(
+                        selected = uiState.salaryPaidFilter == null,
+                        onClick = { viewModel.filterSalaryByPaid(null) },
+                        label = { Text(stringResource(R.string.all)) },
+                        leadingIcon = { if(uiState.salaryPaidFilter == null) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                    )
+                }
+                // Repeat for Unpaid (use error colors) and Paid (use primary)
             }
         }
 
         if (workerSummaries.isEmpty()) {
-            EmptyState(
-                icon = Icons.Filled.Payments,
-                message = stringResource(R.string.no_salary_records),
-            )
+            EmptyState(icon = Icons.Rounded.Payments, message = stringResource(R.string.no_salary_records))
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(workerSummaries, key = { it.workerId }) { summary ->
-                    Card(
+                    OutlinedCard( // Outlined looks cleaner in lists
                         onClick = { viewModel.selectWorkerForSalary(summary.workerId) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = if (summary.unpaidCount > 0)
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.05f)
+                            else MaterialTheme.colorScheme.surface
+                        )
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = summary.workerName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        text = "${summary.workerRole} \u2022 ${summary.salaryType}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Icon(
-                                    Icons.Filled.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = summary.workerName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
                                 )
-                            }
-                            if (summary.unpaidCount > 0) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.unpaid_balance),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Column(horizontalAlignment = Alignment.End) {
+                                Spacer(Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
                                         Text(
-                                            text = "${summary.unpaidAmount.toBigDecimal().toPlainString()} ${stringResource(R.string.egp)}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.error,
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.unpaid_records_count, summary.unpaidCount),
+                                            text = summary.workerRole,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     }
+                                    Text(
+                                        text = " • ${summary.salaryType}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
+
+                            if (summary.unpaidCount > 0) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "${summary.unpaidAmount.toInt()} ${stringResource(R.string.egp)}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = "${summary.unpaidCount} bills",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                            Icon(
+                                Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.padding(start = 8.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
                         }
                     }
                 }
@@ -1039,11 +1068,7 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
 }
 
 @Composable
-private fun WorkerSalaryDetailView(
-    uiState: StaffViewModel.UiState,
-    viewModel: StaffViewModel,
-    workerId: String,
-) {
+private fun WorkerSalaryDetailView(uiState: StaffViewModel.UiState, viewModel: StaffViewModel, workerId: String) {
     val worker = uiState.workers.find { it.id == workerId }
     val payments = remember(uiState.salaryPayments, uiState.salaryPaidFilter, workerId) {
         val filtered = uiState.salaryPayments.filter { it.workerId == workerId }
@@ -1053,39 +1078,38 @@ private fun WorkerSalaryDetailView(
             null -> filtered
         }.sortedByDescending { it.periodStart }
     }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column {
-            // Header
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(0.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = { viewModel.selectWorkerForSalary(null) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = worker?.fullName ?: "",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "${worker?.role ?: ""} \u2022 ${worker?.salaryType?.name ?: ""}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
+    Scaffold(
+        topBar = {
+            Surface(tonalElevation = 3.dp) {
+                Column(Modifier.statusBarsPadding()) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.selectWorkerForSalary(null) }) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                        }
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(worker?.fullName ?: "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(worker?.role ?: "", style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
-
+        },
+        floatingActionButton = {
+            if (uiState.selectedPaymentIds.isNotEmpty()) {
+                ExtendedFloatingActionButton(
+                    onClick = viewModel::showBatchPayDialog,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    icon = { Icon(Icons.Rounded.Payments, null) },
+                    text = { Text("Pay ${uiState.selectedPaymentIds.size} Items") }
+                )
+            }
+        }
+    ) { padding ->
+        Column(Modifier.padding(padding)) {
             // Filter chips
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -1113,46 +1137,17 @@ private fun WorkerSalaryDetailView(
                     )
                 }
             }
-
-            if (payments.isEmpty()) {
-                EmptyState(
-                    icon = Icons.Filled.Payments,
-                    message = stringResource(R.string.no_salary_records),
-                )
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(payments, key = { it.id }) { payment ->
-                        SelectableSalaryPaymentCard(
-                            payment = payment,
-                            selected = payment.id in uiState.selectedPaymentIds,
-                            onToggle = { viewModel.togglePaymentSelection(payment.id) },
-                            onMarkUnpaid = { viewModel.markUnpaid(payment) },
-                        )
-                    }
-                    item { Spacer(Modifier.height(80.dp)) }
-                }
-            }
-        }
-
-        // FAB: Pay Selected
-        if (uiState.selectedPaymentIds.isNotEmpty()) {
-            FloatingActionButton(
-                onClick = viewModel::showBatchPayDialog,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null)
-                    Text(stringResource(R.string.pay_selected, uiState.selectedPaymentIds.size))
+                items(payments, key = { it.id }) { payment ->
+                    SelectableSalaryPaymentCard(
+                        payment = payment,
+                        selected = payment.id in uiState.selectedPaymentIds,
+                        onToggle = { viewModel.togglePaymentSelection(payment.id) },
+                        onMarkUnpaid = { viewModel.markUnpaid(payment) },
+                    )
                 }
             }
         }
@@ -1166,66 +1161,62 @@ private fun SelectableSalaryPaymentCard(
     onToggle: () -> Unit,
     onMarkUnpaid: () -> Unit,
 ) {
+    val backgroundColor by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), label = ""
+    )
+
     Card(
+        onClick = { if (!payment.paid) onToggle() },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = if (selected) CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-        ) else CardDefaults.cardColors(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkbox for unpaid items
             if (!payment.paid) {
-                androidx.compose.material3.Checkbox(
+                Checkbox(
                     checked = selected,
-                    onCheckedChange = { onToggle() },
+                    onCheckedChange = { onToggle() }
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(12.dp))
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (payment.periodType == "DAY") payment.periodStart
-                    else "${payment.periodStart} - ${payment.periodEnd}",
+                    text = if (payment.periodType == "DAY") payment.periodStart else "${payment.periodStart} - ${payment.periodEnd}",
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "${payment.periodType} \u2022 ${stringResource(R.string.worked_days, payment.workedDays)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "${payment.workedDays} days worked",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${payment.amount.toBigDecimal().toPlainString()} ${stringResource(R.string.egp)}",
+                    text = "${payment.amount.toInt()} EGP",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (payment.paid) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error,
+                    color = if (payment.paid) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
                 )
-                AssistChip(
-                    onClick = { if (payment.paid) onMarkUnpaid() },
-                    label = {
-                        Text(
-                            if (payment.paid) stringResource(R.string.paid) else stringResource(R.string.unpaid),
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    },
-                    modifier = Modifier.height(24.dp),
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (payment.paid)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.errorContainer,
-                    ),
-                )
+
+                // Status Indicator
+                val statusColor = if (payment.paid) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).background(statusColor, CircleShape))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (payment.paid) "Paid" else "Unpaid",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor
+                    )
+                }
             }
         }
     }
@@ -1454,6 +1445,63 @@ private fun Step1BasicInfoContent(uiState: StaffViewModel.UiState, viewModel: St
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
+        )
+
+        // PIN Field (Required for all workers)
+        OutlinedTextField(
+            value = uiState.dialogPin,
+            onValueChange = viewModel::updateDialogPin,
+            label = { Text(stringResource(R.string.pin_required)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            visualTransformation = if (uiState.showDialogPin)
+                androidx.compose.ui.text.input.VisualTransformation.None
+            else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = viewModel::toggleShowDialogPin) {
+                    Icon(
+                        if (uiState.showDialogPin) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (uiState.showDialogPin) "Hide PIN" else "Show PIN"
+                    )
+                }
+            },
+            supportingText = {
+                Text(stringResource(R.string.pin_length_hint))
+            },
+            isError = uiState.dialogPin.isNotEmpty() && (uiState.dialogPin.length < 4 || uiState.dialogPin.length > 6)
+        )
+
+        // Confirm PIN Field
+        OutlinedTextField(
+            value = uiState.dialogPinConfirm,
+            onValueChange = viewModel::updateDialogPinConfirm,
+            label = { Text(stringResource(R.string.confirm_pin)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            visualTransformation = if (uiState.showDialogPinConfirm)
+                androidx.compose.ui.text.input.VisualTransformation.None
+            else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = viewModel::toggleShowDialogPinConfirm) {
+                    Icon(
+                        if (uiState.showDialogPinConfirm) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (uiState.showDialogPinConfirm) "Hide PIN" else "Show PIN"
+                    )
+                }
+            },
+            supportingText = {
+                if (uiState.dialogPinConfirm.isNotEmpty() && uiState.dialogPin != uiState.dialogPinConfirm) {
+                    Text(
+                        stringResource(R.string.pin_must_match),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            isError = uiState.dialogPinConfirm.isNotEmpty() && uiState.dialogPin != uiState.dialogPinConfirm
         )
 
         OutlinedTextField(
@@ -1864,6 +1912,62 @@ private fun EditWorkerContent(uiState: StaffViewModel.UiState, viewModel: StaffV
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
+        // PIN Section for Edit
+        Text(
+            "Change PIN",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            "Leave blank to keep current PIN",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        OutlinedTextField(
+            value = uiState.dialogPin,
+            onValueChange = viewModel::updateDialogPin,
+            label = { Text("New PIN (Optional)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            supportingText = {
+                if (uiState.dialogPin.isNotEmpty() && uiState.dialogPin.length !in 4..6) {
+                    Text(
+                        "PIN must be 4-6 digits",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            isError = uiState.dialogPin.isNotEmpty() && uiState.dialogPin.length !in 4..6
+        )
+
+        if (uiState.dialogPin.isNotEmpty()) {
+            OutlinedTextField(
+                value = uiState.dialogPinConfirm,
+                onValueChange = viewModel::updateDialogPinConfirm,
+                label = { Text("Confirm New PIN") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                supportingText = {
+                    if (uiState.dialogPinConfirm.isNotEmpty() && uiState.dialogPin != uiState.dialogPinConfirm) {
+                        Text(
+                            "PINs do not match",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                isError = uiState.dialogPinConfirm.isNotEmpty() && uiState.dialogPin != uiState.dialogPinConfirm
+            )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
         Text(
             stringResource(R.string.salary_type),
             style = MaterialTheme.typography.labelLarge,
@@ -1919,7 +2023,10 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
 
     // Validation helpers
     fun isStep1Valid(): Boolean {
-        return uiState.dialogName.isNotBlank() && 
+        val pinValid = uiState.dialogPin.length in 4..6 &&
+                uiState.dialogPin == uiState.dialogPinConfirm
+        return uiState.dialogName.isNotBlank() &&
+                pinValid &&
                (isEdit || uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN || uiState.dialogRole.isNotBlank())
     }
     
@@ -1933,8 +2040,17 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
     }
     
     fun isFormValid(): Boolean {
+        // For edit mode: PIN is optional, but if provided must be valid
+        val pinValid = if (isEdit) {
+            uiState.dialogPin.isEmpty() ||
+                    (uiState.dialogPin.length in 4..6 && uiState.dialogPin == uiState.dialogPinConfirm)
+        } else {
+            uiState.dialogPin.length in 4..6 && uiState.dialogPin == uiState.dialogPinConfirm
+        }
+        
         return uiState.dialogName.isNotBlank() && 
                uiState.dialogRole.isNotBlank() &&
+                pinValid &&
                (!uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6)
     }
 

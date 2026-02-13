@@ -2,7 +2,6 @@ package net.marllex.cafeemanger.feature.manager.dashboard
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,18 +10,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -30,17 +31,90 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import coil.compose.AsyncImage
 import net.marllex.cafeemanger.core.model.Order
-import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.ui.components.ChannelChip
 import net.marllex.cafeemanger.core.ui.components.ErrorView
 import net.marllex.cafeemanger.core.ui.components.LoadingIndicator
 import net.marllex.cafeemanger.core.ui.components.OrderStatusChip
 import net.marllex.cafeemanger.core.ui.R as CoreR
 
+@Composable
+fun BrandedTopBar(uiState: DashboardViewModel.UiState) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp // Gives it that modern "rebranded" lift
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding() // Handles the clock/battery area
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // --- 1. THE LOGO ---
+            val logoUrl = uiState.vendor?.logoUrl
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!logoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = logoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Rounded.Storefront,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // --- 2. THE IDENTITY COLUMN ---
+            Column(
+                modifier = Modifier.weight(1f) // This ensures the text stays in its lane
+            ) {
+                Text(
+                    text = uiState.vendor?.name ?: "Our Store",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                uiState.userName?.let { name ->
+                    Text(
+                        text = stringResource(CoreR.string.welcome_message, name),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // --- 3. OPTIONAL ACTION (e.g. Profile or Search) ---
+            IconButton(onClick = { /* TODO */ }) {
+                Icon(Icons.Rounded.NotificationsNone, contentDescription = null)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernDashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
+    onNavigateToChatbot: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -54,74 +128,29 @@ fun ModernDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    val logoUrl = uiState.vendor?.logoUrl
-                    if (!logoUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = logoUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(start = 16.dp)
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 16.dp)
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.tertiary
-                                        )
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Filled.Store,
-                                null,
-                                Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
-                    }
-                },
-                title = {
-                    Column(
-                        Modifier
-                            .padding(start = 12.dp)
-                            .fillMaxWidth(0.7f) // Limit width to prevent overlap
-                    ) {
-                        Text(
-                            text = uiState.vendor?.name ?: "",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        uiState.userName?.let { name ->
-                            Text(
-                                text = stringResource(CoreR.string.welcome_message, name),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            BrandedTopBar(uiState)
+        },
+        floatingActionButton = {
+//            FloatingActionButton(
+//                onClick = onNavigateToChatbot,
+//                containerColor = MaterialTheme.colorScheme.primary,
+//                contentColor = MaterialTheme.colorScheme.onPrimary
+//            ) {
+//                Row(
+//                    modifier = Modifier.padding(horizontal = 16.dp),
+//                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Icon(
+//                        imageVector = Icons.Filled.Chat,
+//                        contentDescription = stringResource(R.string.ai_assistant)
+//                    )
+//                    Text(
+//                        text = stringResource(R.string.ai_assistant),
+//                        style = MaterialTheme.typography.labelLarge
+//                    )
+//                }
+//            }
         },
     ) { padding ->
         when {

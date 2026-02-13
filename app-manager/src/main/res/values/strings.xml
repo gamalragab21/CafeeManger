@@ -24,6 +24,7 @@
     <string name="staff">Staff</string>
     <string name="profile">Profile</string>
     <string name="stock">Stock</string>
+    <string name="ai_assistant">AI Assistant</string>
     <!-- Feature toggles -->
     <string name="store_features">Store Features</string>
     <string name="enable_tables">Tables</string>

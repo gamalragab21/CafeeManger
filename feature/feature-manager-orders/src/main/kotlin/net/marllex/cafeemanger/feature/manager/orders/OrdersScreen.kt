@@ -86,6 +86,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import net.marllex.cafeemanger.core.model.Order
 import net.marllex.cafeemanger.core.model.OrderChannel
 import net.marllex.cafeemanger.core.model.OrderItem
@@ -374,6 +377,7 @@ private fun OrderCard(
     onEdit: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()) }
 
     Card(
         modifier = Modifier
@@ -389,12 +393,18 @@ private fun OrderCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "#${order.id.takeLast(6).uppercase()}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "#${order.id.takeLast(6).uppercase()}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = dateFormatter.format(Date(order.createdAt)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
