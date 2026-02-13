@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen titles -->
+    <string name="ai_assistant">المساعد الذكي</string>
+    
+    <!-- Actions -->
+    <string name="back">رجوع</string>
+    <string name="clear_chat">مسح المحادثة</string>
+    <string name="send">إرسال</string>
+    <string name="ask_question">اسأل سؤالاً...</string>
+    
+    <!-- Welcome messages -->
+    <string name="welcome_to_ai_assistant">مرحباً بك في المساعد الذكي</string>
+    <string name="ai_assistant_description">يمكنني مساعدتك في بيانات المبيعات ومعلومات الموظفين والطلبات والتحليلات. فقط اسألني أي شيء!</string>
+    <string name="try_asking">جرب السؤال:</string>
+    
+    <!-- Loading states -->
+    <string name="thinking">جاري التفكير...</string>
+    <string name="processing_query">جاري معالجة استفسارك...</string>
+    
+    <!-- Error messages -->
+    <string name="error_network">خطأ في الشبكة. يرجى التحقق من اتصالك.</string>
+    <string name="error_unknown">حدث خطأ ما. يرجى المحاولة مرة أخرى.</string>
+    <string name="error_timeout">انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.</string>
+    
+    <!-- Quick suggestions -->
+    <string name="suggestion_sales_today">ما هي إجمالي المبيعات اليوم؟</string>
+    <string name="suggestion_absent_staff">من هو غائب اليوم؟</string>
+    <string name="suggestion_top_items">أفضل العناصر مبيعاً هذا الأسبوع</string>
+    <string name="suggestion_orders_today">كم عدد الطلبات اليوم؟</string>
+</resources>
