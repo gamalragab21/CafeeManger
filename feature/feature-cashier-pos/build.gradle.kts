@@ -1,13 +1,22 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.cashier.pos"
+    namespace = "net.marllex.waselak.feature.cashier.pos"
 }
 
-dependencies {
-    implementation(project(":core:core-data"))
-    implementation(project(":core:core-auth"))
-    implementation(libs.coil.compose)
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.cashier.pos.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-data"))
+            implementation(project(":core:core-auth"))
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
+        }
+    }
 }

@@ -1,14 +1,13 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.application)
-    alias(libs.plugins.cafeemanger.android.application.compose)
-    alias(libs.plugins.cafeemanger.android.hilt)
+    alias(libs.plugins.waselak.kmp.application)
+    alias(libs.plugins.waselak.koin)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.manager"
+    namespace = "net.marllex.waselak.manager"
 
     defaultConfig {
-        applicationId = "net.marllex.cafeemanger.manager"
+        applicationId = "net.marllex.waselak.manager"
         versionCode = 1
         versionName = "1.0.0"
 
@@ -27,46 +26,64 @@ android {
     }
 }
 
-dependencies {
-    // Core modules
-    implementation(project(":core:core-common"))
-    implementation(project(":core:core-model"))
-    implementation(project(":core:core-ui"))
-    implementation(project(":core:core-network"))
-    implementation(project(":core:core-database"))
-    implementation(project(":core:core-domain"))
-    implementation(project(":core:core-data"))
-    implementation(project(":core:core-auth"))
+compose.desktop {
+    application {
+        mainClass = "net.marllex.waselak.manager.MainKt"
+    }
+}
 
-    // Feature modules
-    implementation(project(":feature:feature-auth"))
-    implementation(project(":feature:feature-manager-dashboard"))
-    implementation(project(":feature:feature-manager-categories"))
-    implementation(project(":feature:feature-manager-items"))
-    implementation(project(":feature:feature-manager-tables"))
-    implementation(project(":feature:feature-manager-users"))
-    implementation(project(":feature:feature-manager-staff"))
-    implementation(project(":feature:feature-manager-analytics"))
-    implementation(project(":feature:feature-manager-orders"))
-    implementation(project(":feature:feature-manager-stock"))
-    implementation(project(":feature:feature-manager-chatbot"))
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            // Core modules
+            implementation(project(":core:core-common"))
+            implementation(project(":core:core-model"))
+            implementation(project(":core:core-ui"))
+            implementation(project(":core:core-network"))
+            implementation(project(":core:core-database"))
+            implementation(project(":core:core-domain"))
+            implementation(project(":core:core-data"))
+            implementation(project(":core:core-auth"))
 
-    // Image loading
-    implementation(libs.coil.compose)
+            // Feature modules
+            implementation(project(":feature:feature-auth"))
+            implementation(project(":feature:feature-manager-dashboard"))
+            implementation(project(":feature:feature-manager-categories"))
+            implementation(project(":feature:feature-manager-items"))
+            implementation(project(":feature:feature-manager-tables"))
+            implementation(project(":feature:feature-manager-users"))
+            implementation(project(":feature:feature-manager-staff"))
+            implementation(project(":feature:feature-manager-analytics"))
+            implementation(project(":feature:feature-manager-orders"))
+            implementation(project(":feature:feature-manager-stock"))
+            implementation(project(":feature:feature-manager-chatbot"))
 
-    // QR code generation
-    implementation(libs.zxing.core)
+            // Navigation & Lifecycle
+            implementation(libs.navigation.compose)
+            implementation(libs.lifecycle.viewmodel.compose)
+            implementation(libs.lifecycle.runtime.compose)
 
-    // AndroidX
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.runtime.compose)
+            // Image loading
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
 
-    // Testing
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+            // Koin Compose
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
+        }
+
+        androidMain.dependencies {
+            implementation(libs.androidx.appcompat)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.koin.android)
+
+            // QR code generation (Android-only)
+            implementation(libs.zxing.core)
+        }
+
+        val desktopMain by getting
+        desktopMain.dependencies {
+            implementation(compose.desktop.currentOs)
+        }
+    }
 }

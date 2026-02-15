@@ -21,7 +21,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CafeeManger"
+rootProject.name = "Waselak"
 
 // Application modules
 include(":app-manager")

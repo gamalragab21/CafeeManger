@@ -6,7 +6,7 @@ plugins {
     application
 }
 
-group = "net.marllex.cafeemanger"
+group = "net.marllex.waselak"
 version = "1.0.0"
 
 kotlin {
@@ -19,7 +19,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 application {
-    mainClass.set("net.marllex.cafeemanger.backend.ApplicationKt")
+    mainClass.set("net.marllex.waselak.backend.ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
@@ -88,7 +88,7 @@ dependencies {
 ktor {
     docker {
         jreVersion.set(JavaVersion.VERSION_17)
-        localImageName.set("cafeemanger-backend")
+        localImageName.set("waselak-backend")
         imageTag.set("latest")
     }
 }

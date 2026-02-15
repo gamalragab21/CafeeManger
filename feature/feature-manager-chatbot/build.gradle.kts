@@ -1,14 +1,23 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.manager.chatbot"
+    namespace = "net.marllex.waselak.feature.manager.chatbot"
 }
 
-dependencies {
-    implementation(project(":core:core-data"))
-    
-    // Security - Encrypted SharedPreferences
-    implementation(libs.security.crypto)
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.manager.chatbot.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-data"))
+            implementation(project(":core:core-network"))
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.datetime)
+        }
+    }
 }

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Staff Management -->
+    <string name="staff_management">إدارة الموظفين</string>
+    <string name="workers">العمال</string>
+    <string name="attendance">الحضور</string>
+    <string name="salary">الرواتب</string>
+    <string name="roles_settings">الأدوار</string>
+
+    <string name="worker">عامل</string>
+
+    <!-- Workers -->
+    <string name="add_worker">إضافة عامل</string>
+    <string name="add_worker_step_1">إضافة عامل - المعلومات الأساسية</string>
+    <string name="add_worker_step_2">إضافة عامل - الوصول للنظام</string>
+    <string name="add_worker_step_3">إضافة عامل - إعداد الراتب</string>
+    <string name="edit_worker">تعديل العامل</string>
+    <string name="worker_id">رقم العامل</string>
+    <string name="full_name">الاسم الكامل</string>
+    <string name="phone">الهاتف</string>
+    <string name="description_notes">الوصف / ملاحظات</string>
+    <string name="select_role">اختر الدور</string>
+
+    <!-- Worker Type -->
+    <string name="worker_type">نوع العامل</string>
+    <string name="normal_worker">عامل عادي</string>
+    <string name="normal_worker_desc">موظف عادي مع تتبع الحضور اليدوي</string>
+    <string name="main_worker">عامل رئيسي</string>
+    <string name="main_worker_desc">مستخدم نظام مع وصول للتطبيق وحضور تلقائي</string>
+    <string name="no_app_access">بدون وصول للتطبيق</string>
+    <string name="has_app_access">لديه وصول للتطبيق</string>
+    <string name="role_auto_set">سيتم تعيين دور العامل تلقائيًا إلى: %s</string>
+    <string name="main_worker_role_info">سيتم تعيين الدور تلقائيًا بناءً على وصول التطبيق في الخطوة التالية</string>
+    <string name="basic_info">المعلومات الأساسية</string>
+    <string name="system_access">الوصول للنظام</string>
+
+    <!-- System Access -->
+    <string name="system_access_setup">إعداد الوصول للنظام</string>
+    <string name="system_access_desc">تكوين تسجيل الدخول والدور لهذا العامل</string>
+    <string name="app_role">دور التطبيق</string>
+    <string name="cashier_role_desc">الوصول لتطبيق الكاشير للطلبات والمبيعات</string>
+    <string name="delivery_role_desc">الوصول لتطبيق التوصيل لتنفيذ الطلبات</string>
+    <string name="manager_role_desc">الوصول لتطبيق المدير للإدارة الكاملة</string>
+    <string name="manager_role">مدير</string>
+    <string name="login_credentials">بيانات تسجيل الدخول</string>
+    <string name="login_phone">هاتف تسجيل الدخول</string>
+    <string name="password_hint">6 أحرف على الأقل</string>
+    <string name="email_optional">البريد الإلكتروني (اختياري)</string>
+
+    <!-- Salary -->
+    <string name="salary_configuration">إعداد الراتب</string>
+    <string name="summary">الملخص</string>
+    <string name="create_worker">إنشاء العامل</string>
+    <string name="next">التالي</string>
+
+    <string name="salary_type">نوع الراتب</string>
+    <string name="daily_salary">راتب يومي</string>
+    <string name="weekly_salary">راتب أسبوعي</string>
+    <string name="monthly_salary">راتب شهري</string>
+    <string name="salary_amount">مبلغ الراتب (ج.م)</string>
+    <string name="active">نشط</string>
+    <string name="inactive">غير نشط</string>
+    <string name="deactivate">إلغاء التفعيل</string>
+    <string name="activate">تفعيل</string>
+    <string name="delete_worker">حذف العامل</string>
+    <string name="delete_worker_confirm">هل أنت متأكد من حذف هذا العامل؟ سيتم حذف سجلات الحضور والرواتب أيضًا.</string>
+    <string name="no_workers">لا يوجد عمال بعد. اضغط + لإضافة أول عامل.</string>
+    <string name="all">الكل</string>
+
+    <!-- Roles -->
+    <string name="add_role">إضافة دور</string>
+    <string name="role_name">اسم الدور</string>
+    <string name="role_description">الوصف (اختياري)</string>
+    <string name="no_roles">لم يتم تحديد أدوار بعد. أضف أدوارًا في الإعدادات قبل تعيين العمال.</string>
+    <string name="delete_role">حذف الدور</string>
+    <string name="delete_role_confirm">هل أنت متأكد من حذف هذا الدور؟</string>
+    <string name="predefined_roles_hint">حدد أدوار العمال هنا أولاً، ثم قم بتعيينها عند إضافة عمال.</string>
+
+    <!-- Attendance -->
+    <string name="today">اليوم</string>
+    <string name="present">حاضر</string>
+    <string name="absent">غائب</string>
+    <string name="checked_in">تم تسجيل الحضور</string>
+    <string name="checked_out">تم تسجيل الانصراف</string>
+    <string name="check_in_time">الحضور: %s</string>
+    <string name="check_out_time">الانصراف: %s</string>
+    <string name="worked">عمل: %s</string>
+    <string name="daily_view">يومي</string>
+    <string name="weekly_view">أسبوعي</string>
+    <string name="monthly_view">شهري</string>
+    <string name="who_is_working">من يعمل اليوم</string>
+    <string name="present_count">%d حاضر</string>
+    <string name="absent_count">%d غائب</string>
+    <string name="attendance_history">سجل الحضور</string>
+    <string name="no_attendance_records">لا توجد سجلات حضور.</string>
+    <string name="total_days">إجمالي الأيام: %d</string>
+    <string name="total_hours">إجمالي الساعات: %s</string>
+    <string name="filter_by_worker">فلتر حسب العامل</string>
+    <string name="all_workers">جميع العمال</string>
+    <string name="from_date">من تاريخ</string>
+    <string name="to_date">إلى تاريخ</string>
+    <string name="filter_by_status">فلتر حسب الحالة</string>
+
+    <!-- Salary -->
+    <string name="salary_payments">مدفوعات الرواتب</string>
+    <string name="worked_days">أيام العمل: %d</string>
+    <string name="salary_amount_label">المبلغ: %s ج.م</string>
+    <string name="paid">مدفوع</string>
+    <string name="unpaid">غير مدفوع</string>
+    <string name="not_paid">غير مدفوع</string>
+    <string name="no_salary_records">لا توجد سجلات رواتب.</string>
+    <string name="payment_note">ملاحظة الدفع (اختياري)</string>
+    <string name="unpaid_balance">الرصيد غير المدفوع</string>
+    <string name="unpaid_records_count">%d غير مدفوع</string>
+    <string name="pay_selected">دفع %d</string>
+    <string name="back">رجوع</string>
+
+    <!-- Common -->
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="confirm">تأكيد</string>
+    <string name="saving">جارٍ الحفظ…</string>
+    <string name="loading">جارٍ التحميل…</string>
+    <string name="error_occurred">حدث خطأ</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="egp">ج.م</string>
+
+    <string name="no_job_description">لا يوجد وصف وظيفي</string>
+
+    <!-- Delivery Dashboard -->
+    <string name="delivery_dashboard">التوصيل</string>
+    <string name="available">متاح</string>
+    <string name="busy">مشغول</string>
+    <string name="active_orders_count">%d طلبات نشطة</string>
+    <string name="no_active_orders">لا توجد طلبات نشطة</string>
+    <string name="no_delivery_persons">لا يوجد مناديب توصيل</string>
+
+    <!-- Announcements -->
+    <string name="announcements">الإعلانات</string>
+    <string name="create_announcement">إعلان جديد</string>
+    <string name="announcement_title">العنوان</string>
+    <string name="announcement_message">الرسالة</string>
+    <string name="announcement_target">إرسال إلى</string>
+    <string name="announcement_priority">الأولوية</string>
+    <string name="send_announcement">إرسال</string>
+    <string name="target_all">جميع الموظفين</string>
+    <string name="target_cashiers">جميع الكاشير</string>
+    <string name="target_delivery">جميع مناديب التوصيل</string>
+    <string name="target_specific">شخص محدد</string>
+    <string name="priority_normal">عادي</string>
+    <string name="priority_urgent">عاجل</string>
+    <string name="no_announcements">لا توجد إعلانات</string>
+
+    <!-- Quick Access -->
+    <string name="quick_access">وصول سريع</string>
+    <string name="view_delivery_dashboard">عرض حالة مناديب التوصيل والطلبات النشطة</string>
+    <string name="view_announcements">إرسال وإدارة إعلانات الموظفين</string>
+
+    <!-- Worker Login -->
+    <string name="enable_login">تفعيل تسجيل الدخول</string>
+    <string name="enable_login_hint">السماح لهذا العامل بتسجيل الدخول للتطبيق. سيتم تتبع الحضور تلقائيًا.</string>
+    <string name="password">كلمة المرور</string>
+    <string name="login_role">دور تسجيل الدخول</string>
+    <string name="can_login">يمكنه الدخول</string>
+    <string name="cashier_role">كاشير</string>
+    <string name="delivery_role">توصيل</string>
+
+    <!-- Worker Badge / QR -->
+    <string name="worker_badge">بطاقة العامل</string>
+    <string name="regenerate_qr">إعادة إنشاء QR</string>
+    <string name="confirm_regenerate">هل أنت متأكد من إعادة إنشاء رمز QR؟ لن يعمل الرمز القديم بعد الآن.</string>
+
+    <!-- PIN -->
+    <string name="confirm_pin">تأكيد رمز PIN</string>
+    <string name="pin_length_hint">يجب أن يكون PIN من 4-6 أرقام</string>
+    <string name="pin_must_match">يجب أن يتطابق رمز PIN</string>
+    <string name="pin_required">رمز PIN مطلوب</string>
+</resources>

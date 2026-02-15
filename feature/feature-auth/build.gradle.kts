@@ -1,11 +1,19 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.auth"
+    namespace = "net.marllex.waselak.feature.auth"
 }
 
-dependencies {
-    implementation(project(":core:core-auth"))
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.auth.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-auth"))
+        }
+    }
 }

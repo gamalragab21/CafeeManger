@@ -1,13 +1,18 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
-    alias(libs.plugins.cafeemanger.android.hilt)
+    alias(libs.plugins.waselak.kmp.library)
+    alias(libs.plugins.waselak.koin)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.common"
+    namespace = "net.marllex.waselak.core.common"
 }
 
-dependencies {
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.timber)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kermit)
+        }
+    }
 }

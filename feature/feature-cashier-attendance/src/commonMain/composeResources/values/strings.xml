@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attendance_title">Attendance</string>
+    <string name="select_worker_to_check_in">Select worker to check in</string>
+    <string name="check_in">Check In</string>
+    <string name="check_out">Check Out</string>
+    <string name="authenticate_fingerprint">Authenticate with fingerprint</string>
+    <string name="fingerprint_required">Fingerprint authentication required to record attendance</string>
+    <string name="check_in_success">Check-in recorded successfully</string>
+    <string name="check_out_success">Check-out recorded successfully</string>
+    <string name="already_checked_in">Worker is already checked in today</string>
+    <string name="not_checked_in">Worker has not checked in today</string>
+    <string name="auth_failed">Authentication failed</string>
+    <string name="biometric_not_available">Biometric authentication not available on this device</string>
+    <string name="present">Present</string>
+    <string name="absent">Absent</string>
+    <string name="today_attendance">Today\'s Attendance</string>
+    <string name="no_workers_available">No active workers available</string>
+    <string name="search_worker">Search worker…</string>
+    <string name="checked_out">Check-out </string>
+    <string name="scan_qr_to_check_in">Scan QR to Check In</string>
+    <string name="scan_qr_to_check_out">Scan QR to Check Out</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="qr_scan_failed">QR Scan Failed</string>
+    <string name="pin_auth_failed">PIN Authentication Failed</string>
+    <string name="check_in_with_qr">Check In with QR</string>
+    <string name="check_out_with_qr">Check Out with QR</string>
+    <string name="check_in_with_pin">Check In with PIN</string>
+    <string name="check_out_with_pin">Check Out with PIN</string>
+    <string name="possible_reasons">Possible Reasons</string>
+    <string name="qr_error_invalid">Invalid QR code</string>
+    <string name="qr_error_expired">QR code has expired</string>
+    <string name="qr_error_worker_not_found">Worker not found</string>
+    <string name="qr_error_already_checked_in">Already checked in</string>
+    <string name="try_again">Try Again</string>
+    <string name="cancel">Cancel</string>
+    <string name="pin_error_incorrect">Incorrect PIN</string>
+    <string name="pin_error_no_pin_set">No PIN set</string>
+    <string name="pin_error_too_many_attempts">Too many attempts</string>
+    <string name="pin_error_worker_not_found">Worker not found</string>
+    <string name="enter_pin">Enter PIN</string>
+    <string name="pin_length_hint">PIN must be 4-6 digits</string>
+    <string name="confirm">Confirm</string>
+</resources>

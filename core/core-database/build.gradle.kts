@@ -1,16 +1,27 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
-    alias(libs.plugins.cafeemanger.android.hilt)
-    alias(libs.plugins.cafeemanger.android.room)
+    alias(libs.plugins.waselak.kmp.library)
+    alias(libs.plugins.waselak.koin)
+    alias(libs.plugins.waselak.sqldelight)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.database"
+    namespace = "net.marllex.waselak.core.database"
 }
 
-dependencies {
-    api(project(":core:core-model"))
-    implementation(project(":core:core-common"))
+sqldelight {
+    databases {
+        create("WaselakDatabase") {
+            packageName.set("net.marllex.waselak.core.database")
+        }
+    }
+}
 
-    implementation(libs.kotlinx.coroutines.android)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":core:core-model"))
+            implementation(project(":core:core-common"))
+            implementation(libs.kotlinx.coroutines.core)
+        }
+    }
 }

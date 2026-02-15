@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS tables (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    number TEXT NOT NULL,
+    capacity INTEGER AS kotlin.Int NOT NULL,
+    status TEXT NOT NULL
+);
+
+getTables:
+SELECT * FROM tables WHERE vendor_id = ? ORDER BY number ASC;
+
+getTablesByStatus:
+SELECT * FROM tables WHERE vendor_id = ? AND status = ? ORDER BY number ASC;
+
+getTableById:
+SELECT * FROM tables WHERE id = ?;
+
+insertTable:
+INSERT OR REPLACE INTO tables(id, vendor_id, number, capacity, status)
+VALUES (?, ?, ?, ?, ?);
+
+deleteTable:
+DELETE FROM tables WHERE id = ?;
+
+deleteAllTables:
+DELETE FROM tables WHERE vendor_id = ?;

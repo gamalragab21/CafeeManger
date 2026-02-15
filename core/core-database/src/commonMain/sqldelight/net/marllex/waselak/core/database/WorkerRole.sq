@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS worker_roles (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at INTEGER
+);
+
+getWorkerRoles:
+SELECT * FROM worker_roles WHERE vendor_id = ? ORDER BY name ASC;
+
+insertWorkerRole:
+INSERT OR REPLACE INTO worker_roles(id, vendor_id, name, description, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+deleteWorkerRole:
+DELETE FROM worker_roles WHERE id = ?;
+
+deleteAllWorkerRoles:
+DELETE FROM worker_roles WHERE vendor_id = ?;

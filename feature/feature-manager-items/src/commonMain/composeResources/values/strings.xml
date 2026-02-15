@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_items">Menu Items</string>
+    <string name="all">All</string>
+    <string name="edit_item">Edit Item</string>
+    <string name="add_item">Add Item</string>
+    <string name="category">Category</string>
+    <string name="price">Price</string>
+    <string name="description">Description</string>
+    <string name="name">Name</string>
+    <string name="saving">Saving...</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="categories">Categories</string>
+    <string name="unavailable">Unavailable</string>
+    <string name="items_label">items</string>
+</resources>

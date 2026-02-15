@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_items">عناصر القائمة</string>
+    <string name="all">الكل</string>
+    <string name="edit_item">تعديل العنصر</string>
+    <string name="add_item">إضافة عنصر</string>
+    <string name="category">الفئة</string>
+    <string name="price">السعر</string>
+    <string name="description">الوصف</string>
+    <string name="name">الاسم</string>
+    <string name="saving">جارٍ الحفظ...</string>
+    <string name="cancel">إلغاء</string>
+    <string name="save">حفظ</string>
+    <string name="categories">الفئات</string>
+    <string name="unavailable">غير متوفر</string>
+    <string name="items_label">عناصر</string>
+</resources>

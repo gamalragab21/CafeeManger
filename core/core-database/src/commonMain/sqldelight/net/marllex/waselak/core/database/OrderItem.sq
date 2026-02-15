@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS order_items (
+    id TEXT NOT NULL PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    item_name_snapshot TEXT NOT NULL,
+    item_price_snapshot REAL NOT NULL,
+    quantity INTEGER AS kotlin.Int NOT NULL,
+    note TEXT
+);
+
+getOrderItems:
+SELECT * FROM order_items WHERE order_id = ?;
+
+getOrderItemsForOrders:
+SELECT * FROM order_items WHERE order_id IN ?;
+
+insertOrderItem:
+INSERT OR REPLACE INTO order_items(id, order_id, item_id, item_name_snapshot, item_price_snapshot, quantity, note)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteOrderItems:
+DELETE FROM order_items WHERE order_id = ?;

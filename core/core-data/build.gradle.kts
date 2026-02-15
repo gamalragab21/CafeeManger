@@ -1,20 +1,23 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
-    alias(libs.plugins.cafeemanger.android.hilt)
+    alias(libs.plugins.waselak.kmp.library)
+    alias(libs.plugins.waselak.koin)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.data"
+    namespace = "net.marllex.waselak.core.data"
 }
 
-dependencies {
-    api(project(":core:core-domain"))
-    implementation(project(":core:core-common"))
-    implementation(project(":core:core-network"))
-    implementation(project(":core:core-database"))
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":core:core-domain"))
+            implementation(project(":core:core-common"))
+            implementation(project(":core:core-network"))
+            implementation(project(":core:core-database"))
 
-    implementation(libs.kotlinx.coroutines.android)
-    
-    // Retrofit for Response type (needed for export methods)
-    implementation(libs.retrofit.core)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.ktor.client.core)
+        }
+    }
 }

@@ -1,12 +1,16 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
+    alias(libs.plugins.waselak.kmp.library)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.model"
+    namespace = "net.marllex.waselak.core.model"
 }
 
-dependencies {
-    implementation(libs.kotlinx.serialization.json)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.serialization.json)
+        }
+    }
 }

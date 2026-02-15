@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_assistant">AI Assistant</string>
+    <string name="ai_assistant_description">Ask anything about your business</string>
+    <string name="back">Back</string>
+    <string name="clear_chat">Clear Chat</string>
+    <string name="try_asking">Try asking…</string>
+    <string name="welcome_to_ai_assistant">Welcome to AI Assistant</string>
+    <string name="ask_question">Ask a question…</string>
+    <string name="send">Send</string>
+</resources>

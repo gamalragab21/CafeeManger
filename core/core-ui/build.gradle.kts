@@ -1,21 +1,25 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
-    alias(libs.plugins.cafeemanger.android.library.compose)
+    alias(libs.plugins.waselak.kmp.compose.library)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.ui"
+    namespace = "net.marllex.waselak.core.ui"
 }
 
-dependencies {
-    api(libs.androidx.compose.material3)
-    api(libs.androidx.compose.material.icons.extended)
-    api(libs.androidx.compose.ui.tooling.preview)
+compose.resources {
+    publicResClass = true
+}
 
-    implementation(project(":core:core-model"))
-    implementation(libs.coil.compose)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-
-    debugApi(libs.androidx.compose.ui.tooling)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-model"))
+            api(libs.coil.compose)
+            api(libs.coil.network.ktor)
+        }
+        androidMain.dependencies {
+            implementation(libs.androidx.appcompat)
+            implementation(libs.androidx.core.ktx)
+        }
+    }
 }

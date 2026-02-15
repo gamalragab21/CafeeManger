@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT,
+    active INTEGER AS kotlin.Boolean NOT NULL,
+    created_at INTEGER
+);
+
+getUsers:
+SELECT * FROM users WHERE vendor_id = ? ORDER BY name ASC;
+
+getUsersByRole:
+SELECT * FROM users WHERE vendor_id = ? AND role = ? ORDER BY name ASC;
+
+getUserById:
+SELECT * FROM users WHERE id = ?;
+
+insertUser:
+INSERT OR REPLACE INTO users(id, vendor_id, role, name, phone, email, active, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteUser:
+DELETE FROM users WHERE id = ?;
+
+deleteAllUsers:
+DELETE FROM users WHERE vendor_id = ?;

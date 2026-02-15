@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS items (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    category_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    price REAL NOT NULL,
+    image_url TEXT,
+    available INTEGER AS kotlin.Boolean NOT NULL
+);
+
+getItems:
+SELECT * FROM items WHERE vendor_id = ? ORDER BY name ASC;
+
+getItemsByCategory:
+SELECT * FROM items WHERE vendor_id = ? AND category_id = ? ORDER BY name ASC;
+
+getAvailableItems:
+SELECT * FROM items WHERE vendor_id = ? AND available = 1 ORDER BY name ASC;
+
+getItemById:
+SELECT * FROM items WHERE id = ?;
+
+insertItem:
+INSERT OR REPLACE INTO items(id, vendor_id, category_id, name, description, price, image_url, available)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteItem:
+DELETE FROM items WHERE id = ?;
+
+deleteAllItems:
+DELETE FROM items WHERE vendor_id = ?;

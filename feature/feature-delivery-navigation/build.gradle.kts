@@ -1,14 +1,19 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.delivery.navigation"
+    namespace = "net.marllex.waselak.feature.delivery.navigation"
 }
 
-dependencies {
-    implementation(project(":core:core-data"))
-    implementation(libs.play.services.maps)
-    implementation(libs.maps.compose)
-    implementation(libs.play.services.location)
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.delivery.navigation.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-data"))
+        }
+    }
 }

@@ -1,38 +1,48 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.library)
-    alias(libs.plugins.cafeemanger.android.hilt)
+    alias(libs.plugins.waselak.kmp.library)
+    alias(libs.plugins.waselak.koin)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.core.network"
-
-    buildFeatures {
-        buildConfig = true
-    }
-
-    defaultConfig {
-        // Base URL for the backend API - override in local.properties: BASE_URL=http://your-server:8080/
-        val baseUrl = project.findProperty("BASE_URL") as? String ?: "http://10.0.2.2:8080/"
-        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
-    }
+    namespace = "net.marllex.waselak.core.network"
 }
 
-dependencies {
-    api(project(":core:core-model"))
-    implementation(project(":core:core-common"))
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":core:core-model"))
+            implementation(project(":core:core-common"))
 
-    // Retrofit
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.kotlinx.serialization)
+            // Ktor
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.ktor.client.logging)
+            implementation(libs.ktor.client.auth)
 
-    // OkHttp
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
+            // Serialization
+            implementation(libs.kotlinx.serialization.json)
 
-    // Serialization
-    implementation(libs.kotlinx.serialization.json)
+            // Coroutines
+            implementation(libs.kotlinx.coroutines.core)
 
-    // Coroutines
-    implementation(libs.kotlinx.coroutines.android)
+            // DateTime
+            implementation(libs.kotlinx.datetime)
+        }
+
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+
+        val desktopMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.cio)
+            }
+        }
+    }
 }

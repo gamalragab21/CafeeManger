@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS categories (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    display_order INTEGER AS kotlin.Int NOT NULL
+);
+
+getCategories:
+SELECT * FROM categories WHERE vendor_id = ? ORDER BY display_order ASC;
+
+getCategoryById:
+SELECT * FROM categories WHERE id = ?;
+
+insertCategory:
+INSERT OR REPLACE INTO categories(id, vendor_id, name, display_order)
+VALUES (?, ?, ?, ?);
+
+deleteCategory:
+DELETE FROM categories WHERE id = ?;
+
+deleteAllCategories:
+DELETE FROM categories WHERE vendor_id = ?;

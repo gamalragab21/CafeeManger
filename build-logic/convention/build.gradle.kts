@@ -4,7 +4,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "net.marllex.cafeemanger.buildlogic"
+group = "net.marllex.waselak.buildlogic"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -23,7 +23,8 @@ dependencies {
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.ksp.gradlePlugin)
     compileOnly(libs.compose.gradlePlugin)
-    compileOnly(libs.room.gradlePlugin)
+    compileOnly(libs.compose.multiplatform.gradlePlugin)
+    compileOnly(libs.sqldelight.gradlePlugin)
 }
 
 tasks {
@@ -35,37 +36,29 @@ tasks {
 
 gradlePlugin {
     plugins {
-        register("androidApplication") {
-            id = "cafeemanger.android.application"
-            implementationClass = "AndroidApplicationConventionPlugin"
+        register("kmpLibrary") {
+            id = "waselak.kmp.library"
+            implementationClass = "KmpLibraryConventionPlugin"
         }
-        register("androidApplicationCompose") {
-            id = "cafeemanger.android.application.compose"
-            implementationClass = "AndroidApplicationComposeConventionPlugin"
+        register("kmpComposeLibrary") {
+            id = "waselak.kmp.compose.library"
+            implementationClass = "KmpComposeLibraryConventionPlugin"
         }
-        register("androidLibrary") {
-            id = "cafeemanger.android.library"
-            implementationClass = "AndroidLibraryConventionPlugin"
+        register("kmpFeature") {
+            id = "waselak.kmp.feature"
+            implementationClass = "KmpFeatureConventionPlugin"
         }
-        register("androidLibraryCompose") {
-            id = "cafeemanger.android.library.compose"
-            implementationClass = "AndroidLibraryComposeConventionPlugin"
+        register("kmpApplication") {
+            id = "waselak.kmp.application"
+            implementationClass = "KmpApplicationConventionPlugin"
         }
-        register("androidFeature") {
-            id = "cafeemanger.android.feature"
-            implementationClass = "AndroidFeatureConventionPlugin"
+        register("koin") {
+            id = "waselak.koin"
+            implementationClass = "KoinConventionPlugin"
         }
-        register("androidHilt") {
-            id = "cafeemanger.android.hilt"
-            implementationClass = "AndroidHiltConventionPlugin"
-        }
-        register("androidRoom") {
-            id = "cafeemanger.android.room"
-            implementationClass = "AndroidRoomConventionPlugin"
-        }
-        register("jvmLibrary") {
-            id = "cafeemanger.jvm.library"
-            implementationClass = "JvmLibraryConventionPlugin"
+        register("sqldelight") {
+            id = "waselak.sqldelight"
+            implementationClass = "SqlDelightConventionPlugin"
         }
     }
 }

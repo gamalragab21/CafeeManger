@@ -1,0 +1,228 @@
+package net.marllex.waselak.core.database.mapper
+
+import net.marllex.waselak.core.model.*
+import net.marllex.waselak.core.database.Vendors
+import net.marllex.waselak.core.database.Users
+import net.marllex.waselak.core.database.Categories
+import net.marllex.waselak.core.database.Items
+import net.marllex.waselak.core.database.Tables
+import net.marllex.waselak.core.database.Orders
+import net.marllex.waselak.core.database.Order_items
+import net.marllex.waselak.core.database.Stock
+import net.marllex.waselak.core.database.Stock_transactions
+import net.marllex.waselak.core.database.Workers
+import net.marllex.waselak.core.database.Worker_roles
+import net.marllex.waselak.core.database.Attendance as AttendanceDb
+import net.marllex.waselak.core.database.Salary_payments
+
+// ─── Vendor Mappers ──────────────────────────────────────────────
+fun Vendors.toDomain() = Vendor(
+    id = id, name = name, logoUrl = logo_url, address = address,
+    contactPhone = contact_phone, walletPhone = wallet_phone,
+    defaultDeliveryFee = default_delivery_fee,
+    storeType = store_type, enableTables = enable_tables,
+    enableDineIn = enable_dine_in, enableDelivery = enable_delivery,
+    digitalMenuUrl = digital_menu_url,
+    createdAt = created_at, updatedAt = updated_at
+)
+
+fun Vendor.toDbEntity() = Vendors(
+    id = id, name = name, logo_url = logoUrl, address = address,
+    contact_phone = contactPhone, wallet_phone = walletPhone,
+    default_delivery_fee = defaultDeliveryFee,
+    store_type = storeType, enable_tables = enableTables,
+    enable_dine_in = enableDineIn, enable_delivery = enableDelivery,
+    digital_menu_url = digitalMenuUrl,
+    created_at = createdAt, updated_at = updatedAt
+)
+
+// ─── User Mappers ────────────────────────────────────────────────
+fun Users.toDomain() = User(
+    id = id, vendorId = vendor_id, role = UserRole.valueOf(role),
+    name = name, phone = phone, email = email, active = active,
+    createdAt = created_at
+)
+
+fun User.toDbEntity() = Users(
+    id = id, vendor_id = vendorId, role = role.name,
+    name = name, phone = phone, email = email, active = active,
+    created_at = createdAt
+)
+
+// ─── Category Mappers ────────────────────────────────────────────
+fun Categories.toDomain() = Category(
+    id = id, vendorId = vendor_id, name = name, displayOrder = display_order
+)
+
+fun Category.toDbEntity() = Categories(
+    id = id, vendor_id = vendorId, name = name, display_order = displayOrder
+)
+
+// ─── Item Mappers ────────────────────────────────────────────────
+fun Items.toDomain() = Item(
+    id = id, vendorId = vendor_id, categoryId = category_id,
+    name = name, description = description, price = price,
+    imageUrl = image_url, available = available
+)
+
+fun Item.toDbEntity() = Items(
+    id = id, vendor_id = vendorId, category_id = categoryId,
+    name = name, description = description, price = price,
+    image_url = imageUrl, available = available
+)
+
+// ─── Table Mappers ───────────────────────────────────────────────
+fun Tables.toDomain() = Table(
+    id = id, vendorId = vendor_id, number = number,
+    capacity = capacity, status = TableStatus.valueOf(status)
+)
+
+fun Table.toDbEntity() = Tables(
+    id = id, vendor_id = vendorId, number = number,
+    capacity = capacity, status = status.name
+)
+
+// ─── Order Mappers ───────────────────────────────────────────────
+fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
+    id = id, vendorId = vendor_id,
+    channel = OrderChannel.valueOf(channel),
+    status = OrderStatus.valueOf(status),
+    tableId = table_id, tableNumber = table_number,
+    cashierId = cashier_id,
+    cashierName = cashier_name, deliveryUserId = delivery_user_id,
+    deliveryUserName = delivery_user_name,
+    clientName = client_name, clientPhone = client_phone,
+    clientAddress = client_address,
+    geoLat = geo_lat, geoLng = geo_lng,
+    paymentMethod = PaymentMethod.valueOf(payment_method),
+    subtotal = subtotal, deliveryFee = delivery_fee, tax = tax, total = total,
+    notes = notes, items = items,
+    createdAt = created_at, updatedAt = updated_at
+)
+
+fun Order.toDbEntity() = Orders(
+    id = id, vendor_id = vendorId, channel = channel.name,
+    status = status.name, table_id = tableId, table_number = tableNumber,
+    cashier_id = cashierId,
+    cashier_name = cashierName, delivery_user_id = deliveryUserId,
+    delivery_user_name = deliveryUserName,
+    client_name = clientName, client_phone = clientPhone,
+    client_address = clientAddress,
+    geo_lat = geoLat, geo_lng = geoLng,
+    payment_method = paymentMethod.name,
+    subtotal = subtotal, delivery_fee = deliveryFee, tax = tax, total = total,
+    notes = notes, created_at = createdAt, updated_at = updatedAt
+)
+
+fun Order_items.toDomain() = OrderItem(
+    id = id, orderId = order_id, itemId = item_id,
+    itemNameSnapshot = item_name_snapshot,
+    itemPriceSnapshot = item_price_snapshot,
+    quantity = quantity, note = note
+)
+
+fun OrderItem.toDbEntity() = Order_items(
+    id = id, order_id = orderId, item_id = itemId,
+    item_name_snapshot = itemNameSnapshot,
+    item_price_snapshot = itemPriceSnapshot,
+    quantity = quantity, note = note
+)
+
+// ─── Stock Mappers ──────────────────────────────────────────────
+fun Stock.toDomain() = net.marllex.waselak.core.model.Stock(
+    id = id, vendorId = vendor_id, itemId = item_id,
+    itemName = item_name, quantity = quantity,
+    minQuantity = min_quantity, costPrice = cost_price,
+    unit = unit, isMenuItem = is_menu_item, alertEnabled = alert_enabled,
+    lastUpdatedAt = last_updated_at
+)
+
+fun net.marllex.waselak.core.model.Stock.toDbEntity() = Stock(
+    id = id, vendor_id = vendorId, item_id = itemId,
+    item_name = itemName, quantity = quantity,
+    min_quantity = minQuantity, cost_price = costPrice,
+    unit = unit, is_menu_item = isMenuItem, alert_enabled = alertEnabled,
+    last_updated_at = lastUpdatedAt
+)
+
+fun Stock_transactions.toDomain() = StockTransaction(
+    id = id, stockId = stock_id, itemName = item_name,
+    type = StockTransactionType.valueOf(type),
+    quantity = quantity, previousQuantity = previous_quantity,
+    orderId = order_id, note = note, createdAt = created_at
+)
+
+fun StockTransaction.toDbEntity() = Stock_transactions(
+    id = id, stock_id = stockId, item_name = itemName,
+    type = type.name,
+    quantity = quantity, previous_quantity = previousQuantity,
+    order_id = orderId, note = note, created_at = createdAt
+)
+
+// ─── Worker Mappers ──────────────────────────────────────────────
+fun Workers.toDomain() = Worker(
+    id = id, vendorId = vendor_id, workerId = worker_id,
+    fullName = full_name, phone = phone, description = description,
+    role = role, salaryType = SalaryType.valueOf(salary_type),
+    salaryAmount = salary_amount, active = active,
+    userId = user_id, isLoginEnabled = is_login_enabled,
+    hasPin = has_pin, qrCodeVersion = qr_code_version, pinUpdatedAt = pin_updated_at,
+    createdAt = created_at, updatedAt = updated_at
+)
+
+fun Worker.toDbEntity() = Workers(
+    id = id, vendor_id = vendorId, worker_id = workerId,
+    full_name = fullName, phone = phone, description = description,
+    role = role, salary_type = salaryType.name,
+    salary_amount = salaryAmount, active = active,
+    user_id = userId, is_login_enabled = isLoginEnabled,
+    has_pin = hasPin, qr_code_version = qrCodeVersion, pin_updated_at = pinUpdatedAt,
+    created_at = createdAt, updated_at = updatedAt
+)
+
+// ─── Worker Role Mappers ─────────────────────────────────────────
+fun Worker_roles.toDomain() = WorkerRole(
+    id = id, vendorId = vendor_id, name = name,
+    description = description, createdAt = created_at
+)
+
+fun WorkerRole.toDbEntity() = Worker_roles(
+    id = id, vendor_id = vendorId, name = name,
+    description = description, created_at = createdAt
+)
+
+// ─── Attendance Mappers ──────────────────────────────────────────
+fun AttendanceDb.toDomain() = net.marllex.waselak.core.model.Attendance(
+    id = id, vendorId = vendor_id, workerId = worker_id,
+    workerName = worker_name, workerRole = worker_role,
+    date = date, checkIn = check_in, checkOut = check_out,
+    workedMinutes = worked_minutes, recordedBy = recorded_by,
+    note = note, createdAt = created_at
+)
+
+fun net.marllex.waselak.core.model.Attendance.toDbEntity() = AttendanceDb(
+    id = id, vendor_id = vendorId, worker_id = workerId,
+    worker_name = workerName, worker_role = workerRole,
+    date = date, check_in = checkIn, check_out = checkOut,
+    worked_minutes = workedMinutes, recorded_by = recordedBy,
+    note = note, created_at = createdAt
+)
+
+// ─── Salary Payment Mappers ──────────────────────────────────────
+fun Salary_payments.toDomain() = SalaryPayment(
+    id = id, vendorId = vendor_id, workerId = worker_id,
+    workerName = worker_name, periodType = period_type,
+    periodStart = period_start, periodEnd = period_end,
+    workedDays = worked_days, workedHours = worked_hours,
+    amount = amount, paid = paid, paidAt = paid_at,
+    paidBy = paid_by, note = note, createdAt = created_at
+)
+
+fun SalaryPayment.toDbEntity() = Salary_payments(
+    id = id, vendor_id = vendorId, worker_id = workerId,
+    worker_name = workerName, period_type = periodType,
+    period_start = periodStart, period_end = periodEnd,
+    worked_days = workedDays, worked_hours = workedHours,
+    amount = amount, paid = paid, paid_at = paidAt,
+    paid_by = paidBy, note = note, created_at = createdAt
+)

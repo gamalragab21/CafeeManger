@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="active_orders">الطلبات النشطة</string>
+    <string name="today_s_orders">طلبات اليوم</string>
+    <string name="today_s_revenue">إيرادات اليوم</string>
+    <string name="recent_orders">أحدث الطلبات</string>
+    <string name="stock_overview">نظرة عامة على المخزون</string>
+    <string name="total_items">إجمالي العناصر</string>
+    <string name="stock_alerts">تنبيهات المخزون</string>
+    <string name="stock_value">قيمة المخزون</string>
+    <string name="low">منخفض</string>
+    <string name="out">نفذ</string>
+    <string name="by_channel">حسب القناة</string>
+    <string name="by_status">حسب الحالة</string>
+    <string name="by_payment">حسب الدفع</string>
+    <string name="low_stock_items">أصناف مخزون منخفض</string>
+    <string name="out_of_stock_items">أصناف نفدت</string>
+    <string name="tap_to_expand">اضغط للتفاصيل</string>
+    <string name="critical">حرج</string>
+    <string name="quick_overview">نظرة سريعة</string>
+    <string name="welcome_message">مرحبًا، %1$s</string>
+    <string name="items_label">عناصر</string>
+</resources>

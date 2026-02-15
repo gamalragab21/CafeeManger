@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attendance_title">الحضور</string>
+    <string name="select_worker_to_check_in">اختر العامل لتسجيل الحضور</string>
+    <string name="check_in">تسجيل حضور</string>
+    <string name="check_out">تسجيل انصراف</string>
+    <string name="authenticate_fingerprint">المصادقة ببصمة الإصبع</string>
+    <string name="fingerprint_required">مطلوب مصادقة بصمة الإصبع لتسجيل الحضور</string>
+    <string name="check_in_success">تم تسجيل الحضور بنجاح</string>
+    <string name="check_out_success">تم تسجيل الانصراف بنجاح</string>
+    <string name="already_checked_in">العامل مسجل حضوره بالفعل اليوم</string>
+    <string name="not_checked_in">العامل لم يسجل حضوره اليوم</string>
+    <string name="auth_failed">فشلت المصادقة</string>
+    <string name="biometric_not_available">المصادقة البيومترية غير متوفرة على هذا الجهاز</string>
+    <string name="present">حاضر</string>
+    <string name="absent">غائب</string>
+    <string name="today_attendance">حضور اليوم</string>
+    <string name="no_workers_available">لا يوجد عمال نشطون</string>
+    <string name="search_worker">بحث عن عامل…</string>
+    <string name="checked_out">تسجيل الانصراف</string>
+    <string name="scan_qr_to_check_in">مسح QR لتسجيل الحضور</string>
+    <string name="scan_qr_to_check_out">مسح QR لتسجيل الانصراف</string>
+    <string name="scan_qr_code">مسح رمز QR</string>
+    <string name="qr_scan_failed">فشل مسح QR</string>
+    <string name="pin_auth_failed">فشل مصادقة PIN</string>
+    <string name="check_in_with_qr">تسجيل حضور بـ QR</string>
+    <string name="check_out_with_qr">تسجيل انصراف بـ QR</string>
+    <string name="check_in_with_pin">تسجيل حضور بـ PIN</string>
+    <string name="check_out_with_pin">تسجيل انصراف بـ PIN</string>
+    <string name="possible_reasons">الأسباب المحتملة</string>
+    <string name="qr_error_invalid">رمز QR غير صالح</string>
+    <string name="qr_error_expired">انتهت صلاحية رمز QR</string>
+    <string name="qr_error_worker_not_found">العامل غير موجود</string>
+    <string name="qr_error_already_checked_in">تم تسجيل الحضور بالفعل</string>
+    <string name="try_again">حاول مرة أخرى</string>
+    <string name="cancel">إلغاء</string>
+    <string name="pin_error_incorrect">رمز PIN غير صحيح</string>
+    <string name="pin_error_no_pin_set">لم يتم تعيين PIN</string>
+    <string name="pin_error_too_many_attempts">محاولات كثيرة جدًا</string>
+    <string name="pin_error_worker_not_found">العامل غير موجود</string>
+    <string name="enter_pin">أدخل رمز PIN</string>
+    <string name="pin_length_hint">يجب أن يكون PIN من 4-6 أرقام</string>
+    <string name="confirm">تأكيد</string>
+</resources>

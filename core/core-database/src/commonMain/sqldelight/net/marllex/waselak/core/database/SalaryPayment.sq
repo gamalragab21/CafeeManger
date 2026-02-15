@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS salary_payments (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    worker_id TEXT NOT NULL,
+    worker_name TEXT,
+    period_type TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    worked_days INTEGER AS kotlin.Int NOT NULL,
+    worked_hours INTEGER AS kotlin.Int,
+    amount REAL NOT NULL,
+    paid INTEGER AS kotlin.Boolean NOT NULL,
+    paid_at INTEGER,
+    paid_by TEXT,
+    note TEXT,
+    created_at INTEGER
+);
+
+getSalaryPayments:
+SELECT * FROM salary_payments WHERE vendor_id = ? ORDER BY created_at DESC;
+
+getSalaryPaymentsByWorker:
+SELECT * FROM salary_payments WHERE worker_id = ? ORDER BY created_at DESC;
+
+insertSalaryPayment:
+INSERT OR REPLACE INTO salary_payments(id, vendor_id, worker_id, worker_name, period_type, period_start, period_end, worked_days, worked_hours, amount, paid, paid_at, paid_by, note, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllSalaryPayments:
+DELETE FROM salary_payments WHERE vendor_id = ?;

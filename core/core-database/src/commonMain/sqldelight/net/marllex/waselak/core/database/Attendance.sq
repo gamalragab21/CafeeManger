@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS attendance (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    worker_id TEXT NOT NULL,
+    worker_name TEXT,
+    worker_role TEXT,
+    date TEXT NOT NULL,
+    check_in INTEGER NOT NULL,
+    check_out INTEGER,
+    worked_minutes INTEGER AS kotlin.Int,
+    recorded_by TEXT NOT NULL,
+    note TEXT,
+    created_at INTEGER
+);
+
+getAttendance:
+SELECT * FROM attendance WHERE vendor_id = ? ORDER BY date DESC, check_in DESC;
+
+getAttendanceByDate:
+SELECT * FROM attendance WHERE vendor_id = ? AND date = ? ORDER BY check_in DESC;
+
+getAttendanceByWorker:
+SELECT * FROM attendance WHERE worker_id = ? ORDER BY date DESC;
+
+getAttendanceByWorkerAndDateRange:
+SELECT * FROM attendance WHERE worker_id = ? AND date BETWEEN ? AND ? ORDER BY date DESC;
+
+insertAttendance:
+INSERT OR REPLACE INTO attendance(id, vendor_id, worker_id, worker_name, worker_role, date, check_in, check_out, worked_minutes, recorded_by, note, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllAttendance:
+DELETE FROM attendance WHERE vendor_id = ?;
+
+deleteAttendance:
+DELETE FROM attendance WHERE id = ?;

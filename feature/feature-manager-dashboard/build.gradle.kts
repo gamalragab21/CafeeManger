@@ -1,12 +1,21 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.manager.dashboard"
+    namespace = "net.marllex.waselak.feature.manager.dashboard"
 }
 
-dependencies {
-    implementation(project(":core:core-data"))
-    implementation(libs.coil.compose)
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.manager.dashboard.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-data"))
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
+        }
+    }
 }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="orders">Orders</string>
+    <string name="all">All</string>
+    <string name="filters">Filters</string>
+    <string name="clear_filters">Clear Filters</string>
+    <string name="date_filter">Date</string>
+    <string name="today">Today</string>
+    <string name="custom_date">Custom</string>
+    <string name="all_dates">All Dates</string>
+    <string name="all_cashiers">All Cashiers</string>
+    <string name="all_delivery">All Delivery</string>
+    <string name="orders_found">orders found</string>
+    <string name="cashier">Cashier</string>
+    <string name="delivery">Delivery</string>
+    <string name="client">Client</string>
+    <string name="phone">Phone</string>
+    <string name="order_items">Order Items</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="tax">Tax</string>
+    <string name="total">Total</string>
+    <string name="notes">Notes</string>
+    <string name="address">Address</string>
+    <string name="view_receipt">View Receipt</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="assign_delivery_person">Assign Delivery Person</string>
+    <string name="select_delivery_person">Select a delivery person for this order</string>
+    <string name="no_delivery_users">No delivery persons available</string>
+    <string name="channel_dine_in">Dine-In</string>
+    <string name="channel_delivery">Delivery</string>
+    <string name="table_label">Table</string>
+    <string name="edit_order">Edit Order</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="assigning">Assigning…</string>
+    <string name="active_filters">Active Filters</string>
+    <string name="filter_by_person">Filter by Person</string>
+    <string name="status">Status</string>
+    <string name="channel">Channel</string>
+    <string name="tap_to_filter">Tap to filter</string>
+</resources>

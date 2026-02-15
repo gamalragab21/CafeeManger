@@ -1,0 +1,41 @@
+CREATE TABLE IF NOT EXISTS stock (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    item_id TEXT,
+    item_name TEXT NOT NULL,
+    quantity INTEGER AS kotlin.Int NOT NULL,
+    min_quantity INTEGER AS kotlin.Int NOT NULL,
+    cost_price REAL NOT NULL,
+    unit TEXT NOT NULL,
+    is_menu_item INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    alert_enabled INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    last_updated_at INTEGER NOT NULL
+);
+
+getAllStock:
+SELECT * FROM stock WHERE vendor_id = ? ORDER BY item_name ASC;
+
+getLowStock:
+SELECT * FROM stock WHERE vendor_id = ? AND quantity <= min_quantity AND quantity > 0 ORDER BY quantity ASC;
+
+getOutOfStock:
+SELECT * FROM stock WHERE vendor_id = ? AND quantity <= 0 ORDER BY item_name ASC;
+
+getStockById:
+SELECT * FROM stock WHERE id = ?;
+
+getStockByItemId:
+SELECT * FROM stock WHERE vendor_id = ? AND item_id = ?;
+
+insertStock:
+INSERT OR REPLACE INTO stock(id, vendor_id, item_id, item_name, quantity, min_quantity, cost_price, unit, is_menu_item, alert_enabled, last_updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateStockQuantity:
+UPDATE stock SET quantity = ?, last_updated_at = ? WHERE id = ?;
+
+deleteStock:
+DELETE FROM stock WHERE id = ?;
+
+deleteAllStock:
+DELETE FROM stock WHERE vendor_id = ?;

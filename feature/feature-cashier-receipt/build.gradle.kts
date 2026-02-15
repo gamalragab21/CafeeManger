@@ -1,16 +1,27 @@
 plugins {
-    alias(libs.plugins.cafeemanger.android.feature)
+    alias(libs.plugins.waselak.kmp.feature)
 }
 
 android {
-    namespace = "net.marllex.cafeemanger.feature.cashier.receipt"
+    namespace = "net.marllex.waselak.feature.cashier.receipt"
 }
 
-dependencies {
-    implementation(project(":core:core-data"))
-    implementation(project(":core:core-network"))
-    implementation(libs.coil.compose)
-    implementation(libs.zxing.core)
-    implementation(libs.zxing.android.embedded)
-    implementation("androidx.print:print:1.1.0")
+compose.resources {
+    packageOfResClass = "net.marllex.waselak.feature.cashier.receipt.generated.resources"
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:core-data"))
+            implementation(project(":core:core-network"))
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
+        }
+        androidMain.dependencies {
+            implementation(libs.zxing.core)
+            implementation(libs.zxing.android.embedded)
+            implementation(libs.androidx.print)
+        }
+    }
 }

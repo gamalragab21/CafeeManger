@@ -1,61 +1,67 @@
 [versions]
 # Core
 agp = "8.7.3"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+kotlin = "2.1.0"
+ksp = "2.1.0-1.0.29"
 
-# AndroidX Core
+# Compose Multiplatform
+composeCmp = "1.7.3"
+
+# AndroidX Core (Android-only)
 coreKtx = "1.15.0"
 appcompat = "1.7.0"
 
-# Lifecycle
-lifecycleRuntimeKtx = "2.8.7"
+# Lifecycle & ViewModel (KMP) - compatible with CMP 1.7.3
+lifecycle = "2.8.0"
 
-# Activity & Compose
+# Activity (Android-only)
 activityCompose = "1.9.3"
-composeBom = "2024.12.01"
 
-# Navigation
-navigationCompose = "2.8.5"
+# Navigation (KMP) - compatible with CMP 1.7.3
+navigationCompose = "2.8.0-alpha10"
 
-# Hilt DI
-hilt = "2.53.1"
-hiltNavigationCompose = "1.2.0"
+# Koin DI (KMP)
+koin = "4.0.1"
 
-# Network
-retrofit = "2.11.0"
-okhttp = "4.12.0"
+# Ktor Network (KMP)
+ktor = "3.0.3"
+
+# SQLDelight Database (KMP)
+sqldelight = "2.0.2"
+
+# DataStore (KMP)
+datastoreCore = "1.1.1"
+
+# Kotlinx Serialization (KMP)
 kotlinxSerialization = "1.7.3"
-retrofitKotlinxSerialization = "1.0.0"
 
-# Database
-room = "2.6.1"
-
-# DataStore
-datastorePreferences = "1.1.1"
-
-# Security
-securityCrypto = "1.1.0-alpha06"
-jwtDecode = "2.0.2"
-
-# Coroutines
+# Kotlinx Coroutines (KMP)
 coroutines = "1.9.0"
 
-# Google Maps
+# Kotlinx DateTime (KMP)
+kotlinxDatetime = "0.6.1"
+
+# Kermit Logging (KMP)
+kermit = "2.0.4"
+
+# Coil 3 Image Loading (KMP)
+coil3 = "3.0.4"
+
+# Google Maps (Android-only)
 playServicesMaps = "19.0.0"
 playServicesLocation = "21.3.0"
 mapsCompose = "6.2.1"
 
-# QR/Barcode
+# CameraX (Android-only)
+camerax = "1.4.1"
+
+# Accompanist (Android-only)
+accompanist = "0.36.0"
+
+# QR/Barcode (Platform-specific)
 zxingCore = "3.5.3"
 zxingAndroidEmbedded = "4.3.0"
 mlkitBarcodeScanning = "17.3.0"
-
-# Image Loading
-coil = "2.7.0"
-
-# Timber Logging
-timber = "5.0.1"
 
 # Testing
 junit = "4.13.2"
@@ -63,86 +69,93 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 mockk = "1.13.13"
 turbine = "1.2.0"
-coroutinesTest = "1.9.0"
 
 [libraries]
-# AndroidX Core
+# AndroidX Core (Android-only)
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-print = { group = "androidx.print", name = "print", version = "1.1.0" }
 
-# Lifecycle
-androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
-androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
-androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
+# Lifecycle & ViewModel (KMP)
+lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycle" }
 
-# Activity & Compose
+# Activity (Android-only)
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
-androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
-# Navigation
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+# Navigation (KMP)
+navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
-# Hilt
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+# Koin DI (KMP)
+koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
+koin-compose = { group = "io.insert-koin", name = "koin-compose", version.ref = "koin" }
+koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel", version.ref = "koin" }
+koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
 
-# Retrofit & OkHttp
-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-retrofit-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitKotlinxSerialization" }
-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+# Ktor (KMP)
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor" }
+ktor-client-auth = { group = "io.ktor", name = "ktor-client-auth", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { group = "io.ktor", name = "ktor-client-darwin", version.ref = "ktor" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
 
-# Kotlinx Serialization
+# SQLDelight (KMP)
+sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.ref = "sqldelight" }
+sqldelight-coroutines = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-android-driver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
+sqldelight-native-driver = { group = "app.cash.sqldelight", name = "native-driver", version.ref = "sqldelight" }
+sqldelight-sqlite-driver = { group = "app.cash.sqldelight", name = "sqlite-driver", version.ref = "sqldelight" }
+
+# DataStore (KMP)
+datastore-core = { group = "androidx.datastore", name = "datastore-preferences-core", version.ref = "datastoreCore" }
+datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastoreCore" }
+
+# Kotlinx Serialization (KMP)
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
-# Room
-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-
-# DataStore
-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
-
-# Security
-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
-jwt-decode = { group = "com.auth0.android", name = "jwtdecode", version.ref = "jwtDecode" }
-
-# Coroutines
-kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+# Kotlinx Coroutines (KMP)
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
-# Google Maps
+# Kotlinx DateTime (KMP)
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
+
+# Kermit Logging (KMP)
+kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
+
+# Coil 3 Image Loading (KMP)
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
+coil-network-ktor = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil3" }
+
+# Google Maps (Android-only)
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+
+# CameraX (Android-only)
+camerax-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+
+# Accompanist (Android-only)
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 
 # QR/Barcode
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 
-# Image Loading
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-
-# Timber Logging
-timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
-
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
-mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 
 # Build-logic dependencies
@@ -151,25 +164,25 @@ android-tools-common = { group = "com.android.tools", name = "common", version =
 kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 compose-gradlePlugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
-room-gradlePlugin = { group = "androidx.room", name = "room-gradle-plugin", version.ref = "room" }
+compose-multiplatform-gradlePlugin = { group = "org.jetbrains.compose", name = "compose-gradle-plugin", version.ref = "composeCmp" }
+sqldelight-gradlePlugin = { group = "app.cash.sqldelight", name = "gradle-plugin", version.ref = "sqldelight" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeCmp" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-room = { id = "androidx.room", version.ref = "room" }
 
 # Convention plugins
-cafeemanger-android-application = { id = "cafeemanger.android.application", version = "unspecified" }
-cafeemanger-android-application-compose = { id = "cafeemanger.android.application.compose", version = "unspecified" }
-cafeemanger-android-library = { id = "cafeemanger.android.library", version = "unspecified" }
-cafeemanger-android-library-compose = { id = "cafeemanger.android.library.compose", version = "unspecified" }
-cafeemanger-android-feature = { id = "cafeemanger.android.feature", version = "unspecified" }
-cafeemanger-android-hilt = { id = "cafeemanger.android.hilt", version = "unspecified" }
-cafeemanger-android-room = { id = "cafeemanger.android.room", version = "unspecified" }
-cafeemanger-jvm-library = { id = "cafeemanger.jvm.library", version = "unspecified" }
+waselak-kmp-library = { id = "waselak.kmp.library", version = "unspecified" }
+waselak-kmp-compose-library = { id = "waselak.kmp.compose.library", version = "unspecified" }
+waselak-kmp-feature = { id = "waselak.kmp.feature", version = "unspecified" }
+waselak-kmp-application = { id = "waselak.kmp.application", version = "unspecified" }
+waselak-koin = { id = "waselak.koin", version = "unspecified" }
+waselak-sqldelight = { id = "waselak.sqldelight", version = "unspecified" }
