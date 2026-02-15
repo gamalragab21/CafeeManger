@@ -104,6 +104,7 @@ import net.marllex.waselak.core.ui.theme.StockLow
 import net.marllex.waselak.core.ui.theme.StockOut
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 
 /**
  * Helper function to get localized unit string from unit key
@@ -437,7 +438,7 @@ private fun OverviewTab(
                 )
                 SummaryCard(
                     title = stringResource(Res.string.stock_value),
-                    value = String.format("%.2f", uiState.summary.totalValue),
+                    value = CurrencyFormatter.formatDecimal(uiState.summary.totalValue),
                     icon = Icons.Outlined.TrendingUp,
                     color = StockHealthy,
                     modifier = Modifier.weight(1f),
@@ -652,13 +653,13 @@ private fun TopValueItemRow(stock: Stock) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "${stock.quantity} ${getLocalizedUnit(stock.unit)} × ${String.format("%.2f", stock.costPrice)}",
+                    text = "${stock.quantity} ${getLocalizedUnit(stock.unit)} × ${CurrencyFormatter.formatDecimal(stock.costPrice)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
-                text = String.format("%.2f", stock.totalValue),
+                text = CurrencyFormatter.formatDecimal(stock.totalValue),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = StockHealthy,
@@ -825,8 +826,8 @@ private fun StockItemCard(
             ) {
                 DetailColumn(label = "Qty", value = "${stock.quantity} ${getLocalizedUnit(stock.unit)}")
                 DetailColumn(label = "Min", value = "${stock.minQuantity}")
-                DetailColumn(label = "Cost", value = String.format("%.2f", stock.costPrice))
-                DetailColumn(label = "Value", value = String.format("%.2f", stock.totalValue))
+                DetailColumn(label = "Cost", value = CurrencyFormatter.formatDecimal(stock.costPrice))
+                DetailColumn(label = "Value", value = CurrencyFormatter.formatDecimal(stock.totalValue))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1129,7 +1130,7 @@ private fun AddEditStockDialog(
                                             Column {
                                                 Text(item.name, fontWeight = FontWeight.Medium)
                                                 Text(
-                                                    "Price: ${String.format("%.2f", item.price)}",
+                                                    "Price: ${CurrencyFormatter.formatDecimal(item.price)}",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
@@ -1259,7 +1260,7 @@ private fun AddEditStockDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
-                                text = String.format("%.2f", qty * price),
+                                text = CurrencyFormatter.formatDecimal(qty * price),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = StockHealthy,

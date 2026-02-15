@@ -81,6 +81,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -317,7 +318,7 @@ private fun DeliveryOrderCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "${order.items.size} ${stringResource(Res.string.order_items)} • ${String.format("%.2f EGP", order.total)}",
+                    text = "${order.items.size} ${stringResource(Res.string.order_items)} • ${CurrencyFormatter.format(order.total)}",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.ExtraBold,
@@ -438,7 +439,7 @@ private fun AvailableOrderCard(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${order.items.size} ${stringResource(Res.string.order_items)} - ${stringResource(Res.string.total)}: ${String.format("%.2f EGP", order.total)}",
+                text = "${order.items.size} ${stringResource(Res.string.order_items)} - ${stringResource(Res.string.total)}: ${CurrencyFormatter.format(order.total)}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -497,7 +498,7 @@ private fun DeliveryOrderItemRow(item: OrderItem) {
             }
         }
         Text(
-            text = String.format("%.2f", item.itemPriceSnapshot * item.quantity),
+            text = CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity),
             style = MaterialTheme.typography.bodyMedium,
         )
     }

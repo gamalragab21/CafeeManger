@@ -12,16 +12,16 @@ class ItemDao(private val db: WaselakDatabase) {
     private val queries get() = db.itemQueries
 
     fun getItems(vendorId: String): Flow<List<Items>> =
-        queries.getItems(vendorId).asFlow().mapToList(Dispatchers.IO)
+        queries.getItems(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getItemsByCategory(vendorId: String, categoryId: String): Flow<List<Items>> =
-        queries.getItemsByCategory(vendorId, categoryId).asFlow().mapToList(Dispatchers.IO)
+        queries.getItemsByCategory(vendorId, categoryId).asFlow().mapToList(Dispatchers.Default)
 
     fun getAvailableItems(vendorId: String): Flow<List<Items>> =
-        queries.getAvailableItems(vendorId).asFlow().mapToList(Dispatchers.IO)
+        queries.getAvailableItems(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getItemById(id: String): Flow<Items?> =
-        queries.getItemById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        queries.getItemById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertItems(items: List<Items>) {
         db.transaction {

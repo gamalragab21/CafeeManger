@@ -1,5 +1,7 @@
 package net.marllex.waselak.feature.manager.chatbot.model
 
+import kotlinx.datetime.Clock
+
 /**
  * Request model for sending a query to the chatbot API
  */
@@ -18,7 +20,7 @@ data class QueryResponse(
     val visualFormat: String = "text",
     val suggestions: List<String> = emptyList(),
     val context: ConversationContextDto,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 /**
@@ -28,7 +30,7 @@ data class ConversationContextDto(
     val conversationId: String,
     val lastIntent: String? = null,
     val lastEntities: Map<String, String> = emptyMap(),
-    val lastTimestamp: Long = System.currentTimeMillis()
+    val lastTimestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 /**

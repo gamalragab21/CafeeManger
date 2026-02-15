@@ -41,6 +41,7 @@ import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +135,7 @@ fun DeliveryStatusScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Text("${item.quantity}x ${item.itemNameSnapshot}")
-                                    Text(String.format("%.2f", item.itemPriceSnapshot * item.quantity))
+                                    Text(CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity))
                                 }
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -143,7 +144,7 @@ fun DeliveryStatusScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Text(stringResource(Res.string.total), style = MaterialTheme.typography.titleMedium)
-                                Text(String.format("%.2f", order.total), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(CurrencyFormatter.formatDecimal(order.total), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

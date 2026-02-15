@@ -1,0 +1,74 @@
+name: Waselak
+options:
+  bundleIdPrefix: net.marllex.waselak
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  WaselakManager:
+    type: application
+    platform: iOS
+    sources:
+      - Manager
+    info:
+      path: Manager/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework"
+          - "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework"
+        OTHER_LINKER_FLAGS: "-ObjC"
+    preBuildScripts:
+      - name: "Build Kotlin Framework"
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :app-manager:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}
+        basedOnDependencyAnalysis: false
+
+  WaselakCashier:
+    type: application
+    platform: iOS
+    sources:
+      - Cashier
+    info:
+      path: Cashier/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.cashier
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(SRCROOT)/../app-cashier/build/bin/iosSimulatorArm64/debugFramework"
+          - "$(SRCROOT)/../app-cashier/build/bin/iosArm64/releaseFramework"
+        OTHER_LINKER_FLAGS: "-ObjC"
+    preBuildScripts:
+      - name: "Build Kotlin Framework"
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :app-cashier:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}
+        basedOnDependencyAnalysis: false
+
+  WaselakDelivery:
+    type: application
+    platform: iOS
+    sources:
+      - Delivery
+    info:
+      path: Delivery/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.delivery
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(SRCROOT)/../app-delivery/build/bin/iosSimulatorArm64/debugFramework"
+          - "$(SRCROOT)/../app-delivery/build/bin/iosArm64/releaseFramework"
+        OTHER_LINKER_FLAGS: "-ObjC"
+    preBuildScripts:
+      - name: "Build Kotlin Framework"
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :app-delivery:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}
+        basedOnDependencyAnalysis: false

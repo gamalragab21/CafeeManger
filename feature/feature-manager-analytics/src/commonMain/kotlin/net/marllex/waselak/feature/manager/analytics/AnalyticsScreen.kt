@@ -76,6 +76,8 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.common.extensions.formatLocalDateTime
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -160,7 +162,7 @@ private fun AnalyticsContent(
     val deliveryFilterLabel = selectedDeliveryUserId?.let { id ->
         deliveryPerformance.find { it.deliveryUserId == id }?.deliveryUserName ?: id.takeLast(6)
     } ?: stringResource(Res.string.delivery_person)
-    val now = System.currentTimeMillis()
+    val now = Clock.System.now().toEpochMilliseconds()
     val sevenDays = now - 7L * 24 * 60 * 60 * 1000
     val thirtyDays = now - 30L * 24 * 60 * 60 * 1000
     val datePreset = when {
@@ -175,7 +177,7 @@ private fun AnalyticsContent(
 
         else -> "CUSTOM"
     }
-    val formatAmount: (Double) -> String = { amt -> String.format("%.2f EGP", amt) }
+    val formatAmount: (Double) -> String = { amt -> CurrencyFormatter.format(amt) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -604,8 +606,7 @@ private fun AnalyticsContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = String.format(
-                                        "%.2f",
+                                    text = CurrencyFormatter.formatDecimal(
                                         performance.totalRevenue + performance.totalTax
                                     ),
                                     style = MaterialTheme.typography.bodyLarge

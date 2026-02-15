@@ -14,19 +14,19 @@ class OrderDao(private val db: WaselakDatabase) {
     private val orderItemQueries get() = db.orderItemQueries
 
     fun getOrders(vendorId: String): Flow<List<Orders>> =
-        orderQueries.getOrders(vendorId).asFlow().mapToList(Dispatchers.IO)
+        orderQueries.getOrders(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getOrdersByStatus(vendorId: String, status: String): Flow<List<Orders>> =
-        orderQueries.getOrdersByStatus(vendorId, status).asFlow().mapToList(Dispatchers.IO)
+        orderQueries.getOrdersByStatus(vendorId, status).asFlow().mapToList(Dispatchers.Default)
 
     fun getOrdersByChannel(vendorId: String, channel: String): Flow<List<Orders>> =
-        orderQueries.getOrdersByChannel(vendorId, channel).asFlow().mapToList(Dispatchers.IO)
+        orderQueries.getOrdersByChannel(vendorId, channel).asFlow().mapToList(Dispatchers.Default)
 
     fun getDeliveryOrders(userId: String, statuses: List<String>): Flow<List<Orders>> =
-        orderQueries.getDeliveryOrders(userId, statuses).asFlow().mapToList(Dispatchers.IO)
+        orderQueries.getDeliveryOrders(userId, statuses).asFlow().mapToList(Dispatchers.Default)
 
     fun getOrderById(id: String): Flow<Orders?> =
-        orderQueries.getOrderById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        orderQueries.getOrderById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertOrders(orders: List<Orders>) {
         db.transaction {
@@ -76,7 +76,7 @@ class OrderDao(private val db: WaselakDatabase) {
 
     // ─── Order Items ─────────────────────────────────────────────
     fun getOrderItems(orderId: String): Flow<List<Order_items>> =
-        orderItemQueries.getOrderItems(orderId).asFlow().mapToList(Dispatchers.IO)
+        orderItemQueries.getOrderItems(orderId).asFlow().mapToList(Dispatchers.Default)
 
     suspend fun getOrderItemsList(orderId: String): List<Order_items> =
         orderItemQueries.getOrderItems(orderId).executeAsList()

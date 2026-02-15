@@ -75,6 +75,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.widthIn
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -250,7 +251,7 @@ private fun MenuItemCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
                     Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
-                    text = String.format("%.2f", item.price),
+                    text = CurrencyFormatter.formatDecimal(item.price),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
@@ -311,7 +312,7 @@ private fun CartBottomSheet(
                 ) {
                     Text("Subtotal", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = String.format("%.2f", viewModel.getSubtotal()),
+                        text = CurrencyFormatter.formatDecimal(viewModel.getSubtotal()),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -413,7 +414,7 @@ private fun CartBottomSheet(
                         stringResource(Res.string.placing_order)
                     } else stringResource(
                         Res.string.place_order,
-                        String.format("%.2f", viewModel.getSubtotal())
+                        CurrencyFormatter.formatDecimal(viewModel.getSubtotal())
                     )
                     )
                 }
@@ -437,7 +438,7 @@ private fun CartItemRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = cartItem.item.name, style = MaterialTheme.typography.bodyMedium)
             Text(
-                text = String.format("%.2f each", cartItem.item.price),
+                text = "${CurrencyFormatter.formatDecimal(cartItem.item.price)} each",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -451,7 +452,7 @@ private fun CartItemRow(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = String.format("%.2f", cartItem.item.price * cartItem.quantity),
+            text = CurrencyFormatter.formatDecimal(cartItem.item.price * cartItem.quantity),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
         )

@@ -1,0 +1,7 @@
+# No CocoaPods dependencies needed - using Kotlin/Native frameworks directly
+# This file is a placeholder. The iOS apps use the KMP frameworks built by Gradle.
+#
+# To build and run:
+# 1. Open the .xcodeproj in Xcode
+# 2. Build the Kotlin frameworks first: ./gradlew :app-manager:linkDebugFrameworkIosSimulatorArm64
+# 3. Then build and run in Xcode

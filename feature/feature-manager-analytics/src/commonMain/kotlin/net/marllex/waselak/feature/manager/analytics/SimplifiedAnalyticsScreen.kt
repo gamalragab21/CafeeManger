@@ -33,6 +33,8 @@ import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import kotlin.math.abs
+import kotlinx.datetime.Clock
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -481,7 +483,7 @@ private fun BigMoneyCard(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = String.format("%.2f EGP", amount),
+                    text = CurrencyFormatter.format(amount),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = gradient[0],
@@ -534,7 +536,7 @@ private fun SmallMoneyCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = String.format("%.2f", amount),
+                text = CurrencyFormatter.formatDecimal(amount),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = color
@@ -758,7 +760,7 @@ private fun SimpleItemCard(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = String.format("%.0f", revenue),
+                    text = CurrencyFormatter.formatDecimal(revenue, 0),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -824,7 +826,7 @@ private fun DetailedTeamSection(
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = String.format("%.0f EGP", member.totalRevenue),
+                                text = "${CurrencyFormatter.formatDecimal(member.totalRevenue, 0)} EGP",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -838,7 +840,7 @@ private fun DetailedTeamSection(
                                     MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
-                                    text = stringResource(Res.string.delivery_fees_label, String.format("%.2f", member.totalTax)),
+                                    text = stringResource(Res.string.delivery_fees_label, CurrencyFormatter.formatDecimal(member.totalTax)),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (member.totalTax > 0) 
                                         Color(0xFF8B5CF6)
@@ -903,7 +905,7 @@ private fun SimpleTeamSection(
                         )
                     }
                     Text(
-                        text = String.format("%.0f EGP", member.revenue),
+                        text = "${CurrencyFormatter.formatDecimal(member.revenue, 0)} EGP",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -1022,8 +1024,8 @@ private fun TimeComparisonSection(
             ) {
                 ComparisonCard(
                     label = stringResource(Res.string.revenue),
-                    currentValue = String.format("%.0f", currentRevenue),
-                    previousValue = String.format("%.0f", comparisonRevenue),
+                    currentValue = CurrencyFormatter.formatDecimal(currentRevenue, 0),
+                    previousValue = CurrencyFormatter.formatDecimal(comparisonRevenue, 0),
                     changePercent = revenueChange,
                     modifier = Modifier.weight(1f)
                 )
@@ -1089,7 +1091,7 @@ private fun ComparisonCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = String.format("%.1f%%", kotlin.math.abs(changePercent)),
+                    text = "${CurrencyFormatter.formatDecimal(kotlin.math.abs(changePercent), 1)}%",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = color
@@ -1151,7 +1153,7 @@ private fun DailyGoalSection(uiState: AnalyticsViewModel.UiState) {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = String.format("%.0f / %.0f EGP", todayRevenue, dailyGoal),
+                        text = "${CurrencyFormatter.formatDecimal(todayRevenue, 0)} / ${CurrencyFormatter.formatDecimal(dailyGoal, 0)} EGP",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1320,8 +1322,8 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
     
     // CRITICAL FIX: Filter salary payments to match the selected period
     // The fromDate and toDate in uiState should match the selected period
-    val fromDate = uiState.fromDate ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
-    val toDate = uiState.toDate ?: System.currentTimeMillis()
+    val fromDate = uiState.fromDate ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
+    val toDate = uiState.toDate ?: Clock.System.now().toEpochMilliseconds()
     
     // Filter salaries paid within the selected period
     val periodSalaries = uiState.salaryPayments.filter { payment ->
@@ -1404,14 +1406,14 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
-                        text = stringResource(Res.string.profit_margin_value, String.format("%.1f", profitMargin)),
+                        text = stringResource(Res.string.profit_margin_value, CurrencyFormatter.formatDecimal(profitMargin, 1)),
                         style = MaterialTheme.typography.bodySmall,
                         color = profitColor
                     )
                 }
                 
                 Text(
-                    text = String.format("%.2f EGP", netProfit),
+                    text = CurrencyFormatter.format(netProfit),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = profitColor
@@ -1440,7 +1442,7 @@ private fun ProfitLossRow(
         )
         
         Text(
-            text = "${if (isExpense) "-" else "+"} ${String.format("%.2f", amount)} EGP",
+            text = "${if (isExpense) "-" else "+"} ${CurrencyFormatter.formatDecimal(amount)} EGP",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             color = color
@@ -1492,7 +1494,7 @@ private fun CustomerInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 }
                 
                 Text(
-                    text = String.format("%.2f EGP", avgOrderValue),
+                    text = CurrencyFormatter.format(avgOrderValue),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF3B82F6)
@@ -1772,7 +1774,7 @@ private fun ExportDialog(
                     ) {
                         ReportSummaryRow(
                             label = stringResource(Res.string.total_revenue),
-                            value = String.format("%.2f EGP", report.summary.totalRevenue)
+                            value = CurrencyFormatter.format(report.summary.totalRevenue)
                         )
                         ReportSummaryRow(
                             label = stringResource(Res.string.total_orders),
@@ -1780,7 +1782,7 @@ private fun ExportDialog(
                         )
                         ReportSummaryRow(
                             label = stringResource(Res.string.net_profit),
-                            value = String.format("%.2f EGP", report.netProfit)
+                            value = CurrencyFormatter.format(report.netProfit)
                         )
                     }
                 }

@@ -38,6 +38,7 @@ import net.marllex.waselak.core.ui.components.ChannelChip
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -518,7 +519,7 @@ private fun ModernOrderCard(order: Order) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = String.format("%.2f EGP", order.total),
+                        text = CurrencyFormatter.format(order.total),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,

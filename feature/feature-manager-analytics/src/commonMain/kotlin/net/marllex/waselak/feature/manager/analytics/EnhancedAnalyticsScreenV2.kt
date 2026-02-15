@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import org.koin.compose.viewmodel.koinViewModel
@@ -394,7 +395,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
         ) {
             MetricCard(
                 title = stringResource(Res.string.gross_revenue),
-                value = String.format("%.2f", grossRevenue),
+                value = CurrencyFormatter.formatDecimal(grossRevenue),
                 subtitle = "EGP",
                 icon = Icons.Default.AttachMoney,
                 gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
@@ -403,7 +404,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
             )
             MetricCard(
                 title = stringResource(Res.string.net_revenue),
-                value = String.format("%.2f", netRevenue),
+                value = CurrencyFormatter.formatDecimal(netRevenue),
                 subtitle = "EGP",
                 icon = Icons.Default.AccountBalance,
                 gradient = listOf(Color(0xFF3B82F6), Color(0xFF2563EB)),
@@ -418,7 +419,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
         ) {
             MetricCard(
                 title = stringResource(Res.string.tax_collected),
-                value = String.format("%.2f", totalTax),
+                value = CurrencyFormatter.formatDecimal(totalTax),
                 subtitle = "EGP (14%)",
                 icon = Icons.Default.Receipt,
                 gradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
@@ -426,7 +427,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
             )
             MetricCard(
                 title = stringResource(Res.string.delivery_fees),
-                value = String.format("%.2f", deliveryFees),
+                value = CurrencyFormatter.formatDecimal(deliveryFees),
                 subtitle = "EGP",
                 icon = Icons.Default.DeliveryDining,
                 gradient = listOf(Color(0xFF8B5CF6), Color(0xFF7C3AED)),
@@ -436,7 +437,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
 
         MetricCard(
             title = stringResource(Res.string.avg_order_value),
-            value = String.format("%.2f", avgOrderValue),
+            value = CurrencyFormatter.formatDecimal(avgOrderValue),
             subtitle = "EGP per order",
             icon = Icons.Default.ShoppingCart,
             gradient = listOf(Color(0xFFEC4899), Color(0xFFDB2777)),
@@ -683,7 +684,7 @@ private fun StaffPerformanceSection(uiState: AnalyticsViewModel.UiState) {
                 StaffHighlightCard(
                     title = stringResource(Res.string.top_cashier),
                     name = topCashier.deliveryUserName,
-                    metric = String.format("%.2f EGP", topCashier.totalRevenue),
+                    metric = CurrencyFormatter.format(topCashier.totalRevenue),
                     subtitle = "${topCashier.orderCount} orders",
                     icon = Icons.Default.Star,
                     gradient = listOf(Color(0xFFFFD700), Color(0xFFFFA500))
@@ -699,7 +700,7 @@ private fun StaffPerformanceSection(uiState: AnalyticsViewModel.UiState) {
                     title = stringResource(Res.string.top_delivery),
                     name = topDelivery.deliveryUserName,
                     metric = "${topDelivery.orderCount} deliveries",
-                    subtitle = String.format("%.2f EGP", topDelivery.totalRevenue),
+                    subtitle = CurrencyFormatter.format(topDelivery.totalRevenue),
                     icon = Icons.Default.LocalShipping,
                     gradient = listOf(Color(0xFF10B981), Color(0xFF059669))
                 )
@@ -864,7 +865,7 @@ private fun StaffPerformanceRow(
             )
         }
         Text(
-            text = String.format("%.2f", revenue),
+            text = CurrencyFormatter.formatDecimal(revenue),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -1030,7 +1031,7 @@ private fun ProductItemRow(
             }
         }
         Text(
-            text = String.format("%.2f", revenue),
+            text = CurrencyFormatter.formatDecimal(revenue),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary

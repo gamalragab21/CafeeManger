@@ -56,6 +56,7 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 
 @Composable
 fun DeliveryDashboardScreen(
@@ -281,7 +282,7 @@ private fun ActiveOrderRow(order: DeliveryOrderSummary) {
 
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "%.2f".format(order.total),
+                text = CurrencyFormatter.formatDecimal(order.total),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )

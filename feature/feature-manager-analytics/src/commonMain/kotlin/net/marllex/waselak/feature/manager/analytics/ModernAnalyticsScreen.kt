@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import org.koin.compose.viewmodel.koinViewModel
@@ -104,7 +105,7 @@ fun ModernAnalyticsScreen(
                     ) {
                         DataCard(
                             title = stringResource(Res.string.total_revenue),
-                            value = String.format("%.2f", uiState.totalRevenue),
+                            value = CurrencyFormatter.formatDecimal(uiState.totalRevenue),
                             subtitle = "EGP",
                             icon = Icons.Default.AttachMoney,
                             gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
@@ -524,7 +525,7 @@ private fun RevenueBreakdownCard(
                                 OrderChannel.DINE_IN -> stringResource(CoreUiRes.string.channel_dine_in)
                                 OrderChannel.DELIVERY -> stringResource(CoreUiRes.string.channel_delivery)
                             },
-                            value = String.format("%.2f EGP", revenue),
+                            value = CurrencyFormatter.format(revenue),
                             percentage = if (byChannel.values.sum() > 0) 
                                 (revenue / byChannel.values.sum() * 100).toInt() 
                             else 0
@@ -563,7 +564,7 @@ private fun RevenueBreakdownCard(
                                 PaymentMethod.WALLET -> stringResource(CoreUiRes.string.payment_wallet)
                                 PaymentMethod.CARD -> stringResource(CoreUiRes.string.payment_card)
                             },
-                            value = String.format("%.2f EGP", revenue),
+                            value = CurrencyFormatter.format(revenue),
                             percentage = if (byPayment.values.sum() > 0) 
                                 (revenue / byPayment.values.sum() * 100).toInt() 
                             else 0
@@ -689,7 +690,7 @@ private fun TopItemCard(
                 }
             }
             Text(
-                text = String.format("%.2f", revenue),
+                text = CurrencyFormatter.formatDecimal(revenue),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -754,7 +755,7 @@ private fun TeamPerformanceSection(
                         )
                     }
                     Text(
-                        text = String.format("%.2f", person.revenue),
+                        text = CurrencyFormatter.formatDecimal(person.revenue),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary

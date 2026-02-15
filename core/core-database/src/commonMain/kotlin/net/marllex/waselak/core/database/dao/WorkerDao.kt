@@ -19,13 +19,13 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     // ─── Workers ─────────────────────────────────────────────────
     fun getWorkers(vendorId: String): Flow<List<Workers>> =
-        workerQueries.getWorkers(vendorId).asFlow().mapToList(Dispatchers.IO)
+        workerQueries.getWorkers(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getActiveWorkers(vendorId: String): Flow<List<Workers>> =
-        workerQueries.getActiveWorkers(vendorId).asFlow().mapToList(Dispatchers.IO)
+        workerQueries.getActiveWorkers(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getWorkerById(id: String): Flow<Workers?> =
-        workerQueries.getWorkerById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        workerQueries.getWorkerById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertWorkers(workers: List<Workers>) {
         db.transaction {
@@ -69,7 +69,7 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     // ─── Worker Roles ────────────────────────────────────────────
     fun getWorkerRoles(vendorId: String): Flow<List<Worker_roles>> =
-        roleQueries.getWorkerRoles(vendorId).asFlow().mapToList(Dispatchers.IO)
+        roleQueries.getWorkerRoles(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     suspend fun insertWorkerRoles(roles: List<Worker_roles>) {
         db.transaction {
@@ -105,13 +105,13 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     // ─── Attendance ──────────────────────────────────────────────
     fun getAttendance(vendorId: String): Flow<List<Attendance>> =
-        attendanceQueries.getAttendance(vendorId).asFlow().mapToList(Dispatchers.IO)
+        attendanceQueries.getAttendance(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getAttendanceByDate(vendorId: String, date: String): Flow<List<Attendance>> =
-        attendanceQueries.getAttendanceByDate(vendorId, date).asFlow().mapToList(Dispatchers.IO)
+        attendanceQueries.getAttendanceByDate(vendorId, date).asFlow().mapToList(Dispatchers.Default)
 
     fun getAttendanceByWorker(workerId: String): Flow<List<Attendance>> =
-        attendanceQueries.getAttendanceByWorker(workerId).asFlow().mapToList(Dispatchers.IO)
+        attendanceQueries.getAttendanceByWorker(workerId).asFlow().mapToList(Dispatchers.Default)
 
     fun getAttendanceByWorkerAndDateRange(
         workerId: String,
@@ -119,7 +119,7 @@ class WorkerDao(private val db: WaselakDatabase) {
         toDate: String
     ): Flow<List<Attendance>> =
         attendanceQueries.getAttendanceByWorkerAndDateRange(workerId, fromDate, toDate)
-            .asFlow().mapToList(Dispatchers.IO)
+            .asFlow().mapToList(Dispatchers.Default)
 
     suspend fun insertAttendanceRecords(records: List<Attendance>) {
         db.transaction {
@@ -158,10 +158,10 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     // ─── Salary Payments ─────────────────────────────────────────
     fun getSalaryPayments(vendorId: String): Flow<List<Salary_payments>> =
-        salaryQueries.getSalaryPayments(vendorId).asFlow().mapToList(Dispatchers.IO)
+        salaryQueries.getSalaryPayments(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getSalaryPaymentsByWorker(workerId: String): Flow<List<Salary_payments>> =
-        salaryQueries.getSalaryPaymentsByWorker(workerId).asFlow().mapToList(Dispatchers.IO)
+        salaryQueries.getSalaryPaymentsByWorker(workerId).asFlow().mapToList(Dispatchers.Default)
 
     suspend fun insertSalaryPayments(payments: List<Salary_payments>) {
         db.transaction {

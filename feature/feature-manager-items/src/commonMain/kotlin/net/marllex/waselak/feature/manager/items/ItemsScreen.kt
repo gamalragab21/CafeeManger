@@ -57,6 +57,7 @@ import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -311,7 +312,7 @@ private fun ModernItemCard(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = String.format("%.2f EGP", item.price),
+                            text = CurrencyFormatter.format(item.price),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -408,7 +409,7 @@ private fun ItemCard(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = String.format("%.2f", item.price),
+                    text = CurrencyFormatter.formatDecimal(item.price),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

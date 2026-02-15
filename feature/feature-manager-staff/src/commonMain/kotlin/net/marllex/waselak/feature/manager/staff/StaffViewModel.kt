@@ -157,7 +157,7 @@ class StaffViewModel constructor(
                 dialogRole = worker?.role ?: "",
                 dialogWorkerType = if (worker?.isLoginEnabled == true) WorkerType.MAIN else WorkerType.NORMAL,
                 dialogSalaryType = worker?.salaryType ?: SalaryType.DAILY,
-                dialogSalaryAmount = worker?.salaryAmount?.let { a -> if (a > 0) a.toBigDecimal().toPlainString() else "" } ?: "",
+                dialogSalaryAmount = worker?.salaryAmount?.let { a -> if (a > 0) a.toLong().let { l -> if (a == l.toDouble()) l.toString() else a.toString() } else "" } ?: "",
                 dialogIsLoginEnabled = worker?.isLoginEnabled ?: false,
                 dialogPassword = "",
                 dialogLoginRole = "CASHIER",

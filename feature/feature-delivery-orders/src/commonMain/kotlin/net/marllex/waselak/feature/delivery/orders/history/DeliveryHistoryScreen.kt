@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,7 +97,7 @@ fun DeliveryHistoryScreen(
                                     )
 
                                     Text(
-                                        text = "${order.items.size} items • ${"%.2f EGP".format(order.total)}",
+                                        text = "${order.items.size} items • ${CurrencyFormatter.format(order.total)}",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                     )

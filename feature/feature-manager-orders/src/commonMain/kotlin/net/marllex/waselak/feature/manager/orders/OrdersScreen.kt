@@ -97,6 +97,7 @@ import net.marllex.waselak.core.ui.components.OrderStatusChip
 import net.marllex.waselak.core.ui.components.PaymentMethodChip
 import net.marllex.waselak.core.ui.components.formatStatusLabel
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.feature.manager.orders.components.ModernFilterSection
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -445,7 +446,7 @@ private fun OrderCard(
 
             // --- Info Section ---
             Text(
-                text = "${order.items.size} items • Total: ${String.format("%.2f", order.total)}",
+                text = "${order.items.size} items • Total: ${CurrencyFormatter.formatDecimal(order.total)}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -491,9 +492,9 @@ private fun OrderCard(
                     )
 
                     // Price Breakdown
-                    PriceRow(stringResource(Res.string.subtotal), String.format("%.2f EGP", order.subtotal))
-                    PriceRow(stringResource(Res.string.tax), String.format("%.2f EGP", order.tax))
-                    PriceRow(stringResource(Res.string.total), String.format("%.2f EGP", order.total), isBold = true)
+                    PriceRow(stringResource(Res.string.subtotal), CurrencyFormatter.format(order.subtotal))
+                    PriceRow(stringResource(Res.string.tax), CurrencyFormatter.format(order.tax))
+                    PriceRow(stringResource(Res.string.total), CurrencyFormatter.format(order.total), isBold = true)
 
                     // Secondary Info
                     if (order.notes != null || order.clientAddress != null) {
@@ -622,7 +623,7 @@ private fun OrderItemRow(item: OrderItem) {
             }
         }
         Text(
-            text = String.format("%.2f", item.itemPriceSnapshot * item.quantity),
+            text = CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity),
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -679,7 +680,7 @@ private fun EditOrderDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text("${String.format("%.2f", item.itemPriceSnapshot)} x ${item.quantity} = ${String.format("%.2f", item.totalPrice)}",
+                                Text("${CurrencyFormatter.formatDecimal(item.itemPriceSnapshot)} x ${item.quantity} = ${CurrencyFormatter.formatDecimal(item.totalPrice)}",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -704,7 +705,7 @@ private fun EditOrderDialog(
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(stringResource(Res.string.subtotal), fontWeight = FontWeight.Bold)
-                        Text(String.format("%.2f", newSubtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(CurrencyFormatter.formatDecimal(newSubtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
 

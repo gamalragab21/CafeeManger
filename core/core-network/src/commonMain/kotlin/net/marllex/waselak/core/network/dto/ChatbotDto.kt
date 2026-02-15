@@ -1,5 +1,6 @@
 package net.marllex.waselak.core.network.dto
 
+import kotlinx.datetime.Clock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -17,7 +18,7 @@ data class ChatbotContextDto(
     @SerialName("conversation_id") val conversationId: String,
     @SerialName("last_intent") val lastIntent: String? = null,
     @SerialName("last_entities") val lastEntities: Map<String, String> = emptyMap(),
-    @SerialName("last_timestamp") val lastTimestamp: Long = System.currentTimeMillis()
+    @SerialName("last_timestamp") val lastTimestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 // ─── Response DTOs ───────────────────────────────────────────────
@@ -29,7 +30,7 @@ data class ChatbotQueryResponse(
     @SerialName("visual_format") val visualFormat: String = "text",
     @SerialName("suggestions") val suggestions: List<String> = emptyList(),
     @SerialName("context") val context: ChatbotContextDto,
-    @SerialName("timestamp") val timestamp: Long = System.currentTimeMillis()
+    @SerialName("timestamp") val timestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 @Serializable

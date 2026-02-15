@@ -11,7 +11,7 @@ class VendorDao(private val db: WaselakDatabase) {
     private val queries get() = db.vendorQueries
 
     fun getVendorById(id: String): Flow<Vendors?> =
-        queries.getVendorById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        queries.getVendorById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertVendor(vendor: Vendors) {
         queries.insertVendor(

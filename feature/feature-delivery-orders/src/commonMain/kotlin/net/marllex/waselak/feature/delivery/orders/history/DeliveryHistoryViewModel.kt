@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
 
@@ -34,15 +37,16 @@ class DeliveryHistoryViewModel constructor(
                 .onFailure { e -> _uiState.update { it.copy(error = e.message, isLoading = false) } }
             orderRepository.getMyDeliveryOrders(status = "COMPLETED").collect { orders ->
                 val grouped = orders.groupBy { epochDay(it.createdAt) }
-                    .toSortedMap(compareByDescending { it }) // latest day first
+                    .entries.sortedByDescending { it.key }
+                    .associate { it.toPair() } // latest day first
                 _uiState.update { it.copy(grouped = grouped, isLoading = false) }
             }
         }
     }
 
     private fun epochDay(epochMs: Long): String {
-        val local = java.time.Instant.ofEpochMilli(epochMs)
-            .atZone(java.time.ZoneId.systemDefault())
-        return local.toLocalDate().toString()
+        val instant = Instant.fromEpochMilliseconds(epochMs)
+        val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        return localDateTime.date.toString()
     }
 }

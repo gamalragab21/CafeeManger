@@ -2,6 +2,7 @@ package net.marllex.waselak.feature.manager.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.datetime.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,7 +75,7 @@ class DashboardViewModel constructor(
                 val activeOrders = orders.filter { order ->
                     order.status.name !in listOf("COMPLETED", "CANCELED")
                 }
-                val todayStart = System.currentTimeMillis() - (System.currentTimeMillis() % (24 * 60 * 60 * 1000))
+                val todayStart = Clock.System.now().toEpochMilliseconds() - (Clock.System.now().toEpochMilliseconds() % (24 * 60 * 60 * 1000))
                 val todayOrders = orders.filter { it.createdAt >= todayStart }
                 val completedToday = todayOrders.filter { it.status.name == "COMPLETED" }
                 val todayRevenue = completedToday.sumOf { it.total }

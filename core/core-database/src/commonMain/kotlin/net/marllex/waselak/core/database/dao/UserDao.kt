@@ -12,13 +12,13 @@ class UserDao(private val db: WaselakDatabase) {
     private val queries get() = db.userQueries
 
     fun getUsers(vendorId: String): Flow<List<Users>> =
-        queries.getUsers(vendorId).asFlow().mapToList(Dispatchers.IO)
+        queries.getUsers(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getUsersByRole(vendorId: String, role: String): Flow<List<Users>> =
-        queries.getUsersByRole(vendorId, role).asFlow().mapToList(Dispatchers.IO)
+        queries.getUsersByRole(vendorId, role).asFlow().mapToList(Dispatchers.Default)
 
     fun getUserById(id: String): Flow<Users?> =
-        queries.getUserById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        queries.getUserById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertUsers(users: List<Users>) {
         db.transaction {

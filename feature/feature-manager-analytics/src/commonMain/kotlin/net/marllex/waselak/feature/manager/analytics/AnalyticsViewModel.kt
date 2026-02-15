@@ -1,6 +1,12 @@
 package net.marllex.waselak.feature.manager.analytics
 
 import co.touchlab.kermit.Logger
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.minus
+import kotlinx.datetime.toLocalDateTime
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,7 +96,7 @@ class AnalyticsViewModel constructor(
         val salaryPayments: List<SalaryPayment>,
         val totalSalariesPaid: Double,
         val netProfit: Double, // Revenue - Salaries
-        val generatedAt: Long = System.currentTimeMillis()
+        val generatedAt: Long = Clock.System.now().toEpochMilliseconds()
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -113,28 +119,25 @@ class AnalyticsViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            val now = Clock.System.now()
+            val tz = TimeZone.currentSystemDefault()
+            val today = now.toLocalDateTime(tz).date
             val (fromDate, toDate) = when (period) {
                 "TODAY" -> {
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(java.util.Calendar.MINUTE, 0)
-                    calendar.set(java.util.Calendar.SECOND, 0)
-                    calendar.set(java.util.Calendar.MILLISECOND, 0)
-                    Pair(calendar.timeInMillis, System.currentTimeMillis())
+                    val startOfDay = today.atStartOfDayIn(tz).toEpochMilliseconds()
+                    Pair(startOfDay, now.toEpochMilliseconds())
                 }
                 "WEEK" -> {
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.add(java.util.Calendar.DAY_OF_YEAR, -7)
-                    Pair(calendar.timeInMillis, System.currentTimeMillis())
+                    val weekAgo = today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
+                    Pair(weekAgo, now.toEpochMilliseconds())
                 }
                 "MONTH" -> {
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.add(java.util.Calendar.DAY_OF_YEAR, -30)
-                    Pair(calendar.timeInMillis, System.currentTimeMillis())
+                    val monthAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
+                    Pair(monthAgo, now.toEpochMilliseconds())
                 }
                 else -> {
-                    val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-                    Pair(thirtyDaysAgo, System.currentTimeMillis())
+                    val thirtyDaysAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
+                    Pair(thirtyDaysAgo, now.toEpochMilliseconds())
                 }
             }
 
@@ -261,8 +264,8 @@ class AnalyticsViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             
-            val fromDate = state.fromDate ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
-            val toDate = state.toDate ?: System.currentTimeMillis()
+            val fromDate = state.fromDate ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
+            val toDate = state.toDate ?: Clock.System.now().toEpochMilliseconds()
             
             // Apply filters to the data
             val summaryResult = analyticsRepository.getSummary(fromDate, toDate)
@@ -327,8 +330,8 @@ class AnalyticsViewModel constructor(
                 )
             }
 
-            val fromDate = from ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
-            val toDate = to ?: System.currentTimeMillis()
+            val fromDate = from ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
+            val toDate = to ?: Clock.System.now().toEpochMilliseconds()
             val filteredResult = analyticsRepository.getFilteredSummary(null, null, cashierId, deliveryUserId, fromDate, toDate)
             val settlementsResult = analyticsRepository.getSettlements(null, null, cashierId, deliveryUserId, fromDate, toDate)
             val deliveryResult = analyticsRepository.getDeliveryPerformance(null, cashierId, fromDate, toDate)
@@ -506,8 +509,8 @@ class AnalyticsViewModel constructor(
     
     private fun loadPreviousPeriodData() {
         viewModelScope.launch {
-            val currentFrom = _uiState.value.fromDate ?: (System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000))
-            val currentTo = _uiState.value.toDate ?: System.currentTimeMillis()
+            val currentFrom = _uiState.value.fromDate ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
+            val currentTo = _uiState.value.toDate ?: Clock.System.now().toEpochMilliseconds()
             
             val periodLength = currentTo - currentFrom
             val previousFrom = currentFrom - periodLength
@@ -522,27 +525,22 @@ class AnalyticsViewModel constructor(
     }
     
     private fun getReportDateRange(period: ReportPeriod): Pair<Long, Long> {
-        val calendar = java.util.Calendar.getInstance()
-        val to = calendar.timeInMillis
-        
+        val now = Clock.System.now()
+        val tz = TimeZone.currentSystemDefault()
+        val today = now.toLocalDateTime(tz).date
+        val to = now.toEpochMilliseconds()
+
         return when (period) {
             ReportPeriod.DAILY -> {
-                // Today
-                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
-                calendar.set(java.util.Calendar.MINUTE, 0)
-                calendar.set(java.util.Calendar.SECOND, 0)
-                calendar.set(java.util.Calendar.MILLISECOND, 0)
-                Pair(calendar.timeInMillis, to)
+                Pair(today.atStartOfDayIn(tz).toEpochMilliseconds(), to)
             }
             ReportPeriod.WEEKLY -> {
-                // Last 7 days
-                calendar.add(java.util.Calendar.DAY_OF_YEAR, -7)
-                Pair(calendar.timeInMillis, to)
+                val weekAgo = today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
+                Pair(weekAgo, to)
             }
             ReportPeriod.MONTHLY -> {
-                // Last 30 days
-                calendar.add(java.util.Calendar.DAY_OF_YEAR, -30)
-                Pair(calendar.timeInMillis, to)
+                val monthAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
+                Pair(monthAgo, to)
             }
         }
     }

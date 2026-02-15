@@ -15,22 +15,22 @@ class StockDao(private val db: WaselakDatabase) {
 
     // ─── Stock Queries ──────────────────────────────────────────────
     fun getAllStock(vendorId: String): Flow<List<Stock>> =
-        stockQueries.getAllStock(vendorId).asFlow().mapToList(Dispatchers.IO)
+        stockQueries.getAllStock(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getLowStock(vendorId: String): Flow<List<Stock>> =
-        stockQueries.getLowStock(vendorId).asFlow().mapToList(Dispatchers.IO)
+        stockQueries.getLowStock(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getOutOfStock(vendorId: String): Flow<List<Stock>> =
-        stockQueries.getOutOfStock(vendorId).asFlow().mapToList(Dispatchers.IO)
+        stockQueries.getOutOfStock(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getStockById(id: String): Flow<Stock?> =
-        stockQueries.getStockById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        stockQueries.getStockById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun getStockByIdSync(id: String): Stock? =
         stockQueries.getStockById(id).executeAsOneOrNull()
 
     fun getStockByItemId(vendorId: String, itemId: String): Flow<Stock?> =
-        stockQueries.getStockByItemId(vendorId, itemId).asFlow().mapToOneOrNull(Dispatchers.IO)
+        stockQueries.getStockByItemId(vendorId, itemId).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun getStockByItemIdSync(vendorId: String, itemId: String): Stock? =
         stockQueries.getStockByItemId(vendorId, itemId).executeAsOneOrNull()
@@ -85,10 +85,10 @@ class StockDao(private val db: WaselakDatabase) {
 
     // ─── Stock Transaction Queries ──────────────────────────────────
     fun getTransactionsByStockId(stockId: String): Flow<List<Stock_transactions>> =
-        transactionQueries.getTransactionsByStockId(stockId).asFlow().mapToList(Dispatchers.IO)
+        transactionQueries.getTransactionsByStockId(stockId).asFlow().mapToList(Dispatchers.Default)
 
     fun getRecentTransactions(stockId: String, limit: Long = 20): Flow<List<Stock_transactions>> =
-        transactionQueries.getRecentTransactions(stockId, limit).asFlow().mapToList(Dispatchers.IO)
+        transactionQueries.getRecentTransactions(stockId, limit).asFlow().mapToList(Dispatchers.Default)
 
     suspend fun insertTransaction(transaction: Stock_transactions) {
         transactionQueries.insertTransaction(

@@ -1,5 +1,6 @@
 package net.marllex.waselak.core.model
 
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -14,7 +15,7 @@ data class Stock(
     val unit: String = "pcs",
     val isMenuItem: Boolean = true, // true = linked to menu, false = independent stock
     val alertEnabled: Boolean = true, // Enable low stock alerts
-    val lastUpdatedAt: Long = System.currentTimeMillis(),
+    val lastUpdatedAt: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
     val totalValue: Double get() = costPrice * quantity
     val isLowStock: Boolean get() = quantity in 1..minQuantity
@@ -31,7 +32,7 @@ data class StockTransaction(
     val previousQuantity: Int,
     val orderId: String? = null,
     val note: String? = null,
-    val createdAt: Long = System.currentTimeMillis(),
+    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
     val newQuantity: Int get() = when (type) {
         StockTransactionType.ADD -> previousQuantity + quantity

@@ -12,13 +12,13 @@ class TableDao(private val db: WaselakDatabase) {
     private val queries get() = db.dineTableQueries
 
     fun getTables(vendorId: String): Flow<List<Tables>> =
-        queries.getTables(vendorId).asFlow().mapToList(Dispatchers.IO)
+        queries.getTables(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getTablesByStatus(vendorId: String, status: String): Flow<List<Tables>> =
-        queries.getTablesByStatus(vendorId, status).asFlow().mapToList(Dispatchers.IO)
+        queries.getTablesByStatus(vendorId, status).asFlow().mapToList(Dispatchers.Default)
 
     fun getTableById(id: String): Flow<Tables?> =
-        queries.getTableById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        queries.getTableById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertTables(tables: List<Tables>) {
         db.transaction {

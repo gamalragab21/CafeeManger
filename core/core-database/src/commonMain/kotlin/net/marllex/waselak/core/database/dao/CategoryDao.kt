@@ -12,10 +12,10 @@ class CategoryDao(private val db: WaselakDatabase) {
     private val queries get() = db.categoryQueries
 
     fun getCategories(vendorId: String): Flow<List<Categories>> =
-        queries.getCategories(vendorId).asFlow().mapToList(Dispatchers.IO)
+        queries.getCategories(vendorId).asFlow().mapToList(Dispatchers.Default)
 
     fun getCategoryById(id: String): Flow<Categories?> =
-        queries.getCategoryById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+        queries.getCategoryById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
     suspend fun insertCategories(categories: List<Categories>) {
         db.transaction {
