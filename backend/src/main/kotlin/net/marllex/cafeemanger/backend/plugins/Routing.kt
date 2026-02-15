@@ -43,6 +43,7 @@ fun Application.configureRouting() {
             attendanceRoutes()
             announcementRoutes()
             chatbotRoutes()
+            exportRoutes() // Export data as PDF/Excel (MANAGER only)
         }
     }
 }

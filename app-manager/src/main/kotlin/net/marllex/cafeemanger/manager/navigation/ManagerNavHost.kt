@@ -310,6 +310,11 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                 chatbotScreen(
                     onNavigateBack = { navController.navigateUp() }
                 )
+                composable("export") {
+                    net.marllex.cafeemanger.feature.manager.analytics.ExportScreen(
+                        onNavigateBack = { navController.navigateUp() }
+                    )
+                }
             }
         }
     } else {
@@ -360,6 +365,11 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                 chatbotScreen(
                     onNavigateBack = { navController.navigateUp() }
                 )
+                composable("export") {
+                    net.marllex.cafeemanger.feature.manager.analytics.ExportScreen(
+                        onNavigateBack = { navController.navigateUp() }
+                    )
+                }
             }
         }
     }
@@ -670,6 +680,21 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 )
                 TaxPlacesScreen()
             }
+            
+            "export" -> {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.export_data)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                net.marllex.cafeemanger.feature.manager.analytics.ExportScreen(
+                    onNavigateBack = { activeSubScreen = null }
+                )
+            }
 
             else -> {
                 // 3-tab TabRow
@@ -709,7 +734,9 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (selectedTab) {
                         0 -> RestaurantProfileScreen()
-                        1 -> EnhancedAnalyticsScreen()
+                        1 -> EnhancedAnalyticsScreen(
+                            onNavigateToExport = { activeSubScreen = "export" }
+                        )
                         2 -> SettingsContent(
                             vendor = vendor,
                             onSignOut = onSignOut,

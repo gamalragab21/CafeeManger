@@ -7,8 +7,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedAnalyticsScreen(
+    onNavigateToExport: () -> Unit = {},
     viewModel: AnalyticsViewModel = hiltViewModel(),
 ) {
     // Use the simplified, user-friendly analytics screen
-    SimplifiedAnalyticsScreen(viewModel = viewModel)
+    SimplifiedAnalyticsScreen(
+        viewModel = viewModel,
+        onNavigateToExport = onNavigateToExport
+    )
 }

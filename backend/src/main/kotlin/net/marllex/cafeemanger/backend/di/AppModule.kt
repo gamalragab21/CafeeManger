@@ -14,4 +14,5 @@ val appModule = module {
     single { OrderService() }
     single { PinService() }
     single { QrCodeService() }
+    single { net.marllex.cafeemanger.backend.domain.service.ExportService() }
 }

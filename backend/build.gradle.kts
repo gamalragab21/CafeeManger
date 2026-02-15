@@ -69,6 +69,13 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.zxing:javase:3.5.3")
 
+    // PDF Generation
+    implementation("com.itextpdf:itext7-core:7.2.5")
+    
+    // Excel Generation
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+
     // Logging
     implementation("ch.qos.logback:logback-classic:1.5.12")
 

@@ -1,6 +1,7 @@
 package net.marllex.cafeemanger.feature.manager.dashboard
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -179,44 +181,53 @@ fun ModernDashboardScreen(
                 // Horizontal scrolling stats cards
                 item {
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp), // Increased spacing for a cleaner look
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp) // Proper breathing room
                     ) {
+                        // 1. ACTIVE ORDERS - High Priority (Purple/Indigo)
                         item {
                             ModernStatCard(
                                 title = stringResource(R.string.active_orders),
                                 value = uiState.activeOrdersCount.toString(),
-                                icon = Icons.Filled.Pending,
-                                gradient = listOf(
-                                    Color(0xFF6366F1),
-                                    Color(0xFF8B5CF6)
-                                ),
-                                subtitle = stringResource(R.string.in_progress)
+                                icon = Icons.Default.PendingActions, // More modern icon
+                                gradient = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
+                                subtitle = "Needs Attention"
                             )
                         }
+
+                        // 2. COMPLETED ORDERS - Success (Emerald/Green)
                         item {
                             ModernStatCard(
-                                title = stringResource(R.string.today_s_orders),
+                                title = "Daily Total", // Changed from Today's Orders to differentiate
                                 value = uiState.todayOrdersCount.toString(),
-                                icon = Icons.Filled.Receipt,
-                                gradient = listOf(
-                                    Color(0xFF10B981),
-                                    Color(0xFF059669)
-                                ),
-                                subtitle = stringResource(R.string.completed_today)
+                                icon = Icons.Default.CheckCircle,
+                                gradient = listOf(Color(0xFF10B981), Color(0xFF34D399)),
+                                subtitle = "Total Processed"
                             )
                         }
+
+                        // 3. PERFORMANCE/SPEED - (Optional but great for UX)
                         item {
+                            ModernStatCard(
+                                title = "Completed",
+                                value = uiState.completedOrdersCount.toString(),
+                                icon = Icons.Default.FactCheck,
+                                gradient = listOf(Color(0xFF06B6D4), Color(0xFF3B82F6)), // Cyan to Blue
+                                subtitle = "Ready for pickup"
+                            )
+                        }
+
+                        // 4. REVENUE - Crucial Metric (Amber/Orange)
+                        item {
+                            // Using a simple currency formatter for better UX
+                            val formattedRevenue = "${uiState.todayRevenue.toInt()}"
                             ModernStatCard(
                                 title = stringResource(R.string.today_s_revenue),
-                                value = String.format("%.0f", uiState.todayRevenue),
-                                icon = Icons.Filled.AttachMoney,
-                                gradient = listOf(
-                                    Color(0xFFF59E0B),
-                                    Color(0xFFEF4444)
-                                ),
-                                subtitle = "EGP",
-                                isRevenue = true
+                                value = formattedRevenue,
+                                icon = Icons.Default.Payments,
+                                gradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
+                                subtitle = "EGP Total",
                             )
                         }
                     }
@@ -294,24 +305,27 @@ private fun ModernStatCard(
     gradient: List<Color>,
     subtitle: String,
     modifier: Modifier = Modifier,
-    isRevenue: Boolean = false
 ) {
     Card(
         modifier = modifier
             .width(180.dp)
-            .height(140.dp),
-        shape = RoundedCornerShape(20.dp),
+            .height(160.dp), // Increased height for better padding
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        // Subtle border instead of flat elevation
+        border = BorderStroke(1.dp, gradient[0].copy(alpha = 0.2f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.linearGradient(
-                        colors = gradient.map { it.copy(alpha = 0.1f) }
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            gradient[0].copy(alpha = 0.05f),
+                            Color.Transparent
+                        )
                     )
                 )
                 .padding(16.dp)
@@ -320,15 +334,16 @@ private fun ModernStatCard(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Header: Icon and Label
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Brush.linearGradient(gradient)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -336,30 +351,40 @@ private fun ModernStatCard(
                             imageVector = icon,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                }
 
-                Column {
-                    Text(
-                        text = if (isRevenue) value else value,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = gradient[0]
-                    )
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Bold
                     )
+                }
+
+                // Body: Value and Trend
+                Column {
                     Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = gradient[1],
-                        fontWeight = FontWeight.SemiBold
+                        text = value,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = (-0.5).sp // Modern tight lettering
                     )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // Optional: Add a tiny up/down arrow icon here later
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = gradient[0], // Use the primary gradient color for the "trend"
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
         }

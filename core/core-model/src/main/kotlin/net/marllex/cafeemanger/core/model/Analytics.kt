@@ -35,7 +35,7 @@ data class DailyAnalytics(
 data class SettlementByPaymentMethod(
     val orderCount: Int,
     val totalRevenue: Double,
-    val totalTax: Double,
+    val totalTax: Double, // NOTE: This field represents delivery fees, not actual tax
     val totalSubtotal: Double
 )
 
@@ -50,5 +50,5 @@ data class DeliveryPerformance(
     val deliveryUserName: String,
     val orderCount: Int,
     val totalRevenue: Double,
-    val totalTax: Double
+    val totalTax: Double // NOTE: This field represents delivery fees, not actual tax
 )

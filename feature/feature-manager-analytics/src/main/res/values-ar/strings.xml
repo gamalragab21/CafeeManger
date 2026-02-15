@@ -134,9 +134,9 @@
     <string name="select_time_period">اختر الفترة الزمنية للعرض</string>
     <string name="total_money_made">إجمالي الأموال المحققة</string>
     <string name="total_money_hint">هذه كل الأموال من المبيعات</string>
-    <string name="after_tax">الأموال بعد الضريبة</string>
-    <string name="after_tax_hint">ما تحتفظ به بعد دفع الضريبة</string>
-    <string name="tax_paid">الضريبة المدفوعة</string>
+    <string name="after_tax">الأموال بعد رسوم التوصيل</string>
+    <string name="after_tax_hint">ما تحتفظ به بعد رسوم التوصيل</string>
+    <string name="tax_paid">رسوم التوصيل</string>
     <string name="delivery_fees_collected">رسوم التوصيل</string>
     <string name="delivery_fees_hint">أموال إضافية من التوصيل</string>
     <string name="total_orders_count">إجمالي الطلبات</string>
@@ -147,7 +147,7 @@
     <string name="no_delivery_fees">لا توجد طلبات توصيل بعد</string>
     <string name="tax_label">الضريبة: %1$s جنيه</string>
     <string name="delivery_fees_label">الرسوم: %1$s جنيه</string>
-    <string name="no_tax_yet">لم يتم تحصيل ضرائب بعد</string>
+    <string name="no_tax_yet">لم يتم تحصيل رسوم توصيل بعد</string>
     <string name="report_ready">التقرير جاهز!</string>
     <string name="report_generated_successfully">تم إنشاء التقرير بنجاح</string>
     <string name="export_options">اختر طريقة التصدير:</string>

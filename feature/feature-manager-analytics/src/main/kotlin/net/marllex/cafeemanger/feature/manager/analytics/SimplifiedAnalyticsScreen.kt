@@ -36,6 +36,7 @@ import kotlin.math.abs
 @Composable
 fun SimplifiedAnalyticsScreen(
     viewModel: AnalyticsViewModel = hiltViewModel(),
+    onNavigateToExport: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -66,10 +67,10 @@ fun SimplifiedAnalyticsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.showReportDialog() }) {
+                    IconButton(onClick = onNavigateToExport) {
                         Icon(
                             Icons.Default.FileDownload,
-                            contentDescription = "Download Report",
+                            contentDescription = "Export Data",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -389,15 +390,16 @@ private fun MoneySection(uiState: AnalyticsViewModel.UiState) {
     // Use REAL data from API
     val totalRevenue = uiState.totalRevenue
     
-    // Calculate tax from settlements (real data) - if no tax, it will be 0 (not 14% fallback)
-    val totalTax = uiState.settlements?.byPaymentMethod?.values?.sumOf { it.totalTax } ?: 0.0
+    // NOTE: totalTax field actually represents delivery fees (not tax)
+    // Calculate delivery fees from settlements (real data)
+    val totalDeliveryFees = uiState.settlements?.byPaymentMethod?.values?.sumOf { it.totalTax } ?: 0.0
     
     // Calculate delivery fees correctly from delivery performance data
-    // Delivery fees = tax collected from all delivery orders (sum of tax from each delivery person)
+    // Delivery fees = fees collected from all delivery orders (sum from each delivery person)
     val deliveryFees = uiState.deliveryPerformance.sumOf { it.totalTax }
     
-    // Net revenue = Total revenue - Tax
-    val netRevenue = totalRevenue - totalTax
+    // Net revenue = Total revenue - Delivery Fees
+    val netRevenue = totalRevenue - totalDeliveryFees
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Total Money Card - Most Important
@@ -1309,7 +1311,9 @@ private fun PeakHourBar(
 @Composable
 private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
     val totalRevenue = uiState.totalRevenue
-    val totalTax = uiState.settlements?.byPaymentMethod?.values?.sumOf { it.totalTax } ?: 0.0
+    // NOTE: totalTax field actually represents delivery fees (not tax)
+    // The "tax" field in settings is used for delivery fees
+    val totalDeliveryFees = uiState.settlements?.byPaymentMethod?.values?.sumOf { it.totalTax } ?: 0.0
     
     // CRITICAL FIX: Filter salary payments to match the selected period
     // The fromDate and toDate in uiState should match the selected period
@@ -1323,8 +1327,8 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
     }
     val totalSalaries = periodSalaries.sumOf { it.amount }
     
-    // Calculate costs (salaries + tax)
-    val totalCosts = totalSalaries + totalTax
+    // Calculate costs (salaries + delivery fees)
+    val totalCosts = totalSalaries + totalDeliveryFees
     val netProfit = totalRevenue - totalCosts
     val profitMargin = if (totalRevenue > 0) (netProfit / totalRevenue) * 100 else 0.0
     
@@ -1377,7 +1381,7 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
             
             ProfitLossRow(
                 label = stringResource(R.string.tax_paid),
-                amount = totalTax,
+                amount = totalDeliveryFees,
                 color = Color(0xFFEF4444),
                 isExpense = true
             )

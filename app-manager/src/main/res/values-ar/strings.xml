@@ -47,4 +47,5 @@
     <string name="todays_overview">نظرة على اليوم</string>
     <string name="roles_and_permissions">الأدوار والصلاحيات</string>
     <string name="manager_name">اسمك</string>
+    <string name="export_data">تصدير البيانات</string>
 </resources>

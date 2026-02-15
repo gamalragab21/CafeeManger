@@ -134,9 +134,9 @@
     <string name="select_time_period">Choose time period to view</string>
     <string name="total_money_made">Total Money Made</string>
     <string name="total_money_hint">This is all the money from sales</string>
-    <string name="after_tax">Money After Tax</string>
-    <string name="after_tax_hint">What you keep after paying tax</string>
-    <string name="tax_paid">Tax Paid</string>
+    <string name="after_tax">Money After Delivery Fees</string>
+    <string name="after_tax_hint">What you keep after delivery fees</string>
+    <string name="tax_paid">Delivery Fees</string>
     <string name="delivery_fees_collected">Delivery Fees</string>
     <string name="delivery_fees_hint">Extra money from delivery</string>
     <string name="total_orders_count">Total Orders</string>
@@ -147,7 +147,7 @@
     <string name="no_delivery_fees">No delivery orders yet</string>
     <string name="tax_label">Tax: %1$s EGP</string>
     <string name="delivery_fees_label">Fees: %1$s EGP</string>
-    <string name="no_tax_yet">No tax collected yet</string>
+    <string name="no_tax_yet">No delivery fees collected yet</string>
     <string name="report_ready">Report Ready!</string>
     <string name="report_generated_successfully">Your report has been generated successfully</string>
     <string name="export_options">Choose how to export:</string>

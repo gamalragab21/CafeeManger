@@ -222,6 +222,27 @@ interface CafeeMangerApi {
         @Query("to") to: Long? = null
     ): List<DeliveryPerformanceResponse>
 
+    // ─── Export ──────────────────────────────────────────────────
+    @GET("api/v1/export/orders/pdf")
+    @Streaming
+    suspend fun exportOrdersPDF(
+        @Query("from") from: Long,
+        @Query("to") to: Long
+    ): Response<ResponseBody>
+
+    @GET("api/v1/export/orders/excel")
+    @Streaming
+    suspend fun exportOrdersExcel(
+        @Query("from") from: Long,
+        @Query("to") to: Long
+    ): Response<ResponseBody>
+
+    @GET("api/v1/export/orders/preview")
+    suspend fun getExportPreview(
+        @Query("from") from: Long,
+        @Query("to") to: Long
+    ): Response<Map<String, Any>>
+
     // ─── Stock ─────────────────────────────────────────────────────
     @GET("api/v1/stock")
     suspend fun getStock(): List<StockResponse>

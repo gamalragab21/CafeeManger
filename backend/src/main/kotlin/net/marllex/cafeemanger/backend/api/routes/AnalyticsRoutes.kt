@@ -47,14 +47,14 @@ data class DeliveryPerformanceDto(
     val delivery_user_name: String,
     val order_count: Int,
     val total_revenue: Double,
-    val total_tax: Double
+    val total_tax: Double // NOTE: This field represents delivery fees, not actual tax
 )
 
 @Serializable
 data class SettlementByPaymentMethodDto(
     val order_count: Int,
     val total_revenue: Double,
-    val total_tax: Double,
+    val total_tax: Double, // NOTE: This field represents delivery fees, not actual tax
     val total_subtotal: Double
 )
 

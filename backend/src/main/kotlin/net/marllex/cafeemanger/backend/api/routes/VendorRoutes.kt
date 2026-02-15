@@ -1,9 +1,13 @@
 package net.marllex.cafeemanger.backend.api.routes
 
-import io.ktor.http.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
+import io.ktor.server.routing.put
+import io.ktor.server.routing.route
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.cafeemanger.backend.api.middleware.currentUser
 import net.marllex.cafeemanger.backend.api.middleware.requireRole
@@ -11,7 +15,6 @@ import net.marllex.cafeemanger.backend.data.database.VendorsTable
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
-import kotlinx.datetime.Clock
 import java.util.UUID
 
 @Serializable
@@ -119,3 +122,36 @@ fun Route.vendorRoutes() {
         }
     }
 }
+
+// ─── Helper: map feature flags row to response ───────────────────
+@Serializable
+data class FeatureFlagsClientResponse(
+    val vendor_id: String,
+    // Manager App
+    val manager_dashboard: Boolean,
+    val manager_orders: Boolean,
+    val manager_menu: Boolean,
+    val manager_staff: Boolean,
+    val manager_attendance: Boolean,
+    val manager_salary: Boolean,
+    val manager_inventory: Boolean,
+    val manager_tables: Boolean,
+    val manager_reports: Boolean,
+    val manager_chatbot: Boolean,
+    val manager_users: Boolean,
+    val manager_settings: Boolean,
+    // Cashier App
+    val cashier_orders: Boolean,
+    val cashier_attendance: Boolean,
+    val cashier_dine_in: Boolean,
+    val cashier_takeaway: Boolean,
+    val cashier_delivery: Boolean,
+    // Delivery App
+    val delivery_orders: Boolean,
+    val delivery_navigation: Boolean,
+    val delivery_earnings: Boolean,
+    // Global
+    val qr_code_attendance: Boolean,
+    val pin_attendance: Boolean,
+    val multi_language: Boolean,
+)

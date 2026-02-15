@@ -37,4 +37,9 @@ interface AnalyticsRepository {
         to: Long? = null
     ): Result<List<DeliveryPerformance>>
     suspend fun getDailyAnalytics(from: Long, to: Long): Result<List<DailyAnalytics>>
+    
+    // Export methods
+    suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray>
+    suspend fun exportOrdersExcel(fromDate: Long, toDate: Long): Result<ByteArray>
+    suspend fun getExportPreview(fromDate: Long, toDate: Long): Result<Map<String, Any>>
 }

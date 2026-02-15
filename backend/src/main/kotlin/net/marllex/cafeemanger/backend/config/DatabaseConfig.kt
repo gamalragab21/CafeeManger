@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 
 object DatabaseConfig {
 
-    fun init(config: ApplicationConfig) {
+    fun init(config: ApplicationConfig,resetOnStart: Boolean) {
         val dbConfig = config.config("database")
 
         val hikariConfig = HikariConfig().apply {
@@ -32,6 +32,9 @@ object DatabaseConfig {
         val dataSource = HikariDataSource(hikariConfig)
         Database.connect(dataSource)
 
+        if (resetOnStart) {
+            clearAllDatabase()
+        }
         // Create tables if not exist
         transaction {
             SchemaUtils.create(
@@ -54,6 +57,7 @@ object DatabaseConfig {
                 RefreshTokensTable,
                 AnnouncementsTable,
                 AnnouncementReadsTable,
+//                net.marllex.cafeemanger.backend.database.tables.PublicQuestionsTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
@@ -61,11 +65,37 @@ object DatabaseConfig {
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable,
                 AnnouncementsTable, AnnouncementReadsTable,
+//                net.marllex.cafeemanger.backend.database.tables.PublicQuestionsTable,
             )
         }
 
         // Auto-seed demo data if database is empty
 //        seedIfEmpty()
+    }
+    fun clearAllDatabase() {
+        transaction {
+            SchemaUtils.drop(
+                AnnouncementReadsTable,
+                AnnouncementsTable,
+                RefreshTokensTable,
+                ActivityLogsTable,
+                SalaryPaymentsTable,
+                AttendanceAuthLogsTable,
+                AttendanceTable,
+                WorkerRolesTable,
+                WorkersTable,
+                StockTransactionsTable,
+                StockTable,
+                OrderItemsTable,
+                OrdersTable,
+                TaxPlacesTable,
+                TablesTable,
+                ItemsTable,
+                CategoriesTable,
+                UsersTable,
+                VendorsTable,
+            )
+        }
     }
 
     private val logger = LoggerFactory.getLogger("DatabaseConfig")

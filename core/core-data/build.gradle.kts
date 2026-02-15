@@ -14,4 +14,7 @@ dependencies {
     implementation(project(":core:core-database"))
 
     implementation(libs.kotlinx.coroutines.android)
+    
+    // Retrofit for Response type (needed for export methods)
+    implementation(libs.retrofit.core)
 }

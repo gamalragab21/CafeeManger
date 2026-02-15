@@ -33,6 +33,7 @@ class DashboardViewModel @Inject constructor(
         val recentOrders: List<Order> = emptyList(),
         val activeOrdersCount: Int = 0,
         val todayOrdersCount: Int = 0,
+        val completedOrdersCount: Int = 0,
         val todayRevenue: Double = 0.0,
         // Stock summary
         val totalStockItems: Int = 0,
@@ -95,6 +96,7 @@ class DashboardViewModel @Inject constructor(
                     recentOrders = orders.take(10),
                     activeOrdersCount = activeOrders.size,
                     todayOrdersCount = todayOrders.size,
+                    completedOrdersCount = completedToday.size,
                     todayRevenue = todayRevenue,
                     totalStockItems = stocks.size,
                     lowStockCount = lowStockItems.size,

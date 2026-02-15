@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.marllex.cafeemanger.core.model.Worker
@@ -119,152 +120,179 @@ fun WorkerQrCodeContent(
     onRegenerate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    val cafeDark = Color(0xFF1C1B1F)
+    val cafeGold = Color(0xFFD4AF37)
+    val cafeSoftBg = Color(0xFFF7F7F7)
+
+    // Main container that handles the background and overall centering
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(cafeSoftBg),
+        contentAlignment = Alignment.Center // Absolute centering for Tablet and Phone
     ) {
-        // 1. The Badge Card (The "Hero" element)
-        ElevatedCard(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.7f), // Standard ID card ratio
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
+                .padding(24.dp)
+                // widthIn is key for Tablet:
+                // It stays 100% on small phones but caps at 400dp on Tablets/Landscape
+                .widthIn(min = 280.dp, max = 400.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Brand Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primary)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+
+            // 1. The Badge Card (Scaled for "Physical ID" size)
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.72f), // Slightly adjusted ratio for better centering
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp)
+            ) {
+                BadgeCardInternal(worker, qrCodeBitmap, cafeDark, cafeGold)
+            }
+
+            // Spacing that scales well
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // 2. Action Buttons (Narrower than the card for aesthetic balance)
+            Column(
+                modifier = Modifier.fillMaxWidth(0.9f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Primary Action
+                Button(
+                    onClick = onDownloadFullBadge,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = cafeDark)
                 ) {
-                    Text(
-                        text = "STAFF IDENTIFICATION",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    Icon(Icons.Default.FileDownload, contentDescription = null, tint = cafeGold)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save Digital Pass", fontWeight = FontWeight.Bold)
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(80.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(15.dp))
-
-                // QR Code Container with "Safe Zone" for scanning
-                Surface(
-                    modifier = Modifier
-                        .size(220.dp)
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                // Secondary Actions Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    OutlinedButton(
+                        onClick = onDownload,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, cafeDark.copy(alpha = 0.2f))
+                    ) {
+                        Text("QR Only", color = cafeDark)
+                    }
 
-
-                    if (qrCodeBitmap != null) {
-                        Image(
-                            bitmap = qrCodeBitmap.asImageBitmap(),
-                            contentDescription = "QR Code for ${worker.fullName}",
-                            modifier = Modifier.fillMaxSize(),
-                            filterQuality = FilterQuality.None // Keeps QR edges sharp
-                        )
-                    } else {
-                        CircularProgressIndicator(modifier = Modifier.wrapContentSize())
+                    OutlinedButton(
+                        onClick = onRegenerate,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Refresh")
                     }
                 }
+            }
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.height(16.dp))
+@Composable
+private fun BadgeCardInternal(
+    worker: Worker,
+    qrCodeBitmap: Bitmap?,
+    cafeDark: Color,
+    cafeGold: Color
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Branding Header
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = cafeDark
+        ) {
+            Text(
+                text = "STAFF IDENTIFICATION",
+                modifier = Modifier.padding(vertical = 14.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                letterSpacing = 2.sp
+            )
+        }
 
-                // Worker Info
-                Text(
-                    text = worker.fullName,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = worker.role,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+        Spacer(modifier = Modifier.weight(1f))
 
-                Spacer(modifier = Modifier.weight(1f))
+        // Profile Placeholder (More compact)
+        Surface(
+            modifier = Modifier.size(80.dp),
+            shape = CircleShape,
+            color = Color(0xFFF9F9F9),
+            border = BorderStroke(1.dp, cafeGold)
+        ) {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = null,
+                modifier = Modifier.padding(12.dp),
+                tint = cafeDark.copy(alpha = 0.2f)
+            )
+        }
 
-                // Card Footer (Technical Details)
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp))
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ID: ${worker.workerId}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
+        Spacer(modifier = Modifier.weight(1f))
+
+        // QR Code Section
+        Surface(
+            modifier = Modifier.size(170.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.3f))
+        ) {
+            Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
+                if (qrCodeBitmap != null) {
+                    Image(
+                        bitmap = qrCodeBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        filterQuality = FilterQuality.None
                     )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "v${worker.qrCodeVersion}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+                } else {
+                    CircularProgressIndicator(color = cafeGold, strokeWidth = 2.dp)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
-        // 2. Action Buttons (Secondary Section)
+        // Worker Details
         Text(
-            text = "Actions",
-            modifier = Modifier.align(Alignment.Start),
-            style = MaterialTheme.typography.titleMedium
+            text = worker.fullName.uppercase(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = cafeDark
+        )
+        Text(
+            text = worker.role,
+            style = MaterialTheme.typography.labelLarge,
+            color = cafeGold
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.weight(1.5f))
 
-        // Primary Action: Download
-        Button(
-            onClick = onDownloadFullBadge,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.Download, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Save Digital Badge to Gallery")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Secondary Actions: Outlined buttons for less visual weight
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = onDownload,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("QR Only")
-            }
-            OutlinedButton(
-                onClick = onRegenerate,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Reset")
-            }
-        }
+        // ID Subtext
+        Text(
+            text = "ID: ${worker.workerId}",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(bottom = 12.dp),
+            color = Color.LightGray
+        )
     }
 }
 

@@ -11,6 +11,8 @@ import net.marllex.cafeemanger.backend.data.database.VendorsTable
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.insertAndGetId
 import java.util.UUID
 
 // ─── Hardcoded admin password ────────────────────────────────────
@@ -51,6 +53,176 @@ data class AdminUpdateVendorRequest(
     val digital_menu_url: String? = null,
 )
 
+@Serializable
+data class AdminCreateVendorRequest(
+    val vendor_name: String,
+    val vendor_address: String,
+    val vendor_phone: String,
+    val wallet_phone: String? = null,
+    val default_delivery_fee: Double = 0.0,
+    val store_type: String? = null,
+    val enable_tables: Boolean = true,
+    val enable_dine_in: Boolean = true,
+    val enable_delivery: Boolean = true,
+    val digital_menu_url: String? = null,
+    val logo_url: String? = null,
+    val manager_name: String,
+    val manager_phone: String,
+    val manager_email: String? = null,
+    val manager_password: String,
+)
+
+@Serializable
+data class AdminCreateVendorResponse(
+    val vendor: AdminVendorResponse,
+    val manager_id: String,
+)
+
+@Serializable
+data class FeatureFlagsResponse(
+    val vendor_id: String,
+    // ═══ PUBLIC FEATURES ═══
+    // Manager App
+    val manager_dashboard: Boolean,
+    val manager_orders: Boolean,
+    val manager_menu: Boolean,
+    val manager_staff: Boolean,
+    val manager_attendance: Boolean,
+    val manager_salary: Boolean,
+    val manager_inventory: Boolean,
+    val manager_tables: Boolean,
+    val manager_reports: Boolean,
+    val manager_chatbot: Boolean,
+    val manager_users: Boolean,
+    val manager_settings: Boolean,
+    // Cashier App
+    val cashier_orders: Boolean,
+    val cashier_attendance: Boolean,
+    val cashier_dine_in: Boolean,
+    val cashier_takeaway: Boolean,
+    val cashier_delivery: Boolean,
+    // Delivery App
+    val delivery_orders: Boolean,
+    val delivery_navigation: Boolean,
+    val delivery_earnings: Boolean,
+    // Global
+    val qr_code_attendance: Boolean,
+    val pin_attendance: Boolean,
+    val multi_language: Boolean,
+    
+    // ═══ INTERNAL CONFIGURATION (Admin only) ═══
+    // System Limits
+    val max_users_per_vendor: Int,
+    val max_workers_per_vendor: Int,
+    val max_orders_per_day: Int,
+    val max_items_per_order: Int,
+    // Storage & Data
+    val max_storage_images_mb: Int,
+    val data_retention_days: Int,
+    // API Rate Limiting
+    val api_rate_limit_per_minute: Int,
+    val enable_api_rate_limit: Boolean,
+    // Advanced Features
+    val enable_advanced_analytics: Boolean,
+    val enable_custom_reports: Boolean,
+    val enable_data_export: Boolean,
+    val enable_bulk_operations: Boolean,
+    // Integration Features
+    val enable_webhooks: Boolean,
+    val enable_api_access: Boolean,
+    val enable_third_party_integrations: Boolean,
+    // Subscription & Billing
+    val subscription_tier: String,
+    val subscription_expires_at: Long?,
+    val billing_cycle: String,
+    // Security & Compliance
+    val enable_two_factor_auth: Boolean,
+    val enable_audit_logs: Boolean,
+    val enable_data_encryption: Boolean,
+    val require_strong_passwords: Boolean,
+    // Support & Priority
+    val support_priority: String,
+    val enable_priority_support: Boolean,
+    val enable_dedicated_account: Boolean,
+    // Vendor Status
+    val is_active: Boolean,
+    val is_suspended: Boolean,
+    val suspension_reason: String?,
+    val notes: String?,
+)
+
+@Serializable
+data class UpdateFeatureFlagsRequest(
+    // ═══ PUBLIC FEATURES ═══
+    // Manager App
+    val manager_dashboard: Boolean? = null,
+    val manager_orders: Boolean? = null,
+    val manager_menu: Boolean? = null,
+    val manager_staff: Boolean? = null,
+    val manager_attendance: Boolean? = null,
+    val manager_salary: Boolean? = null,
+    val manager_inventory: Boolean? = null,
+    val manager_tables: Boolean? = null,
+    val manager_reports: Boolean? = null,
+    val manager_chatbot: Boolean? = null,
+    val manager_users: Boolean? = null,
+    val manager_settings: Boolean? = null,
+    // Cashier App
+    val cashier_orders: Boolean? = null,
+    val cashier_attendance: Boolean? = null,
+    val cashier_dine_in: Boolean? = null,
+    val cashier_takeaway: Boolean? = null,
+    val cashier_delivery: Boolean? = null,
+    // Delivery App
+    val delivery_orders: Boolean? = null,
+    val delivery_navigation: Boolean? = null,
+    val delivery_earnings: Boolean? = null,
+    // Global
+    val qr_code_attendance: Boolean? = null,
+    val pin_attendance: Boolean? = null,
+    val multi_language: Boolean? = null,
+    
+    // ═══ INTERNAL CONFIGURATION (Admin only) ═══
+    // System Limits
+    val max_users_per_vendor: Int? = null,
+    val max_workers_per_vendor: Int? = null,
+    val max_orders_per_day: Int? = null,
+    val max_items_per_order: Int? = null,
+    // Storage & Data
+    val max_storage_images_mb: Int? = null,
+    val data_retention_days: Int? = null,
+    // API Rate Limiting
+    val api_rate_limit_per_minute: Int? = null,
+    val enable_api_rate_limit: Boolean? = null,
+    // Advanced Features
+    val enable_advanced_analytics: Boolean? = null,
+    val enable_custom_reports: Boolean? = null,
+    val enable_data_export: Boolean? = null,
+    val enable_bulk_operations: Boolean? = null,
+    // Integration Features
+    val enable_webhooks: Boolean? = null,
+    val enable_api_access: Boolean? = null,
+    val enable_third_party_integrations: Boolean? = null,
+    // Subscription & Billing
+    val subscription_tier: String? = null,
+    val subscription_expires_at: Long? = null,
+    val billing_cycle: String? = null,
+    // Security & Compliance
+    val enable_two_factor_auth: Boolean? = null,
+    val enable_audit_logs: Boolean? = null,
+    val enable_data_encryption: Boolean? = null,
+    val require_strong_passwords: Boolean? = null,
+    // Support & Priority
+    val support_priority: String? = null,
+    val enable_priority_support: Boolean? = null,
+    val enable_dedicated_account: Boolean? = null,
+    // Vendor Status
+    val is_active: Boolean? = null,
+    val is_suspended: Boolean? = null,
+    val suspension_reason: String? = null,
+    val notes: String? = null,
+)
+
 // ─── Helper: validate admin password from header ─────────────────
 private suspend fun RoutingContext.requireAdminPassword(): Boolean {
     val password = call.request.header("X-Admin-Password")
@@ -84,6 +256,58 @@ private fun mapVendorRow(row: org.jetbrains.exposed.sql.ResultRow, usersCount: I
 // ─── Routes ──────────────────────────────────────────────────────
 fun Route.adminRoutes() {
     route("/api/v1/admin") {
+
+        // POST /api/v1/admin/vendors — create new vendor with manager
+        post("/vendors") {
+            if (!requireAdminPassword()) return@post
+
+            val request = call.receive<AdminCreateVendorRequest>()
+
+            val result = transaction {
+                // Create vendor
+                val vendorId = VendorsTable.insertAndGetId {
+                    it[name] = request.vendor_name
+                    it[address] = request.vendor_address
+                    it[contactPhone] = request.vendor_phone
+                    it[walletPhone] = request.wallet_phone
+                    it[defaultDeliveryFee] = java.math.BigDecimal.valueOf(request.default_delivery_fee)
+                    it[storeType] = request.store_type
+                    it[enableTables] = request.enable_tables
+                    it[enableDineIn] = request.enable_dine_in
+                    it[enableDelivery] = request.enable_delivery
+                    it[digitalMenuUrl] = request.digital_menu_url
+                    it[logoUrl] = request.logo_url
+                    it[createdAt] = Clock.System.now()
+                    it[updatedAt] = Clock.System.now()
+                }
+
+                // Create manager user
+                val passwordHash = net.marllex.cafeemanger.backend.domain.service.AuthService.hashPassword(request.manager_password)
+                val managerId = UsersTable.insertAndGetId {
+                    it[UsersTable.vendorId] = vendorId.value
+                    it[role] = "MANAGER"
+                    it[UsersTable.name] = request.manager_name
+                    it[phone] = request.manager_phone
+                    it[email] = request.manager_email
+                    it[UsersTable.passwordHash] = passwordHash
+                    it[active] = true
+                    it[createdAt] = Clock.System.now()
+                    it[updatedAt] = Clock.System.now()
+                }
+
+                // Return vendor info
+                val vendorRow = VendorsTable.selectAll()
+                    .where { VendorsTable.id eq vendorId.value }
+                    .first()
+
+                AdminCreateVendorResponse(
+                    vendor = mapVendorRow(vendorRow, 1),
+                    manager_id = managerId.toString()
+                )
+            }
+
+            call.respond(HttpStatusCode.Created, result)
+        }
 
         // GET /api/v1/admin/vendors — list all stores
         get("/vendors") {

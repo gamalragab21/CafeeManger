@@ -7,6 +7,7 @@ import net.marllex.cafeemanger.core.model.DeliveryPerformance
 import net.marllex.cafeemanger.core.model.Settlements
 import net.marllex.cafeemanger.core.network.CafeeMangerApi
 import net.marllex.cafeemanger.core.network.mapper.toDomain
+import retrofit2.Response
 import javax.inject.Inject
 
 class AnalyticsRepositoryImpl @Inject constructor(
@@ -68,4 +69,31 @@ class AnalyticsRepositoryImpl @Inject constructor(
         runCatching {
             api.getDailyAnalytics(from, to).map { it.toDomain() }
         }
+    
+    override suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
+        val response = api.exportOrdersPDF(fromDate, toDate)
+        if (response.isSuccessful) {
+            response.body()?.bytes() ?: throw Exception("Empty response body")
+        } else {
+            throw Exception("Failed to export PDF: ${response.message()}")
+        }
+    }
+    
+    override suspend fun exportOrdersExcel(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
+        val response = api.exportOrdersExcel(fromDate, toDate)
+        if (response.isSuccessful) {
+            response.body()?.bytes() ?: throw Exception("Empty response body")
+        } else {
+            throw Exception("Failed to export Excel: ${response.message()}")
+        }
+    }
+    
+    override suspend fun getExportPreview(fromDate: Long, toDate: Long): Result<Map<String, Any>> = runCatching {
+        val response = api.getExportPreview(fromDate, toDate)
+        if (response.isSuccessful) {
+            response.body() ?: throw Exception("Empty response body")
+        } else {
+            throw Exception("Failed to load preview: ${response.message()}")
+        }
+    }
 }
