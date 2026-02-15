@@ -39,10 +39,10 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkerQrCodeScreen(
+actual fun WorkerQrCodeScreen(
     onNavigateBack: () -> Unit,
-    viewModel: WorkerQrCodeViewModel = koinViewModel(),
 ) {
+    val viewModel: WorkerQrCodeViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     // Show snackbar for messages

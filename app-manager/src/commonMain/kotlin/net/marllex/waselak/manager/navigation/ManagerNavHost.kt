@@ -1,13 +1,8 @@
 package net.marllex.waselak.manager.navigation
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +60,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,16 +70,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -94,16 +85,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.ui.components.LanguageSelector
+import net.marllex.waselak.core.ui.components.QrCodeImage
 import net.marllex.waselak.core.ui.components.SignOutButton
+import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
-import net.marllex.waselak.feature.manager.analytics.AnalyticsScreen
 import net.marllex.waselak.feature.manager.analytics.EnhancedAnalyticsScreen
+import net.marllex.waselak.feature.manager.analytics.ExportScreen
 import net.marllex.waselak.feature.manager.categories.CategoriesScreen
 import net.marllex.waselak.feature.manager.chatbot.navigation.chatbotScreen
 import net.marllex.waselak.feature.manager.dashboard.DashboardScreen
@@ -115,6 +106,8 @@ import net.marllex.waselak.feature.manager.stock.StockScreen
 import net.marllex.waselak.feature.manager.tables.TablesScreen
 import net.marllex.waselak.feature.manager.users.UsersScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
+import org.koin.core.qualifier.named
+import org.koin.mp.KoinPlatform
 
 enum class ManagerTab(
     val route: String,
@@ -128,7 +121,7 @@ enum class ManagerTab(
     PROFILE("manager/profile", "Profile", Icons.Filled.Person),
 }
 
-// ─── Adaptive Bottom Bar (phone) ─────────────────────────────────
+// --- Adaptive Bottom Bar (phone) ---
 @Composable
 private fun ManagerBottomBar(
     navController: NavController,
@@ -180,7 +173,7 @@ private fun ManagerBottomBar(
     }
 }
 
-// ─── Navigation Rail (tablet) ────────────────────────────────────
+// --- Navigation Rail (tablet) ---
 @Composable
 private fun ManagerNavRail(
     navController: NavController,
@@ -230,14 +223,12 @@ private fun ManagerNavRail(
     }
 }
 
-// ─── Main Nav Host ───────────────────────────────────────────────
+// --- Main Nav Host ---
 @Composable
 fun ManagerNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
 
     val onSignOut: () -> Unit = remember(navController, scope) {
@@ -255,129 +246,133 @@ fun ManagerNavHost(authRepository: AuthRepository) {
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
     }
 
-    if (isTablet) {
-        // Tablet: NavigationRail on the side
-        Row(modifier = Modifier.fillMaxSize()) {
-            if (showNav) {
-                ManagerNavRail(navController, currentDestination)
-                VerticalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp,
-                )
-            }
-            NavHost(
-                navController = navController,
-                startDestination = AUTH_ROUTE,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            ) {
-                authScreen(
-                    onLoginSuccess = {
-                        navController.navigate(ManagerTab.DASHBOARD.route) {
-                            popUpTo(AUTH_ROUTE) { inclusive = true }
-                        }
-                    },
-                    appType = "MANAGER",
-                )
-                composable(ManagerTab.DASHBOARD.route) { 
-                    DashboardScreen(
-                        onNavigateToChatbot = { 
-                            navController.navigate("chatbot")
-                        }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 600.dp
+
+        if (isTablet) {
+            // Tablet: NavigationRail on the side
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (showNav) {
+                    ManagerNavRail(navController, currentDestination)
+                    VerticalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 0.5.dp,
                     )
                 }
-                composable(ManagerTab.ORDERS.route) { OrdersScreen() }
-                composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { 
-                    StaffScreen(
-                        onNavigateToWorkerQrCode = { workerId ->
-                            navController.navigate("worker_qr_code/$workerId")
-                        }
-                    )
-                }
-                composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
-                composable(
-                    route = "worker_qr_code/{workerId}",
-                    arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                NavHost(
+                    navController = navController,
+                    startDestination = AUTH_ROUTE,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 ) {
-                    WorkerQrCodeScreen(
+                    authScreen(
+                        onLoginSuccess = {
+                            navController.navigate(ManagerTab.DASHBOARD.route) {
+                                popUpTo(AUTH_ROUTE) { inclusive = true }
+                            }
+                        },
+                        appType = "MANAGER",
+                    )
+                    composable(ManagerTab.DASHBOARD.route) {
+                        DashboardScreen(
+                            onNavigateToChatbot = {
+                                navController.navigate("chatbot")
+                            }
+                        )
+                    }
+                    composable(ManagerTab.ORDERS.route) { OrdersScreen() }
+                    composable(ManagerTab.MENU.route) { MenuTabContent() }
+                    composable(ManagerTab.USERS.route) {
+                        StaffScreen(
+                            onNavigateToWorkerQrCode = { workerId ->
+                                navController.navigate("worker_qr_code/$workerId")
+                            }
+                        )
+                    }
+                    composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
+                    composable(
+                        route = "worker_qr_code/{workerId}",
+                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                    ) {
+                        WorkerQrCodeScreen(
+                            onNavigateBack = { navController.navigateUp() }
+                        )
+                    }
+                    chatbotScreen(
                         onNavigateBack = { navController.navigateUp() }
                     )
-                }
-                chatbotScreen(
-                    onNavigateBack = { navController.navigateUp() }
-                )
-                composable("export") {
-                    net.marllex.waselak.feature.manager.analytics.ExportScreen(
-                        onNavigateBack = { navController.navigateUp() }
-                    )
+                    composable("export") {
+                        ExportScreen(
+                            onNavigateBack = { navController.navigateUp() }
+                        )
+                    }
                 }
             }
-        }
-    } else {
-        // Phone: Bottom NavigationBar
-        Scaffold(
-            bottomBar = {
-                if (showNav) ManagerBottomBar(navController, currentDestination)
-            }
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = AUTH_ROUTE,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                authScreen(
-                    onLoginSuccess = {
-                        navController.navigate(ManagerTab.DASHBOARD.route) {
-                            popUpTo(AUTH_ROUTE) { inclusive = true }
-                        }
-                    },
-                    appType = "MANAGER",
-                )
-                composable(ManagerTab.DASHBOARD.route) { 
-                    DashboardScreen(
-                        onNavigateToChatbot = { 
-                            navController.navigate("chatbot")
-                        }
-                    )
+        } else {
+            // Phone: Bottom NavigationBar
+            Scaffold(
+                bottomBar = {
+                    if (showNav) ManagerBottomBar(navController, currentDestination)
                 }
-                composable(ManagerTab.ORDERS.route) { OrdersScreen() }
-                composable(ManagerTab.MENU.route) { MenuTabContent() }
-                composable(ManagerTab.USERS.route) { 
-                    StaffScreen(
-                        onNavigateToWorkerQrCode = { workerId ->
-                            navController.navigate("worker_qr_code/$workerId")
-                        }
-                    )
-                }
-                composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
-                composable(
-                    route = "worker_qr_code/{workerId}",
-                    arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = AUTH_ROUTE,
+                    modifier = Modifier.padding(innerPadding)
                 ) {
-                    WorkerQrCodeScreen(
+                    authScreen(
+                        onLoginSuccess = {
+                            navController.navigate(ManagerTab.DASHBOARD.route) {
+                                popUpTo(AUTH_ROUTE) { inclusive = true }
+                            }
+                        },
+                        appType = "MANAGER",
+                    )
+                    composable(ManagerTab.DASHBOARD.route) {
+                        DashboardScreen(
+                            onNavigateToChatbot = {
+                                navController.navigate("chatbot")
+                            }
+                        )
+                    }
+                    composable(ManagerTab.ORDERS.route) { OrdersScreen() }
+                    composable(ManagerTab.MENU.route) { MenuTabContent() }
+                    composable(ManagerTab.USERS.route) {
+                        StaffScreen(
+                            onNavigateToWorkerQrCode = { workerId ->
+                                navController.navigate("worker_qr_code/$workerId")
+                            }
+                        )
+                    }
+                    composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
+                    composable(
+                        route = "worker_qr_code/{workerId}",
+                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                    ) {
+                        WorkerQrCodeScreen(
+                            onNavigateBack = { navController.navigateUp() }
+                        )
+                    }
+                    chatbotScreen(
                         onNavigateBack = { navController.navigateUp() }
                     )
-                }
-                chatbotScreen(
-                    onNavigateBack = { navController.navigateUp() }
-                )
-                composable("export") {
-                    net.marllex.waselak.feature.manager.analytics.ExportScreen(
-                        onNavigateBack = { navController.navigateUp() }
-                    )
+                    composable("export") {
+                        ExportScreen(
+                            onNavigateBack = { navController.navigateUp() }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// ─── Menu Sub-Tabs ───────────────────────────────────────────────
+// --- Menu Sub-Tabs ---
 @Composable
 private fun MenuTabContent() {
     val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-    val profileState by profileVm.uiState.collectAsStateWithLifecycle()
+    val profileState by profileVm.uiState.collectAsState()
     val vendor = profileState.vendor
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -389,12 +384,11 @@ private fun MenuTabContent() {
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Use ScrollableTabRow for horizontal scrolling support
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary,
-            edgePadding = 16.dp, // Padding on edges for better scrolling
+            edgePadding = 16.dp,
             divider = {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             },
@@ -441,23 +435,19 @@ private fun MenuTabContent() {
     }
 }
 
-// ─── Digital Menu QR + Link ──────────────────────────────────────
+// --- Digital Menu QR + Link ---
 @Composable
 private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
-    val context = LocalContext.current
+    val platformActions = rememberPlatformActions()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copiedMsg = "Link copied"
-
-    // Get screen info for adaptive sizing
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp
 
     val menuUrl = remember(vendorId, customMenuUrl) {
         when {
             !customMenuUrl.isNullOrBlank() -> customMenuUrl
             !vendorId.isNullOrBlank() -> {
-                val base = org.koin.java.KoinJavaComponent.getKoin().get<String>(org.koin.core.qualifier.named("baseUrl")).trimEnd('/')
+                val base = KoinPlatform.getKoin().get<String>(named("baseUrl")).trimEnd('/')
                 "$base/menu/$vendorId"
             }
             else -> null
@@ -466,129 +456,122 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent // Allow parent background to show
+        containerColor = Color.Transparent
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                // 1. Enable scrolling so content is never cut off on small phones or landscape
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (screenWidth > 600) Arrangement.Center else Arrangement.Top,
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // 2. Limit content width for tablets (max 480dp looks best for single-column cards)
+            val screenWidth = maxWidth.value.toInt()
+
             Column(
-                modifier = Modifier.widthIn(max = 480.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = if (screenWidth > 600) Arrangement.Center else Arrangement.Top,
             ) {
-                if (!menuUrl.isNullOrBlank()) {
-                    val qrBitmap = remember(menuUrl) { generateQrBitmap(menuUrl, 512) }
+                Column(
+                    modifier = Modifier.widthIn(max = 480.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (!menuUrl.isNullOrBlank()) {
+                        Icon(
+                            Icons.Filled.QrCode2, null,
+                            modifier = Modifier.size(if (screenWidth > 600) 48.dp else 32.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Digital Menu",
+                            style = if (screenWidth > 600) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Scan to view menu",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
 
-                    Icon(
-                        Icons.Filled.QrCode2, null,
-                        modifier = Modifier.size(if (screenWidth > 600) 48.dp else 32.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Digital Menu",
-                        style = if (screenWidth > 600) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Scan to view menu",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
+                        Spacer(Modifier.height(24.dp))
 
-                    Spacer(Modifier.height(24.dp))
-
-                    // QR Card - Always remains square
-                    Card(
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                    ) {
-                        Box(Modifier.padding(if (screenWidth > 600) 32.dp else 20.dp)) {
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = null,
-                                modifier = Modifier.size(if (screenWidth > 600) 280.dp else 220.dp),
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(32.dp))
-
-                    // Link display
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                "Digital Menu Link",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                menuUrl,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Adaptive Button - Wide on phone, wrap-content on large screens?
-                    // Usually, full-width within the 480dp limit looks most professional.
-                    Button(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Menu URL", menuUrl))
-                            scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Icon(Icons.Filled.ContentCopy, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Copy Link", style = MaterialTheme.typography.titleMedium)
-                    }
-
-                    // Added: Share Action (Very useful for tablets/business use)
-                    TextButton(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, menuUrl)
+                        // QR Card
+                        Card(
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        ) {
+                            Box(Modifier.padding(if (screenWidth > 600) 32.dp else 20.dp)) {
+                                QrCodeImage(
+                                    content = menuUrl,
+                                    modifier = Modifier.size(if (screenWidth > 600) 280.dp else 220.dp),
+                                )
                             }
-                            context.startActivity(Intent.createChooser(intent, "Share Link"))
-                        },
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Share with Customers")
-                    }
+                        }
 
-                } else {
-                    // Empty State
-                    EmptyMenuState()
+                        Spacer(Modifier.height(32.dp))
+
+                        // Link display
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ),
+                        ) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(
+                                    "Digital Menu Link",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    menuUrl,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                platformActions.copyToClipboard(menuUrl)
+                                scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Icon(Icons.Filled.ContentCopy, null, Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Copy Link", style = MaterialTheme.typography.titleMedium)
+                        }
+
+                        TextButton(
+                            onClick = {
+                                platformActions.shareText(menuUrl, "Share Link")
+                            },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Share with Customers")
+                        }
+
+                    } else {
+                        // Empty State
+                        EmptyMenuState()
+                    }
                 }
             }
         }
@@ -612,23 +595,15 @@ private fun EmptyMenuState() {
         )
     }
 }
-private fun generateQrBitmap(content: String, size: Int): Bitmap {
-    val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
-    val pixels = IntArray(size * size) { idx ->
-        if (bitMatrix[idx % size, idx / size]) Color.Black.toArgb() else Color.White.toArgb()
-    }
-    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.RGB_565)
-}
 
-// ─── Profile Sub-Tabs ────────────────────────────────────────────
+// --- Profile Sub-Tabs ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileTabContent(onSignOut: () -> Unit) {
     val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-    val profileState by profileVm.uiState.collectAsStateWithLifecycle()
+    val profileState by profileVm.uiState.collectAsState()
     val vendor = profileState.vendor
 
-    // Sub-screen state: null = main tabs, or a sub-screen key
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
@@ -678,7 +653,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 )
                 TaxPlacesScreen()
             }
-            
+
             "export" -> {
                 TopAppBar(
                     title = { Text("Export Data") },
@@ -689,13 +664,12 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
-                net.marllex.waselak.feature.manager.analytics.ExportScreen(
+                ExportScreen(
                     onNavigateBack = { activeSubScreen = null }
                 )
             }
 
             else -> {
-                // 3-tab TabRow
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -757,67 +731,65 @@ private fun SettingsContent(
     onNavigateToUsers: () -> Unit,
     onNavigateToTaxPlaces: () -> Unit,
 ) {
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 600.dp
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Quick Access Section
-        Text(
-            text = "Store Features",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-
-        // Navigation cards for sub-screens
-        if (vendor?.enableTables != false) {
-            SettingsNavigationCard(
-                icon = Icons.Filled.TableBar,
-                title = "Tables",
-                onClick = onNavigateToTables,
-            )
-        }
-
-        SettingsNavigationCard(
-            icon = Icons.Filled.Security,
-            title = "Roles & Permissions",
-            onClick = onNavigateToUsers,
-        )
-
-        SettingsNavigationCard(
-            icon = Icons.Filled.LocalShipping,
-            title = "Tax Places",
-            onClick = onNavigateToTaxPlaces,
-        )
-
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(Modifier.height(4.dp))
-
-        // Language
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                LanguageSelector(modifier = Modifier.fillMaxWidth())
-            }
-        }
+            Text(
+                text = "Store Features",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
 
-        Spacer(Modifier.height(8.dp))
-        SignOutButton(onSignOut = onSignOut)
-        Spacer(Modifier.height(24.dp))
+            if (vendor?.enableTables != false) {
+                SettingsNavigationCard(
+                    icon = Icons.Filled.TableBar,
+                    title = "Tables",
+                    onClick = onNavigateToTables,
+                )
+            }
+
+            SettingsNavigationCard(
+                icon = Icons.Filled.Security,
+                title = "Roles & Permissions",
+                onClick = onNavigateToUsers,
+            )
+
+            SettingsNavigationCard(
+                icon = Icons.Filled.LocalShipping,
+                title = "Tax Places",
+                onClick = onNavigateToTaxPlaces,
+            )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    LanguageSelector(modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            SignOutButton(onSignOut = onSignOut)
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }
 

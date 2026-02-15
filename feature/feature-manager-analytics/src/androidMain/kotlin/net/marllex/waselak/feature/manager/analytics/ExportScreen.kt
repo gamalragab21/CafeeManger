@@ -32,10 +32,10 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExportScreen(
-    viewModel: ExportViewModel = koinViewModel(),
+actual fun ExportScreen(
     onNavigateBack: () -> Unit
 ) {
+    val viewModel: ExportViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

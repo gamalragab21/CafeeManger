@@ -3,16 +3,15 @@ package net.marllex.waselak.cashier.navigation
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -54,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,10 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -130,7 +128,6 @@ private fun CashierBottomBar(
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
-        windowInsets = WindowInsets.navigationBars,
     ) {
         CashierTab.entries.forEach { tab ->
             val isSelected =
@@ -327,87 +324,138 @@ private fun CashierProfileScreen(
     vendor: Vendor?,
     onSignOut: () -> Unit,
 ) {
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 600.dp
 
-    LazyColumn(
-        contentPadding = PaddingValues(
-            horizontal = if (isTablet) 48.dp else 16.dp,
-            vertical = 16.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        // Profile header card with store logo
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                ),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+        LazyColumn(
+            contentPadding = PaddingValues(
+                horizontal = if (isTablet) 48.dp else 16.dp,
+                vertical = 16.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            // Profile header card with store logo
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    ),
                 ) {
-                    if (!vendor?.logoUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = vendor?.logoUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape)
-                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape)
-                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Filled.Store,
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (!vendor?.logoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = vendor?.logoUrl,
                                 contentDescription = null,
-                                modifier = Modifier.size(40.dp),
-                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                contentScale = ContentScale.Crop,
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Filled.Store,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = vendor?.name ?: "",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = userName ?: "N/A",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = userRole ?: "N/A",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = vendor?.name ?: "",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = userName ?: "N/A",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = userRole ?: "N/A",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
-        }
 
-        // Store Info section
-        if (vendor != null) {
+            // Store Info section
+            if (vendor != null) {
+                item {
+                    Text(
+                        text = "Store Information",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(4.dp)) {
+                            ProfileInfoRow(
+                                label = "Store Name",
+                                value = vendor.name,
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            ProfileInfoRow(
+                                label = "Address",
+                                value = vendor.address,
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            ProfileInfoRow(
+                                label = "Contact Phone",
+                                value = vendor.contactPhone,
+                            )
+                            vendor.walletPhone?.let { walletPhone ->
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                )
+                                ProfileInfoRow(
+                                    label = "Wallet Phone",
+                                    value = walletPhone,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Account Info section
             item {
                 Text(
-                    text = "Store Information",
+                    text = "Account Information",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -421,150 +469,100 @@ private fun CashierProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(4.dp)) {
                         ProfileInfoRow(
-                            label = "Store Name",
-                            value = vendor.name,
+                            label = "Name",
+                            value = userName ?: "N/A",
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Address",
-                            value = vendor.address,
+                            label = "Phone",
+                            value = userPhone ?: "N/A",
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Contact Phone",
-                            value = vendor.contactPhone,
+                            label = "Email",
+                            value = userEmail ?: "N/A",
                         )
-                        vendor.walletPhone?.let { walletPhone ->
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                            )
-                            ProfileInfoRow(
-                                label = "Wallet Phone",
-                                value = walletPhone,
-                            )
-                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        ProfileInfoRow(
+                            label = "Role",
+                            value = userRole ?: "N/A",
+                        )
                     }
                 }
             }
-        }
 
-        // Account Info section
-        item {
-            Text(
-                text = "Account Information",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Column(modifier = Modifier.padding(4.dp)) {
-                    ProfileInfoRow(
-                        label = "Name",
-                        value = userName ?: "N/A",
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
-                    ProfileInfoRow(
-                        label = "Phone",
-                        value = userPhone ?: "N/A",
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
-                    ProfileInfoRow(
-                        label = "Email",
-                        value = userEmail ?: "N/A",
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
-                    ProfileInfoRow(
-                        label = "Role",
-                        value = userRole ?: "N/A",
-                    )
-                }
+            // App Settings section
+            item {
+                Text(
+                    text = "App Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
-        }
 
-        // App Settings section
-        item {
-            Text(
-                text = "App Settings",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Language",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    LanguageSelector(modifier = Modifier.fillMaxWidth())
-                }
-            }
-        }
-
-        // Sign Out
-        item {
-            Spacer(Modifier.height(8.dp))
-            SignOutButton(onSignOut = onSignOut)
-            Spacer(Modifier.height(16.dp))
-        }
-
-        // App Info
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                ),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
                 ) {
-                    Text(
-                        text = "Wasel POS - Cashier",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Version 1.0.0",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Language",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        LanguageSelector(modifier = Modifier.fillMaxWidth())
+                    }
                 }
             }
-            Spacer(Modifier.height(24.dp))
+
+            // Sign Out
+            item {
+                Spacer(Modifier.height(8.dp))
+                SignOutButton(onSignOut = onSignOut)
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // App Info
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "Wasel POS - Cashier",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Version 1.0.0",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -608,11 +606,9 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
     val scope = rememberCoroutineScope()
-    val currentUser by authRepository.currentUser.collectAsStateWithLifecycle(initialValue = null)
-    val vendor by vendorRepository.getMyVendor().collectAsStateWithLifecycle(initialValue = null)
+    val currentUser by authRepository.currentUser.collectAsState(initial = null)
+    val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val onSignOut: () -> Unit = remember(navController, scope) {
@@ -678,113 +674,117 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
     }
 
-    if (isTablet) {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = showNav,
-            drawerContent = {
-                CashierDrawerContent(
-                    navController = navController,
-                    currentDestination = currentDestination,
-                    userName = currentUser?.name,
-                    userRole = roleLabel,
-                    vendor = vendor,
-                    onItemClick = { scope.launch { drawerState.close() } },
-                )
-            },
-        ) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                if (showNav) {
-                    CashierNavRail(navController, currentDestination)
-                    VerticalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 600.dp
+
+        if (isTablet) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = showNav,
+                drawerContent = {
+                    CashierDrawerContent(
+                        navController = navController,
+                        currentDestination = currentDestination,
+                        userName = currentUser?.name,
+                        userRole = roleLabel,
+                        vendor = vendor,
+                        onItemClick = { scope.launch { drawerState.close() } },
                     )
-                }
-                Column(modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()) {
+                },
+            ) {
+                Row(modifier = Modifier.fillMaxSize()) {
                     if (showNav) {
-                        TopAppBar(
-                            title = {
-                                currentUser?.name?.let { name ->
-                                    Text(
-                                        text = "Welcome, $name",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                }
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(Icons.Filled.Menu, contentDescription = "Menu")
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ),
+                        CashierNavRail(navController, currentDestination)
+                        VerticalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            thickness = 0.5.dp,
                         )
                     }
+                    Column(modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()) {
+                        if (showNav) {
+                            TopAppBar(
+                                title = {
+                                    currentUser?.name?.let { name ->
+                                        Text(
+                                            text = "Welcome, $name",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                        Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                ),
+                            )
+                        }
+                        NavHost(
+                            navController = navController,
+                            startDestination = AUTH_ROUTE,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            builder = navGraphBuilder,
+                        )
+                    }
+                }
+            }
+        } else {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = showNav,
+                drawerContent = {
+                    CashierDrawerContent(
+                        navController = navController,
+                        currentDestination = currentDestination,
+                        userName = currentUser?.name,
+                        userRole = roleLabel,
+                        vendor = vendor,
+                        onItemClick = { scope.launch { drawerState.close() } },
+                    )
+                },
+            ) {
+                Scaffold(
+                    topBar = {
+                        if (showNav) {
+                            TopAppBar(
+                                title = {
+                                    currentUser?.name?.let { name ->
+                                        Text(
+                                            text = "Welcome, $name",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                        Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                ),
+                            )
+                        }
+                    },
+                    bottomBar = {
+                        if (showNav) CashierBottomBar(navController, currentDestination)
+                    },
+                ) { innerPadding ->
                     NavHost(
                         navController = navController,
                         startDestination = AUTH_ROUTE,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
+                        modifier = Modifier.padding(innerPadding),
                         builder = navGraphBuilder,
                     )
                 }
-            }
-        }
-    } else {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = showNav,
-            drawerContent = {
-                CashierDrawerContent(
-                    navController = navController,
-                    currentDestination = currentDestination,
-                    userName = currentUser?.name,
-                    userRole = roleLabel,
-                    vendor = vendor,
-                    onItemClick = { scope.launch { drawerState.close() } },
-                )
-            },
-        ) {
-            Scaffold(
-                topBar = {
-                    if (showNav) {
-                        TopAppBar(
-                            title = {
-                                currentUser?.name?.let { name ->
-                                    Text(
-                                        text = "Welcome, $name",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                }
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(Icons.Filled.Menu, contentDescription = "Menu")
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ),
-                        )
-                    }
-                },
-                bottomBar = {
-                    if (showNav) CashierBottomBar(navController, currentDestination)
-                },
-            ) { innerPadding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = AUTH_ROUTE,
-                    modifier = Modifier.padding(innerPadding),
-                    builder = navGraphBuilder,
-                )
             }
         }
     }

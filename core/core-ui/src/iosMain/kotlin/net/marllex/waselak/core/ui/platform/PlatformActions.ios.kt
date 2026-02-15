@@ -25,6 +25,15 @@ actual class PlatformActions {
         // iOS doesn't have native toast - placeholder
         println("Toast: $message")
     }
+
+    actual fun copyToClipboard(text: String) {
+        platform.UIKit.UIPasteboard.generalPasteboard.string = text
+    }
+
+    actual fun shareText(text: String, title: String) {
+        // iOS share requires UIViewController context, just copy for now
+        copyToClipboard(text)
+    }
 }
 
 @Composable

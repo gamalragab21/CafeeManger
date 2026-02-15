@@ -6,6 +6,8 @@ expect class PlatformActions {
     fun openUrl(url: String)
     fun openMap(address: String?, lat: Double?, lng: Double?)
     fun showToast(message: String)
+    fun copyToClipboard(text: String)
+    fun shareText(text: String, title: String = "")
 }
 
 @Composable

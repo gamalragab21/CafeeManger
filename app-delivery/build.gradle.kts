@@ -59,6 +59,9 @@ kotlin {
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.lifecycle.runtime.compose)
 
+            // Koin Compose
+            implementation(libs.koin.compose)
+
             // Image loading
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)

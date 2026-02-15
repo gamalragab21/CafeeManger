@@ -26,6 +26,20 @@ actual class PlatformActions {
     actual fun showToast(message: String) {
         println("Toast: $message")
     }
+
+    actual fun copyToClipboard(text: String) {
+        try {
+            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+            clipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
+        } catch (e: Exception) {
+            println("Failed to copy to clipboard: ${e.message}")
+        }
+    }
+
+    actual fun shareText(text: String, title: String) {
+        // Desktop doesn't have a native share dialog, copy to clipboard instead
+        copyToClipboard(text)
+    }
 }
 
 @Composable
