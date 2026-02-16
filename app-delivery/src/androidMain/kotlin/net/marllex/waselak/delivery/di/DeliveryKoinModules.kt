@@ -32,6 +32,7 @@ fun deliveryKoinModules() = listOf(
 private val platformModule = module {
     single { DatabaseDriverFactory(get<Context>()) }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
+    single(named("appName")) { "delivery" }
 }
 
 private val deliveryAppModule = module {

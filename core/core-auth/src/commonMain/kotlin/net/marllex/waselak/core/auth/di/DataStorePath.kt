@@ -5,11 +5,12 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import okio.Path.Companion.toPath
 
-const val AUTH_DATASTORE_FILE = "waselak_auth.preferences_pb"
+fun authDataStoreFileName(appName: String): String =
+    "waselak_${appName}_auth.preferences_pb"
 
-expect fun dataStorePath(): String
+expect fun dataStorePath(appName: String): String
 
-fun createDataStore(): DataStore<Preferences> =
+fun createDataStore(appName: String): DataStore<Preferences> =
     PreferenceDataStoreFactory.createWithPath(
-        produceFile = { dataStorePath().toPath() }
+        produceFile = { dataStorePath(appName).toPath() }
     )

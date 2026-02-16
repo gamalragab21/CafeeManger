@@ -43,6 +43,7 @@ fun managerKoinModules() = listOf(
 private val platformModule = module {
     single { DatabaseDriverFactory(get<Context>()) }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
+    single(named("appName")) { "manager" }
 }
 
 private val managerAppModule = module {

@@ -30,6 +30,7 @@ fun deliveryIosKoinModules() = listOf(
 private val iosPlatformModule = module {
     single { DatabaseDriverFactory() }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
+    single(named("appName")) { "delivery" }
 }
 
 private val deliveryAppModule = module {

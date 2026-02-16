@@ -6,7 +6,7 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun dataStorePath(): String {
+actual fun dataStorePath(appName: String): String {
     val directory = NSFileManager.defaultManager.URLForDirectory(
         directory = NSDocumentDirectory,
         inDomain = NSUserDomainMask,
@@ -14,5 +14,5 @@ actual fun dataStorePath(): String {
         create = false,
         error = null
     )!!
-    return "${directory.path}/$AUTH_DATASTORE_FILE"
+    return "${directory.path}/${authDataStoreFileName(appName)}"
 }
