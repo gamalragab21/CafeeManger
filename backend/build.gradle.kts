@@ -1,7 +1,7 @@
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.1.0"
     kotlin("plugin.serialization") version "2.1.0"
-    id("io.ktor.plugin") version "3.0.2"
+    id("io.ktor.plugin") version "3.0.3"
     application
 }
 
@@ -24,22 +24,23 @@ application {
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
 }
 
+val ktor_version = "3.0.3"
+val koin_version = "4.0.1"
+
 dependencies {
     // Ktor Server
-    implementation("io.ktor:ktor-server-core:3.0.2")
-    implementation("io.ktor:ktor-server-netty:3.0.2")
-    implementation("io.ktor:ktor-server-content-negotiation:3.0.2")
-    implementation("io.ktor:ktor-server-auth:3.0.2")
-    implementation("io.ktor:ktor-server-auth-jwt:3.0.2")
-    implementation("io.ktor:ktor-server-cors:3.0.2")
-    implementation("io.ktor:ktor-server-status-pages:3.0.2")
-    implementation("io.ktor:ktor-server-call-logging:3.0.2")
-    implementation("io.ktor:ktor-server-default-headers:3.0.2")
-
-
+    implementation("io.ktor:ktor-server-core:$ktor_version")
+    implementation("io.ktor:ktor-server-netty:$ktor_version")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-server-auth:$ktor_version")
+    implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
+    implementation("io.ktor:ktor-server-cors:$ktor_version")
+    implementation("io.ktor:ktor-server-status-pages:$ktor_version")
+    implementation("io.ktor:ktor-server-call-logging:$ktor_version")
+    implementation("io.ktor:ktor-server-default-headers:$ktor_version")
 
     // Serialization
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.2")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Database - Exposed ORM
@@ -54,12 +55,12 @@ dependencies {
     // Connection Pooling
     implementation("com.zaxxer:HikariCP:6.2.1")
 
-    // Koin DI
-    val koin_version = "3.5.6"
-     // Koin for Ktor 3.x
-    implementation("io.insert-koin:koin-ktor:${koin_version}")
-    implementation("io.insert-koin:koin-logger-slf4j:${koin_version}")
+    // Koin DI for Ktor 3.x
+    implementation("io.insert-koin:koin-ktor:$koin_version")
+    implementation("io.insert-koin:koin-logger-slf4j:$koin_version")
 
+    // Kotlin Reflect (required by Koin)
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.1.0")
 
     // Password Hashing
     implementation("org.mindrot:jbcrypt:0.4")
@@ -70,7 +71,7 @@ dependencies {
 
     // PDF Generation
     implementation("com.itextpdf:itext7-core:7.2.5")
-    
+
     // Excel Generation
     implementation("org.apache.poi:poi:5.2.5")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
@@ -79,8 +80,8 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.12")
 
     // Testing
-    testImplementation("io.ktor:ktor-server-test-host:3.0.2")
-    testImplementation("io.ktor:ktor-client-content-negotiation:3.0.2")
+    testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
+    testImplementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.1.0")
 }
 
