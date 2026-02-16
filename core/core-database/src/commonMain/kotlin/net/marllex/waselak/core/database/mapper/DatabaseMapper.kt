@@ -14,6 +14,8 @@ import net.marllex.waselak.core.database.Workers
 import net.marllex.waselak.core.database.Worker_roles
 import net.marllex.waselak.core.database.Attendance as AttendanceDb
 import net.marllex.waselak.core.database.Salary_payments
+import net.marllex.waselak.core.database.Customers
+import net.marllex.waselak.core.database.Customer_addresses
 
 // ─── Vendor Mappers ──────────────────────────────────────────────
 fun Vendors.toDomain() = Vendor(
@@ -22,6 +24,7 @@ fun Vendors.toDomain() = Vendor(
     defaultDeliveryFee = default_delivery_fee,
     storeType = store_type, enableTables = enable_tables,
     enableDineIn = enable_dine_in, enableDelivery = enable_delivery,
+    enableTakeaway = enable_takeaway,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -32,6 +35,7 @@ fun Vendor.toDbEntity() = Vendors(
     default_delivery_fee = defaultDeliveryFee,
     store_type = storeType, enable_tables = enableTables,
     enable_dine_in = enableDineIn, enable_delivery = enableDelivery,
+    enable_takeaway = enableTakeaway,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )
@@ -92,7 +96,7 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     cashierName = cashier_name, deliveryUserId = delivery_user_id,
     deliveryUserName = delivery_user_name,
     clientName = client_name, clientPhone = client_phone,
-    clientAddress = client_address,
+    clientAddress = client_address, customerId = customer_id,
     geoLat = geo_lat, geoLng = geo_lng,
     paymentMethod = PaymentMethod.valueOf(payment_method),
     subtotal = subtotal, deliveryFee = delivery_fee, tax = tax, total = total,
@@ -107,7 +111,7 @@ fun Order.toDbEntity() = Orders(
     cashier_name = cashierName, delivery_user_id = deliveryUserId,
     delivery_user_name = deliveryUserName,
     client_name = clientName, client_phone = clientPhone,
-    client_address = clientAddress,
+    client_address = clientAddress, customer_id = customerId,
     geo_lat = geoLat, geo_lng = geoLng,
     payment_method = paymentMethod.name,
     subtotal = subtotal, delivery_fee = deliveryFee, tax = tax, total = total,
@@ -225,4 +229,34 @@ fun SalaryPayment.toDbEntity() = Salary_payments(
     worked_days = workedDays, worked_hours = workedHours,
     amount = amount, paid = paid, paid_at = paidAt,
     paid_by = paidBy, note = note, created_at = createdAt
+)
+
+// ─── Customer Mappers ───────────────────────────────────────────
+fun Customers.toDomain(addresses: List<CustomerAddress> = emptyList()) = Customer(
+    id = id, vendorId = vendor_id, name = name, phone = phone,
+    notes = notes, orderCount = order_count, totalSpent = total_spent,
+    lastOrderAt = last_order_at, addresses = addresses,
+    createdAt = created_at, updatedAt = updated_at
+)
+
+fun Customer.toDbEntity() = Customers(
+    id = id, vendor_id = vendorId, name = name, phone = phone,
+    notes = notes, order_count = orderCount, total_spent = totalSpent,
+    last_order_at = lastOrderAt,
+    created_at = createdAt, updated_at = updatedAt
+)
+
+// ─── Customer Address Mappers ───────────────────────────────────
+fun Customer_addresses.toDomain() = CustomerAddress(
+    id = id, customerId = customer_id, label = label,
+    address = address, geoLat = geo_lat, geoLng = geo_lng,
+    deliveryZoneId = delivery_zone_id, deliveryFee = delivery_fee,
+    isDefault = is_default, createdAt = created_at
+)
+
+fun CustomerAddress.toDbEntity() = Customer_addresses(
+    id = id, customer_id = customerId, label = label,
+    address = address, geo_lat = geoLat, geo_lng = geoLng,
+    delivery_zone_id = deliveryZoneId, delivery_fee = deliveryFee,
+    is_default = isDefault, created_at = createdAt
 )

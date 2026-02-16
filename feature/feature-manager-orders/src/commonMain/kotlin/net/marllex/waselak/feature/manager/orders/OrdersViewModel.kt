@@ -108,6 +108,7 @@ class OrdersViewModel constructor(
             val availableStatuses = when (channel) {
                 "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
                 "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
+                "TAKEAWAY" -> OrderStatus.getAvailableStatuses(OrderChannel.TAKEAWAY)
                 else -> OrderStatus.entries.toList()
             }
             if (availableStatuses.none { it.name == currentStatus }) null else currentStatus

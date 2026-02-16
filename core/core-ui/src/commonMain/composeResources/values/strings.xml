@@ -80,6 +80,8 @@
     <string name="nav_staff">Staff</string>
     <string name="nav_profile">Profile</string>
 
+    <string name="nav_customers">Customers</string>
+
     <!-- Navigation - Cashier -->
     <string name="nav_new_order">New Order</string>
     <string name="nav_tables">Tables</string>

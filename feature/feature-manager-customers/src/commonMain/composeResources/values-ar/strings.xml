@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="customers">العملاء</string>
+    <string name="search_customers">البحث عن العملاء...</string>
+    <string name="sort_order_count">الطلبات</string>
+    <string name="sort_total_spent">الإنفاق</string>
+    <string name="sort_last_order">الأحدث</string>
+    <string name="sort_name">الاسم</string>
+    <string name="orders_count">%1$d طلبات</string>
+    <string name="total_spent">الإجمالي: %1$s</string>
+    <string name="last_order">آخر طلب: %1$s</string>
+    <string name="customer_details">تفاصيل العميل</string>
+    <string name="addresses">العناوين</string>
+    <string name="recent_orders">الطلبات الأخيرة</string>
+    <string name="no_customers">لا يوجد عملاء بعد</string>
+    <string name="no_customers_subtitle">سيظهر العملاء هنا بعد أول طلب</string>
+    <string name="delete_customer">حذف العميل</string>
+    <string name="delete_customer_confirm">هل أنت متأكد من حذف هذا العميل؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="no_addresses">لا توجد عناوين محفوظة</string>
+    <string name="no_recent_orders">لا توجد طلبات حديثة</string>
+    <string name="default_address">الافتراضي</string>
+    <string name="order_number">طلب #%1$s</string>
+    <string name="close">إغلاق</string>
+</resources>

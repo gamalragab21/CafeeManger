@@ -1,0 +1,28 @@
+CREATE TABLE IF NOT EXISTS customer_addresses (
+    id TEXT NOT NULL PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    label TEXT,
+    address TEXT NOT NULL,
+    geo_lat REAL,
+    geo_lng REAL,
+    delivery_zone_id TEXT,
+    delivery_fee REAL,
+    is_default INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+getAddressesByCustomerId:
+SELECT * FROM customer_addresses WHERE customer_id = ?;
+
+getDefaultAddress:
+SELECT * FROM customer_addresses WHERE customer_id = ? AND is_default = 1 LIMIT 1;
+
+insertAddress:
+INSERT OR REPLACE INTO customer_addresses(id, customer_id, label, address, geo_lat, geo_lng, delivery_zone_id, delivery_fee, is_default, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAddress:
+DELETE FROM customer_addresses WHERE id = ?;
+
+deleteAddressesByCustomerId:
+DELETE FROM customer_addresses WHERE customer_id = ?;

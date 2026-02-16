@@ -80,6 +80,8 @@
     <string name="nav_staff">الموظفين</string>
     <string name="nav_profile">الملف الشخصي</string>
 
+    <string name="nav_customers">العملاء</string>
+
     <!-- Navigation - Cashier -->
     <string name="nav_new_order">طلب جديد</string>
     <string name="nav_tables">الطاولات</string>

@@ -17,6 +17,7 @@ data class Order(
     val clientName: String? = null,
     val clientPhone: String? = null,
     val clientAddress: String? = null,
+    val customerId: String? = null,
     val geoLat: Double? = null,
     val geoLng: Double? = null,
     val paymentMethod: PaymentMethod,
@@ -33,7 +34,8 @@ data class Order(
 @Serializable
 enum class OrderChannel {
     DINE_IN,
-    DELIVERY
+    DELIVERY,
+    TAKEAWAY
 }
 
 @Serializable
@@ -52,6 +54,7 @@ enum class OrderStatus {
         return when (channel) {
             OrderChannel.DINE_IN -> canTransitionDineIn(newStatus)
             OrderChannel.DELIVERY -> canTransitionDelivery(newStatus)
+            OrderChannel.TAKEAWAY -> canTransitionTakeaway(newStatus)
         }
     }
 
@@ -81,11 +84,23 @@ enum class OrderStatus {
         }
     }
 
+    private fun canTransitionTakeaway(newStatus: OrderStatus): Boolean {
+        return when (this) {
+            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
+            READY -> newStatus in listOf(COMPLETED, CANCELED)
+            COMPLETED -> false
+            CANCELED -> false
+            else -> false // No table, delivery, or assignment states for takeaway
+        }
+    }
+
     companion object {
         fun getAvailableStatuses(channel: OrderChannel): List<OrderStatus> {
             return when (channel) {
                 OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, ON_TABLE, COMPLETED, CANCELED)
                 OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED)
+                OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, COMPLETED, CANCELED)
             }
         }
     }

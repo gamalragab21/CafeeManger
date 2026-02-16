@@ -117,6 +117,7 @@ class OrderRepositoryImpl constructor(
     override suspend fun createOrder(
         channel: OrderChannel, tableId: String?,
         clientName: String?, clientPhone: String?, clientAddress: String?,
+        customerId: String?,
         geoLat: Double?, geoLng: Double?,
         paymentMethod: PaymentMethod, taxPlaceId: String?, notes: String?,
         items: List<CreateOrderItemRequest>
@@ -126,6 +127,7 @@ class OrderRepositoryImpl constructor(
                 channel = channel.name, tableId = tableId,
                 clientName = clientName, clientPhone = clientPhone,
                 clientAddress = clientAddress,
+                customerId = customerId,
                 geoLat = geoLat, geoLng = geoLng,
                 paymentMethod = paymentMethod.name,
                 taxPlaceId = taxPlaceId,

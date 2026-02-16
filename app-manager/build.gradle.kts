@@ -56,6 +56,7 @@ kotlin {
             implementation(project(":feature:feature-manager-analytics"))
             implementation(project(":feature:feature-manager-orders"))
             implementation(project(":feature:feature-manager-stock"))
+            implementation(project(":feature:feature-manager-customers"))
             implementation(project(":feature:feature-manager-chatbot"))
             implementation(project(":feature:feature-cashier-receipt"))
 

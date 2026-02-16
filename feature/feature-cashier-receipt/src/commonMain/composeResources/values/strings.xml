@@ -35,6 +35,7 @@
     <!-- Channel names -->
     <string name="channel_dine_in">Dine In</string>
     <string name="channel_delivery">Delivery</string>
+    <string name="channel_takeaway">Takeaway</string>
     <!-- Payment method names -->
     <string name="payment_cash">Cash</string>
     <string name="payment_wallet">Wallet</string>

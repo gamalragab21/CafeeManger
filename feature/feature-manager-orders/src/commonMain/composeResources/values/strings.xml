@@ -29,6 +29,7 @@
     <string name="no_delivery_users">No delivery persons available</string>
     <string name="channel_dine_in">Dine-In</string>
     <string name="channel_delivery">Delivery</string>
+    <string name="channel_takeaway">Takeaway</string>
     <string name="table_label">Table</string>
     <string name="edit_order">Edit Order</string>
     <string name="save_changes">Save Changes</string>

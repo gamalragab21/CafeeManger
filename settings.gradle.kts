@@ -51,6 +51,7 @@ include(":feature:feature-manager-users")
 include(":feature:feature-manager-analytics")
 include(":feature:feature-manager-orders")
 include(":feature:feature-manager-stock")
+include(":feature:feature-manager-customers")
 
 // Feature modules - Manager App (Staff)
 include(":feature:feature-manager-staff")

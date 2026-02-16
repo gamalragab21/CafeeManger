@@ -2,6 +2,7 @@ package net.marllex.waselak.core.network
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -10,6 +11,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpStatusCode
 import net.marllex.waselak.core.network.dto.*
 
 class WaselakApiClient(private val client: HttpClient) {
@@ -538,6 +540,63 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun deleteAnnouncement(id: String): ApiSuccessResponse =
         client.delete("api/v1/announcements/$id").body()
+
+    // ─── Customers ────────────────────────────────────────────────
+
+    suspend fun getCustomers(search: String? = null): List<CustomerResponse> =
+        client.get("api/v1/customers") {
+            parameter("search", search)
+        }.body()
+
+    suspend fun getCustomer(id: String): CustomerResponse =
+        client.get("api/v1/customers/$id").body()
+
+    suspend fun getCustomerByPhone(phone: String): CustomerResponse? =
+        try {
+            client.get("api/v1/customers/by-phone") {
+                parameter("phone", phone)
+            }.body<CustomerResponse>()
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.NotFound) null else throw e
+        }
+
+    suspend fun createCustomer(request: CreateCustomerRequest): CustomerResponse =
+        client.post("api/v1/customers") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateCustomer(id: String, request: UpdateCustomerRequest): CustomerResponse =
+        client.put("api/v1/customers/$id") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteCustomer(id: String): ApiSuccessResponse =
+        client.delete("api/v1/customers/$id").body()
+
+    suspend fun getCustomerAddresses(customerId: String): List<CustomerAddressResponse> =
+        client.get("api/v1/customers/$customerId/addresses").body()
+
+    suspend fun createCustomerAddress(
+        customerId: String,
+        request: CreateCustomerAddressRequest
+    ): CustomerAddressResponse =
+        client.post("api/v1/customers/$customerId/addresses") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteCustomerAddress(
+        customerId: String,
+        addressId: String
+    ): ApiSuccessResponse =
+        client.delete("api/v1/customers/$customerId/addresses/$addressId").body()
+
+    suspend fun getCustomerOrders(
+        customerId: String,
+        limit: Int = 3
+    ): CustomerOrderHistoryResponse =
+        client.get("api/v1/customers/$customerId/orders") {
+            parameter("limit", limit)
+        }.body()
 
     // ─── Chatbot ─────────────────────────────────────────────────
 

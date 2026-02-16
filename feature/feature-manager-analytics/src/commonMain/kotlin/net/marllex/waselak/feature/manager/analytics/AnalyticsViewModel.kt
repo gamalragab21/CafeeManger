@@ -163,6 +163,10 @@ class AnalyticsViewModel constructor(
                             val channelRevenue = summary.revenueByPaymentMethod.values.sum() * (count.toDouble() / summary.totalOrders)
                             revenueByChannel[net.marllex.waselak.core.model.OrderChannel.DELIVERY] = channelRevenue
                         }
+                        "TAKEAWAY" -> {
+                            val channelRevenue = summary.revenueByPaymentMethod.values.sum() * (count.toDouble() / summary.totalOrders)
+                            revenueByChannel[net.marllex.waselak.core.model.OrderChannel.TAKEAWAY] = channelRevenue
+                        }
                     }
                 }
                 
@@ -277,12 +281,14 @@ class AnalyticsViewModel constructor(
                 // Apply channel filter
                 if (state.selectedChannel != null) {
                     filteredRevenue *= when (state.selectedChannel) {
-                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.6
-                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.4
+                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.5
+                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.3
+                        net.marllex.waselak.core.model.OrderChannel.TAKEAWAY -> 0.2
                     }
                     filteredOrders = (filteredOrders * when (state.selectedChannel) {
-                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.6
-                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.4
+                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.5
+                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.3
+                        net.marllex.waselak.core.model.OrderChannel.TAKEAWAY -> 0.2
                     }).toInt()
                 }
                 
@@ -550,6 +556,7 @@ class AnalyticsViewModel constructor(
         val orderChannel = when (channel) {
             "DINE_IN" -> net.marllex.waselak.core.model.OrderChannel.DINE_IN
             "DELIVERY" -> net.marllex.waselak.core.model.OrderChannel.DELIVERY
+            "TAKEAWAY" -> net.marllex.waselak.core.model.OrderChannel.TAKEAWAY
             else -> null
         }
         filterByChannel(orderChannel)

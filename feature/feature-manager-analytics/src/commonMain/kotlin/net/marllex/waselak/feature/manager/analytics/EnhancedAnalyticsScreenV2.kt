@@ -111,6 +111,7 @@ fun EnhancedAnalyticsScreenV2(
                                 when (it) {
                                     OrderChannel.DINE_IN -> "Dine In"
                                     OrderChannel.DELIVERY -> "Delivery"
+                                    OrderChannel.TAKEAWAY -> "Takeaway"
                                 }
                             } ?: "All",
                             icon = Icons.Default.Store,

@@ -26,6 +26,7 @@ private fun formatDate(epochMs: Long): String {
 private fun channelLabel(channel: OrderChannel): String = when (channel) {
     OrderChannel.DINE_IN -> "Dine In"
     OrderChannel.DELIVERY -> "Delivery"
+    OrderChannel.TAKEAWAY -> "Takeaway"
 }
 
 private fun paymentLabel(method: PaymentMethod): String = when (method) {

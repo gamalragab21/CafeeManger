@@ -15,6 +15,7 @@ data class Vendor(
     val enableTables: Boolean = true,
     val enableDineIn: Boolean = true,
     val enableDelivery: Boolean = true,
+    val enableTakeaway: Boolean = true,
     val digitalMenuUrl: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null

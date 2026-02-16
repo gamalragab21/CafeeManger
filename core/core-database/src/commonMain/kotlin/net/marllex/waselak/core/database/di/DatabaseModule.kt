@@ -42,6 +42,9 @@ val databaseModule = module {
             workersAdapter = Workers.Adapter(
                 qr_code_versionAdapter = intAdapter,
             ),
+            customersAdapter = Customers.Adapter(
+                order_countAdapter = intAdapter,
+            ),
         )
     }
 
@@ -53,4 +56,5 @@ val databaseModule = module {
     single { OrderDao(get()) }
     single { StockDao(get()) }
     single { WorkerDao(get()) }
+    single { CustomerDao(get()) }
 }

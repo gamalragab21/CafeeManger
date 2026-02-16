@@ -17,6 +17,7 @@ fun VendorResponse.toDomain() = Vendor(
     enableTables = enableTables,
     enableDineIn = enableDineIn,
     enableDelivery = enableDelivery,
+    enableTakeaway = enableTakeaway,
     digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt,
     updatedAt = updatedAt
@@ -84,6 +85,7 @@ fun OrderResponse.toDomain() = Order(
     clientName = clientName,
     clientPhone = clientPhone,
     clientAddress = clientAddress,
+    customerId = customerId,
     geoLat = geoLat,
     geoLng = geoLng,
     paymentMethod = PaymentMethod.valueOf(paymentMethod),
@@ -242,4 +244,32 @@ fun SalaryPaymentResponse.toDomain() = SalaryPayment(
     workedDays = workedDays, workedHours = workedHours,
     amount = amount, paid = paid, paidAt = paidAt,
     paidBy = paidBy, note = note, createdAt = createdAt
+)
+
+// ─── Customer Mappers ──────────────────────────────────────────
+fun CustomerResponse.toDomain() = Customer(
+    id = id,
+    vendorId = vendorId,
+    name = name,
+    phone = phone,
+    notes = notes,
+    orderCount = orderCount,
+    totalSpent = totalSpent,
+    lastOrderAt = lastOrderAt,
+    addresses = addresses.map { it.toDomain() },
+    createdAt = createdAt,
+    updatedAt = updatedAt
+)
+
+fun CustomerAddressResponse.toDomain() = CustomerAddress(
+    id = id,
+    customerId = customerId,
+    label = label,
+    address = address,
+    geoLat = geoLat,
+    geoLng = geoLng,
+    deliveryZoneId = deliveryZoneId,
+    deliveryFee = deliveryFee,
+    isDefault = isDefault,
+    createdAt = createdAt
 )

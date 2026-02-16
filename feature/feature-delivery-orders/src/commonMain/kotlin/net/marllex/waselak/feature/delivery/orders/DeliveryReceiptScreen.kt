@@ -83,6 +83,7 @@ import net.marllex.waselak.feature.delivery.orders.generated.resources.*
 private fun localizedChannel(channel: OrderChannel): String = when (channel) {
     OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
     OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
+    OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
 }
 
 @Composable

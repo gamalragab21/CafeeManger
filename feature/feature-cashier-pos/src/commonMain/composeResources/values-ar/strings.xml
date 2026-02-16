@@ -8,4 +8,17 @@
     <string name="place_order">تقديم الطلب - %1$s</string>
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
+    <string name="channel_takeaway">سفري</string>
+    <string name="customer_phone">هاتف العميل</string>
+    <string name="customer_name">اسم العميل</string>
+    <string name="customer_found">تم العثور على العميل</string>
+    <string name="looking_up_customer">جاري البحث...</string>
+    <string name="select_address">اختر العنوان</string>
+    <string name="new_address">عنوان جديد</string>
+    <string name="recent_orders">الطلبات الأخيرة</string>
+    <string name="reorder">إعادة الطلب</string>
+    <string name="delivery_fee_label">رسوم التوصيل</string>
+    <string name="order_items_count">%1$d أصناف</string>
+    <string name="client_name">اسم العميل</string>
+    <string name="client_address">عنوان العميل</string>
 </resources>

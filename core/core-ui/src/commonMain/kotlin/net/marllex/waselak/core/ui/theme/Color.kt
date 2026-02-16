@@ -85,6 +85,7 @@ val DeliveryColor = Color(0xFFE65100)       // Deep Orange 800
 // ─── Channel colors ───────────────────────────────────────────────
 val DineInColor = Color(0xFF1565C0)         // Blue
 val DeliveryChannelColor = Color(0xFFE65100)// Deep Orange
+val TakeawayColor = Color(0xFF2E7D32)       // Green
 
 // ─── Table status colors ──────────────────────────────────────────
 val TableAvailable = Color(0xFF10B981)      // Emerald 500

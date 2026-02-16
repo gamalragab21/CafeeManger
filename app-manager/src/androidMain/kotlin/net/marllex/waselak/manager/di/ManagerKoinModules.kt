@@ -13,6 +13,7 @@ import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel
 import net.marllex.waselak.feature.manager.analytics.ExportViewModel
 import net.marllex.waselak.feature.manager.categories.CategoriesViewModel
+import net.marllex.waselak.feature.manager.customers.CustomersViewModel
 import net.marllex.waselak.feature.manager.chatbot.di.chatbotModule
 import net.marllex.waselak.feature.manager.dashboard.DashboardViewModel
 import net.marllex.waselak.feature.manager.items.ItemsViewModel
@@ -65,4 +66,5 @@ private val managerAppModule = module {
     viewModelOf(::WorkerQrCodeViewModel)
     viewModelOf(::ExportViewModel)
     viewModelOf(::ReceiptViewModel)
+    viewModelOf(::CustomersViewModel)
 }

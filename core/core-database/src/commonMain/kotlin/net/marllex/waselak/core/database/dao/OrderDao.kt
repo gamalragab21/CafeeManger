@@ -53,6 +53,7 @@ class OrderDao(private val db: WaselakDatabase) {
             client_name = order.client_name,
             client_phone = order.client_phone,
             client_address = order.client_address,
+            customer_id = order.customer_id,
             geo_lat = order.geo_lat,
             geo_lng = order.geo_lng,
             payment_method = order.payment_method,
@@ -73,6 +74,9 @@ class OrderDao(private val db: WaselakDatabase) {
     suspend fun assignDeliveryUser(orderId: String, userId: String, updatedAt: Long) {
         orderQueries.assignDeliveryUser(userId, updatedAt, orderId)
     }
+
+    fun getOrdersByCustomerId(customerId: String, limit: Long): Flow<List<Orders>> =
+        orderQueries.getOrdersByCustomerId(customerId, limit).asFlow().mapToList(Dispatchers.Default)
 
     // ─── Order Items ─────────────────────────────────────────────
     fun getOrderItems(orderId: String): Flow<List<Order_items>> =

@@ -26,6 +26,7 @@ import net.marllex.waselak.feature.manager.analytics.generated.resources.*
 import waselak.core.core_ui.generated.resources.Res as CoreUiRes
 import waselak.core.core_ui.generated.resources.channel_dine_in
 import waselak.core.core_ui.generated.resources.channel_delivery
+import waselak.core.core_ui.generated.resources.channel_takeaway
 import waselak.core.core_ui.generated.resources.payment_cash
 import waselak.core.core_ui.generated.resources.payment_wallet
 import waselak.core.core_ui.generated.resources.payment_card
@@ -145,6 +146,7 @@ fun ModernAnalyticsScreen(
                                 when (it) {
                                     OrderChannel.DINE_IN -> stringResource(CoreUiRes.string.channel_dine_in)
                                     OrderChannel.DELIVERY -> stringResource(CoreUiRes.string.channel_delivery)
+                                    OrderChannel.TAKEAWAY -> stringResource(CoreUiRes.string.channel_takeaway)
                                 }
                             } ?: stringResource(Res.string.all),
                             icon = Icons.Default.Store,
@@ -170,6 +172,13 @@ fun ModernAnalyticsScreen(
                                 text = { Text(stringResource(CoreUiRes.string.channel_delivery)) },
                                 onClick = {
                                     viewModel.filterByChannel(OrderChannel.DELIVERY)
+                                    showChannelFilter = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(CoreUiRes.string.channel_takeaway)) },
+                                onClick = {
+                                    viewModel.filterByChannel(OrderChannel.TAKEAWAY)
                                     showChannelFilter = false
                                 }
                             )
@@ -525,6 +534,7 @@ private fun RevenueBreakdownCard(
                             label = when (channel) {
                                 OrderChannel.DINE_IN -> stringResource(CoreUiRes.string.channel_dine_in)
                                 OrderChannel.DELIVERY -> stringResource(CoreUiRes.string.channel_delivery)
+                                OrderChannel.TAKEAWAY -> stringResource(CoreUiRes.string.channel_takeaway)
                             },
                             value = CurrencyFormatter.format(revenue),
                             percentage = if (byChannel.values.sum() > 0) 

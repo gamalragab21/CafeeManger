@@ -97,6 +97,7 @@ import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.feature.manager.analytics.EnhancedAnalyticsScreen
 import net.marllex.waselak.feature.manager.analytics.ExportScreen
 import net.marllex.waselak.feature.manager.categories.CategoriesScreen
+import net.marllex.waselak.feature.manager.customers.CustomersScreen
 import net.marllex.waselak.feature.cashier.receipt.navigation.navigateToReceipt
 import net.marllex.waselak.feature.cashier.receipt.navigation.receiptScreen
 import net.marllex.waselak.feature.manager.chatbot.navigation.chatbotScreen
@@ -307,7 +308,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.USERS.route) {
-                        StaffScreen(
+                        StaffTabContent(
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
                             }
@@ -371,7 +372,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.USERS.route) {
-                        StaffScreen(
+                        StaffTabContent(
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
                             }
@@ -398,6 +399,62 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         onBack = { navController.navigateUp() },
                     )
                 }
+            }
+        }
+    }
+}
+
+// --- Staff Sub-Tabs (Staff + Customers) ---
+@Composable
+private fun StaffTabContent(
+    onNavigateToWorkerQrCode: (String) -> Unit = {},
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf(
+        stringResource(CoreRes.string.nav_staff),
+        stringResource(CoreRes.string.nav_customers),
+    )
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+            indicator = { tabPositions ->
+                if (selectedTab < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+        ) {
+            tabs.forEachIndexed { index, title ->
+                val isSelected = selectedTab == index
+                Tab(
+                    selected = isSelected,
+                    onClick = { selectedTab = index },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                        )
+                    },
+                )
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (selectedTab) {
+                0 -> StaffScreen(
+                    onNavigateToWorkerQrCode = onNavigateToWorkerQrCode,
+                )
+                1 -> CustomersScreen()
             }
         }
     }

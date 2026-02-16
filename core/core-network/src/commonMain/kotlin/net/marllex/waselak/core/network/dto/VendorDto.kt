@@ -16,6 +16,7 @@ data class VendorResponse(
     @SerialName("enable_tables") val enableTables: Boolean = true,
     @SerialName("enable_dine_in") val enableDineIn: Boolean = true,
     @SerialName("enable_delivery") val enableDelivery: Boolean = true,
+    @SerialName("enable_takeaway") val enableTakeaway: Boolean = true,
     @SerialName("digital_menu_url") val digitalMenuUrl: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
@@ -32,5 +33,6 @@ data class UpdateVendorRequest(
     @SerialName("store_type") val storeType: String? = null,
     @SerialName("enable_tables") val enableTables: Boolean? = null,
     @SerialName("enable_dine_in") val enableDineIn: Boolean? = null,
-    @SerialName("enable_delivery") val enableDelivery: Boolean? = null
+    @SerialName("enable_delivery") val enableDelivery: Boolean? = null,
+    @SerialName("enable_takeaway") val enableTakeaway: Boolean? = null
 )

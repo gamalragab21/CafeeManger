@@ -2,6 +2,8 @@ package net.marllex.waselak.feature.cashier.pos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CategoryRepository
+import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
@@ -17,6 +20,8 @@ import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.CartItem
 import net.marllex.waselak.core.model.Category
+import net.marllex.waselak.core.model.Customer
+import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
@@ -32,6 +37,7 @@ class PosViewModel constructor(
     private val orderRepository: OrderRepository,
     private val taxPlaceRepository: TaxPlaceRepository,
     private val vendorRepository: VendorRepository,
+    private val customerRepository: CustomerRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -45,6 +51,7 @@ class PosViewModel constructor(
         val enableTables: Boolean = true,
         val enableDineIn: Boolean = true,
         val enableDelivery: Boolean = true,
+        val enableTakeaway: Boolean = true,
         val vendorName: String = "",
         val vendorLogoUrl: String? = null,
         val selectedTableId: String? = null,
@@ -57,10 +64,19 @@ class PosViewModel constructor(
         val error: String? = null,
         val isSubmitting: Boolean = false,
         val createdOrder: Order? = null,
+        // Customer integration fields
+        val selectedCustomer: Customer? = null,
+        val customerAddresses: List<CustomerAddress> = emptyList(),
+        val selectedAddressId: String? = null,
+        val recentOrders: List<Order> = emptyList(),
+        val isLookingUpCustomer: Boolean = false,
+        val customerLookupDone: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    private var phoneLookupJob: Job? = null
 
     init { loadMenu() }
 
@@ -72,12 +88,14 @@ class PosViewModel constructor(
                 val defaultChannel = when {
                     vendor.enableDineIn -> OrderChannel.DINE_IN
                     vendor.enableDelivery -> OrderChannel.DELIVERY
+                    vendor.enableTakeaway -> OrderChannel.TAKEAWAY
                     else -> OrderChannel.DINE_IN
                 }
                 _uiState.update { it.copy(
                     enableTables = vendor.enableTables,
                     enableDineIn = vendor.enableDineIn,
                     enableDelivery = vendor.enableDelivery,
+                    enableTakeaway = vendor.enableTakeaway,
                     vendorName = vendor.name,
                     vendorLogoUrl = vendor.logoUrl,
                     channel = defaultChannel,
@@ -154,8 +172,14 @@ class PosViewModel constructor(
         _uiState.update {
             it.copy(
                 channel = channel,
-                selectedTaxPlaceId = if (channel == OrderChannel.DELIVERY) it.selectedTaxPlaceId ?: it.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id else null
+                selectedTaxPlaceId = if (channel == OrderChannel.DELIVERY) {
+                    it.selectedTaxPlaceId ?: it.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id
+                } else null,
             )
+        }
+        // Clear customer data when switching away from DELIVERY/TAKEAWAY
+        if (channel != OrderChannel.DELIVERY && channel != OrderChannel.TAKEAWAY) {
+            clearCustomer()
         }
         if (channel == OrderChannel.DELIVERY && _uiState.value.taxPlaces.isEmpty()) {
             viewModelScope.launch {
@@ -177,11 +201,127 @@ class PosViewModel constructor(
 
     fun setTableId(tableId: String?) { _uiState.update { it.copy(selectedTableId = tableId) } }
     fun setClientName(v: String) { _uiState.update { it.copy(clientName = v) } }
-    fun setClientPhone(v: String) { _uiState.update { it.copy(clientPhone = v) } }
+
+    fun setClientPhone(v: String) {
+        _uiState.update { it.copy(clientPhone = v) }
+        // Debounced customer lookup when phone has 11+ chars
+        if (v.length >= 11) {
+            phoneLookupJob?.cancel()
+            phoneLookupJob = viewModelScope.launch {
+                delay(300)
+                lookupCustomerByPhone(v)
+            }
+        } else {
+            phoneLookupJob?.cancel()
+            // Reset lookup state if phone is too short
+            _uiState.update {
+                it.copy(
+                    isLookingUpCustomer = false,
+                    customerLookupDone = false,
+                    selectedCustomer = null,
+                    customerAddresses = emptyList(),
+                    selectedAddressId = null,
+                    recentOrders = emptyList(),
+                )
+            }
+        }
+    }
+
     fun setClientAddress(v: String) { _uiState.update { it.copy(clientAddress = v) } }
     fun setNotes(v: String) { _uiState.update { it.copy(notes = v) } }
 
     fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.item.price * cartItem.quantity }
+
+    // ─── Customer methods ─────────────────────────────────────────
+
+    fun lookupCustomerByPhone(phone: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLookingUpCustomer = true, customerLookupDone = false) }
+            customerRepository.lookupCustomerByPhone(phone)
+                .onSuccess { customer ->
+                    if (customer != null) {
+                        _uiState.update {
+                            it.copy(
+                                selectedCustomer = customer,
+                                isLookingUpCustomer = false,
+                                customerLookupDone = true,
+                                clientName = if (it.clientName.isBlank()) customer.name.orEmpty() else it.clientName,
+                            )
+                        }
+                        // Load addresses
+                        customerRepository.getCustomerAddresses(customer.id)
+                            .onSuccess { addresses ->
+                                _uiState.update { it.copy(customerAddresses = addresses) }
+                            }
+                        // Load recent orders
+                        customerRepository.getCustomerRecentOrders(customer.id)
+                            .onSuccess { orders ->
+                                _uiState.update { it.copy(recentOrders = orders) }
+                            }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                selectedCustomer = null,
+                                isLookingUpCustomer = false,
+                                customerLookupDone = true,
+                                customerAddresses = emptyList(),
+                                selectedAddressId = null,
+                                recentOrders = emptyList(),
+                            )
+                        }
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            selectedCustomer = null,
+                            isLookingUpCustomer = false,
+                            customerLookupDone = true,
+                            customerAddresses = emptyList(),
+                            selectedAddressId = null,
+                            recentOrders = emptyList(),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun selectCustomerAddress(addressId: String) {
+        val address = _uiState.value.customerAddresses.find { it.id == addressId }
+        _uiState.update {
+            it.copy(
+                selectedAddressId = addressId,
+                clientAddress = address?.address.orEmpty(),
+            )
+        }
+    }
+
+    fun clearCustomer() {
+        phoneLookupJob?.cancel()
+        _uiState.update {
+            it.copy(
+                selectedCustomer = null,
+                customerAddresses = emptyList(),
+                selectedAddressId = null,
+                recentOrders = emptyList(),
+                customerLookupDone = false,
+            )
+        }
+    }
+
+    fun reorderFromHistory(order: Order) {
+        _uiState.update { state ->
+            val currentItems = state.items
+            val newCart = order.items.mapNotNull { orderItem ->
+                currentItems.find { it.id == orderItem.itemId }?.let { item ->
+                    CartItem(item = item, quantity = orderItem.quantity, note = orderItem.note)
+                }
+            }
+            state.copy(cart = newCart)
+        }
+    }
+
+    // ─── Submit & Clear ───────────────────────────────────────────
 
     fun submitOrder(paymentMethod: PaymentMethod, onSuccess: (Order) -> Unit) {
         val s = _uiState.value
@@ -189,6 +329,19 @@ class PosViewModel constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }
+
+            // Auto-create customer on submit if phone entered but no selectedCustomer
+            var customerId = s.selectedCustomer?.id
+            if (customerId == null && s.clientPhone.isNotBlank()) {
+                customerRepository.createCustomer(
+                    phone = s.clientPhone,
+                    name = s.clientName.ifBlank { null },
+                ).onSuccess { newCustomer ->
+                    customerId = newCustomer.id
+                    _uiState.update { it.copy(selectedCustomer = newCustomer) }
+                }
+            }
+
             val orderItems = s.cart.map { cartItem ->
                 CreateOrderItemRequest(
                     itemId = cartItem.item.id,
@@ -197,12 +350,19 @@ class PosViewModel constructor(
                 )
             }
 
+            val clientAddress = when (s.channel) {
+                OrderChannel.DELIVERY -> s.clientAddress.ifBlank { null }
+                OrderChannel.TAKEAWAY -> s.clientAddress.ifBlank { null }
+                else -> null
+            }
+
             orderRepository.createOrder(
                 channel = s.channel,
                 tableId = if (s.channel == OrderChannel.DINE_IN) s.selectedTableId else null,
                 clientName = s.clientName.ifBlank { null },
                 clientPhone = s.clientPhone.ifBlank { null },
-                clientAddress = if (s.channel == OrderChannel.DELIVERY) s.clientAddress.ifBlank { null } else null,
+                clientAddress = clientAddress,
+                customerId = customerId,
                 geoLat = null, geoLng = null,
                 paymentMethod = paymentMethod,
                 taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
@@ -227,8 +387,17 @@ class PosViewModel constructor(
             it.copy(
                 cart = emptyList(), createdOrder = null,
                 clientName = "", clientPhone = "", clientAddress = "",
-                notes = "", selectedTableId = null, selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { it.isDefault }?.id,
+                notes = "", selectedTableId = null,
+                selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { it.isDefault }?.id,
+                // Clear customer-related state
+                selectedCustomer = null,
+                customerAddresses = emptyList(),
+                selectedAddressId = null,
+                recentOrders = emptyList(),
+                customerLookupDone = false,
+                isLookingUpCustomer = false,
             )
         }
+        phoneLookupJob?.cancel()
     }
 }

@@ -27,6 +27,7 @@ interface OrderRepository {
         channel: OrderChannel,
         tableId: String?,
         clientName: String?, clientPhone: String?, clientAddress: String?,
+        customerId: String?,
         geoLat: Double?, geoLng: Double?,
         paymentMethod: PaymentMethod,
         taxPlaceId: String?,

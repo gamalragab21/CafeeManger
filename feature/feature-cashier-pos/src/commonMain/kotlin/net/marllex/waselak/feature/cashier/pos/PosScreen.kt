@@ -18,14 +18,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -35,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -144,10 +150,11 @@ fun PosScreen(
                 modifier = Modifier.then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth()),
             ) {
                 // Channel selector – only show enabled channels
-                val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery) {
+                val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery, uiState.enableTakeaway) {
                     buildList {
                         if (uiState.enableDineIn) add(OrderChannel.DINE_IN)
                         if (uiState.enableDelivery) add(OrderChannel.DELIVERY)
+                        if (uiState.enableTakeaway) add(OrderChannel.TAKEAWAY)
                         if (isEmpty()) addAll(OrderChannel.entries) // fallback: show all
                     }
                 }
@@ -167,6 +174,7 @@ fun PosScreen(
                                     when (channel) {
                                         OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
                                         OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
+                                        OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
                                     }
                                 )
                             }
@@ -281,6 +289,7 @@ private fun CartBottomSheet(
     onOrderCreated: (Order) -> Unit,
 ) {
     var selectedPayment by remember { mutableStateOf(PaymentMethod.CASH) }
+    val isDeliveryOrTakeaway = uiState.channel == OrderChannel.DELIVERY || uiState.channel == OrderChannel.TAKEAWAY
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -319,35 +328,123 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Delivery fields
-            if (uiState.channel == OrderChannel.DELIVERY) {
+            // Customer phone field — shown for both DELIVERY and TAKEAWAY
+            if (isDeliveryOrTakeaway) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = uiState.clientName, onValueChange = viewModel::setClientName,
-                        label = { Text("Client Name") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    OutlinedTextField(
                         value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
-                        label = { Text("Client Phone") }, singleLine = true,
+                        label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            when {
+                                uiState.isLookingUpCustomer -> CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
+                                    Icons.Filled.CheckCircle,
+                                    contentDescription = stringResource(Res.string.customer_found),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        },
                     )
                 }
+
+                // Customer info card when found
+                if (uiState.selectedCustomer != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = stringResource(Res.string.customer_found),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                                if (uiState.selectedCustomer.orderCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                    ) {
+                                        Text("${uiState.selectedCustomer.orderCount}")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Client name field
+                item {
+                    OutlinedTextField(
+                        value = uiState.clientName, onValueChange = viewModel::setClientName,
+                        label = { Text(stringResource(Res.string.client_name)) }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                // Address picker — only for DELIVERY channel with saved addresses
+                if (uiState.channel == OrderChannel.DELIVERY && uiState.customerAddresses.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(stringResource(Res.string.select_address), style = MaterialTheme.typography.labelMedium)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(uiState.customerAddresses) { addr ->
+                                FilterChip(
+                                    selected = uiState.selectedAddressId == addr.id,
+                                    onClick = { viewModel.selectCustomerAddress(addr.id) },
+                                    label = {
+                                        Text(
+                                            addr.label ?: addr.address.take(25),
+                                            maxLines = 1,
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Delivery address field — required for DELIVERY, optional for TAKEAWAY
                 item {
                     OutlinedTextField(
                         value = uiState.clientAddress, onValueChange = viewModel::setClientAddress,
-                        label = { Text("Delivery Address") },
+                        label = { Text(stringResource(Res.string.client_address)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (uiState.taxPlaces.isNotEmpty()) {
+
+                // Tax place selector — only for DELIVERY
+                if (uiState.channel == OrderChannel.DELIVERY && uiState.taxPlaces.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("Tax place", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(Res.string.delivery_fee_label), style = MaterialTheme.typography.labelMedium)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(uiState.taxPlaces) { place ->
                                 FilterChip(
@@ -358,6 +455,24 @@ private fun CartBottomSheet(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Recent orders section
+                if (uiState.recentOrders.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            stringResource(Res.string.recent_orders),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    items(uiState.recentOrders) { order ->
+                        RecentOrderCard(
+                            order = order,
+                            onReorder = { viewModel.reorderFromHistory(order) },
+                        )
                     }
                 }
             }
@@ -419,6 +534,53 @@ private fun CartBottomSheet(
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentOrderCard(
+    order: Order,
+    onReorder: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.order_items_count, order.items.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = CurrencyFormatter.formatDecimal(order.total),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            OutlinedButton(
+                onClick = onReorder,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    stringResource(Res.string.reorder),
+                    style = MaterialTheme.typography.labelMedium,
+                )
             }
         }
     }

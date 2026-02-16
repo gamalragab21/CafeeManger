@@ -239,6 +239,14 @@ fun ModernFilterSection(
                                 icon = Icons.Default.DeliveryDining
                             )
                         }
+                        item {
+                            ModernFilterChip(
+                                label = stringResource(Res.string.channel_takeaway),
+                                selected = selectedChannel == "TAKEAWAY",
+                                onClick = { onChannelSelected("TAKEAWAY") },
+                                icon = Icons.Default.ShoppingBag
+                            )
+                        }
                     }
                 }
 
@@ -246,6 +254,7 @@ fun ModernFilterSection(
                 val visibleStatuses = when (selectedChannel) {
                     "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
                     "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
+                    "TAKEAWAY" -> OrderStatus.getAvailableStatuses(OrderChannel.TAKEAWAY)
                     else -> OrderStatus.entries.toList()
                 }
 

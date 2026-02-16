@@ -2,7 +2,7 @@ package net.marllex.waselak.backend.domain.service
 
 class OrderService {
 
-    enum class OrderChannel { DINE_IN, DELIVERY }
+    enum class OrderChannel { DINE_IN, DELIVERY, TAKEAWAY }
     enum class OrderStatus {
         CREATED, IN_PREPARATION, READY, ON_TABLE, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED
     }
@@ -22,6 +22,18 @@ class OrderService {
         return when (channel) {
             "DINE_IN" -> validateDineIn(current, next)
             "DELIVERY" -> validateDelivery(current, next)
+            "TAKEAWAY" -> validateTakeaway(current, next)
+            else -> false
+        }
+    }
+
+    private fun validateTakeaway(current: OrderStatus, next: OrderStatus): Boolean {
+        return when (current) {
+            OrderStatus.CREATED -> next in listOf(OrderStatus.IN_PREPARATION, OrderStatus.CANCELED)
+            OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
+            OrderStatus.READY -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
+            OrderStatus.COMPLETED -> false
+            OrderStatus.CANCELED -> false
             else -> false
         }
     }
