@@ -53,58 +53,101 @@ actual class PlatformActions(private val context: Context) {
         context.startActivity(Intent.createChooser(intent, title))
     }
 
+    @android.annotation.SuppressLint("SetJavaScriptEnabled")
     actual fun shareHtmlAsImage(htmlContent: String, fileName: String) {
-        val webView = WebView(context)
-        webView.settings.javaScriptEnabled = false
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                view?.postDelayed({
-                    try {
-                        // Measure the content
-                        view.measure(
-                            android.view.View.MeasureSpec.makeMeasureSpec(580, android.view.View.MeasureSpec.EXACTLY),
-                            android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
-                        )
-                        view.layout(0, 0, 580, view.measuredHeight)
+        val activity = when (context) {
+            is android.app.Activity -> context
+            is android.content.ContextWrapper -> {
+                var ctx: Context? = context
+                while (ctx is android.content.ContextWrapper) {
+                    if (ctx is android.app.Activity) break
+                    ctx = ctx.baseContext
+                }
+                ctx as? android.app.Activity
+            }
+            else -> null
+        } ?: return
 
-                        val bitmap = Bitmap.createBitmap(
-                            view.measuredWidth,
-                            view.measuredHeight,
-                            Bitmap.Config.ARGB_8888
-                        )
-                        val canvas = android.graphics.Canvas(bitmap)
-                        canvas.drawColor(android.graphics.Color.WHITE)
-                        view.draw(canvas)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            try {
+                val webView = WebView(activity)
+                webView.settings.javaScriptEnabled = true
+                webView.setBackgroundColor(android.graphics.Color.WHITE)
 
-                        // Save to cache dir
-                        val imagesDir = File(context.cacheDir, "shared_images")
-                        imagesDir.mkdirs()
-                        val imageFile = File(imagesDir, "$fileName.png")
-                        FileOutputStream(imageFile).use { out ->
-                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                        }
-                        bitmap.recycle()
+                // Enable off-screen rendering
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    WebView.enableSlowWholeDocumentDraw()
+                }
 
-                        // Share via FileProvider
-                        val authority = "${context.packageName}.fileprovider"
-                        val imageUri = FileProvider.getUriForFile(context, authority, imageFile)
+                // Add WebView to the activity's root layout (invisible, off-screen)
+                val rootView = activity.window.decorView.findViewById<android.view.ViewGroup>(android.R.id.content)
+                val params = android.widget.FrameLayout.LayoutParams(
+                    580,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+                webView.visibility = android.view.View.INVISIBLE
+                webView.layoutParams = params
+                rootView.addView(webView)
 
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "image/png"
-                            putExtra(Intent.EXTRA_STREAM, imageUri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share Receipt").apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    } catch (e: Exception) {
-                        println("Share as image failed: ${e.message}")
+                webView.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        view?.postDelayed({
+                            try {
+                                view.measure(
+                                    android.view.View.MeasureSpec.makeMeasureSpec(580, android.view.View.MeasureSpec.EXACTLY),
+                                    android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
+                                )
+                                view.layout(0, 0, 580, view.measuredHeight)
+
+                                val bitmapHeight = view.measuredHeight.coerceAtLeast(1)
+                                val bitmap = Bitmap.createBitmap(580, bitmapHeight, Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                canvas.drawColor(android.graphics.Color.WHITE)
+                                view.draw(canvas)
+
+                                // Remove WebView from parent
+                                rootView.removeView(view)
+                                view.destroy()
+
+                                // Save to cache dir
+                                val imagesDir = File(context.cacheDir, "shared_images")
+                                imagesDir.mkdirs()
+                                val imageFile = File(imagesDir, "$fileName.png")
+                                FileOutputStream(imageFile).use { out ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                }
+                                bitmap.recycle()
+
+                                // Share via FileProvider
+                                val authority = "${context.packageName}.fileprovider"
+                                val imageUri = FileProvider.getUriForFile(context, authority, imageFile)
+
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "image/png"
+                                    putExtra(Intent.EXTRA_STREAM, imageUri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(shareIntent, "Share Receipt").apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                )
+                            } catch (e: Exception) {
+                                rootView.removeView(view)
+                                view?.destroy()
+                                println("Share as image failed: ${e.message}")
+                                e.printStackTrace()
+                            }
+                        }, 800)
                     }
-                }, 500) // Small delay to ensure rendering is complete
+                }
+                webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+            } catch (e: Exception) {
+                println("Share as image setup failed: ${e.message}")
+                e.printStackTrace()
             }
         }
-        webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
     }
 }
 
