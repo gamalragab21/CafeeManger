@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.di
 
+import net.marllex.waselak.config.BuildConfig
 import net.marllex.waselak.core.auth.di.authModule
 import net.marllex.waselak.core.common.di.dispatchersModule
 import net.marllex.waselak.core.data.di.dataModule
@@ -38,7 +39,7 @@ fun managerDesktopKoinModules() = listOf(
 
 private val desktopPlatformModule = module {
     single { DatabaseDriverFactory() }
-    single(named("baseUrl")) { "https://api.waselak.net/" }
+    single(named("baseUrl")) { BuildConfig.BASE_URL }
 }
 
 private val managerAppModule = module {

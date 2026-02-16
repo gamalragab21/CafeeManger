@@ -18,8 +18,36 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                 apply("com.android.application")
             }
 
+            // Generate BuildConfig with BASE_URL from gradle.properties
+            val baseUrl = project.findProperty("BASE_URL") as? String ?: "https://api.waselak.net/"
+            val buildConfigDir = layout.buildDirectory.dir("generated/buildconfig/commonMain/kotlin")
+
+            val generateBuildConfig = tasks.register("generateBuildConfig") {
+                val outputDir = buildConfigDir
+                outputs.dir(outputDir)
+                inputs.property("baseUrl", baseUrl)
+
+                doLast {
+                    val dir = outputDir.get().asFile.resolve("net/marllex/waselak/config")
+                    dir.mkdirs()
+                    dir.resolve("BuildConfig.kt").writeText(
+                        """
+                        |package net.marllex.waselak.config
+                        |
+                        |object BuildConfig {
+                        |    const val BASE_URL: String = "$baseUrl"
+                        |}
+                        """.trimMargin()
+                    )
+                }
+            }
+
             extensions.configure<KotlinMultiplatformExtension> {
                 configureKmpTargets(this)
+
+                sourceSets.commonMain {
+                    kotlin.srcDir(generateBuildConfig.map { buildConfigDir.get() })
+                }
 
                 val composeDeps = ComposePlugin.Dependencies(project)
                 sourceSets.commonMain.dependencies {

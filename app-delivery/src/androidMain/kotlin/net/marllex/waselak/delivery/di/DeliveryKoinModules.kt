@@ -1,6 +1,7 @@
 package net.marllex.waselak.delivery.di
 
 import android.content.Context
+import net.marllex.waselak.config.BuildConfig
 import net.marllex.waselak.core.auth.di.authModule
 import net.marllex.waselak.core.common.di.dispatchersModule
 import net.marllex.waselak.core.data.di.dataModule
@@ -30,7 +31,7 @@ fun deliveryKoinModules() = listOf(
 
 private val platformModule = module {
     single { DatabaseDriverFactory(get<Context>()) }
-    single(named("baseUrl")) { "https://api.waselak.net/" }
+    single(named("baseUrl")) { BuildConfig.BASE_URL }
 }
 
 private val deliveryAppModule = module {
