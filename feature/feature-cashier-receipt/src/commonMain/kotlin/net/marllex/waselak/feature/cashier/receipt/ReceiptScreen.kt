@@ -31,7 +31,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -72,6 +71,7 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.platform.buildReceiptHtml
+import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
 import org.koin.compose.viewmodel.koinViewModel
 import qrgenerator.qrkitpainter.rememberQrKitPainter
@@ -113,6 +113,7 @@ fun ReceiptScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val printer = rememberReceiptPrinter()
+    val platformActions = rememberPlatformActions()
     var showQr by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -298,30 +299,22 @@ fun ReceiptScreen(
 
                                 Spacer(Modifier.height(20.dp))
 
-                                // Receipt QR Code (link from backend)
-                                val receiptUrl = uiState.shareUrl
-                                if (!receiptUrl.isNullOrBlank()) {
-                                    DashedDivider()
-                                    Spacer(Modifier.height(12.dp))
-                                    Image(
-                                        painter = rememberQrKitPainter(data = receiptUrl),
-                                        contentDescription = "Receipt QR Code",
-                                        modifier = Modifier.size(100.dp),
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "Scan to view receipt",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFA8A29E),
-                                        textAlign = TextAlign.Center,
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                } else if (uiState.isSharing) {
-                                    DashedDivider()
-                                    Spacer(Modifier.height(12.dp))
-                                    CircularProgressIndicator(Modifier.size(32.dp))
-                                    Spacer(Modifier.height(12.dp))
-                                }
+                                // Receipt QR Code (shows order ID directly)
+                                DashedDivider()
+                                Spacer(Modifier.height(12.dp))
+                                Image(
+                                    painter = rememberQrKitPainter(data = order.id),
+                                    contentDescription = "Receipt QR Code",
+                                    modifier = Modifier.size(100.dp),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Order #${order.id.takeLast(8).uppercase()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFA8A29E),
+                                    textAlign = TextAlign.Center,
+                                )
+                                Spacer(Modifier.height(12.dp))
 
                                 // Footer
                                 Text(
@@ -358,7 +351,7 @@ fun ReceiptScreen(
                                 Text("Print", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             OutlinedButton(
-                                onClick = { showQr = true; viewModel.generateShareLink() },
+                                onClick = { showQr = true },
                                 modifier = btnMod,
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
@@ -368,7 +361,10 @@ fun ReceiptScreen(
                                 Text("QR", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             OutlinedButton(
-                                onClick = { showQr = true; viewModel.generateShareLink() },
+                                onClick = {
+                                    val html = buildReceiptHtml(order, vendor)
+                                    platformActions.shareHtmlAsImage(html, "receipt-${order.id.takeLast(8)}")
+                                },
                                 modifier = btnMod,
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
@@ -397,8 +393,9 @@ fun ReceiptScreen(
         }
     }
 
-    // QR Dialog
-    if (showQr) {
+    // QR Dialog - shows order ID QR code directly
+    if (showQr && uiState.order != null) {
+        val order = uiState.order!!
         AlertDialog(
             onDismissRequest = { showQr = false },
             confirmButton = {
@@ -406,7 +403,7 @@ fun ReceiptScreen(
             },
             title = {
                 Text(
-                    "Share Receipt",
+                    "Receipt QR Code",
                     style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -414,29 +411,24 @@ fun ReceiptScreen(
             },
             text = {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val shareUrl = uiState.shareUrl
-                    if (uiState.isSharing || shareUrl == null) {
-                        CircularProgressIndicator(Modifier.padding(24.dp))
-                    } else {
-                        Surface(
-                            Modifier.size(220.dp).padding(8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            tonalElevation = 2.dp,
-                        ) {
-                            Image(
-                                painter = rememberQrKitPainter(data = shareUrl),
-                                contentDescription = "QR",
-                                modifier = Modifier.fillMaxSize().padding(12.dp),
-                            )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "Scan to view receipt",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
+                    Surface(
+                        Modifier.size(220.dp).padding(8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        tonalElevation = 2.dp,
+                    ) {
+                        Image(
+                            painter = rememberQrKitPainter(data = order.id),
+                            contentDescription = "QR",
+                            modifier = Modifier.fillMaxSize().padding(12.dp),
                         )
                     }
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Order #${order.id.takeLast(8).uppercase()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             },
         )

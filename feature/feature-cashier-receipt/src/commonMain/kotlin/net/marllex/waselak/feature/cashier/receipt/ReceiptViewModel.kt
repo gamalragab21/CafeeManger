@@ -40,7 +40,6 @@ class ReceiptViewModel constructor(
     init {
         if (orderId.isNotBlank()) {
             loadReceipt()
-            generateShareLink()
         }
     }
 

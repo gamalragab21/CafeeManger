@@ -16,7 +16,12 @@
         path="." />
     
     <!-- Cache directory -->
-    <cache-path 
-        name="cache" 
+    <cache-path
+        name="cache"
         path="." />
+
+    <!-- Shared images for receipt sharing -->
+    <cache-path
+        name="shared_images"
+        path="shared_images/" />
 </paths>

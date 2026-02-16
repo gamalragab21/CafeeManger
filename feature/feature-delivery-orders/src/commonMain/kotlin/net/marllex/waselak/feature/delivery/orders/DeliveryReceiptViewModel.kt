@@ -41,7 +41,6 @@ DeliveryReceiptViewModel constructor(
     init {
         if (orderId.isNotBlank()) {
             load()
-            generateShareLink()
         }
     }
 

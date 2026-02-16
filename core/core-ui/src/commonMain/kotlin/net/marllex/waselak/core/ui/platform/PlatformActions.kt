@@ -8,6 +8,7 @@ expect class PlatformActions {
     fun showToast(message: String)
     fun copyToClipboard(text: String)
     fun shareText(text: String, title: String = "")
+    fun shareHtmlAsImage(htmlContent: String, fileName: String = "receipt")
 }
 
 @Composable
