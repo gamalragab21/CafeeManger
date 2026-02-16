@@ -66,8 +66,11 @@ val networkModule = module {
                         }
                     }
                     sendWithoutRequest { request ->
-                        // Send token with all requests to our API
-                        true
+                        // Skip auth header for public endpoints
+                        val path = request.url.buildString()
+                        !path.contains("auth/login") &&
+                            !path.contains("auth/register") &&
+                            !path.contains("auth/refresh")
                     }
                 }
             }
