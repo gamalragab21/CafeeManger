@@ -895,27 +895,20 @@ private fun AttendanceRecordCard(record: Attendance) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = stringResource(
-                        Res.string.check_in_time,
-                        record.checkIn.formatEpochMs("hh:mm a")
-                    ),
+                    text = "Check-in: ${record.checkIn.formatEpochMs("hh:mm a")}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 record.checkOut?.let {
                     Text(
-                        text = stringResource(
-                            Res.string.check_out_time,
-                            it.formatEpochMs("hh:mm a")
-                        ),
+                        text = "Check-out: ${it.formatEpochMs("hh:mm a")}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                     )
                 }
                 record.workedMinutes?.let {
-
                     Text(
-                        text = stringResource(Res.string.worked, record.workedHoursFormatted),
+                        text = "Worked: ${record.workedHoursFormatted}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
