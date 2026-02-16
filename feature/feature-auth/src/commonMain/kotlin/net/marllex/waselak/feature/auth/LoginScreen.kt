@@ -79,7 +79,7 @@ fun LoginScreen(
         appType = appType,
         onPhoneChange = viewModel::updatePhone,
         onPasswordChange = viewModel::updatePassword,
-        onLoginClick = { viewModel.login(onLoginSuccess) },
+        onLoginClick = { viewModel.login(appType, onLoginSuccess) },
     )
 }
 

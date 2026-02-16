@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
+import net.marllex.waselak.core.model.UserRole
 
 class LoginViewModel constructor(
     private val authRepository: AuthRepository,
@@ -34,7 +35,7 @@ class LoginViewModel constructor(
         _uiState.update { it.copy(password = password, errorMessage = null) }
     }
 
-    fun login(onSuccess: () -> Unit) {
+    fun login(appType: String, onSuccess: () -> Unit) {
         val state = _uiState.value
 
         if (state.phone.isBlank()) {
@@ -50,9 +51,20 @@ class LoginViewModel constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             authRepository.login(state.phone, state.password)
-                .onSuccess {
-                    _uiState.update { it.copy(isLoading = false) }
-                    onSuccess()
+                .onSuccess { user ->
+                    if (isRoleAllowed(user.role, appType)) {
+                        _uiState.update { it.copy(isLoading = false) }
+                        onSuccess()
+                    } else {
+                        // Role not allowed for this app — clear session
+                        authRepository.logout()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Your account doesn't have permission to access this app",
+                            )
+                        }
+                    }
                 }
                 .onFailure { throwable ->
                     _uiState.update {
@@ -62,6 +74,18 @@ class LoginViewModel constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private fun isRoleAllowed(role: UserRole, appType: String): Boolean {
+        // MANAGER role can access all apps
+        if (role == UserRole.MANAGER) return true
+
+        return when (appType) {
+            "MANAGER" -> false // Only MANAGER role allowed
+            "CASHIER" -> role == UserRole.CASHIER
+            "DELIVERY" -> role == UserRole.DELIVERY
+            else -> false
         }
     }
 }
