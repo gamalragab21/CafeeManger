@@ -32,9 +32,9 @@ import org.koin.dsl.module
 fun managerKoinModules() = listOf(
     platformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     chatbotModule,
     managerAppModule,

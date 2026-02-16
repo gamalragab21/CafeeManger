@@ -20,9 +20,9 @@ import org.koin.dsl.module
 fun deliveryIosKoinModules() = listOf(
     iosPlatformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     deliveryAppModule,
 )

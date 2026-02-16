@@ -22,9 +22,9 @@ import org.koin.dsl.module
 fun deliveryKoinModules() = listOf(
     platformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     deliveryAppModule,
 )

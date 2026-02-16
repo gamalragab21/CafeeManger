@@ -29,9 +29,9 @@ import org.koin.dsl.module
 fun managerIosKoinModules() = listOf(
     iosPlatformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     chatbotModule,
     managerAppModule,

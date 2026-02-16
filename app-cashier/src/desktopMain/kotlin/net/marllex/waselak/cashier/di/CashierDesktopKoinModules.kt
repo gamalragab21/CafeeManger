@@ -22,9 +22,9 @@ import org.koin.dsl.module
 fun cashierDesktopKoinModules() = listOf(
     desktopPlatformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     cashierAppModule,
 )

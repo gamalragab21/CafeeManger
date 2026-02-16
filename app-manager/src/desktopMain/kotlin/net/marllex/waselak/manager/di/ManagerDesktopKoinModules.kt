@@ -29,9 +29,9 @@ import org.koin.dsl.module
 fun managerDesktopKoinModules() = listOf(
     desktopPlatformModule,
     dispatchersModule,
-    networkModule,
     databaseModule,
     authModule,
+    networkModule,
     dataModule,
     chatbotModule,
     managerAppModule,
