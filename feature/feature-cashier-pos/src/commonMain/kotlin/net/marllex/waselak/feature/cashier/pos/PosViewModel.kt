@@ -71,7 +71,20 @@ class PosViewModel constructor(
         val recentOrders: List<Order> = emptyList(),
         val isLookingUpCustomer: Boolean = false,
         val customerLookupDone: Boolean = false,
-    )
+        // Phone autocomplete dropdown
+        val phoneSearchResults: List<Customer> = emptyList(),
+        val showPhoneDropdown: Boolean = false,
+    ) {
+        /** Whether the Place Order button should be enabled */
+        val canSubmit: Boolean get() {
+            if (cart.isEmpty() || isSubmitting) return false
+            return when (channel) {
+                OrderChannel.DELIVERY -> clientPhone.isNotBlank() && clientAddress.isNotBlank()
+                OrderChannel.TAKEAWAY -> clientPhone.isNotBlank()
+                OrderChannel.DINE_IN -> true
+            }
+        }
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -204,16 +217,47 @@ class PosViewModel constructor(
 
     fun setClientPhone(v: String) {
         _uiState.update { it.copy(clientPhone = v) }
-        // Debounced customer lookup when phone has 11+ chars
-        if (v.length >= 11) {
+
+        // Local search for autocomplete dropdown (3+ chars)
+        if (v.length >= 3) {
             phoneLookupJob?.cancel()
             phoneLookupJob = viewModelScope.launch {
-                delay(300)
-                lookupCustomerByPhone(v)
+                delay(200)
+                // Search local DB for matching customers
+                customerRepository.searchCustomers(v)
+                    .collect { results ->
+                        _uiState.update {
+                            it.copy(
+                                phoneSearchResults = results,
+                                showPhoneDropdown = results.isNotEmpty() && it.selectedCustomer == null,
+                            )
+                        }
+                    }
+            }
+            // Also do remote lookup when phone has 11+ chars
+            if (v.length >= 11) {
+                viewModelScope.launch {
+                    delay(300)
+                    _uiState.update { it.copy(isLookingUpCustomer = true) }
+                    customerRepository.lookupCustomerByPhone(v)
+                        .onSuccess { customer ->
+                            if (customer != null) {
+                                _selectCustomer(customer)
+                            } else {
+                                _uiState.update {
+                                    it.copy(isLookingUpCustomer = false, customerLookupDone = true)
+                                }
+                            }
+                        }
+                        .onFailure {
+                            _uiState.update {
+                                it.copy(isLookingUpCustomer = false, customerLookupDone = true)
+                            }
+                        }
+                }
             }
         } else {
             phoneLookupJob?.cancel()
-            // Reset lookup state if phone is too short
             _uiState.update {
                 it.copy(
                     isLookingUpCustomer = false,
@@ -222,8 +266,59 @@ class PosViewModel constructor(
                     customerAddresses = emptyList(),
                     selectedAddressId = null,
                     recentOrders = emptyList(),
+                    phoneSearchResults = emptyList(),
+                    showPhoneDropdown = false,
                 )
             }
+        }
+    }
+
+    /** Called when user picks a customer from the phone dropdown */
+    fun selectCustomerFromDropdown(customer: Customer) {
+        _uiState.update {
+            it.copy(
+                clientPhone = customer.phone,
+                showPhoneDropdown = false,
+                phoneSearchResults = emptyList(),
+            )
+        }
+        phoneLookupJob?.cancel()
+        _selectCustomer(customer)
+    }
+
+    fun dismissPhoneDropdown() {
+        _uiState.update { it.copy(showPhoneDropdown = false) }
+    }
+
+    /** Shared helper to select a customer and fill name/address/orders */
+    private fun _selectCustomer(customer: Customer) {
+        _uiState.update {
+            it.copy(
+                selectedCustomer = customer,
+                isLookingUpCustomer = false,
+                customerLookupDone = true,
+                showPhoneDropdown = false,
+                clientName = if (it.clientName.isBlank()) customer.name.orEmpty() else it.clientName,
+            )
+        }
+        viewModelScope.launch {
+            // Load addresses and auto-select default
+            customerRepository.getCustomerAddresses(customer.id)
+                .onSuccess { addresses ->
+                    val defaultAddr = addresses.find { it.isDefault } ?: addresses.firstOrNull()
+                    _uiState.update {
+                        it.copy(
+                            customerAddresses = addresses,
+                            selectedAddressId = defaultAddr?.id,
+                            clientAddress = if (it.clientAddress.isBlank()) defaultAddr?.address.orEmpty() else it.clientAddress,
+                        )
+                    }
+                }
+            // Load recent orders
+            customerRepository.getCustomerRecentOrders(customer.id)
+                .onSuccess { orders ->
+                    _uiState.update { it.copy(recentOrders = orders) }
+                }
         }
     }
 
@@ -233,58 +328,6 @@ class PosViewModel constructor(
     fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.item.price * cartItem.quantity }
 
     // ─── Customer methods ─────────────────────────────────────────
-
-    fun lookupCustomerByPhone(phone: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLookingUpCustomer = true, customerLookupDone = false) }
-            customerRepository.lookupCustomerByPhone(phone)
-                .onSuccess { customer ->
-                    if (customer != null) {
-                        _uiState.update {
-                            it.copy(
-                                selectedCustomer = customer,
-                                isLookingUpCustomer = false,
-                                customerLookupDone = true,
-                                clientName = if (it.clientName.isBlank()) customer.name.orEmpty() else it.clientName,
-                            )
-                        }
-                        // Load addresses
-                        customerRepository.getCustomerAddresses(customer.id)
-                            .onSuccess { addresses ->
-                                _uiState.update { it.copy(customerAddresses = addresses) }
-                            }
-                        // Load recent orders
-                        customerRepository.getCustomerRecentOrders(customer.id)
-                            .onSuccess { orders ->
-                                _uiState.update { it.copy(recentOrders = orders) }
-                            }
-                    } else {
-                        _uiState.update {
-                            it.copy(
-                                selectedCustomer = null,
-                                isLookingUpCustomer = false,
-                                customerLookupDone = true,
-                                customerAddresses = emptyList(),
-                                selectedAddressId = null,
-                                recentOrders = emptyList(),
-                            )
-                        }
-                    }
-                }
-                .onFailure {
-                    _uiState.update {
-                        it.copy(
-                            selectedCustomer = null,
-                            isLookingUpCustomer = false,
-                            customerLookupDone = true,
-                            customerAddresses = emptyList(),
-                            selectedAddressId = null,
-                            recentOrders = emptyList(),
-                        )
-                    }
-                }
-        }
-    }
 
     fun selectCustomerAddress(addressId: String) {
         val address = _uiState.value.customerAddresses.find { it.id == addressId }
@@ -305,6 +348,8 @@ class PosViewModel constructor(
                 selectedAddressId = null,
                 recentOrders = emptyList(),
                 customerLookupDone = false,
+                phoneSearchResults = emptyList(),
+                showPhoneDropdown = false,
             )
         }
     }
@@ -325,7 +370,7 @@ class PosViewModel constructor(
 
     fun submitOrder(paymentMethod: PaymentMethod, onSuccess: (Order) -> Unit) {
         val s = _uiState.value
-        if (s.cart.isEmpty()) return
+        if (!s.canSubmit) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }
@@ -383,6 +428,7 @@ class PosViewModel constructor(
     }
 
     fun clearOrder() {
+        phoneLookupJob?.cancel()
         _uiState.update {
             it.copy(
                 cart = emptyList(), createdOrder = null,
@@ -396,8 +442,9 @@ class PosViewModel constructor(
                 recentOrders = emptyList(),
                 customerLookupDone = false,
                 isLookingUpCustomer = false,
+                phoneSearchResults = emptyList(),
+                showPhoneDropdown = false,
             )
         }
-        phoneLookupJob?.cancel()
     }
 }

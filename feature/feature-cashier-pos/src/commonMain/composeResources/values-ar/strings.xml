@@ -21,4 +21,6 @@
     <string name="order_items_count">%1$d أصناف</string>
     <string name="client_name">اسم العميل</string>
     <string name="client_address">عنوان العميل</string>
+    <string name="phone_required">رقم الهاتف مطلوب</string>
+    <string name="address_required">عنوان التوصيل مطلوب</string>
 </resources>

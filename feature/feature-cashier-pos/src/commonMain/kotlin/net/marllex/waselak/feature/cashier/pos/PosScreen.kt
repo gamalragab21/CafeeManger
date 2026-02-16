@@ -77,8 +77,13 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn as LazyCol
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
@@ -289,6 +294,7 @@ private fun CartBottomSheet(
     onOrderCreated: (Order) -> Unit,
 ) {
     var selectedPayment by remember { mutableStateOf(PaymentMethod.CASH) }
+    var hasAttemptedSubmit by remember { mutableStateOf(false) }
     val isDeliveryOrTakeaway = uiState.channel == OrderChannel.DELIVERY || uiState.channel == OrderChannel.TAKEAWAY
 
     ModalBottomSheet(
@@ -332,26 +338,56 @@ private fun CartBottomSheet(
             if (isDeliveryOrTakeaway) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
-                        label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
-                            when {
-                                uiState.isLookingUpCustomer -> CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
-                                    Icons.Filled.CheckCircle,
-                                    contentDescription = stringResource(Res.string.customer_found),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
+                    // Phone field with autocomplete dropdown
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        val isPhoneError = hasAttemptedSubmit && uiState.clientPhone.isBlank()
+                        OutlinedTextField(
+                            value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
+                            label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            modifier = Modifier.fillMaxWidth(),
+                            isError = isPhoneError,
+                            supportingText = if (isPhoneError) {{ Text(stringResource(Res.string.phone_required)) }} else null,
+                            trailingIcon = {
+                                when {
+                                    uiState.isLookingUpCustomer -> CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                    uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
+                                        Icons.Filled.CheckCircle,
+                                        contentDescription = stringResource(Res.string.customer_found),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            },
+                        )
+                        // Autocomplete dropdown
+                        DropdownMenu(
+                            expanded = uiState.showPhoneDropdown,
+                            onDismissRequest = { viewModel.dismissPhoneDropdown() },
+                            modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 200.dp),
+                        ) {
+                            uiState.phoneSearchResults.forEach { customer ->
+                                val displayName = customer.name.orEmpty()
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(customer.phone, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                            if (displayName.isNotBlank()) {
+                                                Text(displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    },
+                                    onClick = { viewModel.selectCustomerFromDropdown(customer) },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    },
                                 )
                             }
-                        },
-                    )
+                        }
+                    }
                 }
 
                 // Customer info card when found
@@ -399,7 +435,7 @@ private fun CartBottomSheet(
                     }
                 }
 
-                // Client name field
+                // Client name field (optional)
                 item {
                     OutlinedTextField(
                         value = uiState.clientName, onValueChange = viewModel::setClientName,
@@ -432,12 +468,17 @@ private fun CartBottomSheet(
                 }
 
                 // Delivery address field — required for DELIVERY, optional for TAKEAWAY
-                item {
-                    OutlinedTextField(
-                        value = uiState.clientAddress, onValueChange = viewModel::setClientAddress,
-                        label = { Text(stringResource(Res.string.client_address)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                if (uiState.channel == OrderChannel.DELIVERY) {
+                    item {
+                        val isAddressError = hasAttemptedSubmit && uiState.clientAddress.isBlank()
+                        OutlinedTextField(
+                            value = uiState.clientAddress, onValueChange = viewModel::setClientAddress,
+                            label = { Text(stringResource(Res.string.client_address)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            isError = isAddressError,
+                            supportingText = if (isAddressError) {{ Text(stringResource(Res.string.address_required)) }} else null,
+                        )
+                    }
                 }
 
                 // Tax place selector — only for DELIVERY
@@ -521,7 +562,12 @@ private fun CartBottomSheet(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { viewModel.submitOrder(selectedPayment) { onOrderCreated(it); onDismiss() } },
+                    onClick = {
+                        hasAttemptedSubmit = true
+                        if (uiState.canSubmit) {
+                            viewModel.submitOrder(selectedPayment) { onOrderCreated(it); onDismiss() }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isSubmitting && uiState.cart.isNotEmpty(),
                 ) {

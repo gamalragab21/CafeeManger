@@ -21,4 +21,6 @@
     <string name="order_items_count">%1$d items</string>
     <string name="client_name">Client Name</string>
     <string name="client_address">Client Address</string>
+    <string name="phone_required">Phone number is required</string>
+    <string name="address_required">Delivery address is required</string>
 </resources>
