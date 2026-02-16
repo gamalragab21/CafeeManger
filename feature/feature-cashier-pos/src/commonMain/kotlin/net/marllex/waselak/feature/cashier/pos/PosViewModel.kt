@@ -298,11 +298,12 @@ class PosViewModel constructor(
                 isLookingUpCustomer = false,
                 customerLookupDone = true,
                 showPhoneDropdown = false,
-                clientName = if (it.clientName.isBlank()) customer.name.orEmpty() else it.clientName,
+                phoneSearchResults = emptyList(),
+                clientName = customer.name.orEmpty().ifBlank { it.clientName },
             )
         }
         viewModelScope.launch {
-            // Load addresses and auto-select default
+            // Load addresses and always auto-fill with default address
             customerRepository.getCustomerAddresses(customer.id)
                 .onSuccess { addresses ->
                     val defaultAddr = addresses.find { it.isDefault } ?: addresses.firstOrNull()
@@ -310,7 +311,7 @@ class PosViewModel constructor(
                         it.copy(
                             customerAddresses = addresses,
                             selectedAddressId = defaultAddr?.id,
-                            clientAddress = if (it.clientAddress.isBlank()) defaultAddr?.address.orEmpty() else it.clientAddress,
+                            clientAddress = defaultAddr?.address.orEmpty(),
                         )
                     }
                 }

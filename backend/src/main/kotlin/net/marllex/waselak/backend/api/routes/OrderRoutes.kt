@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
+import net.marllex.waselak.backend.data.database.CustomersTable
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.OrderItemsTable
 import net.marllex.waselak.backend.data.database.OrdersTable
@@ -520,6 +521,19 @@ fun Route.orderRoutes() {
                     it[action] = "ORDER_CREATED"
                     it[payload] = """{"channel":"${request.channel}"}"""
                     it[createdAt] = Clock.System.now()
+                }
+
+                // Update customer stats (order_count, total_spent, last_order_at)
+                request.customer_id?.let { cid ->
+                    val customerUUID = UUID.fromString(cid)
+                    CustomersTable.update({ CustomersTable.id eq customerUUID }) { stmt ->
+                        with(SqlExpressionBuilder) {
+                            stmt[orderCount] = orderCount + 1
+                            stmt[totalSpent] = totalSpent + total
+                        }
+                        stmt[lastOrderAt] = Clock.System.now()
+                        stmt[updatedAt] = Clock.System.now()
+                    }
                 }
 
                 val orderRow = OrdersTable.selectAll().where { OrdersTable.id eq orderId }.first()

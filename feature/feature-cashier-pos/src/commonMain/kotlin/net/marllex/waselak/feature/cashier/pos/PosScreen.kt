@@ -81,9 +81,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn as LazyCol
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
@@ -338,53 +335,62 @@ private fun CartBottomSheet(
             if (isDeliveryOrTakeaway) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    // Phone field with autocomplete dropdown
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        val isPhoneError = hasAttemptedSubmit && uiState.clientPhone.isBlank()
-                        OutlinedTextField(
-                            value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
-                            label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    // Phone field
+                    val isPhoneError = hasAttemptedSubmit && uiState.clientPhone.isBlank()
+                    OutlinedTextField(
+                        value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
+                        label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = isPhoneError,
+                        supportingText = if (isPhoneError) {{ Text(stringResource(Res.string.phone_required)) }} else null,
+                        trailingIcon = {
+                            when {
+                                uiState.isLookingUpCustomer -> CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
+                                    Icons.Filled.CheckCircle,
+                                    contentDescription = stringResource(Res.string.customer_found),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        },
+                    )
+                }
+
+                // Phone autocomplete suggestions — shown as inline cards (no popup, no focus stealing)
+                if (uiState.showPhoneDropdown && uiState.phoneSearchResults.isNotEmpty()) {
+                    item {
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            isError = isPhoneError,
-                            supportingText = if (isPhoneError) {{ Text(stringResource(Res.string.phone_required)) }} else null,
-                            trailingIcon = {
-                                when {
-                                    uiState.isLookingUpCustomer -> CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                    uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
-                                        Icons.Filled.CheckCircle,
-                                        contentDescription = stringResource(Res.string.customer_found),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            },
-                        )
-                        // Autocomplete dropdown
-                        DropdownMenu(
-                            expanded = uiState.showPhoneDropdown,
-                            onDismissRequest = { viewModel.dismissPhoneDropdown() },
-                            modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 200.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
                         ) {
-                            uiState.phoneSearchResults.forEach { customer ->
-                                val displayName = customer.name.orEmpty()
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                uiState.phoneSearchResults.take(5).forEach { customer ->
+                                    val displayName = customer.name.orEmpty()
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.selectCustomerFromDropdown(customer) }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(customer.phone, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                             if (displayName.isNotBlank()) {
                                                 Text(displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
-                                    },
-                                    onClick = { viewModel.selectCustomerFromDropdown(customer) },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp))
-                                    },
-                                )
+                                    }
+                                }
                             }
                         }
                     }
