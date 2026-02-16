@@ -20,7 +20,6 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
-import org.koin.ktor.ext.inject
 import java.math.BigDecimal
 import java.util.UUID
 import kotlin.getValue

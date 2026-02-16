@@ -6,12 +6,13 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import net.marllex.waselak.backend.domain.service.ExportService
 //import net.marllex.waselak.backend.plugins.requireRole
-import org.koin.ktor.ext.inject
+import org.koin.java.KoinJavaComponent
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.getValue
 
 fun Route.exportRoutes() {
-    val exportService by inject<ExportService>()
+    val exportService by KoinJavaComponent.inject<ExportService>(clazz = ExportService::class.java)
 
     route("/api/v1/export") {
 
