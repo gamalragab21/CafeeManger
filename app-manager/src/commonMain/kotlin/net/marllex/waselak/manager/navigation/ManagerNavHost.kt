@@ -96,6 +96,8 @@ import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.feature.manager.analytics.EnhancedAnalyticsScreen
 import net.marllex.waselak.feature.manager.analytics.ExportScreen
 import net.marllex.waselak.feature.manager.categories.CategoriesScreen
+import net.marllex.waselak.feature.cashier.receipt.navigation.navigateToReceipt
+import net.marllex.waselak.feature.cashier.receipt.navigation.receiptScreen
 import net.marllex.waselak.feature.manager.chatbot.navigation.chatbotScreen
 import net.marllex.waselak.feature.manager.dashboard.DashboardScreen
 import net.marllex.waselak.feature.manager.items.ItemsScreen
@@ -281,7 +283,13 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             }
                         )
                     }
-                    composable(ManagerTab.ORDERS.route) { OrdersScreen() }
+                    composable(ManagerTab.ORDERS.route) {
+                        OrdersScreen(
+                            onViewReceipt = { orderId ->
+                                navController.navigateToReceipt(orderId)
+                            },
+                        )
+                    }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.USERS.route) {
                         StaffScreen(
@@ -307,6 +315,9 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             onNavigateBack = { navController.navigateUp() }
                         )
                     }
+                    receiptScreen(
+                        onBack = { navController.navigateUp() },
+                    )
                 }
             }
         } else {
@@ -336,7 +347,13 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             }
                         )
                     }
-                    composable(ManagerTab.ORDERS.route) { OrdersScreen() }
+                    composable(ManagerTab.ORDERS.route) {
+                        OrdersScreen(
+                            onViewReceipt = { orderId ->
+                                navController.navigateToReceipt(orderId)
+                            },
+                        )
+                    }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.USERS.route) {
                         StaffScreen(
@@ -362,6 +379,9 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             onNavigateBack = { navController.navigateUp() }
                         )
                     }
+                    receiptScreen(
+                        onBack = { navController.navigateUp() },
+                    )
                 }
             }
         }

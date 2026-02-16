@@ -9,6 +9,7 @@ import net.marllex.waselak.core.database.di.DatabaseDriverFactory
 import net.marllex.waselak.core.database.di.databaseModule
 import net.marllex.waselak.core.network.di.networkModule
 import net.marllex.waselak.feature.auth.LoginViewModel
+import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel
 import net.marllex.waselak.feature.manager.analytics.ExportViewModel
 import net.marllex.waselak.feature.manager.categories.CategoriesViewModel
@@ -63,4 +64,5 @@ private val managerAppModule = module {
     viewModelOf(::TaxPlacesViewModel)
     viewModelOf(::WorkerQrCodeViewModel)
     viewModelOf(::ExportViewModel)
+    viewModelOf(::ReceiptViewModel)
 }

@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,8 @@ import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.platform.buildReceiptHtml
+import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
 import org.koin.compose.viewmodel.koinViewModel
 import qrgenerator.qrkitpainter.rememberQrKitPainter
 
@@ -109,6 +112,7 @@ fun ReceiptScreen(
     val viewModel: ReceiptViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    val printer = rememberReceiptPrinter()
     var showQr by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -337,9 +341,22 @@ fun ReceiptScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            maxItemsInEachRow = 2,
+                            maxItemsInEachRow = 3,
                         ) {
                             val btnMod = Modifier.weight(1f).height(48.dp)
+                            OutlinedButton(
+                                onClick = {
+                                    val html = buildReceiptHtml(order, vendor)
+                                    printer.printHtml(html, "Receipt-${order.id.takeLast(8)}")
+                                },
+                                modifier = btnMod,
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                            ) {
+                                Icon(Icons.Default.Print, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Print", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                             OutlinedButton(
                                 onClick = { showQr = true; viewModel.generateShareLink() },
                                 modifier = btnMod,

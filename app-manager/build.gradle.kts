@@ -57,6 +57,7 @@ kotlin {
             implementation(project(":feature:feature-manager-orders"))
             implementation(project(":feature:feature-manager-stock"))
             implementation(project(":feature:feature-manager-chatbot"))
+            implementation(project(":feature:feature-cashier-receipt"))
 
             // Navigation & Lifecycle
             implementation(libs.navigation.compose)
