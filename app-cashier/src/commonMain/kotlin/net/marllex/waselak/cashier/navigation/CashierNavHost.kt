@@ -53,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -614,6 +615,14 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val currentUser by authRepository.currentUser.collectAsState(initial = null)
     val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // Force-navigate to login if session is invalidated (e.g. logged in on another device)
+    val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn) {
+            navController.navigate(AUTH_ROUTE) { popUpTo(0) { inclusive = true } }
+        }
+    }
 
     val onSignOut: () -> Unit = remember(navController, scope) {
         {

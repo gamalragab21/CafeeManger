@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.ui.components.LanguageSelector
+import net.marllex.waselak.feature.auth.biometric.rememberBiometricAuthenticator
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -73,11 +74,42 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState(initial = false)
     var hasNavigated by rememberSaveable { mutableStateOf(false) }
+    var showBiometricGate by rememberSaveable { mutableStateOf(false) }
 
-    if (isLoggedIn && !hasNavigated) {
-        hasNavigated = true
-        onLoginSuccess()
+    val biometricAuth = rememberBiometricAuthenticator()
+
+    // Biometric gate overlay — shown after login success (auto or manual)
+    if (showBiometricGate) {
+        BiometricGateScreen(
+            biometricAuth = biometricAuth,
+            onSuccess = {
+                showBiometricGate = false
+                hasNavigated = true
+                onLoginSuccess()
+            },
+        )
         return
+    }
+
+    // Auto-login path: token exists → gate through biometric if available
+    if (isLoggedIn && !hasNavigated) {
+        if (biometricAuth.isAvailable()) {
+            showBiometricGate = true
+        } else {
+            hasNavigated = true
+            onLoginSuccess()
+        }
+        return
+    }
+
+    // Manual login path: gate through biometric after successful credentials login
+    val gatedOnLoginSuccess: () -> Unit = {
+        if (biometricAuth.isAvailable()) {
+            showBiometricGate = true
+        } else {
+            hasNavigated = true
+            onLoginSuccess()
+        }
     }
 
     LoginContent(
@@ -85,7 +117,7 @@ fun LoginScreen(
         appType = appType,
         onPhoneChange = viewModel::updatePhone,
         onPasswordChange = viewModel::updatePassword,
-        onLoginClick = { viewModel.login(appType, onLoginSuccess) },
+        onLoginClick = { viewModel.login(appType, gatedOnLoginSuccess) },
     )
 }
 

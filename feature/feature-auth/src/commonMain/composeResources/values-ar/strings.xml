@@ -19,4 +19,10 @@
 
     <string name="delivery_panel">تطبيق التوصيل</string>
     <string name="delivery_subtitle">سجل الدخول لبدء التوصيل</string>
+
+    <string name="verify_identity">تحقق من هويتك</string>
+    <string name="biometric_subtitle">استخدم بصمة الإصبع أو التعرف على الوجه للمتابعة</string>
+    <string name="tap_to_retry">اضغط للمصادقة</string>
+    <string name="biometric_cancelled">تم إلغاء المصادقة. اضغط للمحاولة مرة أخرى.</string>
+    <string name="biometric_error">فشلت المصادقة. يرجى المحاولة مرة أخرى.</string>
 </resources>

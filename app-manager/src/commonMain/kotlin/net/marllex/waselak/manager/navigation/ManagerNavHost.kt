@@ -61,6 +61,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -248,6 +249,14 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
+
+    // Force-navigate to login if session is invalidated (e.g. logged in on another device)
+    val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn) {
+            navController.navigate(AUTH_ROUTE) { popUpTo(0) { inclusive = true } }
+        }
+    }
 
     val onSignOut: () -> Unit = remember(navController, scope) {
         {

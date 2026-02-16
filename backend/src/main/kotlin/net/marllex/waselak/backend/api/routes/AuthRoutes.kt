@@ -18,7 +18,10 @@ import net.marllex.waselak.backend.domain.service.AuthService
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.server.routing.application
+import net.marllex.waselak.backend.data.database.RefreshTokensTable
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -229,22 +232,30 @@ fun Route.authRoutes() {
             val request = call.receive<RefreshTokenRequest>()
             require(request.refresh_token.isNotBlank()) { "Refresh token is required" }
 
-            val result = authService.refreshToken(request.refresh_token)
+            try {
+                val result = authService.refreshToken(request.refresh_token)
 
-            call.respond(
-                HttpStatusCode.OK, AuthResponse(
-                    access_token = result.accessToken,
-                    refresh_token = result.refreshToken,
-                    user = AuthUserDto(
-                        id = result.userId,
-                        vendor_id = result.vendorId,
-                        role = result.role,
-                        name = result.name,
-                        phone = result.phone,
-                        email = result.email
+                call.respond(
+                    HttpStatusCode.OK, AuthResponse(
+                        access_token = result.accessToken,
+                        refresh_token = result.refreshToken,
+                        user = AuthUserDto(
+                            id = result.userId,
+                            vendor_id = result.vendorId,
+                            role = result.role,
+                            name = result.name,
+                            phone = result.phone,
+                            email = result.email
+                        )
                     )
                 )
-            )
+            } catch (e: SecurityException) {
+                // Session was invalidated (user logged in on another device)
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf("error" to (e.message ?: "Session expired. Please login again."))
+                )
+            }
         }
 
         post("/logout") {
@@ -297,6 +308,28 @@ fun Route.authRoutes() {
                 }
             } catch (_: Exception) {
                 // Don't fail logout if attendance auto-record fails
+            }
+
+            // Invalidate all refresh tokens for this user (end all sessions)
+            try {
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    val token = authHeader.removePrefix("Bearer ")
+                    val jwtConfig2 = JwtConfig(this@route.application.environment.config)
+                    val verifier2 = JWT.require(Algorithm.HMAC256(jwtConfig2.secret))
+                        .withIssuer(jwtConfig2.issuer)
+                        .withAudience(jwtConfig2.audience)
+                        .build()
+                    val decoded2 = verifier2.verify(token)
+                    val logoutUserId = decoded2.subject
+                    transaction {
+                        RefreshTokensTable.deleteWhere {
+                            RefreshTokensTable.userId eq UUID.fromString(logoutUserId)
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Don't fail logout if token invalidation fails
             }
 
             call.respond(HttpStatusCode.OK, mapOf("success" to true))

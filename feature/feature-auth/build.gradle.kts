@@ -15,5 +15,8 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:core-auth"))
         }
+        androidMain.dependencies {
+            implementation(libs.androidx.biometric)
+        }
     }
 }

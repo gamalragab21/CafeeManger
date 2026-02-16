@@ -55,6 +55,9 @@ mapsCompose = "6.2.1"
 # CameraX (Android-only)
 camerax = "1.4.1"
 
+# Biometric (Android-only)
+biometric = "1.1.0"
+
 # Accompanist (Android-only)
 accompanist = "0.36.0"
 
@@ -74,6 +77,7 @@ turbine = "1.2.0"
 # AndroidX Core (Android-only)
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-print = { group = "androidx.print", name = "print", version = "1.1.0" }
 
 # Lifecycle & ViewModel (KMP)
