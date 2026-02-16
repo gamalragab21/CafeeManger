@@ -7,7 +7,7 @@ import net.marllex.waselak.core.network.dto.RefreshTokenRequest
 
 class TokenProviderImpl(
     private val tokenManager: TokenManager,
-    private val api: WaselakApiClient,
+    private val apiLazy: Lazy<WaselakApiClient>,
 ) : TokenProvider {
 
     override suspend fun getAccessToken(): String? =
@@ -18,7 +18,7 @@ class TokenProviderImpl(
 
     override suspend fun refreshTokens(refreshToken: String): TokenPair? {
         return try {
-            val response = api.refreshToken(RefreshTokenRequest(refreshToken))
+            val response = apiLazy.value.refreshToken(RefreshTokenRequest(refreshToken))
             tokenManager.saveTokens(response.accessToken, response.refreshToken)
             TokenPair(
                 accessToken = response.accessToken,
