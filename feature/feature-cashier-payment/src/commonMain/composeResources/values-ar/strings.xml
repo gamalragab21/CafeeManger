@@ -10,12 +10,10 @@
     <string name="tax">الضريبة</string>
     <string name="total">الإجمالي</string>
 
-    <string name="price_format">%.2f</string>
+    <string name="price_format">%1$s</string>
 
     <string name="processing">جارٍ المعالجة...</string>
-    <string name="confirm_payment_amount">
-        تأكيد الدفع - %.2f
-    </string>
+    <string name="confirm_payment_amount">تأكيد الدفع - %1$s</string>
 
     <string name="payment_success">تم الدفع بنجاح!</string>
     <string name="view_receipt">عرض الإيصال</string>

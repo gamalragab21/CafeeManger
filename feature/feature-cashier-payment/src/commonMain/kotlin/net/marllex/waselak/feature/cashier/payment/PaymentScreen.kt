@@ -31,6 +31,7 @@ import net.marllex.waselak.feature.cashier.payment.generated.resources.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import net.marllex.waselak.core.ui.components.PaymentMethodChip
@@ -112,8 +113,7 @@ fun PaymentScreen(
                                         )
                                     )
                                     Text(
-                                        stringResource(
-                                            Res.string.price_format,
+                                        CurrencyFormatter.formatDecimal(
                                             item.itemPriceSnapshot * item.quantity
                                         )
                                     )
@@ -143,7 +143,7 @@ fun PaymentScreen(
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    stringResource(Res.string.price_format, order.total),
+                                    CurrencyFormatter.formatDecimal(order.total),
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
@@ -168,7 +168,7 @@ fun PaymentScreen(
                             else
                                 stringResource(
                                     Res.string.confirm_payment_amount,
-                                    order.total
+                                    CurrencyFormatter.formatDecimal(order.total)
                                 )
                         )
                     }
@@ -185,7 +185,7 @@ private fun SummaryRow(label: String, value: Double) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label)
-        Text(stringResource(Res.string.price_format, value))
+        Text(CurrencyFormatter.formatDecimal(value))
     }
 }
 

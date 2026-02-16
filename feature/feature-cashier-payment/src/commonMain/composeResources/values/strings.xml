@@ -10,12 +10,10 @@
     <string name="tax">Tax</string>
     <string name="total">Total</string>
 
-    <string name="price_format">%.2f</string>
+    <string name="price_format">%1$s</string>
 
     <string name="processing">Processing...</string>
-    <string name="confirm_payment_amount">
-        Confirm Payment - %.2f
-    </string>
+    <string name="confirm_payment_amount">Confirm Payment - %1$s</string>
 
     <string name="payment_success">Payment Successful!</string>
     <string name="view_receipt">View Receipt</string>
