@@ -1,6 +1,6 @@
 [versions]
 # Core
-agp = "8.7.3"
+agp = "8.9.1"
 kotlin = "2.1.0"
 ksp = "2.1.0-1.0.29"
 
@@ -8,7 +8,7 @@ ksp = "2.1.0-1.0.29"
 composeCmp = "1.7.3"
 
 # AndroidX Core (Android-only)
-coreKtx = "1.15.0"
+coreKtx = "1.17.0"
 appcompat = "1.7.0"
 
 # Lifecycle & ViewModel (KMP) - compatible with CMP 1.7.3
@@ -160,7 +160,7 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 
 # Build-logic dependencies
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
-android-tools-common = { group = "com.android.tools", name = "common", version = "31.7.3" }
+android-tools-common = { group = "com.android.tools", name = "common", version = "31.9.1" }
 kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 compose-gradlePlugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
