@@ -5,20 +5,20 @@ kotlin = "2.1.0"
 ksp = "2.1.0-1.0.29"
 
 # Compose Multiplatform
-composeCmp = "1.7.3"
+composeCmp = "1.8.0"
 
 # AndroidX Core (Android-only)
 coreKtx = "1.17.0"
 appcompat = "1.7.0"
 
-# Lifecycle & ViewModel (KMP) - compatible with CMP 1.7.3
-lifecycle = "2.8.0"
+# Lifecycle & ViewModel (KMP) - compatible with CMP 1.8.0
+lifecycle = "2.9.0-beta01"
 
 # Activity (Android-only)
 activityCompose = "1.9.3"
 
-# Navigation (KMP) - compatible with CMP 1.7.3
-navigationCompose = "2.8.0-alpha10"
+# Navigation (KMP) - compatible with CMP 1.8.0
+navigationCompose = "2.9.0-beta01"
 
 # Koin DI (KMP)
 koin = "4.0.1"
