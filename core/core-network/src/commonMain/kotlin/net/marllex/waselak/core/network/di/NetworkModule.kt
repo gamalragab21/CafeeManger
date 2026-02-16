@@ -1,6 +1,7 @@
 package net.marllex.waselak.core.network.di
 
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -24,10 +25,10 @@ val networkModule = module {
         }
     }
 
-    single { httpEngineFactory() }
+    single<HttpClientEngineFactory<*>> { httpEngineFactory() }
 
     single {
-        HttpClient(get()) {
+        HttpClient(get<HttpClientEngineFactory<*>>()) {
             install(ContentNegotiation) {
                 json(get<Json>())
             }
