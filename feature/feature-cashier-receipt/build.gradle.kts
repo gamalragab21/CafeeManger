@@ -17,10 +17,9 @@ kotlin {
             implementation(project(":core:core-network"))
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
+            implementation("network.chaintech:qr-kit:3.1.3")
         }
         androidMain.dependencies {
-            implementation(libs.zxing.core)
-            implementation(libs.zxing.android.embedded)
             implementation(libs.androidx.print)
         }
     }

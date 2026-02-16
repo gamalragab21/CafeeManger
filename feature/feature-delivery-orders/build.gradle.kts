@@ -18,9 +18,7 @@ kotlin {
             implementation(project(":core:core-auth"))
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
-        }
-        androidMain.dependencies {
-            implementation(libs.zxing.core)
+            implementation("network.chaintech:qr-kit:3.1.3")
         }
     }
 }

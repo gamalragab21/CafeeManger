@@ -12,6 +12,7 @@ import net.marllex.waselak.feature.delivery.map.DeliveryMapViewModel
 import net.marllex.waselak.feature.delivery.orders.DeliveryOrdersViewModel
 import net.marllex.waselak.feature.delivery.orders.history.DeliveryHistoryViewModel
 import net.marllex.waselak.feature.delivery.status.DeliveryStatusViewModel
+import net.marllex.waselak.feature.delivery.orders.DeliveryReceiptViewModel
 import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
@@ -40,4 +41,5 @@ private val deliveryAppModule = module {
     viewModelOf(::DeliveryMapViewModel)
     viewModelOf(::DeliveryStatusViewModel)
     viewModelOf(::AnnouncementsViewModel)
+    viewModelOf(::DeliveryReceiptViewModel)
 }
