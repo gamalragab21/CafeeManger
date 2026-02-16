@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaslekLogo
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,9 +101,7 @@ fun RestaurantProfileScreen(
                                         contentScale = ContentScale.Crop,
                                     )
                                 } else {
-                                    Box(Modifier.size(96.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Filled.Store, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
+                                    WaslekLogo(modifier = Modifier.size(96.dp).border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
                                 }
                                 Spacer(Modifier.height(12.dp))
                                 OutlinedTextField(

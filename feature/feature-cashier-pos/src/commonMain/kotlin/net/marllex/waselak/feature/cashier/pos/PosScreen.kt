@@ -81,6 +81,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -109,9 +110,7 @@ fun PosScreen(
                             contentScale = ContentScale.Crop,
                         )
                     } else {
-                        Box(Modifier.padding(start = 12.dp).size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Store, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
+                        WaslekLogo(modifier = Modifier.padding(start = 12.dp).size(36.dp))
                     }
                 },
                 title = {

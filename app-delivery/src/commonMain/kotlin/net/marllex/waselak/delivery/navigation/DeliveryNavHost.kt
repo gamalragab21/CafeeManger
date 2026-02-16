@@ -71,6 +71,7 @@ import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
+import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.ui.platform.PlatformActions
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import org.jetbrains.compose.resources.stringResource
@@ -266,20 +267,11 @@ private fun DeliveryProfileScreen(
                                 contentScale = ContentScale.Crop,
                             )
                         } else {
-                            Box(
+                            WaslekLogo(
                                 modifier = Modifier
                                     .size(80.dp)
-                                    .clip(CircleShape)
                                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Store,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            }
+                            )
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(

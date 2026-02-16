@@ -42,12 +42,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.auth.generated.resources.Res
 import net.marllex.waselak.feature.auth.generated.resources.*
+import waselak.core.core_ui.generated.resources.Res as CoreRes
+import waselak.core.core_ui.generated.resources.waslek_logo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -94,29 +99,25 @@ private fun LoginContent(
 ) {
     val focusManager = LocalFocusManager.current
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    val (appLabel, appSubtitle, appIcon) = when (appType) {
-        "MANAGER" -> Triple(
+    val (appLabel, appSubtitle) = when (appType) {
+        "MANAGER" -> Pair(
             stringResource(Res.string.manager_panel),
             stringResource(Res.string.manager_subtitle),
-            "M"
         )
 
-        "CASHIER" -> Triple(
+        "CASHIER" -> Pair(
             stringResource(Res.string.cashier_panel),
             stringResource(Res.string.cashier_subtitle),
-            "C"
         )
 
-        "DELIVERY" -> Triple(
+        "DELIVERY" -> Pair(
             stringResource(Res.string.delivery_panel),
             stringResource(Res.string.delivery_subtitle),
-            "D"
         )
 
-        else -> Triple(
+        else -> Pair(
             stringResource(Res.string.app_name),
             stringResource(Res.string.login_continue),
-            "CM"
         )
     }
 
@@ -148,28 +149,15 @@ private fun LoginContent(
             ) {
             Spacer(modifier = Modifier.height(100.dp))
 
-            // App icon with gradient background
-            Box(
+            // App logo
+            Image(
+                painter = painterResource(CoreRes.drawable.waslek_logo),
+                contentDescription = "Waslek",
                 modifier = Modifier
-                    .size(88.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                            ),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = appIcon,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
+                    .size(100.dp)
+                    .clip(RoundedCornerShape(24.dp)),
+                contentScale = ContentScale.Crop,
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 

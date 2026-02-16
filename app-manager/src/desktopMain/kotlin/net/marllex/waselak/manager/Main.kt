@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager
 
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import net.marllex.waselak.core.ui.components.applyLanguage
@@ -18,7 +19,8 @@ fun main() {
     application {
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Waselak Manager"
+            title = "Waslek Manager",
+            icon = painterResource("icon.png"),
         ) {
             ManagerApp()
         }

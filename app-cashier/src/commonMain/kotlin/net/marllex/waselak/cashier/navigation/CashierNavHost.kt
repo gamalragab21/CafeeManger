@@ -80,6 +80,7 @@ import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
+import net.marllex.waselak.core.ui.components.WaslekLogo
 import org.jetbrains.compose.resources.stringResource
 import waselak.core.core_ui.generated.resources.Res as CoreRes
 import waselak.core.core_ui.generated.resources.*
@@ -278,20 +279,11 @@ private fun CashierDrawerContent(
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                Box(
+                WaslekLogo(
                     modifier = Modifier
                         .size(56.dp)
-                        .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.Store,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                )
             }
             Spacer(Modifier.height(12.dp))
             // Store name
@@ -389,20 +381,11 @@ private fun CashierProfileScreen(
                                 contentScale = ContentScale.Crop,
                             )
                         } else {
-                            Box(
+                            WaslekLogo(
                                 modifier = Modifier
                                     .size(80.dp)
-                                    .clip(CircleShape)
                                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Store,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            }
+                            )
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(

@@ -62,13 +62,13 @@ import net.marllex.waselak.core.model.OrderStatus
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import net.marllex.waselak.core.ui.components.formatStatusLabel
 import androidx.compose.animation.AnimatedVisibility
@@ -113,12 +113,7 @@ fun DeliveryOrdersScreen(
                             contentScale = ContentScale.Crop,
                         )
                     } else {
-                        Box(
-                            modifier = Modifier.padding(start = 12.dp).size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Filled.Store, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
+                        WaslekLogo(modifier = Modifier.padding(start = 12.dp).size(36.dp))
                     }
                 },
                 title = {
