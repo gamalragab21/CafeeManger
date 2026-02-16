@@ -6,6 +6,13 @@ import net.marllex.waselak.core.data.di.dataModule
 import net.marllex.waselak.core.database.di.DatabaseDriverFactory
 import net.marllex.waselak.core.database.di.databaseModule
 import net.marllex.waselak.core.network.di.networkModule
+import net.marllex.waselak.feature.auth.LoginViewModel
+import net.marllex.waselak.feature.delivery.map.DeliveryMapViewModel
+import net.marllex.waselak.feature.delivery.orders.DeliveryOrdersViewModel
+import net.marllex.waselak.feature.delivery.orders.history.DeliveryHistoryViewModel
+import net.marllex.waselak.feature.delivery.status.DeliveryStatusViewModel
+import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -16,9 +23,19 @@ fun deliveryDesktopKoinModules() = listOf(
     databaseModule,
     authModule,
     dataModule,
+    deliveryAppModule,
 )
 
 private val desktopPlatformModule = module {
     single { DatabaseDriverFactory() }
     single(named("baseUrl")) { "https://api.waselak.net/" }
+}
+
+private val deliveryAppModule = module {
+    viewModelOf(::LoginViewModel)
+    viewModelOf(::DeliveryOrdersViewModel)
+    viewModelOf(::DeliveryHistoryViewModel)
+    viewModelOf(::DeliveryMapViewModel)
+    viewModelOf(::DeliveryStatusViewModel)
+    viewModelOf(::AnnouncementsViewModel)
 }

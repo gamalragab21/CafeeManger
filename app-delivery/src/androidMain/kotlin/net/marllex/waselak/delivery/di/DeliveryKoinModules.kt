@@ -10,6 +10,7 @@ import net.marllex.waselak.core.network.di.networkModule
 import net.marllex.waselak.feature.auth.LoginViewModel
 import net.marllex.waselak.feature.delivery.map.DeliveryMapViewModel
 import net.marllex.waselak.feature.delivery.orders.DeliveryOrdersViewModel
+import net.marllex.waselak.feature.delivery.orders.DeliveryReceiptViewModel
 import net.marllex.waselak.feature.delivery.orders.history.DeliveryHistoryViewModel
 import net.marllex.waselak.feature.delivery.status.DeliveryStatusViewModel
 import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
@@ -39,4 +40,5 @@ private val deliveryAppModule = module {
     viewModelOf(::DeliveryMapViewModel)
     viewModelOf(::DeliveryStatusViewModel)
     viewModelOf(::AnnouncementsViewModel)
+    viewModelOf(::DeliveryReceiptViewModel)
 }

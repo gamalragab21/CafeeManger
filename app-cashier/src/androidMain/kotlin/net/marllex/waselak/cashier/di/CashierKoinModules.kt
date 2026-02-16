@@ -11,6 +11,7 @@ import net.marllex.waselak.feature.auth.LoginViewModel
 import net.marllex.waselak.feature.cashier.attendance.AttendanceViewModel
 import net.marllex.waselak.feature.cashier.payment.PaymentViewModel
 import net.marllex.waselak.feature.cashier.pos.PosViewModel
+import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
 import net.marllex.waselak.feature.manager.orders.OrdersViewModel
 import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
 import net.marllex.waselak.feature.manager.staff.DeliveryDashboardViewModel
@@ -43,4 +44,5 @@ private val cashierAppModule = module {
     viewModelOf(::TablesViewModel)
     viewModelOf(::AnnouncementsViewModel)
     viewModelOf(::DeliveryDashboardViewModel)
+    viewModelOf(::ReceiptViewModel)
 }
