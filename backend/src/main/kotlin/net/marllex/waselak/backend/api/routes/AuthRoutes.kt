@@ -28,7 +28,11 @@ import java.math.BigDecimal
 import java.util.UUID
 
 @Serializable
-data class LoginRequest(val phone: String, val password: String)
+data class LoginRequest(
+    val phone: String,
+    val password: String,
+    @kotlinx.serialization.SerialName("app_type") val appType: String? = null,
+)
 
 @Serializable
 data class RegisterRequest(
@@ -79,6 +83,25 @@ fun Route.authRoutes() {
             require(request.password.isNotBlank()) { "Password is required" }
 
             val result = authService.login(request.phone, request.password)
+
+            // Enforce role-to-app access: users can only login to their matching app
+            val appType = request.appType
+            if (appType != null) {
+                val userRole = result.role.uppercase()
+                val allowed = when (appType.uppercase()) {
+                    "MANAGER" -> userRole == "MANAGER"
+                    "CASHIER" -> userRole == "CASHIER" || userRole == "MANAGER"
+                    "DELIVERY" -> userRole == "DELIVERY" || userRole == "MANAGER"
+                    else -> true
+                }
+                if (!allowed) {
+                    call.respond(
+                        HttpStatusCode.Forbidden,
+                        mapOf("error" to "Your account role ($userRole) does not have permission to access the $appType app")
+                    )
+                    return@post
+                }
+            }
 
             // Auto check-in: if user has linked worker, auto record attendance
             try {

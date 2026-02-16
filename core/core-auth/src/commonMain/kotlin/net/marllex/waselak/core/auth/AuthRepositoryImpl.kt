@@ -51,8 +51,8 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun login(phone: String, password: String): Result<User> = runCatching {
-        val response = api.login(LoginRequest(phone, password))
+    override suspend fun login(phone: String, password: String, appType: String?): Result<User> = runCatching {
+        val response = api.login(LoginRequest(phone, password, appType))
         tokenManager.saveTokens(response.accessToken, response.refreshToken)
 
         val user = response.user.toDomain()

@@ -50,7 +50,7 @@ class LoginViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            authRepository.login(state.phone, state.password)
+            authRepository.login(state.phone, state.password, appType)
                 .onSuccess { user ->
                     if (isRoleAllowed(user.role, appType)) {
                         _uiState.update { it.copy(isLoading = false) }
