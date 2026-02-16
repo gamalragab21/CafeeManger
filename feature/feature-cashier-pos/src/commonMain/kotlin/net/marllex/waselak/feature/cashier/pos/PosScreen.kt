@@ -20,8 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
@@ -31,7 +31,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -40,7 +39,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -406,34 +404,66 @@ private fun CartBottomSheet(
                             ),
                             shape = RoundedCornerShape(12.dp),
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Icon(
-                                    Icons.Filled.Person,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold,
+                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(24.dp),
                                     )
-                                    Text(
-                                        text = stringResource(Res.string.customer_found),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.customer_found),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                    }
+                                    if (uiState.selectedCustomer.orderCount > 0) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                        ) {
+                                            Text("${uiState.selectedCustomer.orderCount}")
+                                        }
+                                    }
                                 }
-                                if (uiState.selectedCustomer.orderCount > 0) {
-                                    Badge(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                    ) {
-                                        Text("${uiState.selectedCustomer.orderCount}")
+                                // Show saved addresses in customer card
+                                if (uiState.customerAddresses.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    uiState.customerAddresses.forEach { addr ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.LocationOn,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                            )
+                                            Text(
+                                                text = buildString {
+                                                    val lbl = addr.label
+                                                    if (!lbl.isNullOrBlank()) append("$lbl: ")
+                                                    append(addr.address)
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                                                maxLines = 1,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -450,29 +480,6 @@ private fun CartBottomSheet(
                     )
                 }
 
-                // Address picker — only for DELIVERY channel with saved addresses
-                if (uiState.channel == OrderChannel.DELIVERY && uiState.customerAddresses.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(stringResource(Res.string.select_address), style = MaterialTheme.typography.labelMedium)
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(uiState.customerAddresses) { addr ->
-                                FilterChip(
-                                    selected = uiState.selectedAddressId == addr.id,
-                                    onClick = { viewModel.selectCustomerAddress(addr.id) },
-                                    label = {
-                                        Text(
-                                            addr.label ?: addr.address.take(25),
-                                            maxLines = 1,
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(),
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // Delivery address field — required for DELIVERY, optional for TAKEAWAY
                 if (uiState.channel == OrderChannel.DELIVERY) {
                     item {
@@ -484,6 +491,75 @@ private fun CartBottomSheet(
                             isError = isAddressError,
                             supportingText = if (isAddressError) {{ Text(stringResource(Res.string.address_required)) }} else null,
                         )
+                    }
+
+                    // Address suggestions — show as clickable inline list when customer has saved addresses
+                    if (uiState.customerAddresses.isNotEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                ),
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = stringResource(Res.string.select_address),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp),
+                                    )
+                                    uiState.customerAddresses.forEach { addr ->
+                                        val isSelected = uiState.selectedAddressId == addr.id
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .then(
+                                                    if (isSelected) Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                                    else Modifier
+                                                )
+                                                .clickable { viewModel.selectCustomerAddress(addr.id) }
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.LocationOn,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                val addrLabel = addr.label
+                                                if (!addrLabel.isNullOrBlank()) {
+                                                    Text(
+                                                        text = addrLabel,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                                Text(
+                                                    text = addr.address,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Icon(
+                                                    Icons.Filled.CheckCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -516,10 +592,7 @@ private fun CartBottomSheet(
                         )
                     }
                     items(uiState.recentOrders) { order ->
-                        RecentOrderCard(
-                            order = order,
-                            onReorder = { viewModel.reorderFromHistory(order) },
-                        )
+                        RecentOrderCard(order = order)
                     }
                 }
             }
@@ -592,10 +665,7 @@ private fun CartBottomSheet(
 }
 
 @Composable
-private fun RecentOrderCard(
-    order: Order,
-    onReorder: () -> Unit,
-) {
+private fun RecentOrderCard(order: Order) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -603,36 +673,86 @@ private fun RecentOrderCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.order_items_count, order.items.size),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                )
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            // Header row: channel badge + total
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Channel chip
+                val channelLabel = when (order.channel) {
+                    OrderChannel.DINE_IN -> "Dine-in"
+                    OrderChannel.DELIVERY -> "Delivery"
+                    OrderChannel.TAKEAWAY -> "Takeaway"
+                }
+                Badge(
+                    containerColor = when (order.channel) {
+                        OrderChannel.DINE_IN -> MaterialTheme.colorScheme.primaryContainer
+                        OrderChannel.DELIVERY -> MaterialTheme.colorScheme.tertiaryContainer
+                        OrderChannel.TAKEAWAY -> MaterialTheme.colorScheme.secondaryContainer
+                    },
+                    contentColor = when (order.channel) {
+                        OrderChannel.DINE_IN -> MaterialTheme.colorScheme.onPrimaryContainer
+                        OrderChannel.DELIVERY -> MaterialTheme.colorScheme.onTertiaryContainer
+                        OrderChannel.TAKEAWAY -> MaterialTheme.colorScheme.onSecondaryContainer
+                    },
+                ) {
+                    Text(
+                        channelLabel,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
                 Text(
                     text = CurrencyFormatter.formatDecimal(order.total),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-            OutlinedButton(
-                onClick = onReorder,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    stringResource(Res.string.reorder),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Item list
+            order.items.forEach { item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "${item.quantity}× ${item.itemNameSnapshot}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Address (if delivery/takeaway)
+            val address = order.clientAddress
+            if (!address.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
