@@ -17,6 +17,7 @@ object VendorsTable : UUIDTable("vendors") {
     val enableTables = bool("enable_tables").default(true)
     val enableDineIn = bool("enable_dine_in").default(true)
     val enableDelivery = bool("enable_delivery").default(true)
+    val enableTakeaway = bool("enable_takeaway").default(true)
     val digitalMenuUrl = text("digital_menu_url").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
@@ -98,6 +99,7 @@ object OrdersTable : UUIDTable("orders") {
     val tableId = reference("table_id", TablesTable).nullable()
     val cashierId = reference("cashier_id", UsersTable)
     val deliveryUserId = reference("delivery_user_id", UsersTable).nullable()
+    val customerId = reference("customer_id", CustomersTable).nullable()
     val taxPlaceId = reference("tax_place_id", TaxPlacesTable, onDelete = ReferenceOption.SET_NULL).nullable()
     val clientName = varchar("client_name", 255).nullable()
     val clientPhone = varchar("client_phone", 20).nullable()
@@ -264,6 +266,36 @@ object ActivityLogsTable : UUIDTable("activity_logs") {
     val userId = reference("user_id", UsersTable)
     val action = varchar("action", 50)
     val payload = text("payload").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Customers ──────────────────────────────────────────────────
+object CustomersTable : UUIDTable("customers") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val name = varchar("name", 255).nullable()
+    val phone = varchar("phone", 20)
+    val notes = text("notes").nullable()
+    val orderCount = integer("order_count").default(0)
+    val totalSpent = decimal("total_spent", 10, 2).default(java.math.BigDecimal.ZERO)
+    val lastOrderAt = timestamp("last_order_at").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").nullable()
+
+    init {
+        uniqueIndex(vendorId, phone)
+    }
+}
+
+// ─── Customer Addresses ─────────────────────────────────────────
+object CustomerAddressesTable : UUIDTable("customer_addresses") {
+    val customerId = reference("customer_id", CustomersTable, onDelete = ReferenceOption.CASCADE)
+    val label = varchar("label", 255).nullable()
+    val address = text("address")
+    val geoLat = double("geo_lat").nullable()
+    val geoLng = double("geo_lng").nullable()
+    val deliveryZoneId = varchar("delivery_zone_id", 100).nullable()
+    val deliveryFee = decimal("delivery_fee", 10, 2).nullable()
+    val isDefault = bool("is_default").default(false)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 

@@ -30,6 +30,7 @@ data class VendorResponse(
     val enable_tables: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
+    val enable_takeaway: Boolean = true,
     val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
@@ -47,6 +48,7 @@ data class UpdateVendorRequest(
     val enable_tables: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
+    val enable_takeaway: Boolean? = null,
     val digital_menu_url: String? = null
 )
 
@@ -72,6 +74,7 @@ fun Route.vendorRoutes() {
                 enable_tables = vendor[VendorsTable.enableTables],
                 enable_dine_in = vendor[VendorsTable.enableDineIn],
                 enable_delivery = vendor[VendorsTable.enableDelivery],
+                enable_takeaway = vendor[VendorsTable.enableTakeaway],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
@@ -94,6 +97,7 @@ fun Route.vendorRoutes() {
                     request.enable_tables?.let { stmt[enableTables] = it }
                     request.enable_dine_in?.let { stmt[enableDineIn] = it }
                     request.enable_delivery?.let { stmt[enableDelivery] = it }
+                    request.enable_takeaway?.let { stmt[enableTakeaway] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -115,6 +119,7 @@ fun Route.vendorRoutes() {
                 enable_tables = updated[VendorsTable.enableTables],
                 enable_dine_in = updated[VendorsTable.enableDineIn],
                 enable_delivery = updated[VendorsTable.enableDelivery],
+                enable_takeaway = updated[VendorsTable.enableTakeaway],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()

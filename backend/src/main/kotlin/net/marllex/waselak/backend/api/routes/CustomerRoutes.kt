@@ -1,0 +1,495 @@
+package net.marllex.waselak.backend.api.routes
+
+import io.ktor.http.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import net.marllex.waselak.backend.api.middleware.currentUser
+import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.data.database.CustomerAddressesTable
+import net.marllex.waselak.backend.data.database.CustomersTable
+import net.marllex.waselak.backend.data.database.OrderItemsTable
+import net.marllex.waselak.backend.data.database.OrdersTable
+import net.marllex.waselak.backend.data.database.UsersTable
+import net.marllex.waselak.backend.data.database.TablesTable
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.UUID
+
+// ─── DTOs ────────────────────────────────────────────────────────
+
+@Serializable
+data class CustomerDto(
+    val id: String,
+    val vendor_id: String,
+    val name: String? = null,
+    val phone: String,
+    val notes: String? = null,
+    val order_count: Int = 0,
+    val total_spent: Double = 0.0,
+    val last_order_at: Long? = null,
+    val addresses: List<CustomerAddressDto> = emptyList(),
+    val created_at: Long,
+    val updated_at: Long? = null,
+)
+
+@Serializable
+data class CustomerAddressDto(
+    val id: String,
+    val customer_id: String,
+    val label: String? = null,
+    val address: String,
+    val geo_lat: Double? = null,
+    val geo_lng: Double? = null,
+    val delivery_zone_id: String? = null,
+    val delivery_fee: Double? = null,
+    val is_default: Boolean = false,
+    val created_at: Long,
+)
+
+@Serializable
+data class CreateCustomerDto(
+    val phone: String,
+    val name: String? = null,
+    val notes: String? = null,
+)
+
+@Serializable
+data class UpdateCustomerDto(
+    val name: String? = null,
+    val phone: String? = null,
+    val notes: String? = null,
+)
+
+@Serializable
+data class CreateCustomerAddressDto(
+    val label: String? = null,
+    val address: String,
+    val geo_lat: Double? = null,
+    val geo_lng: Double? = null,
+    val delivery_zone_id: String? = null,
+    val is_default: Boolean = false,
+)
+
+@Serializable
+data class CustomerOrderHistoryDto(
+    val orders: List<OrderDto>,
+    val total: Int,
+)
+
+// ─── Routes ──────────────────────────────────────────────────────
+
+fun Route.customerRoutes() {
+    route("/api/v1/customers") {
+
+        // GET /api/v1/customers(?search=)
+        get {
+            val principal = currentUser()
+            val search = call.parameters["search"]
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val customers = transaction {
+                var query = CustomersTable.selectAll()
+                    .where { CustomersTable.vendorId eq vendorUUID }
+
+                if (!search.isNullOrBlank()) {
+                    query = query.andWhere {
+                        (CustomersTable.phone like "%$search%") or
+                        (CustomersTable.name like "%$search%")
+                    }
+                }
+
+                query.orderBy(CustomersTable.orderCount, SortOrder.DESC)
+                    .map { row ->
+                        val customerId = row[CustomersTable.id].value
+                        val addresses = CustomerAddressesTable.selectAll()
+                            .where { CustomerAddressesTable.customerId eq customerId }
+                            .map { it.toAddressDto() }
+                        row.toCustomerDto(addresses)
+                    }
+            }
+            call.respond(HttpStatusCode.OK, customers)
+        }
+
+        // GET /api/v1/customers/by-phone?phone=
+        get("/by-phone") {
+            val principal = currentUser()
+            val phone = call.parameters["phone"]
+                ?: throw IllegalArgumentException("phone parameter is required")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val customer = transaction {
+                CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.vendorId eq vendorUUID) and
+                        (CustomersTable.phone eq phone)
+                    }
+                    .firstOrNull()
+                    ?.let { row ->
+                        val customerId = row[CustomersTable.id].value
+                        val addresses = CustomerAddressesTable.selectAll()
+                            .where { CustomerAddressesTable.customerId eq customerId }
+                            .map { it.toAddressDto() }
+                        row.toCustomerDto(addresses)
+                    }
+            }
+
+            if (customer != null) {
+                call.respond(HttpStatusCode.OK, customer)
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Customer not found"))
+            }
+        }
+
+        // GET /api/v1/customers/{id}
+        get("/{id}") {
+            val principal = currentUser()
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val customer = transaction {
+                CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.id eq UUID.fromString(id)) and
+                        (CustomersTable.vendorId eq vendorUUID)
+                    }
+                    .firstOrNull()
+                    ?.let { row ->
+                        val customerId = row[CustomersTable.id].value
+                        val addresses = CustomerAddressesTable.selectAll()
+                            .where { CustomerAddressesTable.customerId eq customerId }
+                            .map { it.toAddressDto() }
+                        row.toCustomerDto(addresses)
+                    }
+                    ?: throw NoSuchElementException("Customer not found")
+            }
+            call.respond(HttpStatusCode.OK, customer)
+        }
+
+        // POST /api/v1/customers
+        post {
+            val principal = currentUser()
+            val request = call.receive<CreateCustomerDto>()
+            require(request.phone.isNotBlank()) { "Phone is required" }
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val customer = transaction {
+                // Check if customer with same phone already exists for this vendor
+                val existing = CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.vendorId eq vendorUUID) and
+                        (CustomersTable.phone eq request.phone)
+                    }
+                    .firstOrNull()
+
+                if (existing != null) {
+                    // Return existing customer instead of error
+                    val customerId = existing[CustomersTable.id].value
+                    val addresses = CustomerAddressesTable.selectAll()
+                        .where { CustomerAddressesTable.customerId eq customerId }
+                        .map { it.toAddressDto() }
+                    return@transaction existing.toCustomerDto(addresses)
+                }
+
+                val now = Clock.System.now()
+                val id = CustomersTable.insertAndGetId {
+                    it[CustomersTable.vendorId] = vendorUUID
+                    it[name] = request.name
+                    it[phone] = request.phone
+                    it[notes] = request.notes
+                    it[orderCount] = 0
+                    it[totalSpent] = java.math.BigDecimal.ZERO
+                    it[createdAt] = now
+                }
+                CustomersTable.selectAll()
+                    .where { CustomersTable.id eq id }
+                    .first()
+                    .toCustomerDto(emptyList())
+            }
+            call.respond(HttpStatusCode.Created, customer)
+        }
+
+        // PUT /api/v1/customers/{id}
+        put("/{id}") {
+            val principal = currentUser()
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<UpdateCustomerDto>()
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val customerUUID = UUID.fromString(id)
+
+            val updated = transaction {
+                CustomersTable.update({
+                    (CustomersTable.id eq customerUUID) and
+                    (CustomersTable.vendorId eq vendorUUID)
+                }) { stmt ->
+                    request.name?.let { stmt[name] = it }
+                    request.phone?.let { stmt[phone] = it }
+                    request.notes?.let { stmt[notes] = it }
+                    stmt[updatedAt] = Clock.System.now()
+                }
+                val row = CustomersTable.selectAll()
+                    .where { CustomersTable.id eq customerUUID }
+                    .firstOrNull() ?: throw NoSuchElementException("Customer not found")
+                val addresses = CustomerAddressesTable.selectAll()
+                    .where { CustomerAddressesTable.customerId eq customerUUID }
+                    .map { it.toAddressDto() }
+                row.toCustomerDto(addresses)
+            }
+            call.respond(HttpStatusCode.OK, updated)
+        }
+
+        // DELETE /api/v1/customers/{id}
+        delete("/{id}") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            transaction {
+                // Addresses will cascade-delete via FK
+                val deleted = CustomersTable.deleteWhere {
+                    (CustomersTable.id eq UUID.fromString(id)) and
+                    (vendorId eq vendorUUID)
+                }
+                if (deleted == 0) throw NoSuchElementException("Customer not found")
+            }
+            call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // ─── Customer Addresses ──────────────────────────────────
+
+        // GET /api/v1/customers/{customerId}/addresses
+        get("/{customerId}/addresses") {
+            val principal = currentUser()
+            val customerId = call.parameters["customerId"]
+                ?: throw IllegalArgumentException("Customer ID required")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val customerUUID = UUID.fromString(customerId)
+
+            val addresses = transaction {
+                // Verify customer belongs to vendor
+                val exists = CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.id eq customerUUID) and
+                        (CustomersTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                if (!exists) throw NoSuchElementException("Customer not found")
+
+                CustomerAddressesTable.selectAll()
+                    .where { CustomerAddressesTable.customerId eq customerUUID }
+                    .orderBy(CustomerAddressesTable.isDefault, SortOrder.DESC)
+                    .map { it.toAddressDto() }
+            }
+            call.respond(HttpStatusCode.OK, addresses)
+        }
+
+        // POST /api/v1/customers/{customerId}/addresses
+        post("/{customerId}/addresses") {
+            val principal = currentUser()
+            val customerId = call.parameters["customerId"]
+                ?: throw IllegalArgumentException("Customer ID required")
+            val request = call.receive<CreateCustomerAddressDto>()
+            require(request.address.isNotBlank()) { "Address is required" }
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val customerUUID = UUID.fromString(customerId)
+
+            val address = transaction {
+                // Verify customer belongs to vendor
+                val exists = CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.id eq customerUUID) and
+                        (CustomersTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                if (!exists) throw NoSuchElementException("Customer not found")
+
+                // If new address is default, un-default all others
+                if (request.is_default) {
+                    CustomerAddressesTable.update({
+                        CustomerAddressesTable.customerId eq customerUUID
+                    }) {
+                        it[isDefault] = false
+                    }
+                }
+
+                val now = Clock.System.now()
+                val id = CustomerAddressesTable.insertAndGetId {
+                    it[CustomerAddressesTable.customerId] = customerUUID
+                    it[label] = request.label
+                    it[address] = request.address
+                    it[geoLat] = request.geo_lat
+                    it[geoLng] = request.geo_lng
+                    it[deliveryZoneId] = request.delivery_zone_id
+                    it[isDefault] = request.is_default
+                    it[createdAt] = now
+                }
+                CustomerAddressesTable.selectAll()
+                    .where { CustomerAddressesTable.id eq id }
+                    .first()
+                    .toAddressDto()
+            }
+            call.respond(HttpStatusCode.Created, address)
+        }
+
+        // DELETE /api/v1/customers/{customerId}/addresses/{addressId}
+        delete("/{customerId}/addresses/{addressId}") {
+            val principal = currentUser()
+            val customerId = call.parameters["customerId"]
+                ?: throw IllegalArgumentException("Customer ID required")
+            val addressId = call.parameters["addressId"]
+                ?: throw IllegalArgumentException("Address ID required")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val customerUUID = UUID.fromString(customerId)
+
+            transaction {
+                // Verify customer belongs to vendor
+                val exists = CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.id eq customerUUID) and
+                        (CustomersTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                if (!exists) throw NoSuchElementException("Customer not found")
+
+                val deleted = CustomerAddressesTable.deleteWhere {
+                    (CustomerAddressesTable.id eq UUID.fromString(addressId)) and
+                    (CustomerAddressesTable.customerId eq customerUUID)
+                }
+                if (deleted == 0) throw NoSuchElementException("Address not found")
+            }
+            call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // ─── Customer Order History ──────────────────────────────
+
+        // GET /api/v1/customers/{customerId}/orders?limit=3
+        get("/{customerId}/orders") {
+            val principal = currentUser()
+            val customerId = call.parameters["customerId"]
+                ?: throw IllegalArgumentException("Customer ID required")
+            val limit = call.parameters["limit"]?.toIntOrNull() ?: 3
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val customerUUID = UUID.fromString(customerId)
+
+            val result = transaction {
+                // Verify customer belongs to vendor
+                val exists = CustomersTable.selectAll()
+                    .where {
+                        (CustomersTable.id eq customerUUID) and
+                        (CustomersTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                if (!exists) throw NoSuchElementException("Customer not found")
+
+                // Get orders by customer_id OR matching phone
+                val customerPhone = CustomersTable.selectAll()
+                    .where { CustomersTable.id eq customerUUID }
+                    .first()[CustomersTable.phone]
+
+                // Build user and table lookup maps
+                val usersMap = UsersTable.selectAll()
+                    .where { UsersTable.vendorId eq vendorUUID }
+                    .associate { it[UsersTable.id].value to it[UsersTable.name] }
+
+                val tablesMap = TablesTable.selectAll()
+                    .where { TablesTable.vendorId eq vendorUUID }
+                    .associate { it[TablesTable.id].value to it[TablesTable.number] }
+
+                val orderRows = OrdersTable.selectAll()
+                    .where {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                        (
+                            (OrdersTable.customerId eq customerUUID) or
+                            (OrdersTable.clientPhone eq customerPhone)
+                        )
+                    }
+                    .orderBy(OrdersTable.createdAt, SortOrder.DESC)
+                    .limit(limit)
+                    .toList()
+
+                val orders = orderRows.map { row ->
+                    val orderId = row[OrdersTable.id].value
+                    val items = OrderItemsTable.selectAll()
+                        .where { OrderItemsTable.orderId eq orderId }
+                        .map { itemRow ->
+                            OrderItemDto(
+                                id = itemRow[OrderItemsTable.id].toString(),
+                                order_id = itemRow[OrderItemsTable.orderId].toString(),
+                                item_id = itemRow[OrderItemsTable.itemId].toString(),
+                                item_name_snapshot = itemRow[OrderItemsTable.itemNameSnapshot],
+                                item_price_snapshot = itemRow[OrderItemsTable.itemPriceSnapshot].toDouble(),
+                                quantity = itemRow[OrderItemsTable.quantity],
+                                note = itemRow[OrderItemsTable.note],
+                            )
+                        }
+                    OrderDto(
+                        id = row[OrdersTable.id].toString(),
+                        vendor_id = row[OrdersTable.vendorId].toString(),
+                        channel = row[OrdersTable.channel],
+                        status = row[OrdersTable.status],
+                        table_id = row[OrdersTable.tableId]?.toString(),
+                        table_number = row[OrdersTable.tableId]?.let { tablesMap[it.value] },
+                        cashier_id = row[OrdersTable.cashierId].toString(),
+                        cashier_name = usersMap[row[OrdersTable.cashierId].value],
+                        delivery_user_id = row[OrdersTable.deliveryUserId]?.toString(),
+                        delivery_user_name = row[OrdersTable.deliveryUserId]?.let { usersMap[it.value] },
+                        client_name = row[OrdersTable.clientName],
+                        client_phone = row[OrdersTable.clientPhone],
+                        client_address = row[OrdersTable.clientAddress],
+                        geo_lat = row[OrdersTable.geoLat],
+                        geo_lng = row[OrdersTable.geoLng],
+                        payment_method = row[OrdersTable.paymentMethod],
+                        subtotal = row[OrdersTable.subtotal].toDouble(),
+                        delivery_fee = row[OrdersTable.deliveryFee].toDouble(),
+                        tax = row[OrdersTable.tax].toDouble(),
+                        total = row[OrdersTable.total].toDouble(),
+                        notes = row[OrdersTable.notes],
+                        items = items,
+                        created_at = row[OrdersTable.createdAt].toEpochMilliseconds(),
+                        updated_at = row[OrdersTable.updatedAt].toEpochMilliseconds(),
+                    )
+                }
+
+                val totalCount = OrdersTable.selectAll()
+                    .where {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                        (
+                            (OrdersTable.customerId eq customerUUID) or
+                            (OrdersTable.clientPhone eq customerPhone)
+                        )
+                    }.count().toInt()
+
+                CustomerOrderHistoryDto(orders = orders, total = totalCount)
+            }
+            call.respond(HttpStatusCode.OK, result)
+        }
+    }
+}
+
+// ─── Mappers ─────────────────────────────────────────────────────
+
+private fun ResultRow.toCustomerDto(addresses: List<CustomerAddressDto> = emptyList()) = CustomerDto(
+    id = this[CustomersTable.id].toString(),
+    vendor_id = this[CustomersTable.vendorId].toString(),
+    name = this[CustomersTable.name],
+    phone = this[CustomersTable.phone],
+    notes = this[CustomersTable.notes],
+    order_count = this[CustomersTable.orderCount],
+    total_spent = this[CustomersTable.totalSpent].toDouble(),
+    last_order_at = this[CustomersTable.lastOrderAt]?.toEpochMilliseconds(),
+    addresses = addresses,
+    created_at = this[CustomersTable.createdAt].toEpochMilliseconds(),
+    updated_at = this[CustomersTable.updatedAt]?.toEpochMilliseconds(),
+)
+
+private fun ResultRow.toAddressDto() = CustomerAddressDto(
+    id = this[CustomerAddressesTable.id].toString(),
+    customer_id = this[CustomerAddressesTable.customerId].toString(),
+    label = this[CustomerAddressesTable.label],
+    address = this[CustomerAddressesTable.address],
+    geo_lat = this[CustomerAddressesTable.geoLat],
+    geo_lng = this[CustomerAddressesTable.geoLng],
+    delivery_zone_id = this[CustomerAddressesTable.deliveryZoneId],
+    delivery_fee = this[CustomerAddressesTable.deliveryFee]?.toDouble(),
+    is_default = this[CustomerAddressesTable.isDefault],
+    created_at = this[CustomerAddressesTable.createdAt].toEpochMilliseconds(),
+)

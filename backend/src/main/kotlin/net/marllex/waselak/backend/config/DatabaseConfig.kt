@@ -44,6 +44,8 @@ object DatabaseConfig {
                 ItemsTable,
                 TablesTable,
                 TaxPlacesTable,
+                CustomersTable,
+                CustomerAddressesTable,
                 OrdersTable,
                 OrderItemsTable,
                 StockTable,
@@ -57,7 +59,6 @@ object DatabaseConfig {
                 RefreshTokensTable,
                 AnnouncementsTable,
                 AnnouncementReadsTable,
-//                net.marllex.waselak.backend.database.tables.PublicQuestionsTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
@@ -65,7 +66,7 @@ object DatabaseConfig {
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable,
                 AnnouncementsTable, AnnouncementReadsTable,
-//                net.marllex.waselak.backend.database.tables.PublicQuestionsTable,
+                CustomersTable, CustomerAddressesTable,
             )
         }
 
@@ -88,6 +89,8 @@ object DatabaseConfig {
                 StockTable,
                 OrderItemsTable,
                 OrdersTable,
+                CustomerAddressesTable,
+                CustomersTable,
                 TaxPlacesTable,
                 TablesTable,
                 ItemsTable,

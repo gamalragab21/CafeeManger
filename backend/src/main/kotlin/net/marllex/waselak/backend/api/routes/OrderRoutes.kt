@@ -54,6 +54,7 @@ import java.util.Date
 data class CreateOrderDto(
     val channel: String,
     val table_id: String? = null,
+    val customer_id: String? = null,
     val client_name: String? = null,
     val client_phone: String? = null,
     val client_address: String? = null,
@@ -106,6 +107,7 @@ data class OrderDto(
     val cashier_name: String? = null,
     val delivery_user_id: String? = null,
     val delivery_user_name: String? = null,
+    val customer_id: String? = null,
     val client_name: String? = null,
     val client_phone: String? = null,
     val client_address: String? = null,
@@ -428,6 +430,7 @@ fun Route.orderRoutes() {
                     request.table_id?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
                     stmt[cashierId] = UUID.fromString(principal.userId)
                     stmt[deliveryUserId] = null
+                    request.customer_id?.let { cid -> stmt[customerId] = UUID.fromString(cid) }
                     taxPlaceIdUuid?.let { uuid -> stmt[OrdersTable.taxPlaceId] = uuid }
                     stmt[clientName] = request.client_name
                     stmt[clientPhone] = request.client_phone
@@ -845,6 +848,7 @@ private fun ResultRow.toOrderDto(
     cashier_name = usersMap[this[OrdersTable.cashierId].value],
     delivery_user_id = this[OrdersTable.deliveryUserId]?.toString(),
     delivery_user_name = this[OrdersTable.deliveryUserId]?.let { usersMap[it.value] },
+    customer_id = this[OrdersTable.customerId]?.toString(),
     client_name = this[OrdersTable.clientName],
     client_phone = this[OrdersTable.clientPhone],
     client_address = this[OrdersTable.clientAddress],
