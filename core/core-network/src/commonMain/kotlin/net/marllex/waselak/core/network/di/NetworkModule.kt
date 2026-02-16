@@ -1,7 +1,9 @@
 package net.marllex.waselak.core.network.di
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngineFactory
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
@@ -11,11 +13,14 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import net.marllex.waselak.core.network.ApiException
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.auth.TokenProvider
 import net.marllex.waselak.core.network.datasource.WorkerNetworkDataSource
+import net.marllex.waselak.core.network.dto.ApiErrorResponse
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -35,11 +40,30 @@ val networkModule = module {
         val tokenProvider = get<TokenProvider>()
 
         HttpClient(get<HttpClientEngineFactory<*>>()) {
+            expectSuccess = false
             install(ContentNegotiation) {
                 json(get<Json>())
             }
             install(Logging) {
                 level = LogLevel.BODY
+            }
+            HttpResponseValidator {
+                validateResponse { response ->
+                    if (!response.status.isSuccess()) {
+                        val errorBody = try {
+                            response.body<ApiErrorResponse>()
+                        } catch (_: Exception) {
+                            null
+                        }
+                        val message = errorBody?.message
+                            ?: "HTTP ${response.status.value}: ${response.status.description}"
+                        throw ApiException(
+                            statusCode = response.status.value,
+                            errorMessage = message,
+                            errorType = errorBody?.error
+                        )
+                    }
+                }
             }
             install(Auth) {
                 bearer {
