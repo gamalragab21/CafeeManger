@@ -10,8 +10,9 @@ actual class DatabaseDriverFactory {
         val dbPath = File(System.getProperty("user.home"), ".waselak")
         dbPath.mkdirs()
         val dbFile = File(dbPath, "waselak.db")
+        val isNewDb = !dbFile.exists()
         val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
-        if (!dbFile.exists()) {
+        if (isNewDb) {
             WaselakDatabase.Schema.create(driver)
         }
         return driver
