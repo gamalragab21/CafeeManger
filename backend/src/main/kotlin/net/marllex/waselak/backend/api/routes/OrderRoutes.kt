@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
+import net.marllex.waselak.backend.data.database.CustomerAddressesTable
 import net.marllex.waselak.backend.data.database.CustomersTable
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.OrderItemsTable
@@ -533,6 +534,31 @@ fun Route.orderRoutes() {
                         }
                         stmt[lastOrderAt] = Clock.System.now()
                         stmt[updatedAt] = Clock.System.now()
+                    }
+
+                    // Auto-save delivery address if not already stored
+                    val addr = request.client_address
+                    if (!addr.isNullOrBlank()) {
+                        val alreadyExists = CustomerAddressesTable.selectAll()
+                            .where {
+                                (CustomerAddressesTable.customerId eq customerUUID) and
+                                (CustomerAddressesTable.address eq addr)
+                            }.count() > 0
+
+                        if (!alreadyExists) {
+                            val isFirst = CustomerAddressesTable.selectAll()
+                                .where { CustomerAddressesTable.customerId eq customerUUID }
+                                .count() == 0L
+                            CustomerAddressesTable.insertAndGetId {
+                                it[CustomerAddressesTable.customerId] = customerUUID
+                                it[address] = addr
+                                it[label] = if (isFirst) "Default" else null
+                                it[geoLat] = request.geo_lat
+                                it[geoLng] = request.geo_lng
+                                it[isDefault] = isFirst
+                                it[createdAt] = Clock.System.now()
+                            }
+                        }
                     }
                 }
 

@@ -303,23 +303,29 @@ class PosViewModel constructor(
             )
         }
         viewModelScope.launch {
-            // Load addresses and always auto-fill with default address
-            customerRepository.getCustomerAddresses(customer.id)
-                .onSuccess { addresses ->
-                    val defaultAddr = addresses.find { it.isDefault } ?: addresses.firstOrNull()
-                    _uiState.update {
-                        it.copy(
-                            customerAddresses = addresses,
-                            selectedAddressId = defaultAddr?.id,
-                            clientAddress = defaultAddr?.address.orEmpty(),
-                        )
-                    }
-                }
+            // Load saved addresses
+            val addresses = customerRepository.getCustomerAddresses(customer.id)
+                .getOrDefault(emptyList())
+
             // Load recent orders
-            customerRepository.getCustomerRecentOrders(customer.id)
-                .onSuccess { orders ->
-                    _uiState.update { it.copy(recentOrders = orders) }
-                }
+            val orders = customerRepository.getCustomerRecentOrders(customer.id)
+                .getOrDefault(emptyList())
+
+            // Pick the best address to auto-fill:
+            // 1. Saved default address, 2. Any saved address, 3. Last order's delivery address
+            val defaultAddr = addresses.find { it.isDefault } ?: addresses.firstOrNull()
+            val autoFillAddress = defaultAddr?.address
+                ?: orders.firstOrNull()?.clientAddress
+                ?: ""
+
+            _uiState.update {
+                it.copy(
+                    customerAddresses = addresses,
+                    selectedAddressId = defaultAddr?.id,
+                    clientAddress = autoFillAddress,
+                    recentOrders = orders,
+                )
+            }
         }
     }
 
