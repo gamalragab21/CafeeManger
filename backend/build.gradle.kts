@@ -1,7 +1,6 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.0.21"
-//    kotlin("jvm") version "2.0.21"
-    kotlin("plugin.serialization") version "2.0.21"
+    id("org.jetbrains.kotlin.jvm") version "2.1.0"
+    kotlin("plugin.serialization") version "2.1.0"
     id("io.ktor.plugin") version "3.0.2"
     application
 }
@@ -82,7 +81,7 @@ dependencies {
     // Testing
     testImplementation("io.ktor:ktor-server-test-host:3.0.2")
     testImplementation("io.ktor:ktor-client-content-negotiation:3.0.2")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.0.21")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.1.0")
 }
 
 ktor {
