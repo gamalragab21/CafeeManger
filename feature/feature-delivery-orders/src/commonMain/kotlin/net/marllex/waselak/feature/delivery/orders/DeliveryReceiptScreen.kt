@@ -73,8 +73,6 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 import org.koin.compose.viewmodel.koinViewModel
 import qrgenerator.qrkitpainter.rememberQrKitPainter
 
-private const val RECEIPT_BASE_URL = "https://api.waselak.net"
-
 @Composable
 private fun localizedChannel(channel: OrderChannel): String = when (channel) {
     OrderChannel.DINE_IN -> "Dine In"
@@ -88,10 +86,11 @@ private fun localizedPayment(method: PaymentMethod): String = when (method) {
     PaymentMethod.CARD -> "Card"
 }
 
-@Composable
-private fun localizedAmount(amount: Double): String {
-    val currency = "EGP"
-    return "%.2f %s".format(amount, currency)
+private fun formatAmount(amount: Double, currency: String = "EGP"): String {
+    val rounded = kotlin.math.round(amount * 100) / 100.0
+    val whole = rounded.toLong()
+    val frac = ((rounded - whole) * 100 + 0.5).toInt()
+    return "$whole.${frac.toString().padStart(2, '0')} $currency"
 }
 
 private fun formatDate(epochMs: Long): String {
@@ -236,7 +235,7 @@ fun DeliveryReceiptScreen(
                                     ) {
                                         Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color(0xFF1C1917), modifier = Modifier.weight(1f))
                                         Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF57534E), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                        Text(localizedAmount(item.itemPriceSnapshot * item.quantity), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color(0xFF1C1917), textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                                        Text(formatAmount(item.itemPriceSnapshot * item.quantity), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color(0xFF1C1917), textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
                                     }
                                 }
 
@@ -245,14 +244,14 @@ fun DeliveryReceiptScreen(
                                 Spacer(Modifier.height(16.dp))
 
                                 // Totals
-                                ReceiptDataRow("Subtotal", localizedAmount(order.subtotal))
+                                ReceiptDataRow("Subtotal", formatAmount(order.subtotal))
                                 Spacer(Modifier.height(4.dp))
                                 if (order.tax > 0.0) {
-                                    ReceiptDataRow("Tax", localizedAmount(order.tax))
+                                    ReceiptDataRow("Tax", formatAmount(order.tax))
                                     Spacer(Modifier.height(4.dp))
                                 }
                                 if (order.deliveryFee > 0.0) {
-                                    ReceiptDataRow("Delivery Fee", localizedAmount(order.deliveryFee))
+                                    ReceiptDataRow("Delivery Fee", formatAmount(order.deliveryFee))
                                     Spacer(Modifier.height(4.dp))
                                 }
 
@@ -271,7 +270,7 @@ fun DeliveryReceiptScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text("Total", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF1C1917))
-                                    Text(localizedAmount(order.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF0D9488))
+                                    Text(formatAmount(order.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF0D9488))
                                 }
 
                                 // Notes
@@ -291,24 +290,28 @@ fun DeliveryReceiptScreen(
 
                                 Spacer(Modifier.height(20.dp))
 
-                                // Digital Menu QR
-                                val menuUrl = vendor?.digitalMenuUrl
-                                    ?: vendor?.id?.let { "${RECEIPT_BASE_URL}/menu/$it" }
-                                if (!menuUrl.isNullOrBlank()) {
+                                // Receipt QR Code (link from backend)
+                                val receiptUrl = uiState.shareUrl
+                                if (!receiptUrl.isNullOrBlank()) {
                                     DashedDivider()
                                     Spacer(Modifier.height(12.dp))
                                     Image(
-                                        painter = rememberQrKitPainter(data = menuUrl),
-                                        contentDescription = "Menu QR Code",
-                                        modifier = Modifier.size(80.dp),
+                                        painter = rememberQrKitPainter(data = receiptUrl),
+                                        contentDescription = "Receipt QR Code",
+                                        modifier = Modifier.size(100.dp),
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
-                                        text = "Scan for digital menu",
+                                        text = "Scan to view receipt",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Color(0xFFA8A29E),
                                         textAlign = TextAlign.Center,
                                     )
+                                    Spacer(Modifier.height(12.dp))
+                                } else if (uiState.isSharing) {
+                                    DashedDivider()
+                                    Spacer(Modifier.height(12.dp))
+                                    CircularProgressIndicator(Modifier.size(32.dp))
                                     Spacer(Modifier.height(12.dp))
                                 }
 

@@ -39,7 +39,10 @@ DeliveryReceiptViewModel constructor(
     private var orderLoaded = false
 
     init {
-        if (orderId.isNotBlank()) load()
+        if (orderId.isNotBlank()) {
+            load()
+            generateShareLink()
+        }
     }
 
     fun load() {
