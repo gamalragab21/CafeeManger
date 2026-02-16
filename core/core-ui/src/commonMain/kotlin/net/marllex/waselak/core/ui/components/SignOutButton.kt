@@ -21,15 +21,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import waselak.core.core_ui.generated.resources.Res
+import waselak.core.core_ui.generated.resources.cancel
+import waselak.core.core_ui.generated.resources.signout
+import waselak.core.core_ui.generated.resources.signout_confirm
 
 @Composable
 fun SignOutButton(
     onSignOut: () -> Unit,
-    signOutLabel: String = "Sign Out",
-    confirmMessage: String = "Are you sure you want to sign out?",
-    cancelLabel: String = "Cancel",
+    signOutLabel: String = "",
+    confirmMessage: String = "",
+    cancelLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
+    val resolvedSignOutLabel = signOutLabel.ifEmpty { stringResource(Res.string.signout) }
+    val resolvedConfirmMessage = confirmMessage.ifEmpty { stringResource(Res.string.signout_confirm) }
+    val resolvedCancelLabel = cancelLabel.ifEmpty { stringResource(Res.string.cancel) }
+
     var showDialog by remember { mutableStateOf(false) }
 
     OutlinedButton(
@@ -45,7 +54,7 @@ fun SignOutButton(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = signOutLabel,
+            text = resolvedSignOutLabel,
             color = MaterialTheme.colorScheme.error,
         )
     }
@@ -53,22 +62,22 @@ fun SignOutButton(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text(signOutLabel) },
-            text = { Text(confirmMessage) },
+            title = { Text(resolvedSignOutLabel) },
+            text = { Text(resolvedConfirmMessage) },
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
                     onSignOut()
                 }) {
                     Text(
-                        signOutLabel,
+                        resolvedSignOutLabel,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text(cancelLabel)
+                    Text(resolvedCancelLabel)
                 }
             },
         )

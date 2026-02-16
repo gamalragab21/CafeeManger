@@ -99,9 +99,7 @@ import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
-import net.marllex.waselak.core.ui.theme.StockHealthy
-import net.marllex.waselak.core.ui.theme.StockLow
-import net.marllex.waselak.core.ui.theme.StockOut
+import net.marllex.waselak.core.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
@@ -235,23 +233,23 @@ private fun ModernTabSelector(
         TabData(
             title = stringResource(Res.string.stock_overview),
             icon = Icons.Default.Dashboard,
-            color = Color(0xFF6366F1) // Indigo
+            color = ChartIndigo
         ),
         TabData(
             title = stringResource(Res.string.items_list),
             icon = Icons.Default.Inventory,
-            color = Color(0xFF10B981) // Green
+            color = ChartGreen
         ),
         TabData(
             title = stringResource(Res.string.alerts),
             icon = Icons.Default.Warning,
-            color = Color(0xFFF59E0B), // Amber
+            color = ChartAmber,
             badge = if (alertCount > 0) alertCount else null
         ),
         TabData(
             title = stringResource(Res.string.transactions),
             icon = Icons.Default.Receipt,
-            color = Color(0xFF8B5CF6) // Purple
+            color = ChartPurple
         )
     )
 
@@ -401,7 +399,7 @@ private fun ModernTabCard(
                     Icon(
                         Icons.Default.Check,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.surface,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -1074,7 +1072,7 @@ private fun AddEditStockDialog(
                             label = { Text(stringResource(Res.string.menu_item)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = Color.White
+                                selectedLabelColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier.weight(1f),
                         )
@@ -1084,7 +1082,7 @@ private fun AddEditStockDialog(
                             label = { Text(stringResource(Res.string.independent_item)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                selectedLabelColor = Color.White
+                                selectedLabelColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier.weight(1f),
                         )
@@ -1217,7 +1215,7 @@ private fun AddEditStockDialog(
                             label = { Text(getLocalizedUnit(unitKey)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = Color.White
+                                selectedLabelColor = MaterialTheme.colorScheme.surface
                             ),
                         )
                     }

@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
@@ -80,6 +80,9 @@ import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
+import org.jetbrains.compose.resources.stringResource
+import waselak.core.core_ui.generated.resources.Res as CoreRes
+import waselak.core.core_ui.generated.resources.*
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.feature.cashier.attendance.AttendanceScreen
@@ -112,12 +115,35 @@ enum class CashierDrawerItem(
     val icon: ImageVector,
 ) {
     DELIVERY("cashier/delivery", "Delivery", Icons.Filled.DeliveryDining),
-    ANNOUNCEMENTS("cashier/announcements", "Alerts", Icons.Filled.Campaign),
+    ANNOUNCEMENTS("cashier/announcements", "Alerts", Icons.Filled.Notifications),
     ATTENDANCE("cashier/attendance", "Attendance", Icons.Filled.Fingerprint),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
 }
 
 private val allRoutes = CashierTab.entries.map { it.route } + CashierDrawerItem.entries.map { it.route }
+
+@Composable
+private fun localizedTabTitle(tab: CashierTab): String = when (tab) {
+    CashierTab.POS -> stringResource(CoreRes.string.nav_new_order)
+    CashierTab.ORDERS -> stringResource(CoreRes.string.nav_orders)
+    CashierTab.TABLES -> stringResource(CoreRes.string.nav_tables)
+}
+
+@Composable
+private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) {
+    CashierDrawerItem.DELIVERY -> stringResource(CoreRes.string.nav_delivery)
+    CashierDrawerItem.ANNOUNCEMENTS -> stringResource(CoreRes.string.nav_alerts)
+    CashierDrawerItem.ATTENDANCE -> stringResource(CoreRes.string.nav_attendance)
+    CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
+}
+
+@Composable
+private fun localizedRoleLabel(role: UserRole?): String = when (role) {
+    UserRole.MANAGER -> stringResource(CoreRes.string.role_manager)
+    UserRole.CASHIER -> stringResource(CoreRes.string.role_cashier)
+    UserRole.DELIVERY -> stringResource(CoreRes.string.role_delivery)
+    null -> ""
+}
 
 // ─── Bottom Bar (phone) ──────────────────────────────────────────
 @Composable
@@ -132,6 +158,7 @@ private fun CashierBottomBar(
         CashierTab.entries.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
+            val title = localizedTabTitle(tab)
 
             NavigationBarItem(
                 selected = isSelected,
@@ -147,12 +174,12 @@ private fun CashierBottomBar(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -182,6 +209,7 @@ private fun CashierNavRail(
         CashierTab.entries.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
+            val title = localizedTabTitle(tab)
 
             NavigationRailItem(
                 selected = isSelected,
@@ -197,12 +225,12 @@ private fun CashierNavRail(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -296,7 +324,7 @@ private fun CashierDrawerContent(
 
             NavigationDrawerItem(
                 icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(item.title) },
+                label = { Text(localizedDrawerTitle(item)) },
                 selected = isSelected,
                 onClick = {
                     navController.navigate(item.route) {
@@ -404,7 +432,7 @@ private fun CashierProfileScreen(
             if (vendor != null) {
                 item {
                     Text(
-                        text = "Store Information",
+                        text = stringResource(CoreRes.string.store_information),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp),
@@ -418,7 +446,7 @@ private fun CashierProfileScreen(
                     ) {
                         Column(modifier = Modifier.padding(4.dp)) {
                             ProfileInfoRow(
-                                label = "Store Name",
+                                label = stringResource(CoreRes.string.store_name),
                                 value = vendor.name,
                             )
                             HorizontalDivider(
@@ -426,7 +454,7 @@ private fun CashierProfileScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                             ProfileInfoRow(
-                                label = "Address",
+                                label = stringResource(CoreRes.string.address),
                                 value = vendor.address,
                             )
                             HorizontalDivider(
@@ -434,7 +462,7 @@ private fun CashierProfileScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                             ProfileInfoRow(
-                                label = "Contact Phone",
+                                label = stringResource(CoreRes.string.contact_phone),
                                 value = vendor.contactPhone,
                             )
                             vendor.walletPhone?.let { walletPhone ->
@@ -443,7 +471,7 @@ private fun CashierProfileScreen(
                                     color = MaterialTheme.colorScheme.outlineVariant,
                                 )
                                 ProfileInfoRow(
-                                    label = "Wallet Phone",
+                                    label = stringResource(CoreRes.string.wallet_phone),
                                     value = walletPhone,
                                 )
                             }
@@ -455,7 +483,7 @@ private fun CashierProfileScreen(
             // Account Info section
             item {
                 Text(
-                    text = "Account Information",
+                    text = stringResource(CoreRes.string.account_information),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -469,7 +497,7 @@ private fun CashierProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(4.dp)) {
                         ProfileInfoRow(
-                            label = "Name",
+                            label = stringResource(CoreRes.string.name),
                             value = userName ?: "N/A",
                         )
                         HorizontalDivider(
@@ -477,7 +505,7 @@ private fun CashierProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Phone",
+                            label = stringResource(CoreRes.string.contact_phone),
                             value = userPhone ?: "N/A",
                         )
                         HorizontalDivider(
@@ -485,7 +513,7 @@ private fun CashierProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Email",
+                            label = stringResource(CoreRes.string.email),
                             value = userEmail ?: "N/A",
                         )
                         HorizontalDivider(
@@ -493,7 +521,7 @@ private fun CashierProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Role",
+                            label = stringResource(CoreRes.string.role),
                             value = userRole ?: "N/A",
                         )
                     }
@@ -503,7 +531,7 @@ private fun CashierProfileScreen(
             // App Settings section
             item {
                 Text(
-                    text = "App Settings",
+                    text = stringResource(CoreRes.string.app_settings),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -517,7 +545,7 @@ private fun CashierProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Language",
+                            text = stringResource(CoreRes.string.language),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -550,12 +578,12 @@ private fun CashierProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "Wasel POS - Cashier",
+                            text = stringResource(CoreRes.string.app_cashier),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = "Version 1.0.0",
+                            text = stringResource(CoreRes.string.version_info),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
@@ -590,14 +618,7 @@ private fun ProfileInfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun formatRoleLabel(role: UserRole?): String {
-    return when (role) {
-        UserRole.MANAGER -> "Manager"
-        UserRole.CASHIER -> "Cashier"
-        UserRole.DELIVERY -> "Delivery"
-        null -> ""
-    }
-}
+private fun formatRoleLabel(role: UserRole?): String = localizedRoleLabel(role)
 
 // ─── Main Nav Host ───────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
@@ -708,7 +729,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 title = {
                                     currentUser?.name?.let { name ->
                                         Text(
-                                            text = "Welcome, $name",
+                                            text = stringResource(CoreRes.string.welcome_name, name),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                         )
@@ -757,7 +778,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 title = {
                                     currentUser?.name?.let { name ->
                                         Text(
-                                            text = "Welcome, $name",
+                                            text = stringResource(CoreRes.string.welcome_name, name),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                         )

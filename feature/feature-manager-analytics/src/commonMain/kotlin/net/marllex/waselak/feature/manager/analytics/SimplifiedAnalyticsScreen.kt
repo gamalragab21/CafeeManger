@@ -32,6 +32,7 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.theme.*
 import kotlin.math.abs
 import kotlinx.datetime.Clock
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
@@ -412,7 +413,7 @@ private fun MoneySection(uiState: AnalyticsViewModel.UiState) {
             label = stringResource(Res.string.total_money_made),
             amount = totalRevenue,
             hint = stringResource(Res.string.total_money_hint),
-            gradient = listOf(Color(0xFF10B981), Color(0xFF059669))
+            gradient = listOf(ChartGreen, ChartGreen.copy(alpha = 0.8f))
         )
 
         Row(
@@ -423,7 +424,7 @@ private fun MoneySection(uiState: AnalyticsViewModel.UiState) {
                 label = stringResource(Res.string.after_tax),
                 amount = netRevenue,
                 hint = stringResource(Res.string.after_tax_hint),
-                color = Color(0xFF3B82F6),
+                color = ChartBlue,
                 modifier = Modifier.weight(1f)
             )
 //            SmallMoneyCard(
@@ -440,7 +441,7 @@ private fun MoneySection(uiState: AnalyticsViewModel.UiState) {
             label = stringResource(Res.string.delivery_fees_collected),
             amount = deliveryFees,
             hint = if (deliveryFees > 0) stringResource(Res.string.delivery_fees_hint) else stringResource(Res.string.no_delivery_fees),
-            color = Color(0xFF8B5CF6),
+            color = ChartPurple,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -622,7 +623,7 @@ private fun OrdersSection(uiState: AnalyticsViewModel.UiState) {
                     icon = Icons.Default.Restaurant,
                     label = stringResource(Res.string.dine_in_orders),
                     count = dineInOrders,
-                    color = Color(0xFF6366F1)
+                    color = ChartIndigo
                 )
             }
 
@@ -631,7 +632,7 @@ private fun OrdersSection(uiState: AnalyticsViewModel.UiState) {
                     icon = Icons.Default.DeliveryDining,
                     label = stringResource(Res.string.delivery_orders),
                     count = deliveryOrders,
-                    color = Color(0xFF10B981)
+                    color = ChartGreen
                 )
             }
 
@@ -640,7 +641,7 @@ private fun OrdersSection(uiState: AnalyticsViewModel.UiState) {
                     icon = Icons.Default.ShoppingBag,
                     label = stringResource(Res.string.takeaway_orders),
                     count = takeawayOrders,
-                    color = Color(0xFFF59E0B)
+                    color = ChartAmber
                 )
             }
         }
@@ -742,7 +743,7 @@ private fun SimpleItemCard(
                         text = "#$rank",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (rank <= 3) Color.White else MaterialTheme.colorScheme.primary
+                        color = if (rank <= 3) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary
                     )
                 }
                 Column {
@@ -834,17 +835,17 @@ private fun DetailedTeamSection(
                             // Show delivery fees (tax) for each person
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (member.totalTax > 0) 
-                                    Color(0xFF8B5CF6).copy(alpha = 0.15f)
-                                else 
+                                color = if (member.totalTax > 0)
+                                    ChartPurple.copy(alpha = 0.15f)
+                                else
                                     MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
                                     text = stringResource(Res.string.delivery_fees_label, CurrencyFormatter.formatDecimal(member.totalTax)),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (member.totalTax > 0) 
-                                        Color(0xFF8B5CF6)
-                                    else 
+                                    color = if (member.totalTax > 0)
+                                        ChartPurple
+                                    else
                                         MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1051,7 +1052,7 @@ private fun ComparisonCard(
     modifier: Modifier = Modifier
 ) {
     val isPositive = changePercent >= 0
-    val color = if (isPositive) Color(0xFF10B981) else Color(0xFFEF4444)
+    val color = if (isPositive) ChartGreen else MaterialTheme.colorScheme.error
     
     Card(
         modifier = modifier,
@@ -1121,10 +1122,10 @@ private fun DailyGoalSection(uiState: AnalyticsViewModel.UiState) {
     val progressPercent = (progress * 100).toInt()
     
     val goalColor = when {
-        progress >= 1.0 -> Color(0xFF10B981) // Green - Goal achieved!
-        progress >= 0.75 -> Color(0xFF3B82F6) // Blue - Almost there
-        progress >= 0.5 -> Color(0xFFF59E0B) // Orange - Halfway
-        else -> Color(0xFFEF4444) // Red - Need more
+        progress >= 1.0 -> ChartGreen // Green - Goal achieved!
+        progress >= 0.75 -> ChartBlue // Blue - Almost there
+        progress >= 0.5 -> ChartAmber // Orange - Halfway
+        else -> MaterialTheme.colorScheme.error // Red - Need more
     }
     
     Card(
@@ -1213,10 +1214,10 @@ private fun PeakHoursSection(uiState: AnalyticsViewModel.UiState) {
     // Simulate peak hours based on typical restaurant patterns
     // In real implementation, this would come from API with hourly data
     val peakHours = listOf(
-        PeakHour("12:00 - 14:00", stringResource(Res.string.lunch_time), (todayOrders * 0.35).toInt(), Color(0xFFEF4444)),
-        PeakHour("19:00 - 21:00", stringResource(Res.string.dinner_time), (todayOrders * 0.30).toInt(), Color(0xFFF59E0B)),
-        PeakHour("16:00 - 18:00", stringResource(Res.string.afternoon), (todayOrders * 0.20).toInt(), Color(0xFF3B82F6)),
-        PeakHour("09:00 - 11:00", stringResource(Res.string.morning), (todayOrders * 0.15).toInt(), Color(0xFF10B981))
+        PeakHour("12:00 - 14:00", stringResource(Res.string.lunch_time), (todayOrders * 0.35).toInt(), ChartRose),
+        PeakHour("19:00 - 21:00", stringResource(Res.string.dinner_time), (todayOrders * 0.30).toInt(), ChartAmber),
+        PeakHour("16:00 - 18:00", stringResource(Res.string.afternoon), (todayOrders * 0.20).toInt(), ChartBlue),
+        PeakHour("09:00 - 11:00", stringResource(Res.string.morning), (todayOrders * 0.15).toInt(), ChartGreen)
     )
     
     val maxOrders = peakHours.maxOfOrNull { it.orders } ?: 1
@@ -1337,7 +1338,7 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
     val netProfit = totalRevenue - totalCosts
     val profitMargin = if (totalRevenue > 0) (netProfit / totalRevenue) * 100 else 0.0
     
-    val profitColor = if (netProfit >= 0) Color(0xFF10B981) else Color(0xFFEF4444)
+    val profitColor = if (netProfit >= 0) ChartGreen else MaterialTheme.colorScheme.error
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1358,13 +1359,13 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
                 text = stringResource(Res.string.income),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF10B981)
+                color = ChartGreen
             )
             
             ProfitLossRow(
                 label = stringResource(Res.string.total_revenue),
                 amount = totalRevenue,
-                color = Color(0xFF10B981)
+                color = ChartGreen
             )
             
             HorizontalDivider()
@@ -1374,20 +1375,20 @@ private fun ProfitLossSection(uiState: AnalyticsViewModel.UiState) {
                 text = stringResource(Res.string.expenses),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFEF4444)
+                color = MaterialTheme.colorScheme.error
             )
             
             ProfitLossRow(
                 label = stringResource(Res.string.salaries_paid),
                 amount = totalSalaries,
-                color = Color(0xFFEF4444),
+                color = MaterialTheme.colorScheme.error,
                 isExpense = true
             )
             
             ProfitLossRow(
                 label = stringResource(Res.string.tax_paid),
                 amount = totalDeliveryFees,
-                color = Color(0xFFEF4444),
+                color = MaterialTheme.colorScheme.error,
                 isExpense = true
             )
             
@@ -1497,12 +1498,12 @@ private fun CustomerInsightsSection(uiState: AnalyticsViewModel.UiState) {
                     text = CurrencyFormatter.format(avgOrderValue),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF3B82F6)
+                    color = ChartBlue
                 )
             }
-            
+
             HorizontalDivider()
-            
+
             // Customer Types
             Text(
                 text = stringResource(Res.string.customer_types),
@@ -1518,15 +1519,15 @@ private fun CustomerInsightsSection(uiState: AnalyticsViewModel.UiState) {
                     label = stringResource(Res.string.new_customers),
                     count = newCustomers,
                     percentage = 35,
-                    color = Color(0xFF10B981),
+                    color = ChartGreen,
                     modifier = Modifier.weight(1f)
                 )
-                
+
                 CustomerTypeCard(
                     label = stringResource(Res.string.returning_customers),
                     count = returningCustomers,
                     percentage = 65,
-                    color = Color(0xFF3B82F6),
+                    color = ChartBlue,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1534,7 +1535,7 @@ private fun CustomerInsightsSection(uiState: AnalyticsViewModel.UiState) {
             // Loyalty indicator
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                color = ChartPurple.copy(alpha = 0.15f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -1545,13 +1546,13 @@ private fun CustomerInsightsSection(uiState: AnalyticsViewModel.UiState) {
                     Icon(
                         Icons.Default.Favorite,
                         contentDescription = null,
-                        tint = Color(0xFF8B5CF6),
+                        tint = ChartPurple,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = stringResource(Res.string.loyalty_message),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8B5CF6),
+                        color = ChartPurple,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1747,7 +1748,7 @@ private fun ExportDialog(
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = Color(0xFF10B981)
+                    tint = ChartGreen
                 )
                 Text(
                     text = stringResource(Res.string.report_ready),

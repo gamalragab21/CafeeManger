@@ -32,6 +32,7 @@ import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -398,7 +399,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = CurrencyFormatter.formatDecimal(grossRevenue),
                 subtitle = "EGP",
                 icon = Icons.Default.AttachMoney,
-                gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
+                gradient = listOf(ChartGreen, ChartGreen),
                 growth = revenueGrowth,
                 modifier = Modifier.weight(1f)
             )
@@ -407,7 +408,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = CurrencyFormatter.formatDecimal(netRevenue),
                 subtitle = "EGP",
                 icon = Icons.Default.AccountBalance,
-                gradient = listOf(Color(0xFF3B82F6), Color(0xFF2563EB)),
+                gradient = listOf(ChartBlue, ChartBlue),
                 growth = revenueGrowth - 2,
                 modifier = Modifier.weight(1f)
             )
@@ -422,7 +423,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = CurrencyFormatter.formatDecimal(totalTax),
                 subtitle = "EGP (14%)",
                 icon = Icons.Default.Receipt,
-                gradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
+                gradient = listOf(ChartAmber, ChartAmber),
                 modifier = Modifier.weight(1f)
             )
             MetricCard(
@@ -430,7 +431,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = CurrencyFormatter.formatDecimal(deliveryFees),
                 subtitle = "EGP",
                 icon = Icons.Default.DeliveryDining,
-                gradient = listOf(Color(0xFF8B5CF6), Color(0xFF7C3AED)),
+                gradient = listOf(ChartPurple, ChartPurple),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -440,7 +441,7 @@ private fun RevenueInsightsSection(uiState: AnalyticsViewModel.UiState) {
             value = CurrencyFormatter.formatDecimal(avgOrderValue),
             subtitle = "EGP per order",
             icon = Icons.Default.ShoppingCart,
-            gradient = listOf(Color(0xFFEC4899), Color(0xFFDB2777)),
+            gradient = listOf(ChartRose, ChartRose),
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -531,7 +532,7 @@ private fun MetricCard(
 @Composable
 private fun GrowthIndicator(growth: Int) {
     val isPositive = growth >= 0
-    val color = if (isPositive) Color(0xFF10B981) else Color(0xFFEF4444)
+    val color = if (isPositive) ChartGreen else MaterialTheme.colorScheme.error
     
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -577,7 +578,7 @@ private fun OrdersInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = totalOrders.toString(),
                 subtitle = stringResource(Res.string.orders),
                 icon = Icons.Default.Receipt,
-                gradient = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
+                gradient = listOf(ChartIndigo, ChartPurple),
                 growth = 12,
                 modifier = Modifier.weight(1f)
             )
@@ -586,7 +587,7 @@ private fun OrdersInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 value = completedOrders.toString(),
                 subtitle = "${(completedOrders.toFloat() / totalOrders * 100).toInt()}%",
                 icon = Icons.Default.CheckCircle,
-                gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
+                gradient = listOf(ChartGreen, ChartGreen),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -612,13 +613,13 @@ private fun OrdersInsightsSection(uiState: AnalyticsViewModel.UiState) {
                     fontWeight = FontWeight.Bold
                 )
                 
-                OrderChannelRow("Dine In", dineInOrders, totalOrders, Color(0xFF6366F1))
-                OrderChannelRow("Delivery", deliveryOrders, totalOrders, Color(0xFF10B981))
-                OrderChannelRow("Takeaway", takeawayOrders, totalOrders, Color(0xFFF59E0B))
-                
+                OrderChannelRow("Dine In", dineInOrders, totalOrders, ChartIndigo)
+                OrderChannelRow("Delivery", deliveryOrders, totalOrders, ChartGreen)
+                OrderChannelRow("Takeaway", takeawayOrders, totalOrders, ChartAmber)
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                
-                OrderChannelRow("Cancelled", cancelledOrders, totalOrders, Color(0xFFEF4444))
+
+                OrderChannelRow("Cancelled", cancelledOrders, totalOrders, MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -687,7 +688,7 @@ private fun StaffPerformanceSection(uiState: AnalyticsViewModel.UiState) {
                     metric = CurrencyFormatter.format(topCashier.totalRevenue),
                     subtitle = "${topCashier.orderCount} orders",
                     icon = Icons.Default.Star,
-                    gradient = listOf(Color(0xFFFFD700), Color(0xFFFFA500))
+                    gradient = listOf(ChartAmber, ChartOrange)
                 )
             }
         }
@@ -702,7 +703,7 @@ private fun StaffPerformanceSection(uiState: AnalyticsViewModel.UiState) {
                     metric = "${topDelivery.orderCount} deliveries",
                     subtitle = CurrencyFormatter.format(topDelivery.totalRevenue),
                     icon = Icons.Default.LocalShipping,
-                    gradient = listOf(Color(0xFF10B981), Color(0xFF059669))
+                    gradient = listOf(ChartGreen, ChartGreen)
                 )
             }
         }
@@ -926,7 +927,7 @@ private fun ProductInsightsSection(uiState: AnalyticsViewModel.UiState) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFEF2F2)
+                    containerColor = MaterialTheme.colorScheme.errorContainer
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -943,14 +944,14 @@ private fun ProductInsightsSection(uiState: AnalyticsViewModel.UiState) {
                         Icon(
                             Icons.Default.Warning,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = stringResource(Res.string.least_selling_items),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFEF4444)
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
 
@@ -969,7 +970,7 @@ private fun ProductInsightsSection(uiState: AnalyticsViewModel.UiState) {
                             Text(
                                 text = "${item.quantity} sold",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFEF4444)
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -1002,9 +1003,9 @@ private fun ProductItemRow(
                     .clip(CircleShape)
                     .background(
                         when (rank) {
-                            1 -> Color(0xFFFFD700)
-                            2 -> Color(0xFFC0C0C0)
-                            3 -> Color(0xFFCD7F32)
+                            1 -> ChartAmber
+                            2 -> MaterialTheme.colorScheme.outlineVariant
+                            3 -> ChartOrange
                             else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                         }
                     ),

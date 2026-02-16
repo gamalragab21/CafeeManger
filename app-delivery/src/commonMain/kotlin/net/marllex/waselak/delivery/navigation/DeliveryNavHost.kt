@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
@@ -73,6 +73,9 @@ import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
 import net.marllex.waselak.core.ui.platform.PlatformActions
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
+import org.jetbrains.compose.resources.stringResource
+import waselak.core.core_ui.generated.resources.Res as CoreRes
+import waselak.core.core_ui.generated.resources.*
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.feature.delivery.map.navigation.deliveryMapScreen
@@ -91,9 +94,25 @@ enum class DeliveryTab(
 ) {
     ORDERS("delivery/orders", "My Orders", Icons.Filled.DeliveryDining),
     HISTORY("delivery/history", "History", Icons.Filled.History),
-    ANNOUNCEMENTS("delivery/announcements", "Alerts", Icons.Filled.Campaign),
+    ANNOUNCEMENTS("delivery/announcements", "Alerts", Icons.Filled.Notifications),
 //    MAP("delivery/map", "Map", Icons.Filled.Map),
     PROFILE("delivery/profile", "Profile", Icons.Filled.Person),
+}
+
+@Composable
+private fun localizedTabTitle(tab: DeliveryTab): String = when (tab) {
+    DeliveryTab.ORDERS -> stringResource(CoreRes.string.nav_my_orders)
+    DeliveryTab.HISTORY -> stringResource(CoreRes.string.nav_history)
+    DeliveryTab.ANNOUNCEMENTS -> stringResource(CoreRes.string.nav_alerts)
+    DeliveryTab.PROFILE -> stringResource(CoreRes.string.nav_profile)
+}
+
+@Composable
+private fun localizedRoleLabel(role: UserRole?): String = when (role) {
+    UserRole.MANAGER -> stringResource(CoreRes.string.role_manager)
+    UserRole.CASHIER -> stringResource(CoreRes.string.role_cashier)
+    UserRole.DELIVERY -> stringResource(CoreRes.string.role_delivery)
+    null -> ""
 }
 
 // --- Bottom Bar (phone) --------------------------------------------------
@@ -110,6 +129,7 @@ private fun DeliveryBottomBar(
         DeliveryTab.entries.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
+            val title = localizedTabTitle(tab)
 
             NavigationBarItem(
                 selected = isSelected,
@@ -125,12 +145,12 @@ private fun DeliveryBottomBar(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -160,6 +180,7 @@ private fun DeliveryNavRail(
         DeliveryTab.entries.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
+            val title = localizedTabTitle(tab)
 
             NavigationRailItem(
                 selected = isSelected,
@@ -175,12 +196,12 @@ private fun DeliveryNavRail(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -288,7 +309,7 @@ private fun DeliveryProfileScreen(
             if (vendor != null) {
                 item {
                     Text(
-                        text = "Store Information",
+                        text = stringResource(CoreRes.string.store_information),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp),
@@ -302,7 +323,7 @@ private fun DeliveryProfileScreen(
                     ) {
                         Column(modifier = Modifier.padding(4.dp)) {
                             ProfileInfoRow(
-                                label = "Store Name",
+                                label = stringResource(CoreRes.string.store_name),
                                 value = vendor.name,
                             )
                             HorizontalDivider(
@@ -310,7 +331,7 @@ private fun DeliveryProfileScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                             ProfileInfoRow(
-                                label = "Address",
+                                label = stringResource(CoreRes.string.address),
                                 value = vendor.address,
                             )
                             HorizontalDivider(
@@ -318,7 +339,7 @@ private fun DeliveryProfileScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                             ProfileInfoRow(
-                                label = "Contact Phone",
+                                label = stringResource(CoreRes.string.contact_phone),
                                 value = vendor.contactPhone,
                             )
                             vendor.walletPhone?.let { walletPhone ->
@@ -327,7 +348,7 @@ private fun DeliveryProfileScreen(
                                     color = MaterialTheme.colorScheme.outlineVariant,
                                 )
                                 ProfileInfoRow(
-                                    label = "Wallet Phone",
+                                    label = stringResource(CoreRes.string.wallet_phone),
                                     value = walletPhone,
                                 )
                             }
@@ -339,7 +360,7 @@ private fun DeliveryProfileScreen(
             // Account Info section
             item {
                 Text(
-                    text = "Account Information",
+                    text = stringResource(CoreRes.string.account_information),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -353,7 +374,7 @@ private fun DeliveryProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(4.dp)) {
                         ProfileInfoRow(
-                            label = "Name",
+                            label = stringResource(CoreRes.string.name),
                             value = userName ?: "N/A",
                         )
                         HorizontalDivider(
@@ -361,7 +382,7 @@ private fun DeliveryProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Phone",
+                            label = stringResource(CoreRes.string.contact_phone),
                             value = userPhone ?: "N/A",
                         )
                         HorizontalDivider(
@@ -369,7 +390,7 @@ private fun DeliveryProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Email",
+                            label = stringResource(CoreRes.string.email),
                             value = userEmail ?: "N/A",
                         )
                         HorizontalDivider(
@@ -377,7 +398,7 @@ private fun DeliveryProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                         ProfileInfoRow(
-                            label = "Role",
+                            label = stringResource(CoreRes.string.role),
                             value = userRole ?: "N/A",
                         )
                     }
@@ -387,7 +408,7 @@ private fun DeliveryProfileScreen(
             // App Settings
             item {
                 Text(
-                    text = "App Settings",
+                    text = stringResource(CoreRes.string.app_settings),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -401,7 +422,7 @@ private fun DeliveryProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Language",
+                            text = stringResource(CoreRes.string.language),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -434,12 +455,12 @@ private fun DeliveryProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "Wasel POS - Delivery",
+                            text = stringResource(CoreRes.string.app_delivery),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = "Version 1.0.0",
+                            text = stringResource(CoreRes.string.version_info),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
@@ -474,14 +495,7 @@ private fun ProfileInfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun formatRoleLabel(role: UserRole?): String {
-    return when (role) {
-        UserRole.MANAGER -> "Manager"
-        UserRole.CASHIER -> "Cashier"
-        UserRole.DELIVERY -> "Delivery"
-        null -> ""
-    }
-}
+private fun formatRoleLabel(role: UserRole?): String = localizedRoleLabel(role)
 
 // --- Main Nav Host -------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
@@ -598,7 +612,7 @@ fun DeliveryNavHost(
                             TopAppBar(
                                 title = {
                                     Text(
-                                        text = "Welcome, $name",
+                                        text = stringResource(CoreRes.string.welcome_name, name),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                     )
@@ -628,7 +642,7 @@ fun DeliveryNavHost(
                             TopAppBar(
                                 title = {
                                     Text(
-                                        text = "Welcome, $name",
+                                        text = stringResource(CoreRes.string.welcome_name, name),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                     )

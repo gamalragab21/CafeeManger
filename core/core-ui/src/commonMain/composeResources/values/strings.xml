@@ -72,4 +72,69 @@
     <string name="signout">Sign Out</string>
     <string name="signout_confirm">Are you sure you want to sign out?</string>
     <string name="welcome_message">Welcome, %1$s</string>
+
+    <!-- Navigation - Manager -->
+    <string name="nav_home">Home</string>
+    <string name="nav_orders">Orders</string>
+    <string name="nav_menu">Menu</string>
+    <string name="nav_staff">Staff</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Navigation - Cashier -->
+    <string name="nav_new_order">New Order</string>
+    <string name="nav_tables">Tables</string>
+
+    <!-- Navigation - Delivery -->
+    <string name="nav_my_orders">My Orders</string>
+    <string name="nav_history">History</string>
+    <string name="nav_alerts">Alerts</string>
+
+    <!-- Navigation - Drawer Items -->
+    <string name="nav_delivery">Delivery</string>
+    <string name="nav_attendance">Attendance</string>
+
+    <!-- Menu Sub-Tabs -->
+    <string name="tab_categories">Categories</string>
+    <string name="tab_items">Items</string>
+    <string name="tab_stock">Stock</string>
+    <string name="tab_digital_menu">Digital Menu</string>
+
+    <!-- Profile Sub-Tabs -->
+    <string name="tab_store">Store</string>
+    <string name="tab_analytics">Analytics</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="store_features">Store Features</string>
+    <string name="tables">Tables</string>
+    <string name="roles_permissions">Roles &amp; Permissions</string>
+    <string name="tax_places">Tax Places</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="share_with_customers">Share with Customers</string>
+    <string name="digital_menu">Digital Menu</string>
+    <string name="scan_to_view_menu">Scan to view menu</string>
+    <string name="digital_menu_link">Digital Menu Link</string>
+    <string name="no_digital_menu">No digital menu available</string>
+    <string name="link_copied">Link copied</string>
+    <string name="export_data">Export Data</string>
+    <string name="language">Language</string>
+    <string name="app_settings">App Settings</string>
+    <string name="version_info">Version 1.0.0</string>
+
+    <!-- Profile Info -->
+    <string name="store_information">Store Information</string>
+    <string name="account_information">Account Information</string>
+    <string name="store_name">Store Name</string>
+    <string name="address">Address</string>
+    <string name="contact_phone">Contact Phone</string>
+    <string name="wallet_phone">Wallet Phone</string>
+    <string name="name">Name</string>
+    <string name="email">Email</string>
+    <string name="role">Role</string>
+    <string name="welcome_name">Welcome, %1$s</string>
+
+    <!-- App Names -->
+    <string name="app_cashier">Wasel POS - Cashier</string>
+    <string name="app_delivery">Wasel POS - Delivery</string>
+    <string name="app_manager">Wasel POS - Manager</string>
 </resources>

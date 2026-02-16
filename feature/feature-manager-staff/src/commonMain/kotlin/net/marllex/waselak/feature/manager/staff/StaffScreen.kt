@@ -471,7 +471,7 @@ private fun WorkerCard(
                             .padding(2.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isPresent) Color(0xFF4CAF50) // Success Green
+                                if (isPresent) MaterialTheme.colorScheme.primary // Success
                                 else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                             )
                     )
@@ -1199,7 +1199,7 @@ private fun SelectableSalaryPaymentCard(
                 )
 
                 // Status Indicator
-                val statusColor = if (payment.paid) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                val statusColor = if (payment.paid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).background(statusColor, CircleShape))
                     Spacer(Modifier.width(4.dp))
@@ -2111,7 +2111,7 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (uiState.isSaving) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(if (uiState.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
@@ -2138,7 +2138,7 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (uiState.isSaving) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(
@@ -2231,7 +2231,7 @@ private fun BatchPayNoteDialog(uiState: StaffViewModel.UiState, viewModel: Staff
                 shape = RoundedCornerShape(12.dp),
             ) {
                 if (uiState.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(if (uiState.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.confirm))

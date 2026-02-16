@@ -119,9 +119,9 @@ fun WorkerQrCodeContent(
     onRegenerate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cafeDark = Color(0xFF1C1B1F)
-    val cafeGold = Color(0xFFD4AF37)
-    val cafeSoftBg = Color(0xFFF7F7F7)
+    val cafeDark = MaterialTheme.colorScheme.onSurface
+    val cafeGold = MaterialTheme.colorScheme.primary
+    val cafeSoftBg = MaterialTheme.colorScheme.surfaceVariant
 
     // Main container that handles the background and overall centering
     Box(
@@ -147,7 +147,7 @@ fun WorkerQrCodeContent(
                     .fillMaxWidth()
                     .aspectRatio(0.72f), // Slightly adjusted ratio for better centering
                 shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp)
             ) {
                 BadgeCardInternal(worker, qrCodeBitmap, cafeDark, cafeGold)
@@ -223,7 +223,7 @@ private fun BadgeCardInternal(
                 modifier = Modifier.padding(vertical = 14.dp),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 letterSpacing = 2.sp
             )
         }
@@ -234,7 +234,7 @@ private fun BadgeCardInternal(
         Surface(
             modifier = Modifier.size(80.dp),
             shape = CircleShape,
-            color = Color(0xFFF9F9F9),
+            color = MaterialTheme.colorScheme.surfaceVariant,
             border = BorderStroke(1.dp, cafeGold)
         ) {
             Icon(
@@ -251,8 +251,8 @@ private fun BadgeCardInternal(
         Surface(
             modifier = Modifier.size(170.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.3f))
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
                 if (qrCodeBitmap != null) {
@@ -290,7 +290,7 @@ private fun BadgeCardInternal(
             text = "ID: ${worker.workerId}",
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(bottom = 12.dp),
-            color = Color.LightGray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

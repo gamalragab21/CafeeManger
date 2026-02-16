@@ -21,14 +21,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableBar
@@ -108,8 +109,11 @@ import net.marllex.waselak.feature.manager.stock.StockScreen
 import net.marllex.waselak.feature.manager.tables.TablesScreen
 import net.marllex.waselak.feature.manager.users.UsersScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
+import org.jetbrains.compose.resources.stringResource
 import org.koin.core.qualifier.named
 import org.koin.mp.KoinPlatform
+import waselak.core.core_ui.generated.resources.Res as CoreRes
+import waselak.core.core_ui.generated.resources.*
 
 enum class ManagerTab(
     val route: String,
@@ -117,10 +121,19 @@ enum class ManagerTab(
     val icon: ImageVector
 ) {
     DASHBOARD("manager/dashboard", "Home", Icons.Filled.Dashboard),
-    ORDERS("manager/orders", "Orders", Icons.Filled.Receipt),
-    MENU("manager/menu", "Menu", Icons.Filled.Category),
+    ORDERS("manager/orders", "Orders", Icons.AutoMirrored.Filled.FormatListBulleted),
+    MENU("manager/menu", "Menu", Icons.Filled.Restaurant),
     USERS("manager/users", "Staff", Icons.Filled.People),
     PROFILE("manager/profile", "Profile", Icons.Filled.Person),
+}
+
+@Composable
+private fun localizedTabTitle(tab: ManagerTab): String = when (tab) {
+    ManagerTab.DASHBOARD -> stringResource(CoreRes.string.nav_home)
+    ManagerTab.ORDERS -> stringResource(CoreRes.string.nav_orders)
+    ManagerTab.MENU -> stringResource(CoreRes.string.nav_menu)
+    ManagerTab.USERS -> stringResource(CoreRes.string.nav_staff)
+    ManagerTab.PROFILE -> stringResource(CoreRes.string.nav_profile)
 }
 
 // --- Adaptive Bottom Bar (phone) ---
@@ -135,6 +148,7 @@ private fun ManagerBottomBar(
         windowInsets = WindowInsets.navigationBars,
     ) {
         ManagerTab.entries.forEach { tab ->
+            val title = localizedTabTitle(tab)
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
 
@@ -152,12 +166,12 @@ private fun ManagerBottomBar(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -185,6 +199,7 @@ private fun ManagerNavRail(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         ManagerTab.entries.forEach { tab ->
+            val title = localizedTabTitle(tab)
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
 
@@ -202,12 +217,12 @@ private fun ManagerNavRail(
                 icon = {
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.title,
+                        contentDescription = title,
                     )
                 },
                 label = {
                     Text(
-                        text = tab.title,
+                        text = title,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )
@@ -397,10 +412,10 @@ private fun MenuTabContent() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf(
-        "Categories",
-        "Items",
-        "Stock",
-        "Digital Menu",
+        stringResource(CoreRes.string.tab_categories),
+        stringResource(CoreRes.string.tab_items),
+        stringResource(CoreRes.string.tab_stock),
+        stringResource(CoreRes.string.tab_digital_menu),
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -461,7 +476,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
     val platformActions = rememberPlatformActions()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val copiedMsg = "Link copied"
+    val copiedMsg = stringResource(CoreRes.string.link_copied)
 
     val menuUrl = remember(vendorId, customMenuUrl) {
         when {
@@ -504,13 +519,13 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Digital Menu",
+                            stringResource(CoreRes.string.digital_menu),
                             style = if (screenWidth > 600) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Scan to view menu",
+                            stringResource(CoreRes.string.scan_to_view_menu),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -521,8 +536,8 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         // QR Card
                         Card(
                             shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                         ) {
                             Box(Modifier.padding(if (screenWidth > 600) 32.dp else 20.dp)) {
                                 QrCodeImage(
@@ -544,7 +559,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         ) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(
-                                    "Digital Menu Link",
+                                    stringResource(CoreRes.string.digital_menu_link),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -574,7 +589,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         ) {
                             Icon(Icons.Filled.ContentCopy, null, Modifier.size(20.dp))
                             Spacer(Modifier.width(12.dp))
-                            Text("Copy Link", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(CoreRes.string.copy_link), style = MaterialTheme.typography.titleMedium)
                         }
 
                         TextButton(
@@ -585,7 +600,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         ) {
                             Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Share with Customers")
+                            Text(stringResource(CoreRes.string.share_with_customers))
                         }
 
                     } else {
@@ -608,7 +623,7 @@ private fun EmptyMenuState() {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "No digital menu available",
+            stringResource(CoreRes.string.no_digital_menu),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -628,16 +643,16 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     val mainTabs = listOf(
-        "Store",
-        "Analytics",
-        "Settings",
+        stringResource(CoreRes.string.tab_store),
+        stringResource(CoreRes.string.tab_analytics),
+        stringResource(CoreRes.string.tab_settings),
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
         when (activeSubScreen) {
             "tables" -> {
                 TopAppBar(
-                    title = { Text("Tables") },
+                    title = { Text(stringResource(CoreRes.string.tables)) },
                     navigationIcon = {
                         IconButton(onClick = { activeSubScreen = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -650,7 +665,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
 
             "users" -> {
                 TopAppBar(
-                    title = { Text("Roles & Permissions") },
+                    title = { Text(stringResource(CoreRes.string.roles_permissions)) },
                     navigationIcon = {
                         IconButton(onClick = { activeSubScreen = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -663,7 +678,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
 
             "tax_places" -> {
                 TopAppBar(
-                    title = { Text("Tax Places") },
+                    title = { Text(stringResource(CoreRes.string.tax_places)) },
                     navigationIcon = {
                         IconButton(onClick = { activeSubScreen = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -676,7 +691,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
 
             "export" -> {
                 TopAppBar(
-                    title = { Text("Export Data") },
+                    title = { Text(stringResource(CoreRes.string.export_data)) },
                     navigationIcon = {
                         IconButton(onClick = { activeSubScreen = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -762,7 +777,7 @@ private fun SettingsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "Store Features",
+                text = stringResource(CoreRes.string.store_features),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -770,20 +785,20 @@ private fun SettingsContent(
             if (vendor?.enableTables != false) {
                 SettingsNavigationCard(
                     icon = Icons.Filled.TableBar,
-                    title = "Tables",
+                    title = stringResource(CoreRes.string.tables),
                     onClick = onNavigateToTables,
                 )
             }
 
             SettingsNavigationCard(
                 icon = Icons.Filled.Security,
-                title = "Roles & Permissions",
+                title = stringResource(CoreRes.string.roles_permissions),
                 onClick = onNavigateToUsers,
             )
 
             SettingsNavigationCard(
                 icon = Icons.Filled.LocalShipping,
-                title = "Tax Places",
+                title = stringResource(CoreRes.string.tax_places),
                 onClick = onNavigateToTaxPlaces,
             )
 
@@ -792,7 +807,7 @@ private fun SettingsContent(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = "Settings",
+                text = stringResource(CoreRes.string.tab_settings),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -835,7 +850,7 @@ private fun SettingsNavigationCard(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),

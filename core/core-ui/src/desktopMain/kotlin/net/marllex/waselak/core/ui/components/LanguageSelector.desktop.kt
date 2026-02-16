@@ -28,10 +28,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import java.util.prefs.Preferences
+
+private const val PREF_KEY_LANGUAGE = "waselak_language"
+
+private val prefs: Preferences = Preferences.userNodeForPackage(LanguageSelectorDesktop::class.java)
+
+/** Marker class for Preferences node. */
+private class LanguageSelectorDesktop
+
+/** Read persisted language or fall back to system default. */
+fun getPersistedLanguage(): String = prefs.get(PREF_KEY_LANGUAGE, Locale.getDefault().language)
+
+/** Apply and persist a language code. */
+fun applyLanguage(code: String) {
+    prefs.put(PREF_KEY_LANGUAGE, code)
+    Locale.setDefault(Locale(code))
+}
 
 @Composable
 actual fun LanguageSelector(modifier: Modifier) {
-    var selectedLang by remember { mutableStateOf(Locale.getDefault().language) }
+    var selectedLang by remember { mutableStateOf(getPersistedLanguage()) }
 
     Column(modifier = modifier) {
         Row(
@@ -60,7 +77,7 @@ actual fun LanguageSelector(modifier: Modifier) {
                     .padding(vertical = 4.dp)
                     .clickable {
                         selectedLang = code
-                        Locale.setDefault(Locale(code))
+                        applyLanguage(code)
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(

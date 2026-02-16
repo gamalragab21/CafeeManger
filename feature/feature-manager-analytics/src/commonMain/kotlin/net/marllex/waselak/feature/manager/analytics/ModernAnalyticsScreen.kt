@@ -37,6 +37,7 @@ import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,7 @@ fun ModernAnalyticsScreen(
                             value = CurrencyFormatter.formatDecimal(uiState.totalRevenue),
                             subtitle = "EGP",
                             icon = Icons.Default.AttachMoney,
-                            gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
+                            gradient = listOf(ChartGreen, ChartGreen),
                             modifier = Modifier.weight(1f)
                         )
                         DataCard(
@@ -116,7 +117,7 @@ fun ModernAnalyticsScreen(
                             value = uiState.totalOrders.toString(),
                             subtitle = stringResource(Res.string.orders),
                             icon = Icons.Default.Receipt,
-                            gradient = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
+                            gradient = listOf(ChartIndigo, ChartPurple),
                             modifier = Modifier.weight(1f)
                         )
                     }

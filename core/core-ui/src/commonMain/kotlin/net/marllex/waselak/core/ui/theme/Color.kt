@@ -95,3 +95,38 @@ val TableReserved = Color(0xFFF59E0B)       // Amber 500
 val StockHealthy = Color(0xFF10B981)        // Emerald 500
 val StockLow = Color(0xFFF59E0B)            // Amber 500
 val StockOut = Color(0xFFEF4444)            // Red 500
+
+// ─── Receipt semantic colors (light) ─────────────────────────────
+val ReceiptBackground = Color(0xFFFAFAF9)       // Stone 50
+val ReceiptSurface = Color(0xFFFFFFFF)           // White card
+val ReceiptTextPrimary = Color(0xFF1C1917)       // Stone 900
+val ReceiptTextSecondary = Color(0xFF78716C)     // Stone 400
+val ReceiptDivider = Color(0xFFE7E5E4)           // Stone 200
+val ReceiptTotalText = Color(0xFF0D9488)         // Teal 600
+val ReceiptSectionBg = Color(0xFFF5F5F4)         // Stone 100
+
+// ─── Receipt semantic colors (dark) ──────────────────────────────
+val ReceiptBackgroundDark = Color(0xFF1C1917)    // Stone 900
+val ReceiptSurfaceDark = Color(0xFF292524)       // Stone 800
+val ReceiptTextPrimaryDark = Color(0xFFFAFAF9)  // Stone 50
+val ReceiptTextSecondaryDark = Color(0xFFA8A29E) // Stone 400
+val ReceiptDividerDark = Color(0xFF44403C)       // Stone 700
+val ReceiptTotalTextDark = Color(0xFF2DD4BF)     // Teal 400
+val ReceiptSectionBgDark = Color(0xFF292524)     // Stone 800
+
+// ─── Chart accent colors ─────────────────────────────────────────
+val ChartBlue = Color(0xFF3B82F6)           // Blue 500
+val ChartGreen = Color(0xFF22C55E)          // Green 500
+val ChartAmber = Color(0xFFF59E0B)          // Amber 500
+val ChartPurple = Color(0xFF8B5CF6)         // Violet 500
+val ChartCyan = Color(0xFF06B6D4)           // Cyan 500
+val ChartRose = Color(0xFFF43F5E)           // Rose 500
+val ChartOrange = Color(0xFFF97316)         // Orange 500
+val ChartIndigo = Color(0xFF6366F1)         // Indigo 500
+
+// ─── Surface container colors for dark mode ──────────────────────
+val SurfaceContainerLowest = Color(0xFF0C0F1A)
+val SurfaceContainerLow = Color(0xFF111827)
+val SurfaceContainer = Color(0xFF1A2035)
+val SurfaceContainerHigh = Color(0xFF1E293B)
+val SurfaceContainerHighest = Color(0xFF243046)

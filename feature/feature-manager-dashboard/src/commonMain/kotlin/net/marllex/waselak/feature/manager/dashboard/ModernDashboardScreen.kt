@@ -39,6 +39,7 @@ import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import net.marllex.waselak.core.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -193,7 +194,7 @@ fun ModernDashboardScreen(
                                 title = stringResource(Res.string.active_orders),
                                 value = uiState.activeOrdersCount.toString(),
                                 icon = Icons.Default.PendingActions, // More modern icon
-                                gradient = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
+                                gradient = listOf(ChartIndigo, ChartPurple),
                                 subtitle = "Needs Attention"
                             )
                         }
@@ -204,7 +205,7 @@ fun ModernDashboardScreen(
                                 title = "Daily Total", // Changed from Today's Orders to differentiate
                                 value = uiState.todayOrdersCount.toString(),
                                 icon = Icons.Default.CheckCircle,
-                                gradient = listOf(Color(0xFF10B981), Color(0xFF34D399)),
+                                gradient = listOf(ChartGreen, Color(0xFF34D399)),
                                 subtitle = "Total Processed"
                             )
                         }
@@ -215,7 +216,7 @@ fun ModernDashboardScreen(
                                 title = "Completed",
                                 value = uiState.completedOrdersCount.toString(),
                                 icon = Icons.Default.FactCheck,
-                                gradient = listOf(Color(0xFF06B6D4), Color(0xFF3B82F6)), // Cyan to Blue
+                                gradient = listOf(ChartCyan, ChartBlue), // Cyan to Blue
                                 subtitle = "Ready for pickup"
                             )
                         }
@@ -228,7 +229,7 @@ fun ModernDashboardScreen(
                                 title = stringResource(Res.string.today_s_revenue),
                                 value = formattedRevenue,
                                 icon = Icons.Default.Payments,
-                                gradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
+                                gradient = listOf(ChartAmber, Color(0xFFD97706)),
                                 subtitle = "EGP Total",
                             )
                         }
@@ -263,7 +264,7 @@ fun ModernDashboardScreen(
                             title = stringResource(Res.string.stock_alerts),
                             value = "${uiState.lowStockCount + uiState.outOfStockCount}",
                             icon = Icons.Filled.Warning,
-                            color = if (hasAlerts) Color(0xFFEF4444) else MaterialTheme.colorScheme.tertiary,
+                            color = if (hasAlerts) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.weight(1f),
                             subtitle = if (hasAlerts) "${uiState.outOfStockCount} ${stringResource(Res.string.critical)}" else null
                         )

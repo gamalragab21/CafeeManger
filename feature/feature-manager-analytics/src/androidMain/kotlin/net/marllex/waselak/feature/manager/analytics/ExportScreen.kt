@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import net.marllex.waselak.core.ui.theme.ChartGreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -171,7 +172,7 @@ actual fun ExportScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF10B981).copy(alpha = 0.1f)
+                            containerColor = ChartGreen.copy(alpha = 0.1f)
                         )
                     ) {
                         Row(
@@ -182,14 +183,14 @@ actual fun ExportScreen(
                             Icon(
                                 Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981)
+                                tint = ChartGreen
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Export Successful!",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF10B981)
+                                    color = ChartGreen
                                 )
                                 Text(
                                     text = "File saved to Downloads",

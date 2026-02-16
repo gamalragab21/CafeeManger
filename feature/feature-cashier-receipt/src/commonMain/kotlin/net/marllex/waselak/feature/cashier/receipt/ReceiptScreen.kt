@@ -73,20 +73,23 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.platform.buildReceiptHtml
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
+import net.marllex.waselak.core.ui.theme.LocalReceiptColors
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import qrgenerator.qrkitpainter.rememberQrKitPainter
+import net.marllex.waselak.feature.cashier.receipt.generated.resources.*
 
 @Composable
 private fun localizedChannel(channel: OrderChannel): String = when (channel) {
-    OrderChannel.DINE_IN -> "Dine In"
-    OrderChannel.DELIVERY -> "Delivery"
+    OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
+    OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
 }
 
 @Composable
 private fun localizedPayment(method: PaymentMethod): String = when (method) {
-    PaymentMethod.CASH -> "Cash"
-    PaymentMethod.WALLET -> "Wallet"
-    PaymentMethod.CARD -> "Card"
+    PaymentMethod.CASH -> stringResource(Res.string.payment_cash)
+    PaymentMethod.WALLET -> stringResource(Res.string.payment_wallet)
+    PaymentMethod.CARD -> stringResource(Res.string.payment_card)
 }
 
 private fun formatAmount(amount: Double, currency: String = "EGP"): String {
@@ -115,14 +118,41 @@ fun ReceiptScreen(
     val printer = rememberReceiptPrinter()
     val platformActions = rememberPlatformActions()
     var showQr by remember { mutableStateOf(false) }
+    val receiptColors = LocalReceiptColors.current
+
+    // Localized strings
+    val receiptTitle = stringResource(Res.string.receipt)
+    val backStr = stringResource(Res.string.back)
+    val orderNumLabel = stringResource(Res.string.order_number_receipt)
+    val dateLabel = stringResource(Res.string.date)
+    val channelLabel = stringResource(Res.string.channel)
+    val paymentLabel = stringResource(Res.string.payment)
+    val cashierLabel = stringResource(Res.string.cashier)
+    val clientLabel = stringResource(Res.string.client_name)
+    val phoneLabel = stringResource(Res.string.client_phone)
+    val addressLabel = stringResource(Res.string.client_address)
+    val itemLabel = stringResource(Res.string.receipt_item)
+    val qtyLabel = stringResource(Res.string.receipt_qty)
+    val priceLabel = stringResource(Res.string.receipt_price)
+    val subtotalLabel = stringResource(Res.string.subtotal)
+    val taxLabel = stringResource(Res.string.receipt_tax)
+    val deliveryFeeLabel = stringResource(Res.string.receipt_delivery_fee)
+    val totalLabel = stringResource(Res.string.total)
+    val notesLabel = stringResource(Res.string.receipt_notes)
+    val thankYouStr = stringResource(Res.string.thank_you_for_your_visit)
+    val printStr = stringResource(Res.string.print)
+    val qrStr = stringResource(Res.string.qr)
+    val shareStr = stringResource(Res.string.share)
+    val doneStr = stringResource(Res.string.done)
+    val currency = stringResource(Res.string.receipt_currency)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Receipt") },
+                title = { Text(receiptTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backStr)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -154,8 +184,8 @@ fun ReceiptScreen(
                     ) {
                         ElevatedCard(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
+                            colors = CardDefaults.elevatedCardColors(containerColor = receiptColors.surface),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                             shape = RoundedCornerShape(16.dp),
                         ) {
                             Column(
@@ -170,17 +200,17 @@ fun ReceiptScreen(
                                         modifier = Modifier
                                             .size(64.dp)
                                             .clip(CircleShape)
-                                            .border(1.dp, Color(0xFFE7E5E4), CircleShape),
+                                            .border(1.dp, receiptColors.divider, CircleShape),
                                         contentScale = ContentScale.Crop,
                                     )
                                     Spacer(Modifier.height(8.dp))
                                 }
                                 Text(
-                                    text = vendor?.name ?: "Restaurant",
+                                    text = vendor?.name ?: stringResource(Res.string.restaurant_fallback),
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    color = Color(0xFF1C1917),
+                                    color = receiptColors.textPrimary,
                                 )
                                 vendor?.address?.let {
                                     Spacer(Modifier.height(4.dp))
@@ -188,39 +218,41 @@ fun ReceiptScreen(
                                         text = it,
                                         style = MaterialTheme.typography.bodySmall,
                                         textAlign = TextAlign.Center,
-                                        color = Color(0xFF78716C),
+                                        color = receiptColors.textSecondary,
                                     )
                                 }
 
                                 Spacer(Modifier.height(16.dp))
-                                DashedDivider()
+                                DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(16.dp))
 
                                 // Order Info
-                                ReceiptInfoSection {
+                                ReceiptInfoSection(bgColor = receiptColors.sectionBg) {
                                     ReceiptDataRow(
-                                        "Order #",
+                                        orderNumLabel,
                                         "#${order.id.takeLast(8).uppercase()}",
                                         isBold = true,
+                                        labelColor = receiptColors.textSecondary,
+                                        valueColor = receiptColors.textPrimary,
                                     )
-                                    ReceiptDataRow("Date", formatDate(order.createdAt))
-                                    ReceiptDataRow("Channel", localizedChannel(order.channel))
-                                    ReceiptDataRow("Payment", localizedPayment(order.paymentMethod))
-                                    ReceiptDataRow("Cashier", order.cashierName ?: "-")
+                                    ReceiptDataRow(dateLabel, formatDate(order.createdAt), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(channelLabel, localizedChannel(order.channel), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(paymentLabel, localizedPayment(order.paymentMethod), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(cashierLabel, order.cashierName ?: "-", labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                 }
 
                                 // Client Info
                                 if (order.clientName != null || order.clientPhone != null || order.clientAddress != null) {
                                     Spacer(Modifier.height(12.dp))
-                                    ReceiptInfoSection {
-                                        order.clientName?.let { ReceiptDataRow("Client", it) }
-                                        order.clientPhone?.let { ReceiptDataRow("Phone", it) }
-                                        order.clientAddress?.let { ReceiptDataRow("Address", it) }
+                                    ReceiptInfoSection(bgColor = receiptColors.sectionBg) {
+                                        order.clientName?.let { ReceiptDataRow(clientLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
+                                        order.clientPhone?.let { ReceiptDataRow(phoneLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
+                                        order.clientAddress?.let { ReceiptDataRow(addressLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
                                     }
                                 }
 
                                 Spacer(Modifier.height(16.dp))
-                                DashedDivider()
+                                DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(16.dp))
 
                                 // Items table header
@@ -228,12 +260,12 @@ fun ReceiptScreen(
                                     Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Text("Item", style = MaterialTheme.typography.labelMedium, color = Color(0xFF78716C), modifier = Modifier.weight(1f))
-                                    Text("Qty", style = MaterialTheme.typography.labelMedium, color = Color(0xFF78716C), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                    Text("Price", style = MaterialTheme.typography.labelMedium, color = Color(0xFF78716C), textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                                    Text(itemLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, modifier = Modifier.weight(1f))
+                                    Text(qtyLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
+                                    Text(priceLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
                                 }
                                 Spacer(Modifier.height(8.dp))
-                                HorizontalDivider(color = Color(0xFFE7E5E4), thickness = 0.5.dp)
+                                HorizontalDivider(color = receiptColors.divider, thickness = 0.5.dp)
                                 Spacer(Modifier.height(8.dp))
 
                                 order.items.forEach { item ->
@@ -242,44 +274,51 @@ fun ReceiptScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color(0xFF1C1917), modifier = Modifier.weight(1f))
-                                        Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF57534E), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                        Text(formatAmount(item.itemPriceSnapshot * item.quantity), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color(0xFF1C1917), textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                                        Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, modifier = Modifier.weight(1f))
+                                        Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
+                                        Text(formatAmount(item.itemPriceSnapshot * item.quantity, currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
                                     }
                                 }
 
                                 Spacer(Modifier.height(16.dp))
-                                DashedDivider()
+                                DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(16.dp))
 
                                 // Totals
-                                ReceiptDataRow("Subtotal", formatAmount(order.subtotal))
+                                ReceiptDataRow(subtotalLabel, formatAmount(order.subtotal, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                 Spacer(Modifier.height(4.dp))
                                 if (order.tax > 0.0) {
-                                    ReceiptDataRow("Tax", formatAmount(order.tax))
+                                    ReceiptDataRow(taxLabel, formatAmount(order.tax, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     Spacer(Modifier.height(4.dp))
                                 }
                                 if (order.deliveryFee > 0.0) {
-                                    ReceiptDataRow("Delivery Fee", formatAmount(order.deliveryFee))
+                                    ReceiptDataRow(deliveryFeeLabel, formatAmount(order.deliveryFee, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     Spacer(Modifier.height(4.dp))
                                 }
 
                                 Spacer(Modifier.height(8.dp))
-                                HorizontalDivider(color = Color(0xFFE7E5E4))
+                                HorizontalDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(12.dp))
 
                                 // Grand Total
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFFF0FDFA), RoundedCornerShape(12.dp))
-                                        .border(1.dp, Color(0xFFCCFBF1), RoundedCornerShape(12.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                                            RoundedCornerShape(12.dp),
+                                        )
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                            RoundedCornerShape(12.dp),
+                                        )
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("Total", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF1C1917))
-                                    Text(formatAmount(order.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF0D9488))
+                                    Text(totalLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = receiptColors.textPrimary)
+                                    Text(formatAmount(order.total, currency), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = receiptColors.totalText)
                                 }
 
                                 // Notes
@@ -288,19 +327,19 @@ fun ReceiptScreen(
                                     Column(
                                         Modifier
                                             .fillMaxWidth()
-                                            .background(Color(0xFFFAFAF9), RoundedCornerShape(8.dp))
+                                            .background(receiptColors.sectionBg, RoundedCornerShape(8.dp))
                                             .padding(12.dp),
                                     ) {
-                                        Text("Notes", style = MaterialTheme.typography.labelSmall, color = Color(0xFF78716C))
+                                        Text(notesLabel, style = MaterialTheme.typography.labelSmall, color = receiptColors.textSecondary)
                                         Spacer(Modifier.height(2.dp))
-                                        Text(notes, style = MaterialTheme.typography.bodySmall, color = Color(0xFF44403C))
+                                        Text(notes, style = MaterialTheme.typography.bodySmall, color = receiptColors.textPrimary)
                                     }
                                 }
 
                                 Spacer(Modifier.height(20.dp))
 
                                 // Receipt QR Code (shows order ID directly)
-                                DashedDivider()
+                                DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(12.dp))
                                 Image(
                                     painter = rememberQrKitPainter(data = order.id),
@@ -309,19 +348,19 @@ fun ReceiptScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Order #${order.id.takeLast(8).uppercase()}",
+                                    text = "$orderNumLabel${order.id.takeLast(8).uppercase()}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFFA8A29E),
+                                    color = receiptColors.textSecondary,
                                     textAlign = TextAlign.Center,
                                 )
                                 Spacer(Modifier.height(12.dp))
 
                                 // Footer
                                 Text(
-                                    text = "Thank you for your visit!",
+                                    text = thankYouStr,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontStyle = FontStyle.Italic,
-                                    color = Color(0xFFA8A29E),
+                                    color = receiptColors.textSecondary,
                                     textAlign = TextAlign.Center,
                                 )
                             }
@@ -348,7 +387,7 @@ fun ReceiptScreen(
                             ) {
                                 Icon(Icons.Default.Print, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Print", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(printStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             OutlinedButton(
                                 onClick = { showQr = true },
@@ -358,7 +397,7 @@ fun ReceiptScreen(
                             ) {
                                 Icon(Icons.Default.QrCode, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("QR", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(qrStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -371,7 +410,7 @@ fun ReceiptScreen(
                             ) {
                                 Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Share", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(shareStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
@@ -383,7 +422,7 @@ fun ReceiptScreen(
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         ) {
-                            Text("Done", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(doneStr, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         }
 
                         Spacer(Modifier.height(32.dp))
@@ -399,11 +438,11 @@ fun ReceiptScreen(
         AlertDialog(
             onDismissRequest = { showQr = false },
             confirmButton = {
-                TextButton(onClick = { showQr = false }) { Text("OK") }
+                TextButton(onClick = { showQr = false }) { Text(stringResource(Res.string.done)) }
             },
             title = {
                 Text(
-                    "Receipt QR Code",
+                    "${receiptTitle} QR",
                     style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -424,7 +463,7 @@ fun ReceiptScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "Order #${order.id.takeLast(8).uppercase()}",
+                        "$orderNumLabel${order.id.takeLast(8).uppercase()}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -436,9 +475,12 @@ fun ReceiptScreen(
 }
 
 @Composable
-private fun ReceiptInfoSection(content: @Composable () -> Unit) {
+private fun ReceiptInfoSection(
+    bgColor: Color = LocalReceiptColors.current.sectionBg,
+    content: @Composable () -> Unit,
+) {
     Column(
-        Modifier.fillMaxWidth().background(Color(0xFFFAFAF9), RoundedCornerShape(10.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().background(bgColor, RoundedCornerShape(10.dp)).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) { content() }
 }
@@ -449,7 +491,7 @@ private fun DashedDivider(
     dashWidth: Dp = 6.dp,
     dashGap: Dp = 4.dp,
     thickness: Dp = 1.dp,
-    color: Color = Color(0xFFD6D3D1),
+    color: Color = LocalReceiptColors.current.divider,
 ) {
     androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(thickness)) {
         drawLine(
@@ -463,9 +505,15 @@ private fun DashedDivider(
 }
 
 @Composable
-private fun ReceiptDataRow(label: String, value: String, isBold: Boolean = false) {
+private fun ReceiptDataRow(
+    label: String,
+    value: String,
+    isBold: Boolean = false,
+    labelColor: Color = LocalReceiptColors.current.textSecondary,
+    valueColor: Color = LocalReceiptColors.current.textPrimary,
+) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF78716C))
-        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Medium, color = Color(0xFF1C1917))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = labelColor)
+        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Medium, color = valueColor)
     }
 }
