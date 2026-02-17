@@ -13,6 +13,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.plugin
+import io.ktor.client.request.HttpRequestPipeline
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.TextContent
@@ -113,19 +114,21 @@ val networkModule = module {
                 contentType(ContentType.Application.Json)
             }
         }.also { client ->
-            // Install HMAC signing interceptor
+            // Install HMAC signing AFTER ContentNegotiation has serialized the body.
+            // We hook into the Send phase of the request pipeline where the body
+            // is already rendered to OutgoingContent (TextContent for JSON).
             if (hmacSecret.isNotBlank()) {
-                client.plugin(HttpSend).intercept { request ->
-                    val method = request.method.value
-                    val path = request.url.encodedPath
+                client.requestPipeline.intercept(HttpRequestPipeline.Send) { content ->
+                    val method = context.method.value
+                    val path = context.url.encodedPath
                     val timestamp = kotlinx.datetime.Clock.System.now()
                         .toEpochMilliseconds().toString()
                     val nonce = Uuid.random().toString()
 
-                    // Safely extract body text without consuming streams
-                    val bodyText = when (val body = request.body) {
-                        is TextContent -> body.text
-                        is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
+                    // At this point, content IS the rendered OutgoingContent
+                    val bodyText = when (content) {
+                        is TextContent -> content.text
+                        is OutgoingContent.ByteArrayContent -> content.bytes().decodeToString()
                         is OutgoingContent.NoContent -> ""
                         else -> ""
                     }
@@ -135,15 +138,15 @@ val networkModule = module {
                     val signature = HmacSigner.hmacSha256(hmacSecret, payload)
 
                     // Remove old HMAC headers first (prevents duplicate values on retries)
-                    request.headers.remove("X-Timestamp")
-                    request.headers.remove("X-Nonce")
-                    request.headers.remove("X-Signature")
+                    context.headers.remove("X-Timestamp")
+                    context.headers.remove("X-Nonce")
+                    context.headers.remove("X-Signature")
 
-                    request.headers.append("X-Timestamp", timestamp)
-                    request.headers.append("X-Nonce", nonce)
-                    request.headers.append("X-Signature", signature)
+                    context.headers.append("X-Timestamp", timestamp)
+                    context.headers.append("X-Nonce", nonce)
+                    context.headers.append("X-Signature", signature)
 
-                    execute(request)
+                    proceedWith(content)
                 }
             }
         }
