@@ -29,6 +29,9 @@ kotlin {
 
             // DateTime
             implementation(libs.kotlinx.datetime)
+
+            // Logging
+            implementation(libs.kermit)
         }
 
         androidMain.dependencies {
