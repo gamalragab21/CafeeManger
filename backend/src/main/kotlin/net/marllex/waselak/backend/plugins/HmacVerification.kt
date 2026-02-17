@@ -7,11 +7,14 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import net.marllex.waselak.backend.config.HmacConfig
 import org.koin.ktor.ext.inject
+import org.slf4j.LoggerFactory
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlin.concurrent.fixedRateTimer
+
+private val logger = LoggerFactory.getLogger("HmacVerification")
 
 fun Application.configureHmacVerification() {
     val hmacConfig by inject<HmacConfig>()
@@ -49,6 +52,7 @@ fun Application.configureHmacVerification() {
         val signature = call.request.header("X-Signature")
 
         if (timestamp == null || nonce == null || signature == null) {
+            logger.warn("HMAC: Missing headers on {} {} - ts={} nonce={} sig={}", call.request.httpMethod.value, path, timestamp, nonce, signature != null)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Missing security headers")
@@ -60,6 +64,7 @@ fun Application.configureHmacVerification() {
         // 1. Validate timestamp window
         val requestTime = timestamp.toLongOrNull()
         if (requestTime == null) {
+            logger.warn("HMAC: Invalid timestamp format: {}", timestamp)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Invalid timestamp")
@@ -70,6 +75,7 @@ fun Application.configureHmacVerification() {
 
         val now = System.currentTimeMillis()
         if (kotlin.math.abs(now - requestTime) > hmacConfig.timestampToleranceMs) {
+            logger.warn("HMAC: Expired request. now={} request={} diff={}ms", now, requestTime, now - requestTime)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Request expired")
@@ -80,6 +86,7 @@ fun Application.configureHmacVerification() {
 
         // 2. Check nonce uniqueness (prevent replay)
         if (usedNonces.putIfAbsent(nonce, now) != null) {
+            logger.warn("HMAC: Duplicate nonce: {}", nonce)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Duplicate request")
@@ -90,13 +97,19 @@ fun Application.configureHmacVerification() {
 
         // 3. Verify HMAC signature
         val method = call.request.httpMethod.value
-        val body = call.receiveText()
+        val body = try {
+            call.receiveText()
+        } catch (_: Exception) {
+            ""
+        }
         val bodyHash = sha256(body)
 
         val payload = "$method\n$path\n$timestamp\n$nonce\n$bodyHash"
         val expectedSignature = hmacSha256(hmacConfig.secret, payload)
 
         if (!constantTimeEquals(signature, expectedSignature)) {
+            logger.warn("HMAC: Signature mismatch on {} {}", method, path)
+            logger.debug("HMAC: payload='{}' expected='{}' received='{}'", payload, expectedSignature, signature)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Invalid request signature")

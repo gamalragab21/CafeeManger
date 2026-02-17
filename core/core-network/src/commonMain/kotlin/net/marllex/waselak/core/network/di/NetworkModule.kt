@@ -15,13 +15,12 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.plugin
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
+import io.ktor.http.content.OutgoingContent
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.encodedPath
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readRemaining
-import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.network.ApiException
 import net.marllex.waselak.core.network.WaselakApiClient
@@ -124,24 +123,14 @@ val networkModule = module {
                         .toEpochMilliseconds().toString()
                     val nonce = Uuid.random().toString()
 
-                    // Hash the request body
-                    val bodyBytes = request.body.let { body ->
-                        if (body is io.ktor.client.request.forms.FormDataContent ||
-                            body is io.ktor.http.content.OutgoingContent.ByteArrayContent
-                        ) {
-                            (body as io.ktor.http.content.OutgoingContent.ByteArrayContent).bytes()
-                        } else if (body is io.ktor.http.content.OutgoingContent.ReadChannelContent) {
-                            val channel = body.readFrom()
-                            channel.readRemaining().readByteArray()
-                        } else {
-                            byteArrayOf()
-                        }
+                    // Safely extract body text without consuming streams
+                    val bodyText = when (val body = request.body) {
+                        is TextContent -> body.text
+                        is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
+                        is OutgoingContent.NoContent -> ""
+                        else -> ""
                     }
-                    val bodyHash = if (bodyBytes.isEmpty()) {
-                        HmacSigner.sha256("")
-                    } else {
-                        HmacSigner.sha256(bodyBytes.decodeToString())
-                    }
+                    val bodyHash = HmacSigner.sha256(bodyText)
 
                     val payload = "$method\n$path\n$timestamp\n$nonce\n$bodyHash"
                     val signature = HmacSigner.hmacSha256(hmacSecret, payload)
