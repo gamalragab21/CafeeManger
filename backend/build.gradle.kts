@@ -38,6 +38,7 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktor_version")
     implementation("io.ktor:ktor-server-call-logging:$ktor_version")
     implementation("io.ktor:ktor-server-default-headers:$ktor_version")
+    implementation("io.ktor:ktor-server-double-receive:$ktor_version")
 
     // Serialization
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")

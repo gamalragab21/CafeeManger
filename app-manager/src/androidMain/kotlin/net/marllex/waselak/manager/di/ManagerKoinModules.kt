@@ -46,6 +46,7 @@ private val platformModule = module {
     single { DatabaseDriverFactory(get<Context>()) }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
     single(named("appName")) { "manager" }
+    single(named("hmacSecret")) { BuildConfig.HMAC_SECRET }
 }
 
 private val managerAppModule = module {

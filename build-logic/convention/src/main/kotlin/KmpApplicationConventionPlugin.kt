@@ -18,14 +18,16 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                 apply("com.android.application")
             }
 
-            // Generate BuildConfig with BASE_URL from gradle.properties
+            // Generate BuildConfig with BASE_URL and HMAC_SECRET from gradle.properties
             val baseUrl = project.findProperty("BASE_URL") as? String ?: "https://api.waselak.net/"
+            val hmacSecret = project.findProperty("HMAC_SECRET") as? String ?: ""
             val buildConfigDir = layout.buildDirectory.dir("generated/buildconfig/commonMain/kotlin")
 
             val generateBuildConfig = tasks.register("generateBuildConfig") {
                 val outputDir = buildConfigDir
                 outputs.dir(outputDir)
                 inputs.property("baseUrl", baseUrl)
+                inputs.property("hmacSecret", hmacSecret)
 
                 doLast {
                     val dir = outputDir.get().asFile.resolve("net/marllex/waselak/config")
@@ -36,6 +38,7 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                         |
                         |object BuildConfig {
                         |    const val BASE_URL: String = "$baseUrl"
+                        |    const val HMAC_SECRET: String = "$hmacSecret"
                         |}
                         """.trimMargin()
                     )

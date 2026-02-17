@@ -33,6 +33,7 @@ fun Application.module() {
     configureSerialization()
     configureAuthentication()
     configureCORS()
+    configureHmacVerification()
     configureStatusPages()
     configureCallLogging()
     configureRouting()

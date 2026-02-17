@@ -34,6 +34,7 @@ private val desktopPlatformModule = module {
     single { DatabaseDriverFactory() }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
     single(named("appName")) { "cashier" }
+    single(named("hmacSecret")) { BuildConfig.HMAC_SECRET }
 }
 
 private val cashierAppModule = module {
