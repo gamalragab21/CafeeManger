@@ -138,6 +138,24 @@ fun Application.configureHmacVerification() {
             }
 
             transformBody { body ->
+                // Skip HMAC signing for binary responses (PDF, Excel, images, etc.)
+                // Binary data cannot be safely round-tripped through UTF-8 String
+                // decoding, which causes the client to compute a different hash and
+                // reject the response as tampered. The client gracefully handles
+                // missing X-Response-Signature headers.
+                val ct = if (body is OutgoingContent) {
+                    body.contentType?.toString() ?: ""
+                } else ""
+                val isBinary = ct.contains("application/pdf") ||
+                    ct.contains("application/octet-stream") ||
+                    ct.contains("application/vnd.") ||
+                    ct.startsWith("image/")
+
+                if (isBinary) {
+                    logger.debug("HMAC: Skipping response signing for binary content-type: {}", ct)
+                    return@transformBody body
+                }
+
                 val responseBody = when (body) {
                     is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
                     is OutgoingContent.NoContent -> ""
