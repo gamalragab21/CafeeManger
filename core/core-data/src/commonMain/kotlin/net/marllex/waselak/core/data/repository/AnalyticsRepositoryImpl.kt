@@ -5,10 +5,7 @@ import io.ktor.client.statement.readBytes
 import io.ktor.http.isSuccess
 import kotlinx.datetime.Clock
 import net.marllex.waselak.core.domain.repository.AnalyticsRepository
-import net.marllex.waselak.core.model.AnalyticsSummary
-import net.marllex.waselak.core.model.DailyAnalytics
-import net.marllex.waselak.core.model.DeliveryPerformance
-import net.marllex.waselak.core.model.Settlements
+import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.mapper.toDomain
 
@@ -73,6 +70,38 @@ class AnalyticsRepositoryImpl(
         runCatching {
             api.getDailyAnalytics(from, to).map { it.toDomain() }
         }
+
+    // Dashboard V2 methods
+
+    override suspend fun getExecutiveSummary(from: Long?, to: Long?): Result<ExecutiveSummary> =
+        runCatching { api.getExecutiveSummary(from, to).toDomain() }
+
+    override suspend fun getRevenueProfit(from: Long?, to: Long?): Result<RevenueProfit> =
+        runCatching { api.getRevenueProfit(from, to).toDomain() }
+
+    override suspend fun getOrdersIntelligence(from: Long?, to: Long?): Result<OrdersIntelligence> =
+        runCatching { api.getOrdersIntelligence(from, to).toDomain() }
+
+    override suspend fun getPeakTimeAnalysis(from: Long?, to: Long?): Result<PeakTimeAnalysis> =
+        runCatching { api.getPeakTimeAnalysis(from, to).toDomain() }
+
+    override suspend fun getCashierPerformanceV2(from: Long?, to: Long?): Result<List<CashierPerformanceV2>> =
+        runCatching { api.getCashierPerformanceV2(from, to).map { it.toDomain() } }
+
+    override suspend fun getDeliveryPerformanceV2(from: Long?, to: Long?): Result<List<DeliveryPerformanceV2>> =
+        runCatching { api.getDeliveryPerformanceV2(from, to).map { it.toDomain() } }
+
+    override suspend fun getProductIntelligence(from: Long?, to: Long?, limit: Int?): Result<ProductIntelligence> =
+        runCatching { api.getProductIntelligence(from, to, limit).toDomain() }
+
+    override suspend fun getCustomerIntelligence(from: Long?, to: Long?): Result<CustomerIntelligence> =
+        runCatching { api.getCustomerIntelligence(from, to).toDomain() }
+
+    override suspend fun getAnalyticsAlerts(from: Long?, to: Long?): Result<List<AnalyticsAlert>> =
+        runCatching { api.getAnalyticsAlerts(from, to).toDomain() }
+
+    override suspend fun getStockOverview(): Result<StockOverview> =
+        runCatching { api.getStockOverview().toDomain() }
 
     override suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
         val response = api.exportOrdersPDF(fromDate, toDate)

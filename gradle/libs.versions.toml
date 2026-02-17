@@ -61,6 +61,9 @@ biometric = "1.1.0"
 # Accompanist (Android-only)
 accompanist = "0.36.0"
 
+# Vico Charts (KMP)
+vico = "2.1.2"
+
 # QR/Barcode (Platform-specific)
 zxingCore = "3.5.3"
 zxingAndroidEmbedded = "4.3.0"
@@ -136,6 +139,10 @@ kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 # Coil 3 Image Loading (KMP)
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
 coil-network-ktor = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil3" }
+
+# Vico Charts (KMP)
+vico-multiplatform = { group = "com.patrykandpatrick.vico", name = "multiplatform", version.ref = "vico" }
+vico-multiplatform-m3 = { group = "com.patrykandpatrick.vico", name = "multiplatform-m3", version.ref = "vico" }
 
 # Google Maps (Android-only)
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }

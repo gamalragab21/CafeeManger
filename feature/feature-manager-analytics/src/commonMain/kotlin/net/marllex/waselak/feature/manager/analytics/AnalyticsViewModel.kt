@@ -1,582 +1,283 @@
 package net.marllex.waselak.feature.manager.analytics
 
-import co.touchlab.kermit.Logger
-import kotlinx.datetime.Clock
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.minus
-import kotlinx.datetime.toLocalDateTime
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.*
 import net.marllex.waselak.core.domain.repository.AnalyticsRepository
-import net.marllex.waselak.core.domain.repository.WorkerRepository
-import net.marllex.waselak.core.model.AnalyticsSummary
-import net.marllex.waselak.core.model.DailyAnalytics
-import net.marllex.waselak.core.model.DeliveryPerformance
-import net.marllex.waselak.core.model.SalaryPayment
-import net.marllex.waselak.core.model.Settlements
+import net.marllex.waselak.core.model.*
 
-class AnalyticsViewModel constructor(
+class AnalyticsViewModel(
     private val analyticsRepository: AnalyticsRepository,
-    private val workerRepository: WorkerRepository,
 ) : ViewModel() {
 
-    data class UiState(
-        val summary: AnalyticsSummary? = null,
-        val filteredSummary: AnalyticsSummary? = null,
-        val settlements: Settlements? = null,
-        val deliveryPerformance: List<DeliveryPerformance> = emptyList(),
-        val cashierPerformance: List<DeliveryPerformance> = emptyList(),
-        val dailyData: List<DailyAnalytics> = emptyList(),
-        val salaryPayments: List<SalaryPayment> = emptyList(),
-        val isLoading: Boolean = true,
-        val error: String? = null,
-        val selectedCashierId: String? = null,
-        val selectedDeliveryUserId: String? = null,
+    // ── Section loading state ────────────────────────────────────────
+    sealed class SectionState<out T> {
+        data object Loading : SectionState<Nothing>()
+        data class Success<T>(val data: T) : SectionState<T>()
+        data class Error(val message: String) : SectionState<Nothing>()
+    }
+
+    // ── Time period filter ───────────────────────────────────────────
+    enum class TimePeriod {
+        TODAY, YESTERDAY, THIS_WEEK, LAST_7_DAYS, LAST_14_DAYS,
+        THIS_MONTH, LAST_MONTH, LAST_3_MONTHS, CUSTOM
+    }
+
+    // ── Export state ─────────────────────────────────────────────────
+    sealed class ExportState {
+        data object Idle : ExportState()
+        data object Exporting : ExportState()
+        data class Done(val message: String) : ExportState()
+        data class Failed(val message: String) : ExportState()
+    }
+
+    // ── Dashboard filters ───────────────────────────────────────────
+    data class DashboardFilters(
+        val timePeriod: TimePeriod = TimePeriod.LAST_7_DAYS,
         val fromDate: Long? = null,
         val toDate: Long? = null,
-        
-        // Report generation
-        val reportPeriod: ReportPeriod = ReportPeriod.DAILY,
-        val showReportDialog: Boolean = false,
-        val generatingReport: Boolean = false,
-        val generatedReport: ComprehensiveReport? = null,
-        val showExportDialog: Boolean = false,
-        
-        // Advanced filters
-        val selectedChannel: net.marllex.waselak.core.model.OrderChannel? = null,
-        val selectedPaymentMethod: net.marllex.waselak.core.model.PaymentMethod? = null,
-        val selectedStatus: String? = null,
-        val minOrderValue: Double? = null,
-        val maxOrderValue: Double? = null,
-        
-        // Comparison data
-        val showComparison: Boolean = false,
-        val previousPeriodSummary: AnalyticsSummary? = null,
-        
-        // Modern UI state
-        val totalRevenue: Double = 0.0,
-        val totalOrders: Int = 0,
-        val revenueByChannel: Map<net.marllex.waselak.core.model.OrderChannel, Double> = emptyMap(),
-        val revenueByPayment: Map<net.marllex.waselak.core.model.PaymentMethod, Double> = emptyMap(),
-        val topItems: List<TopItem> = emptyList(),
-    )
-    
-    data class TopItem(
-        val itemName: String,
-        val quantity: Int,
-        val revenue: Double
-    )
-    
-    data class PersonPerformance(
-        val name: String,
-        val orderCount: Int,
-        val revenue: Double
-    )
-    
-    enum class ReportPeriod {
-        DAILY, WEEKLY, MONTHLY
-    }
-    
-    data class ComprehensiveReport(
-        val period: ReportPeriod,
-        val fromDate: Long,
-        val toDate: Long,
-        val summary: AnalyticsSummary,
-        val settlements: Settlements?,
-        val cashierPerformance: List<DeliveryPerformance>,
-        val deliveryPerformance: List<DeliveryPerformance>,
-        val dailyData: List<DailyAnalytics>,
-        val salaryPayments: List<SalaryPayment>,
-        val totalSalariesPaid: Double,
-        val netProfit: Double, // Revenue - Salaries
-        val generatedAt: Long = Clock.System.now().toEpochMilliseconds()
     )
 
-    private val _uiState = MutableStateFlow(UiState())
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+    // ── Main UI state ───────────────────────────────────────────────
+    data class DashboardUiState(
+        val filters: DashboardFilters = DashboardFilters(),
+        val executiveSummary: SectionState<ExecutiveSummary> = SectionState.Loading,
+        val revenueProfit: SectionState<RevenueProfit> = SectionState.Loading,
+        val ordersIntelligence: SectionState<OrdersIntelligence> = SectionState.Loading,
+        val peakTimeAnalysis: SectionState<PeakTimeAnalysis> = SectionState.Loading,
+        val cashierPerformance: SectionState<List<CashierPerformanceV2>> = SectionState.Loading,
+        val deliveryPerformance: SectionState<List<DeliveryPerformanceV2>> = SectionState.Loading,
+        val productIntelligence: SectionState<ProductIntelligence> = SectionState.Loading,
+        val customerIntelligence: SectionState<CustomerIntelligence> = SectionState.Loading,
+        val alerts: SectionState<List<AnalyticsAlert>> = SectionState.Loading,
+        val stockOverview: SectionState<StockOverview> = SectionState.Loading,
+        val exportState: ExportState = ExportState.Idle,
+    )
 
-    init { 
-        loadAnalytics()
-        observeSalaryPayments()
-    }
-    
-    private fun observeSalaryPayments() {
-        viewModelScope.launch {
-            workerRepository.getSalaryPayments().collect { payments ->
-                _uiState.update { it.copy(salaryPayments = payments) }
-            }
-        }
-    }
+    private val _uiState = MutableStateFlow(DashboardUiState())
+    val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
-    fun loadAnalytics(period: String = "ALL") {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val now = Clock.System.now()
-            val tz = TimeZone.currentSystemDefault()
-            val today = now.toLocalDateTime(tz).date
-            val (fromDate, toDate) = when (period) {
-                "TODAY" -> {
-                    val startOfDay = today.atStartOfDayIn(tz).toEpochMilliseconds()
-                    Pair(startOfDay, now.toEpochMilliseconds())
-                }
-                "WEEK" -> {
-                    val weekAgo = today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
-                    Pair(weekAgo, now.toEpochMilliseconds())
-                }
-                "MONTH" -> {
-                    val monthAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
-                    Pair(monthAgo, now.toEpochMilliseconds())
-                }
-                else -> {
-                    val thirtyDaysAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
-                    Pair(thirtyDaysAgo, now.toEpochMilliseconds())
-                }
-            }
-
-            val summaryResult = analyticsRepository.getSummary(fromDate, toDate)
-            val settlementsResult = analyticsRepository.getSettlements(null, null, null, null, fromDate, toDate)
-            val deliveryResult = analyticsRepository.getDeliveryPerformance(null, null, fromDate, toDate)
-            val cashierResult = analyticsRepository.getCashierPerformance(null, null, null, fromDate, toDate)
-            val dailyResult = analyticsRepository.getDailyAnalytics(fromDate, toDate)
-
-            summaryResult.onSuccess { summary ->
-                // Use REAL data from API - map ordersByChannel to proper enum
-                val revenueByChannel = mutableMapOf<net.marllex.waselak.core.model.OrderChannel, Double>()
-                val revenueByPayment = mutableMapOf<net.marllex.waselak.core.model.PaymentMethod, Double>()
-                
-                // Map channel data from API
-                summary.ordersByChannel.forEach { (channelStr, count) ->
-                    when (channelStr.uppercase()) {
-                        "DINE_IN", "DINEIN" -> {
-                            val channelRevenue = summary.revenueByPaymentMethod.values.sum() * (count.toDouble() / summary.totalOrders)
-                            revenueByChannel[net.marllex.waselak.core.model.OrderChannel.DINE_IN] = channelRevenue
-                        }
-                        "DELIVERY" -> {
-                            val channelRevenue = summary.revenueByPaymentMethod.values.sum() * (count.toDouble() / summary.totalOrders)
-                            revenueByChannel[net.marllex.waselak.core.model.OrderChannel.DELIVERY] = channelRevenue
-                        }
-                        "TAKEAWAY" -> {
-                            val channelRevenue = summary.revenueByPaymentMethod.values.sum() * (count.toDouble() / summary.totalOrders)
-                            revenueByChannel[net.marllex.waselak.core.model.OrderChannel.TAKEAWAY] = channelRevenue
-                        }
-                    }
-                }
-                
-                // Map payment method data from API
-                summary.revenueByPaymentMethod.forEach { (methodStr, revenue) ->
-                    when (methodStr.uppercase()) {
-                        "CASH" -> revenueByPayment[net.marllex.waselak.core.model.PaymentMethod.CASH] = revenue
-                        "WALLET" -> revenueByPayment[net.marllex.waselak.core.model.PaymentMethod.WALLET] = revenue
-                        "CARD" -> revenueByPayment[net.marllex.waselak.core.model.PaymentMethod.CARD] = revenue
-                    }
-                }
-                
-                // Map top items from API
-                val topItems = summary.topItems.map { apiItem ->
-                    TopItem(
-                        itemName = apiItem.item,
-                        quantity = apiItem.quantitySold,
-                        revenue = apiItem.revenue
-                    )
-                }
-                
-                _uiState.update { 
-                    it.copy(
-                        summary = summary,
-                        totalRevenue = summary.totalRevenue,
-                        totalOrders = summary.totalOrders,
-                        revenueByChannel = revenueByChannel,
-                        revenueByPayment = revenueByPayment,
-                        topItems = topItems,
-                        fromDate = fromDate,
-                        toDate = toDate,
-                        isLoading = false
-                    ) 
-                }
-            }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-
-            settlementsResult.onSuccess { settlements ->
-                _uiState.update { it.copy(settlements = settlements) }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
-
-            deliveryResult.onSuccess { performance ->
-                val deliveryPerf = performance.map { 
-                    PersonPerformance(
-                        name = it.deliveryUserName,
-                        orderCount = it.orderCount,
-                        revenue = it.totalRevenue
-                    )
-                }
-                _uiState.update { 
-                    it.copy(
-                        deliveryPerformance = performance
-                    ) 
-                }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
-
-            dailyResult.onSuccess { daily ->
-                _uiState.update { it.copy(dailyData = daily) }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
-
-            cashierResult.onSuccess { cashier ->
-                val cashierPerf = cashier.map { 
-                    PersonPerformance(
-                        name = it.deliveryUserName,
-                        orderCount = it.orderCount,
-                        revenue = it.totalRevenue
-                    )
-                }
-                _uiState.update { 
-                    it.copy(
-                        cashierPerformance = cashier
-                    ) 
-                }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-    
-    fun filterByChannel(channel: net.marllex.waselak.core.model.OrderChannel?) {
-        _uiState.update { it.copy(selectedChannel = channel) }
-        applyCurrentFilters()
-    }
-    
-    fun filterByPaymentMethod(method: net.marllex.waselak.core.model.PaymentMethod?) {
-        _uiState.update { it.copy(selectedPaymentMethod = method) }
-        applyCurrentFilters()
-    }
-    
-    private fun applyCurrentFilters() {
-        val state = _uiState.value
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            
-            val fromDate = state.fromDate ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
-            val toDate = state.toDate ?: Clock.System.now().toEpochMilliseconds()
-            
-            // Apply filters to the data
-            val summaryResult = analyticsRepository.getSummary(fromDate, toDate)
-            
-            summaryResult.onSuccess { summary ->
-                var filteredRevenue = summary.totalRevenue
-                var filteredOrders = summary.totalOrders
-                
-                // Apply channel filter
-                if (state.selectedChannel != null) {
-                    filteredRevenue *= when (state.selectedChannel) {
-                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.5
-                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.3
-                        net.marllex.waselak.core.model.OrderChannel.TAKEAWAY -> 0.2
-                    }
-                    filteredOrders = (filteredOrders * when (state.selectedChannel) {
-                        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> 0.5
-                        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> 0.3
-                        net.marllex.waselak.core.model.OrderChannel.TAKEAWAY -> 0.2
-                    }).toInt()
-                }
-                
-                // Apply payment method filter
-                if (state.selectedPaymentMethod != null) {
-                    filteredRevenue *= when (state.selectedPaymentMethod) {
-                        net.marllex.waselak.core.model.PaymentMethod.CASH -> 0.5
-                        net.marllex.waselak.core.model.PaymentMethod.WALLET -> 0.3
-                        net.marllex.waselak.core.model.PaymentMethod.CARD -> 0.2
-                    }
-                    filteredOrders = (filteredOrders * when (state.selectedPaymentMethod) {
-                        net.marllex.waselak.core.model.PaymentMethod.CASH -> 0.5
-                        net.marllex.waselak.core.model.PaymentMethod.WALLET -> 0.3
-                        net.marllex.waselak.core.model.PaymentMethod.CARD -> 0.2
-                    }).toInt()
-                }
-                
-                _uiState.update { 
-                    it.copy(
-                        totalRevenue = filteredRevenue,
-                        totalOrders = filteredOrders,
-                        isLoading = false
-                    ) 
-                }
-            }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
+    init {
+        loadAllSections()
     }
 
-    fun applyFilters(
-        cashierId: String?,
-        deliveryUserId: String?,
-        from: Long?,
-        to: Long?
-    ) {
-        viewModelScope.launch {
-            _uiState.update { 
-                it.copy(
-                    isLoading = true,
-                    selectedCashierId = cashierId,
-                    selectedDeliveryUserId = deliveryUserId,
-                    fromDate = from,
-                    toDate = to
-                )
-            }
+    // ── Public actions ───────────────────────────────────────────────
 
-            val fromDate = from ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
-            val toDate = to ?: Clock.System.now().toEpochMilliseconds()
-            val filteredResult = analyticsRepository.getFilteredSummary(null, null, cashierId, deliveryUserId, fromDate, toDate)
-            val settlementsResult = analyticsRepository.getSettlements(null, null, cashierId, deliveryUserId, fromDate, toDate)
-            val deliveryResult = analyticsRepository.getDeliveryPerformance(null, cashierId, fromDate, toDate)
-            val cashierResult = analyticsRepository.getCashierPerformance(null, null, deliveryUserId, fromDate, toDate)
-            
-            filteredResult.onSuccess { summary ->
-                _uiState.update { it.copy(filteredSummary = summary) }
-            }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-            settlementsResult.onSuccess { settlements ->
-                _uiState.update { it.copy(settlements = settlements) }
-            }
-            deliveryResult.onSuccess { performance ->
-                _uiState.update { it.copy(deliveryPerformance = performance) }
-            }
-            cashierResult.onSuccess { performance ->
-                _uiState.update { it.copy(cashierPerformance = performance) }
-            }
-            _uiState.update { it.copy(isLoading = false) }
-        }
+    fun setTimePeriod(period: TimePeriod) {
+        _uiState.update { it.copy(filters = it.filters.copy(timePeriod = period)) }
+        loadAllSections()
     }
 
-    fun clearFilters() {
+    fun setCustomDateRange(from: Long, to: Long) {
         _uiState.update {
             it.copy(
-                selectedCashierId = null,
-                selectedDeliveryUserId = null,
-                fromDate = null,
-                toDate = null,
-                filteredSummary = null,
-                settlements = null,
-                deliveryPerformance = emptyList(),
-                cashierPerformance = emptyList(),
-                selectedChannel = null,
-                selectedPaymentMethod = null,
-                selectedStatus = null,
-                minOrderValue = null,
-                maxOrderValue = null,
+                filters = DashboardFilters(
+                    timePeriod = TimePeriod.CUSTOM,
+                    fromDate = from,
+                    toDate = to,
+                )
             )
         }
-        loadAnalytics()
+        loadAllSections()
     }
-    
-    // Report generation functions
-    fun showReportDialog() {
-        _uiState.update { it.copy(showReportDialog = true) }
-    }
-    
-    fun dismissReportDialog() {
-        _uiState.update { it.copy(showReportDialog = false) }
-    }
-    
-    fun setReportPeriod(period: ReportPeriod) {
-        _uiState.update { it.copy(reportPeriod = period) }
-    }
-    
-    fun generateReport() {
+
+    fun retrySection(section: String) {
+        val (from, to) = getDateRange()
         viewModelScope.launch {
-            _uiState.update { it.copy(generatingReport = true) }
-            
-            val period = _uiState.value.reportPeriod
-            val (from, to) = getReportDateRange(period)
-            
-            try {
-                // Fetch all data for the report
-                val summaryResult = analyticsRepository.getSummary(from, to)
-                val settlementsResult = analyticsRepository.getSettlements(null, null, null, null, from, to)
-                val deliveryResult = analyticsRepository.getDeliveryPerformance(null, null, from, to)
-                val cashierResult = analyticsRepository.getCashierPerformance(null, null, null, from, to)
-                val dailyResult = analyticsRepository.getDailyAnalytics(from, to)
-                
-                // Fetch salary payments for the period
-                workerRepository.refreshSalaryPayments(
-                    workerId = null,
-                    paid = true, // Only paid salaries
-                    periodType = null
-                )
-                
-                val salaryPayments = _uiState.value.salaryPayments.filter { payment ->
-                    val paidAtTime = payment.paidAt
-                    paidAtTime != null && paidAtTime >= from && paidAtTime <= to
-                }
-                
-                val totalSalariesPaid = salaryPayments.sumOf { it.amount }
-                
-                if (summaryResult.isSuccess) {
-                    val summary = summaryResult.getOrNull()!!
-                    val netProfit = summary.totalRevenue - totalSalariesPaid
-                    
-                    val report = ComprehensiveReport(
-                        period = period,
-                        fromDate = from,
-                        toDate = to,
-                        summary = summary,
-                        settlements = settlementsResult.getOrNull(),
-                        cashierPerformance = cashierResult.getOrNull() ?: emptyList(),
-                        deliveryPerformance = deliveryResult.getOrNull() ?: emptyList(),
-                        dailyData = dailyResult.getOrNull() ?: emptyList(),
-                        salaryPayments = salaryPayments,
-                        totalSalariesPaid = totalSalariesPaid,
-                        netProfit = netProfit
-                    )
-                    
-                    _uiState.update { 
-                        it.copy(
-                            generatingReport = false, 
-                            showReportDialog = false,
-                            generatedReport = report,
-                            showExportDialog = true
-                        ) 
-                    }
-                } else {
-                    _uiState.update { 
-                        it.copy(
-                            generatingReport = false, 
-                            error = summaryResult.exceptionOrNull()?.message
-                        ) 
-                    }
-                }
-            } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(
-                        generatingReport = false, 
-                        error = e.message
-                    ) 
-                }
+            when (section) {
+                "executiveSummary" -> loadExecutiveSummary(from, to)
+                "revenueProfit" -> loadRevenueProfit(from, to)
+                "ordersIntelligence" -> loadOrdersIntelligence(from, to)
+                "peakTimeAnalysis" -> loadPeakTimeAnalysis(from, to)
+                "cashierPerformance" -> loadCashierPerformance(from, to)
+                "deliveryPerformance" -> loadDeliveryPerformance(from, to)
+                "productIntelligence" -> loadProductIntelligence(from, to)
+                "customerIntelligence" -> loadCustomerIntelligence(from, to)
+                "alerts" -> loadAlerts(from, to)
+                "stockOverview" -> loadStockOverview()
             }
         }
     }
-    
-    fun dismissExportDialog() {
-        _uiState.update { it.copy(showExportDialog = false) }
-    }
-    
-    fun exportReportAsPDF() {
-        // TODO: Implement PDF export
-        val report = _uiState.value.generatedReport ?: return
+
+    fun exportPDF() {
+        val (from, to) = getDateRange()
         viewModelScope.launch {
-            // Generate PDF file
-            Logger.d { "Exporting report as PDF: $report" }
-            _uiState.update { it.copy(showExportDialog = false) }
+            _uiState.update { it.copy(exportState = ExportState.Exporting) }
+            analyticsRepository.exportOrdersPDF(from, to)
+                .onSuccess { _uiState.update { it.copy(exportState = ExportState.Done("PDF exported")) } }
+                .onFailure { e -> _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
     }
-    
-    fun exportReportAsCSV() {
-        // TODO: Implement CSV export
-        val report = _uiState.value.generatedReport ?: return
+
+    fun exportExcel() {
+        val (from, to) = getDateRange()
         viewModelScope.launch {
-            // Generate CSV file
-            Logger.d { "Exporting report as CSV: $report" }
-            _uiState.update { it.copy(showExportDialog = false) }
+            _uiState.update { it.copy(exportState = ExportState.Exporting) }
+            analyticsRepository.exportOrdersExcel(from, to)
+                .onSuccess { _uiState.update { it.copy(exportState = ExportState.Done("Excel exported")) } }
+                .onFailure { e -> _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
     }
-    
-    fun shareReport() {
-        // TODO: Implement share functionality
-        val report = _uiState.value.generatedReport ?: return
+
+    fun clearExportState() {
+        _uiState.update { it.copy(exportState = ExportState.Idle) }
+    }
+
+    // ── Parallel loading ────────────────────────────────────────────
+
+    private fun loadAllSections() {
+        val (from, to) = getDateRange()
+
+        // Set all sections to loading
+        _uiState.update {
+            it.copy(
+                executiveSummary = SectionState.Loading,
+                revenueProfit = SectionState.Loading,
+                ordersIntelligence = SectionState.Loading,
+                peakTimeAnalysis = SectionState.Loading,
+                cashierPerformance = SectionState.Loading,
+                deliveryPerformance = SectionState.Loading,
+                productIntelligence = SectionState.Loading,
+                customerIntelligence = SectionState.Loading,
+                alerts = SectionState.Loading,
+                stockOverview = SectionState.Loading,
+            )
+        }
+
+        // Launch all sections in parallel
         viewModelScope.launch {
-            // Share report via email/messaging
-            Logger.d { "Sharing report: $report" }
-            _uiState.update { it.copy(showExportDialog = false) }
+            val d1 = async { loadExecutiveSummary(from, to) }
+            val d2 = async { loadRevenueProfit(from, to) }
+            val d3 = async { loadOrdersIntelligence(from, to) }
+            val d4 = async { loadPeakTimeAnalysis(from, to) }
+            val d5 = async { loadCashierPerformance(from, to) }
+            val d6 = async { loadDeliveryPerformance(from, to) }
+            val d7 = async { loadProductIntelligence(from, to) }
+            val d8 = async { loadCustomerIntelligence(from, to) }
+            val d9 = async { loadAlerts(from, to) }
+            val d10 = async { loadStockOverview() }
+
+            // Await all (each one updates state independently)
+            d1.await(); d2.await(); d3.await(); d4.await(); d5.await()
+            d6.await(); d7.await(); d8.await(); d9.await(); d10.await()
         }
     }
-    
-    // Comparison with previous period
-    fun toggleComparison() {
-        val showComparison = !_uiState.value.showComparison
-        _uiState.update { it.copy(showComparison = showComparison) }
-        
-        if (showComparison) {
-            loadPreviousPeriodData()
-        }
+
+    private suspend fun loadExecutiveSummary(from: Long, to: Long) {
+        analyticsRepository.getExecutiveSummary(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed")) } }
     }
-    
-    private fun loadPreviousPeriodData() {
-        viewModelScope.launch {
-            val currentFrom = _uiState.value.fromDate ?: (Clock.System.now().toEpochMilliseconds() - (30L * 24 * 60 * 60 * 1000))
-            val currentTo = _uiState.value.toDate ?: Clock.System.now().toEpochMilliseconds()
-            
-            val periodLength = currentTo - currentFrom
-            val previousFrom = currentFrom - periodLength
-            val previousTo = currentFrom
-            
-            val previousSummaryResult = analyticsRepository.getSummary(previousFrom, previousTo)
-            
-            previousSummaryResult.onSuccess { summary ->
-                _uiState.update { it.copy(previousPeriodSummary = summary) }
-            }
-        }
+
+    private suspend fun loadRevenueProfit(from: Long, to: Long) {
+        analyticsRepository.getRevenueProfit(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(revenueProfit = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(revenueProfit = SectionState.Error(e.message ?: "Failed")) } }
     }
-    
-    private fun getReportDateRange(period: ReportPeriod): Pair<Long, Long> {
+
+    private suspend fun loadOrdersIntelligence(from: Long, to: Long) {
+        analyticsRepository.getOrdersIntelligence(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(ordersIntelligence = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(ordersIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadPeakTimeAnalysis(from: Long, to: Long) {
+        analyticsRepository.getPeakTimeAnalysis(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(peakTimeAnalysis = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(peakTimeAnalysis = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadCashierPerformance(from: Long, to: Long) {
+        analyticsRepository.getCashierPerformanceV2(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(cashierPerformance = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(cashierPerformance = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadDeliveryPerformance(from: Long, to: Long) {
+        analyticsRepository.getDeliveryPerformanceV2(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(deliveryPerformance = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(deliveryPerformance = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadProductIntelligence(from: Long, to: Long) {
+        analyticsRepository.getProductIntelligence(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(productIntelligence = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(productIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadCustomerIntelligence(from: Long, to: Long) {
+        analyticsRepository.getCustomerIntelligence(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(customerIntelligence = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(customerIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadAlerts(from: Long, to: Long) {
+        analyticsRepository.getAnalyticsAlerts(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(alerts = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(alerts = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadStockOverview() {
+        analyticsRepository.getStockOverview()
+            .onSuccess { data -> _uiState.update { it.copy(stockOverview = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(stockOverview = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    // ── Date range calculation ───────────────────────────────────────
+
+    private fun getDateRange(): Pair<Long, Long> {
+        val filters = _uiState.value.filters
+        if (filters.timePeriod == TimePeriod.CUSTOM && filters.fromDate != null && filters.toDate != null) {
+            return filters.fromDate to filters.toDate
+        }
+
         val now = Clock.System.now()
         val tz = TimeZone.currentSystemDefault()
         val today = now.toLocalDateTime(tz).date
-        val to = now.toEpochMilliseconds()
+        val toMs = now.toEpochMilliseconds()
 
-        return when (period) {
-            ReportPeriod.DAILY -> {
-                Pair(today.atStartOfDayIn(tz).toEpochMilliseconds(), to)
+        return when (filters.timePeriod) {
+            TimePeriod.TODAY -> {
+                today.atStartOfDayIn(tz).toEpochMilliseconds() to toMs
             }
-            ReportPeriod.WEEKLY -> {
-                val weekAgo = today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
-                Pair(weekAgo, to)
+            TimePeriod.YESTERDAY -> {
+                val yesterday = today.minus(1, DateTimeUnit.DAY)
+                yesterday.atStartOfDayIn(tz).toEpochMilliseconds() to today.atStartOfDayIn(tz).toEpochMilliseconds()
             }
-            ReportPeriod.MONTHLY -> {
-                val monthAgo = today.minus(30, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
-                Pair(monthAgo, to)
+            TimePeriod.THIS_WEEK -> {
+                val startOfWeek = today.minus(today.dayOfWeek.isoDayNumber - 1, DateTimeUnit.DAY)
+                startOfWeek.atStartOfDayIn(tz).toEpochMilliseconds() to toMs
+            }
+            TimePeriod.LAST_7_DAYS -> {
+                today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() to toMs
+            }
+            TimePeriod.LAST_14_DAYS -> {
+                today.minus(14, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() to toMs
+            }
+            TimePeriod.THIS_MONTH -> {
+                val startOfMonth = LocalDate(today.year, today.month, 1)
+                startOfMonth.atStartOfDayIn(tz).toEpochMilliseconds() to toMs
+            }
+            TimePeriod.LAST_MONTH -> {
+                val startOfLastMonth = today.minus(1, DateTimeUnit.MONTH).let {
+                    LocalDate(it.year, it.month, 1)
+                }
+                val startOfThisMonth = LocalDate(today.year, today.month, 1)
+                startOfLastMonth.atStartOfDayIn(tz).toEpochMilliseconds() to startOfThisMonth.atStartOfDayIn(tz).toEpochMilliseconds()
+            }
+            TimePeriod.LAST_3_MONTHS -> {
+                today.minus(90, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() to toMs
+            }
+            TimePeriod.CUSTOM -> {
+                // Fallback to last 7 days if custom but no dates set
+                today.minus(7, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() to toMs
             }
         }
-    }
-    
-    // Advanced filter functions (deprecated - use filterByChannel and filterByPaymentMethod instead)
-    fun setChannelFilter(channel: String?) {
-        val orderChannel = when (channel) {
-            "DINE_IN" -> net.marllex.waselak.core.model.OrderChannel.DINE_IN
-            "DELIVERY" -> net.marllex.waselak.core.model.OrderChannel.DELIVERY
-            "TAKEAWAY" -> net.marllex.waselak.core.model.OrderChannel.TAKEAWAY
-            else -> null
-        }
-        filterByChannel(orderChannel)
-    }
-    
-    fun setPaymentMethodFilter(method: String?) {
-        val paymentMethod = when (method) {
-            "CASH" -> net.marllex.waselak.core.model.PaymentMethod.CASH
-            "WALLET" -> net.marllex.waselak.core.model.PaymentMethod.WALLET
-            "CARD" -> net.marllex.waselak.core.model.PaymentMethod.CARD
-            else -> null
-        }
-        filterByPaymentMethod(paymentMethod)
-    }
-    
-    fun setStatusFilter(status: String?) {
-        _uiState.update { it.copy(selectedStatus = status) }
-    }
-    
-    fun setOrderValueRange(min: Double?, max: Double?) {
-        _uiState.update { it.copy(minOrderValue = min, maxOrderValue = max) }
     }
 }

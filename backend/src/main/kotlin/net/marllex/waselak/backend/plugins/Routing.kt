@@ -37,6 +37,7 @@ fun Application.configureRouting() {
             tableRoutes()
             userManagementRoutes()
             analyticsRoutes()
+            analyticsDashboardRoutes()
             taxPlacesRoutes()
             stockRoutes()
             customerRoutes()

@@ -14,6 +14,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:core-data"))
+            implementation(libs.vico.multiplatform)
+            implementation(libs.vico.multiplatform.m3)
         }
     }
 }

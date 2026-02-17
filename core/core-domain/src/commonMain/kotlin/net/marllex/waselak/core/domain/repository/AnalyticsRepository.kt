@@ -1,9 +1,6 @@
 package net.marllex.waselak.core.domain.repository
 
-import net.marllex.waselak.core.model.AnalyticsSummary
-import net.marllex.waselak.core.model.DailyAnalytics
-import net.marllex.waselak.core.model.DeliveryPerformance
-import net.marllex.waselak.core.model.Settlements
+import net.marllex.waselak.core.model.*
 
 interface AnalyticsRepository {
     suspend fun getSummary(from: Long?, to: Long?): Result<AnalyticsSummary>
@@ -37,7 +34,19 @@ interface AnalyticsRepository {
         to: Long? = null
     ): Result<List<DeliveryPerformance>>
     suspend fun getDailyAnalytics(from: Long, to: Long): Result<List<DailyAnalytics>>
-    
+
+    // Dashboard V2 methods
+    suspend fun getExecutiveSummary(from: Long?, to: Long?): Result<ExecutiveSummary>
+    suspend fun getRevenueProfit(from: Long?, to: Long?): Result<RevenueProfit>
+    suspend fun getOrdersIntelligence(from: Long?, to: Long?): Result<OrdersIntelligence>
+    suspend fun getPeakTimeAnalysis(from: Long?, to: Long?): Result<PeakTimeAnalysis>
+    suspend fun getCashierPerformanceV2(from: Long?, to: Long?): Result<List<CashierPerformanceV2>>
+    suspend fun getDeliveryPerformanceV2(from: Long?, to: Long?): Result<List<DeliveryPerformanceV2>>
+    suspend fun getProductIntelligence(from: Long?, to: Long?, limit: Int? = null): Result<ProductIntelligence>
+    suspend fun getCustomerIntelligence(from: Long?, to: Long?): Result<CustomerIntelligence>
+    suspend fun getAnalyticsAlerts(from: Long?, to: Long?): Result<List<AnalyticsAlert>>
+    suspend fun getStockOverview(): Result<StockOverview>
+
     // Export methods
     suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray>
     suspend fun exportOrdersExcel(fromDate: Long, toDate: Long): Result<ByteArray>

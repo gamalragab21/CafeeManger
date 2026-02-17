@@ -288,6 +288,94 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("to", to)
         }.body()
 
+    // ─── Analytics Dashboard V2 ───────────────────────────────────
+
+    suspend fun getExecutiveSummary(
+        from: Long? = null,
+        to: Long? = null,
+    ): ExecutiveSummaryResponse =
+        client.get("api/v1/analytics/dashboard/executive-summary") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getRevenueProfit(
+        from: Long? = null,
+        to: Long? = null,
+    ): RevenueProfitResponse =
+        client.get("api/v1/analytics/dashboard/revenue-profit") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getOrdersIntelligence(
+        from: Long? = null,
+        to: Long? = null,
+    ): OrdersIntelligenceResponse =
+        client.get("api/v1/analytics/dashboard/orders-intelligence") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getPeakTimeAnalysis(
+        from: Long? = null,
+        to: Long? = null,
+    ): PeakTimeAnalysisResponse =
+        client.get("api/v1/analytics/dashboard/peak-times") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getCashierPerformanceV2(
+        from: Long? = null,
+        to: Long? = null,
+    ): List<CashierPerformanceV2Response> =
+        client.get("api/v1/analytics/dashboard/cashier-performance-v2") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getDeliveryPerformanceV2(
+        from: Long? = null,
+        to: Long? = null,
+    ): List<DeliveryPerformanceV2Response> =
+        client.get("api/v1/analytics/dashboard/delivery-performance-v2") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getProductIntelligence(
+        from: Long? = null,
+        to: Long? = null,
+        limit: Int? = null,
+    ): ProductIntelligenceResponse =
+        client.get("api/v1/analytics/dashboard/product-intelligence") {
+            parameter("from", from)
+            parameter("to", to)
+            parameter("limit", limit)
+        }.body()
+
+    suspend fun getCustomerIntelligence(
+        from: Long? = null,
+        to: Long? = null,
+    ): CustomerIntelligenceResponse =
+        client.get("api/v1/analytics/dashboard/customer-intelligence") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getAnalyticsAlerts(
+        from: Long? = null,
+        to: Long? = null,
+    ): AlertsResponse =
+        client.get("api/v1/analytics/dashboard/alerts") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getStockOverview(): StockOverviewResponse =
+        client.get("api/v1/analytics/dashboard/stock-overview").body()
+
     // ─── Export (streaming) ──────────────────────────────────────
 
     suspend fun exportOrdersPDF(from: Long, to: Long): HttpResponse =

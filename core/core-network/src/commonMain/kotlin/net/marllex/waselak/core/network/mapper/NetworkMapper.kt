@@ -204,6 +204,198 @@ fun DeliveryPerformanceResponse.toDomain() = DeliveryPerformance(
     totalTax = totalTax
 )
 
+// ─── Analytics Dashboard V2 Mappers ─────────────────────────────────
+
+fun PeriodMetricsResponse.toDomain() = PeriodMetrics(
+    totalRevenue = totalRevenue,
+    totalOrders = totalOrders,
+    averageOrderValue = averageOrderValue,
+    totalTax = totalTax,
+    totalDeliveryFees = totalDeliveryFees,
+    totalDiscounts = totalDiscounts,
+)
+
+fun ExecutiveSummaryResponse.toDomain() = ExecutiveSummary(
+    current = current.toDomain(),
+    previous = previous.toDomain(),
+    revenueChangePercent = revenueChangePercent,
+    ordersChangePercent = ordersChangePercent,
+    aovChangePercent = aovChangePercent,
+    activeOrders = activeOrders,
+    attendanceToday = attendanceToday,
+)
+
+fun PaymentMethodDetailResponse.toDomain() = PaymentMethodDetail(
+    method = method,
+    orderCount = orderCount,
+    revenue = revenue,
+)
+
+fun DailyRevenuePointResponse.toDomain() = DailyRevenuePoint(
+    date = date,
+    revenue = revenue,
+)
+
+fun RevenueProfitResponse.toDomain() = RevenueProfit(
+    grossRevenue = grossRevenue,
+    totalTax = totalTax,
+    totalDeliveryFees = totalDeliveryFees,
+    netRevenue = netRevenue,
+    paymentMethods = paymentMethods.map { it.toDomain() },
+    dailyTrend = dailyTrend.map { it.toDomain() },
+)
+
+fun DailyOrderTrendPointResponse.toDomain() = DailyOrderTrendPoint(
+    date = date,
+    total = total,
+    completed = completed,
+    cancelled = cancelled,
+)
+
+fun ChannelBreakdownResponse.toDomain() = ChannelBreakdown(
+    channel = channel,
+    count = count,
+    percent = percent,
+)
+
+fun OrdersIntelligenceResponse.toDomain() = OrdersIntelligence(
+    totalOrders = totalOrders,
+    completedOrders = completedOrders,
+    cancelledOrders = cancelledOrders,
+    refundedOrders = refundedOrders,
+    ordersByChannel = ordersByChannel,
+    dailyTrend = dailyTrend.map { it.toDomain() },
+    channelBreakdown = channelBreakdown.map { it.toDomain() },
+)
+
+fun HourlyDataResponse.toDomain() = HourlyData(
+    hour = hour,
+    orderCount = orderCount,
+    revenue = revenue,
+)
+
+fun HeatmapPointResponse.toDomain() = HeatmapPoint(
+    dayOfWeek = dayOfWeek,
+    hour = hour,
+    orderCount = orderCount,
+)
+
+fun DayOfWeekResponse.toDomain() = DayOfWeekData(
+    dayOfWeek = dayOfWeek,
+    name = name,
+    orderCount = orderCount,
+    revenue = revenue,
+)
+
+fun PeakTimeAnalysisResponse.toDomain() = PeakTimeAnalysis(
+    busiestHour = busiestHour,
+    busiestDay = busiestDay,
+    hourlyData = hourlyData.map { it.toDomain() },
+    heatmap = heatmap.map { it.toDomain() },
+    dayOfWeek = dayOfWeek.map { it.toDomain() },
+)
+
+fun CashierPerformanceV2Response.toDomain() = CashierPerformanceV2(
+    cashierId = cashierId,
+    cashierName = cashierName,
+    revenue = revenue,
+    orderCount = orderCount,
+    averageOrderValue = averageOrderValue,
+    cancelledOrders = cancelledOrders,
+    cancellationRate = cancellationRate,
+)
+
+fun DeliveryPerformanceV2Response.toDomain() = DeliveryPerformanceV2(
+    driverId = driverId,
+    driverName = driverName,
+    ordersCompleted = ordersCompleted,
+    feesCollected = feesCollected,
+    revenue = revenue,
+    avgDeliveryTimeMinutes = avgDeliveryTimeMinutes,
+    lateDeliveryPercent = lateDeliveryPercent,
+)
+
+fun ProductItemResponse.toDomain() = ProductItem(
+    itemId = itemId,
+    itemName = itemName,
+    categoryName = categoryName,
+    quantitySold = quantitySold,
+    revenue = revenue,
+    costPrice = costPrice,
+    profitMargin = profitMargin,
+)
+
+fun CategoryRevenueResponse.toDomain() = CategoryRevenue(
+    categoryId = categoryId,
+    categoryName = categoryName,
+    revenue = revenue,
+    itemCount = itemCount,
+)
+
+fun ProductIntelligenceResponse.toDomain() = ProductIntelligence(
+    topSelling = topSelling.map { it.toDomain() },
+    mostProfitable = mostProfitable.map { it.toDomain() },
+    leastSelling = leastSelling.map { it.toDomain() },
+    revenueByCategory = revenueByCategory.map { it.toDomain() },
+    lowMarginWarnings = lowMarginWarnings.map { it.toDomain() },
+)
+
+fun TopCustomerResponse.toDomain() = TopCustomer(
+    customerId = customerId,
+    customerName = customerName,
+    phone = phone,
+    orderCount = orderCount,
+    totalSpent = totalSpent,
+)
+
+fun CustomerIntelligenceResponse.toDomain() = CustomerIntelligence(
+    totalCustomers = totalCustomers,
+    newCustomersPercent = newCustomersPercent,
+    returningCustomersPercent = returningCustomersPercent,
+    averageSpend = averageSpend,
+    lifetimeValue = lifetimeValue,
+    topCustomers = topCustomers.map { it.toDomain() },
+    frequencyBuckets = frequencyBuckets,
+)
+
+fun AlertResponse.toDomain() = AnalyticsAlert(
+    type = type,
+    severity = severity,
+    title = title,
+    message = message,
+    value = value,
+    threshold = threshold,
+)
+
+fun AlertsResponse.toDomain() = alerts.map { it.toDomain() }
+
+fun StockOverviewItemResponse.toDomain() = StockOverviewItem(
+    stockId = stockId,
+    itemName = itemName,
+    quantity = quantity,
+    minQuantity = minQuantity,
+    costPrice = costPrice,
+    unit = unit,
+    status = status,
+)
+
+fun StockMovementResponse.toDomain() = StockMovement(
+    date = date,
+    added = added,
+    deducted = deducted,
+)
+
+fun StockOverviewResponse.toDomain() = StockOverview(
+    totalStockValue = totalStockValue,
+    totalSellingValue = totalSellingValue,
+    potentialProfit = potentialProfit,
+    totalItems = totalItems,
+    lowStockItems = lowStockItems.map { it.toDomain() },
+    outOfStockItems = outOfStockItems.map { it.toDomain() },
+    deadStockItems = deadStockItems.map { it.toDomain() },
+    movementSummary = movementSummary.map { it.toDomain() },
+)
+
 // ─── Worker Mappers ──────────────────────────────────────────────
 fun WorkerResponse.toDomain() = Worker(
     id = id, vendorId = vendorId, workerId = workerId,

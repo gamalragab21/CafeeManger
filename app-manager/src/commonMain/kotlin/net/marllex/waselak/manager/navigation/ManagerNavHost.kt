@@ -99,7 +99,7 @@ import net.marllex.waselak.feature.auth.biometric.BiometricResult
 import net.marllex.waselak.feature.auth.biometric.rememberBiometricAuthenticator
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
-import net.marllex.waselak.feature.manager.analytics.EnhancedAnalyticsScreen
+import net.marllex.waselak.feature.manager.analytics.AnalyticsScreen
 import net.marllex.waselak.feature.manager.analytics.ExportScreen
 import net.marllex.waselak.feature.manager.categories.CategoriesScreen
 import net.marllex.waselak.feature.manager.customers.CustomersScreen
@@ -829,9 +829,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (selectedTab) {
                         0 -> RestaurantProfileScreen()
-                        1 -> EnhancedAnalyticsScreen(
-                            onNavigateToExport = { activeSubScreen = "export" }
-                        )
+                        1 -> AnalyticsScreen()
                         2 -> SettingsContent(
                             vendor = vendor,
                             onSignOut = onSignOut,
