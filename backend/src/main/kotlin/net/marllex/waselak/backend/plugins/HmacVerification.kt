@@ -1,6 +1,7 @@
 package net.marllex.waselak.backend.plugins
 
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.doublereceive.*
 import io.ktor.server.request.*
@@ -31,6 +32,7 @@ fun Application.configureHmacVerification() {
         usedNonces.entries.removeIf { it.value < cutoff }
     }
 
+    // --- Request HMAC verification ---
     intercept(ApplicationCallPipeline.Plugins) {
         val path = call.request.path()
 
@@ -122,6 +124,37 @@ fun Application.configureHmacVerification() {
 
         logger.debug("HMAC: Verified {} {}", method, path)
     }
+
+    // --- Response HMAC signing ---
+    install(createApplicationPlugin("ResponseHmacSigning") {
+        onCallRespond { call ->
+            val path = call.request.path()
+
+            // Only sign /api/ responses (same scope as request verification)
+            if (!path.startsWith("/api/") ||
+                path.startsWith("/api/v1/admin")
+            ) {
+                return@onCallRespond
+            }
+
+            transformBody { body ->
+                val responseBody = when (body) {
+                    is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
+                    is OutgoingContent.NoContent -> ""
+                    else -> ""
+                }
+                val timestamp = System.currentTimeMillis().toString()
+                val bodyHash = sha256(responseBody)
+                val payload = "$timestamp\n$bodyHash"
+                val signature = hmacSha256(hmacConfig.secret, payload)
+
+                call.response.header("X-Response-Timestamp", timestamp)
+                call.response.header("X-Response-Signature", signature)
+
+                body
+            }
+        }
+    })
 }
 
 private fun hmacSha256(key: String, data: String): String {

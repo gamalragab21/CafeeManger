@@ -13,6 +13,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.plugin
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.TextContent
@@ -59,6 +60,25 @@ val networkModule = module {
             }
             HttpResponseValidator {
                 validateResponse { response ->
+                    // Verify response HMAC signature from server
+                    if (hmacSecret.isNotBlank()) {
+                        val respTimestamp = response.headers["X-Response-Timestamp"]
+                        val respSignature = response.headers["X-Response-Signature"]
+                        if (respTimestamp != null && respSignature != null) {
+                            val respBody = response.bodyAsText()
+                            val respBodyHash = HmacSigner.sha256(respBody)
+                            val respPayload = "$respTimestamp\n$respBodyHash"
+                            val expectedSig = HmacSigner.hmacSha256(hmacSecret, respPayload)
+                            if (respSignature != expectedSig) {
+                                throw ApiException(
+                                    statusCode = 0,
+                                    errorMessage = "Response signature verification failed",
+                                    errorType = "RESPONSE_TAMPERED"
+                                )
+                            }
+                        }
+                    }
+
                     if (!response.status.isSuccess()) {
                         val errorBody = try {
                             response.body<ApiErrorResponse>()

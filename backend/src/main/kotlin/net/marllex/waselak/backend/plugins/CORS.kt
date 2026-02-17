@@ -18,5 +18,7 @@ fun Application.configureCORS() {
         allowMethod(HttpMethod.Patch)
         allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Options)
+        exposeHeader("X-Response-Timestamp")
+        exposeHeader("X-Response-Signature")
     }
 }
