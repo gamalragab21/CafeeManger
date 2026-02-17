@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
 
 /**
  * Simple horizontal bar chart using Canvas.
@@ -125,8 +128,18 @@ fun HeatmapChart(
     val maxCount = data.maxOf { it.third }.coerceAtLeast(1)
     val baseColor = MaterialTheme.colorScheme.primary
 
+    // Resolve day label strings at the composable level (before Canvas/drawScope)
+    val dayNames = listOf(
+        stringResource(Res.string.day_mon),
+        stringResource(Res.string.day_tue),
+        stringResource(Res.string.day_wed),
+        stringResource(Res.string.day_thu),
+        stringResource(Res.string.day_fri),
+        stringResource(Res.string.day_sat),
+        stringResource(Res.string.day_sun),
+    )
+
     Column(modifier = modifier.fillMaxWidth()) {
-        val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         dayNames.forEachIndexed { dayIndex, dayName ->
             Row(
                 modifier = Modifier.fillMaxWidth().height(16.dp),

@@ -9,6 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.TimePeriod
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun GlobalFilterBar(
@@ -17,14 +20,14 @@ fun GlobalFilterBar(
     modifier: Modifier = Modifier,
 ) {
     val periods = listOf(
-        TimePeriod.TODAY to "Today",
-        TimePeriod.YESTERDAY to "Yesterday",
-        TimePeriod.THIS_WEEK to "This Week",
-        TimePeriod.LAST_7_DAYS to "Last 7 Days",
-        TimePeriod.LAST_14_DAYS to "Last 14 Days",
-        TimePeriod.THIS_MONTH to "This Month",
-        TimePeriod.LAST_MONTH to "Last Month",
-        TimePeriod.LAST_3_MONTHS to "3 Months",
+        TimePeriod.TODAY to stringResource(Res.string.today),
+        TimePeriod.YESTERDAY to stringResource(Res.string.yesterday),
+        TimePeriod.THIS_WEEK to stringResource(Res.string.this_week),
+        TimePeriod.LAST_7_DAYS to stringResource(Res.string.last_7_days),
+        TimePeriod.LAST_14_DAYS to stringResource(Res.string.last_14_days),
+        TimePeriod.THIS_MONTH to stringResource(Res.string.this_month),
+        TimePeriod.LAST_MONTH to stringResource(Res.string.last_month),
+        TimePeriod.LAST_3_MONTHS to stringResource(Res.string.last_3_months),
     )
 
     Row(

@@ -9,6 +9,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.PeakTimeAnalysis
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun PeakTimeSection(
@@ -17,7 +20,7 @@ fun PeakTimeSection(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Peak Time Analysis",
+        title = stringResource(Res.string.peak_time_analysis),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
@@ -27,12 +30,12 @@ fun PeakTimeSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             KpiCard(
-                label = "Busiest Hour",
+                label = stringResource(Res.string.busiest_hour),
                 value = "${data.busiestHour}:00",
                 modifier = Modifier.weight(1f),
             )
             KpiCard(
-                label = "Busiest Day",
+                label = stringResource(Res.string.busiest_day),
                 value = data.busiestDay,
                 modifier = Modifier.weight(1f),
             )
@@ -40,7 +43,7 @@ fun PeakTimeSection(
 
         if (data.hourlyData.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("Hourly Orders", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(Res.string.hourly_orders), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             SimpleBarChart(
                 items = data.hourlyData
@@ -51,7 +54,7 @@ fun PeakTimeSection(
 
         if (data.heatmap.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("Weekly Heatmap", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(Res.string.weekly_heatmap), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             HeatmapChart(
                 data = data.heatmap.map { Triple(it.dayOfWeek, it.hour, it.orderCount) },
@@ -60,7 +63,7 @@ fun PeakTimeSection(
 
         if (data.dayOfWeek.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("Revenue by Day", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(Res.string.revenue_by_day), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             SimpleBarChart(
                 items = data.dayOfWeek.map { it.name to it.revenue },

@@ -9,6 +9,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.RevenueProfit
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun RevenueProfitSection(
@@ -17,7 +20,7 @@ fun RevenueProfitSection(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Revenue & Profit",
+        title = stringResource(Res.string.revenue_and_profit),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
@@ -27,23 +30,23 @@ fun RevenueProfitSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(label = "Gross Revenue", value = formatCurrency(data.grossRevenue), modifier = Modifier.weight(1f))
-            KpiCard(label = "Net Revenue", value = formatCurrency(data.netRevenue), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.gross_revenue), value = formatCurrency(data.grossRevenue), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.net_revenue), value = formatCurrency(data.netRevenue), modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(label = "Tax", value = formatCurrency(data.totalTax), modifier = Modifier.weight(1f))
-            KpiCard(label = "Delivery Fees", value = formatCurrency(data.totalDeliveryFees), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.tax), value = formatCurrency(data.totalTax), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.delivery_fees), value = formatCurrency(data.totalDeliveryFees), modifier = Modifier.weight(1f))
         }
 
         // Payment method breakdown
         if (data.paymentMethods.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Payment Methods",
+                stringResource(Res.string.payment_methods),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -67,7 +70,7 @@ fun RevenueProfitSection(
         if (data.dailyTrend.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Daily Revenue Trend",
+                stringResource(Res.string.daily_revenue_trend),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )

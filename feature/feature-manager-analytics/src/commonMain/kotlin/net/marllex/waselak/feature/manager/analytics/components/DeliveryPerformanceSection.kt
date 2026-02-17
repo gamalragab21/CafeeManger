@@ -10,6 +10,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.DeliveryPerformanceV2
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import org.jetbrains.compose.resources.stringResource
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
 
 @Composable
 fun DeliveryPerformanceSection(
@@ -18,13 +21,13 @@ fun DeliveryPerformanceSection(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Delivery Performance",
+        title = stringResource(Res.string.delivery_performance),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
     ) { data ->
         if (data.isEmpty()) {
-            Text("No delivery data available", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.no_delivery_data), style = MaterialTheme.typography.bodyMedium)
             return@SectionContainer
         }
 
@@ -32,10 +35,10 @@ fun DeliveryPerformanceSection(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Driver", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f))
-            Text("Completed", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("Fees", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("Revenue", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.driver), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f))
+            Text(stringResource(Res.string.completed), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.fees), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.revenue), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
         HorizontalDivider()
 

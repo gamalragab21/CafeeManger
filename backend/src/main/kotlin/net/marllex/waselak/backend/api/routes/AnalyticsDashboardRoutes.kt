@@ -279,17 +279,22 @@ fun Route.analyticsDashboardRoutes() {
             val prevTo = from
 
             val result = transaction {
+                val cancelledStatuses = listOf("CANCELED", "CANCELLED")
+
                 fun metricsForPeriod(start: Instant, end: Instant): PeriodMetricsDto {
                     val orders = OrdersTable.selectAll().where {
                         (OrdersTable.vendorId eq vendorUUID) and
                                 (OrdersTable.createdAt greaterEq start) and
-                                (OrdersTable.createdAt lessEq end)
+                                (OrdersTable.createdAt lessEq end) and
+                                (OrdersTable.status notInList cancelledStatuses)
                     }.toList()
                     val totalRevenue = orders.sumOf { it[OrdersTable.total].toDouble() }
                     val totalOrders = orders.size
                     val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
                     val totalTax = orders.sumOf { it[OrdersTable.tax].toDouble() }
-                    val totalDeliveryFees = orders.sumOf { it[OrdersTable.deliveryFee].toDouble() }
+                    val totalDeliveryFees = orders
+                        .filter { it[OrdersTable.channel] == "DELIVERY" }
+                        .sumOf { it[OrdersTable.deliveryFee].toDouble() }
                     return PeriodMetricsDto(
                         total_revenue = totalRevenue,
                         total_orders = totalOrders,
@@ -338,15 +343,19 @@ fun Route.analyticsDashboardRoutes() {
             val (from, to) = parseDateRange(call)
 
             val result = transaction {
+                val cancelledStatuses = listOf("CANCELED", "CANCELLED")
                 val orders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
                             (OrdersTable.createdAt greaterEq from) and
-                            (OrdersTable.createdAt lessEq to)
+                            (OrdersTable.createdAt lessEq to) and
+                            (OrdersTable.status notInList cancelledStatuses)
                 }.toList()
 
                 val gross = orders.sumOf { it[OrdersTable.total].toDouble() }
                 val tax = orders.sumOf { it[OrdersTable.tax].toDouble() }
-                val deliveryFees = orders.sumOf { it[OrdersTable.deliveryFee].toDouble() }
+                val deliveryFees = orders
+                    .filter { it[OrdersTable.channel] == "DELIVERY" }
+                    .sumOf { it[OrdersTable.deliveryFee].toDouble() }
                 val net = orders.sumOf { it[OrdersTable.subtotal].toDouble() }
 
                 val paymentMethods = orders

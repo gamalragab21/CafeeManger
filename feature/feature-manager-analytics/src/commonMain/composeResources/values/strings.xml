@@ -29,9 +29,9 @@
     <string name="takeaway">Takeaway</string>
     <string name="cashier">Cashier</string>
     <string name="cashier_performance">Cashier Performance</string>
-    <string name="last_7_days">Last 7 days</string>
-    <string name="last_30_days">Last 30 days</string>
-    <string name="all_time">All time</string>
+    <string name="last_7_days">Last 7 Days</string>
+    <string name="last_30_days">Last 30 Days</string>
+    <string name="all_time">All Time</string>
     <string name="custom">Custom</string>
     <string name="days">days</string>
     <string name="period_summary">Period Summary</string>
@@ -138,4 +138,105 @@
     <string name="weekly_report">Weekly Report</string>
     <string name="your_orders">Your Orders</string>
     <string name="your_team">Your Team</string>
+
+    <!-- ── New Dashboard V2 strings ────────────────────────────── -->
+    <!-- Section titles -->
+    <string name="executive_summary">Executive Summary</string>
+    <string name="revenue_and_profit">Revenue &amp; Profit</string>
+    <string name="orders_intelligence">Orders Intelligence</string>
+    <string name="peak_time_analysis">Peak Time Analysis</string>
+    <string name="product_intelligence">Product Intelligence</string>
+    <string name="customer_intelligence">Customer Intelligence</string>
+    <string name="alerts_and_risks">Alerts &amp; Risks</string>
+    <string name="stock_overview">Stock Overview</string>
+    <string name="export_report">Export Report</string>
+
+    <!-- Time periods -->
+    <string name="yesterday">Yesterday</string>
+    <string name="last_14_days">Last 14 Days</string>
+    <string name="last_month">Last Month</string>
+    <string name="last_3_months">Last 3 Months</string>
+
+    <!-- Executive Summary KPIs -->
+    <string name="avg_order">Avg Order</string>
+    <string name="tax">Tax</string>
+    <string name="active_orders">Active Orders</string>
+    <string name="attendance_today">Attendance Today</string>
+
+    <!-- Revenue & Profit -->
+    <string name="payment_methods">Payment Methods</string>
+    <string name="daily_revenue_trend">Daily Revenue Trend</string>
+
+    <!-- Orders Intelligence -->
+    <string name="total">Total</string>
+    <string name="cancelled">Cancelled</string>
+    <string name="channel_breakdown">Channel Breakdown</string>
+    <string name="daily_order_trend">Daily Order Trend</string>
+
+    <!-- Peak Time -->
+    <string name="busiest_hour">Busiest Hour</string>
+    <string name="busiest_day">Busiest Day</string>
+    <string name="hourly_orders">Hourly Orders</string>
+    <string name="weekly_heatmap">Weekly Heatmap</string>
+    <string name="revenue_by_day">Revenue by Day</string>
+
+    <!-- Cashier / Delivery tables -->
+    <string name="name">Name</string>
+    <string name="cancel_percent">Cancel %</string>
+    <string name="driver">Driver</string>
+    <string name="fees">Fees</string>
+    <string name="no_cashier_data">No cashier data available</string>
+    <string name="no_delivery_data">No delivery data available</string>
+
+    <!-- Product Intelligence -->
+    <string name="top_selling">Top Selling</string>
+    <string name="item_sold_count">%1$d sold</string>
+    <string name="revenue_by_category">Revenue by Category</string>
+    <string name="low_margin_items">Low Margin Items</string>
+    <string name="margin_percent">%.1f%% margin</string>
+
+    <!-- Customer Intelligence -->
+    <string name="new_percent">New %%</string>
+    <string name="returning_percent">Returning %%</string>
+    <string name="avg_spend">Avg Spend</string>
+    <string name="lifetime_value">Lifetime Value</string>
+    <string name="top_customers">Top Customers</string>
+    <string name="order_frequency">Order Frequency</string>
+    <string name="one_order">1 order</string>
+    <string name="two_to_five_orders">2-5 orders</string>
+    <string name="six_to_ten_orders">6-10 orders</string>
+    <string name="eleven_plus_orders">11+ orders</string>
+    <string name="orders_suffix">orders</string>
+
+    <!-- Alerts -->
+    <string name="no_active_alerts">No active alerts</string>
+
+    <!-- Stock Overview -->
+    <string name="stock_value">Stock Value</string>
+    <string name="selling_value">Selling Value</string>
+    <string name="profit_potential">Profit Potential</string>
+    <string name="total_items">Total Items</string>
+    <string name="low_stock">Low Stock</string>
+    <string name="out_of_stock">Out of Stock</string>
+    <string name="stock_movement_14_days">Stock Movement (14 days)</string>
+
+    <!-- Export -->
+    <string name="export_pdf">Export PDF</string>
+    <string name="export_excel">Export Excel</string>
+    <string name="generating_report">Generating report…</string>
+    <string name="export_again">Export Again</string>
+    <string name="try_again">Try Again</string>
+
+    <!-- Common -->
+    <string name="retry">Retry</string>
+    <string name="refresh">Refresh</string>
+
+    <!-- Day abbreviations for charts -->
+    <string name="day_mon">Mon</string>
+    <string name="day_tue">Tue</string>
+    <string name="day_wed">Wed</string>
+    <string name="day_thu">Thu</string>
+    <string name="day_fri">Fri</string>
+    <string name="day_sat">Sat</string>
+    <string name="day_sun">Sun</string>
 </resources>

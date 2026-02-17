@@ -6,6 +6,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.ExecutiveSummary
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ExecutiveSummaryCards(
@@ -14,7 +17,7 @@ fun ExecutiveSummaryCards(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Executive Summary",
+        title = stringResource(Res.string.executive_summary),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
@@ -25,19 +28,19 @@ fun ExecutiveSummaryCards(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             KpiCard(
-                label = "Revenue",
+                label = stringResource(Res.string.revenue),
                 value = formatCurrency(data.current.totalRevenue),
                 changePercent = data.revenueChangePercent,
                 modifier = Modifier.weight(1f),
             )
             KpiCard(
-                label = "Orders",
+                label = stringResource(Res.string.orders),
                 value = formatNumber(data.current.totalOrders),
                 changePercent = data.ordersChangePercent,
                 modifier = Modifier.weight(1f),
             )
             KpiCard(
-                label = "Avg Order",
+                label = stringResource(Res.string.avg_order),
                 value = formatCurrency(data.current.averageOrderValue),
                 changePercent = data.aovChangePercent,
                 modifier = Modifier.weight(1f),
@@ -50,17 +53,17 @@ fun ExecutiveSummaryCards(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             KpiCard(
-                label = "Tax",
+                label = stringResource(Res.string.tax),
                 value = formatCurrency(data.current.totalTax),
                 modifier = Modifier.weight(1f),
             )
             KpiCard(
-                label = "Delivery Fees",
+                label = stringResource(Res.string.delivery_fees),
                 value = formatCurrency(data.current.totalDeliveryFees),
                 modifier = Modifier.weight(1f),
             )
             KpiCard(
-                label = "Active Orders",
+                label = stringResource(Res.string.active_orders),
                 value = data.activeOrders.toString(),
                 modifier = Modifier.weight(1f),
             )
@@ -71,7 +74,7 @@ fun ExecutiveSummaryCards(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             KpiCard(
-                label = "Attendance Today",
+                label = stringResource(Res.string.attendance_today),
                 value = data.attendanceToday.toString(),
                 modifier = Modifier.weight(1f),
             )

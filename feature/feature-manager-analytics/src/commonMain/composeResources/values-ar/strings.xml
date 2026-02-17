@@ -138,4 +138,105 @@
     <string name="weekly_report">تقرير أسبوعي</string>
     <string name="your_orders">طلباتك</string>
     <string name="your_team">فريقك</string>
+
+    <!-- ── New Dashboard V2 strings ────────────────────────────── -->
+    <!-- Section titles -->
+    <string name="executive_summary">الملخص التنفيذي</string>
+    <string name="revenue_and_profit">الإيرادات والأرباح</string>
+    <string name="orders_intelligence">تحليلات الطلبات</string>
+    <string name="peak_time_analysis">تحليل أوقات الذروة</string>
+    <string name="product_intelligence">تحليلات المنتجات</string>
+    <string name="customer_intelligence">تحليلات العملاء</string>
+    <string name="alerts_and_risks">التنبيهات والمخاطر</string>
+    <string name="stock_overview">نظرة عامة على المخزون</string>
+    <string name="export_report">تصدير التقرير</string>
+
+    <!-- Time periods -->
+    <string name="yesterday">أمس</string>
+    <string name="last_14_days">آخر 14 يوم</string>
+    <string name="last_month">الشهر الماضي</string>
+    <string name="last_3_months">آخر 3 أشهر</string>
+
+    <!-- Executive Summary KPIs -->
+    <string name="avg_order">متوسط الطلب</string>
+    <string name="tax">الضريبة</string>
+    <string name="active_orders">الطلبات النشطة</string>
+    <string name="attendance_today">الحضور اليوم</string>
+
+    <!-- Revenue & Profit -->
+    <string name="payment_methods">طرق الدفع</string>
+    <string name="daily_revenue_trend">اتجاه الإيرادات اليومي</string>
+
+    <!-- Orders Intelligence -->
+    <string name="total">الإجمالي</string>
+    <string name="cancelled">ملغي</string>
+    <string name="channel_breakdown">توزيع القنوات</string>
+    <string name="daily_order_trend">اتجاه الطلبات اليومي</string>
+
+    <!-- Peak Time -->
+    <string name="busiest_hour">أكثر ساعة ازدحامًا</string>
+    <string name="busiest_day">أكثر يوم ازدحامًا</string>
+    <string name="hourly_orders">الطلبات بالساعة</string>
+    <string name="weekly_heatmap">خريطة الأسبوع الحرارية</string>
+    <string name="revenue_by_day">الإيرادات حسب اليوم</string>
+
+    <!-- Cashier / Delivery tables -->
+    <string name="name">الاسم</string>
+    <string name="cancel_percent">نسبة الإلغاء</string>
+    <string name="driver">السائق</string>
+    <string name="fees">الرسوم</string>
+    <string name="no_cashier_data">لا توجد بيانات كاشير</string>
+    <string name="no_delivery_data">لا توجد بيانات توصيل</string>
+
+    <!-- Product Intelligence -->
+    <string name="top_selling">الأكثر مبيعًا</string>
+    <string name="item_sold_count">%1$d مُباع</string>
+    <string name="revenue_by_category">الإيرادات حسب الفئة</string>
+    <string name="low_margin_items">أصناف بهامش ربح منخفض</string>
+    <string name="margin_percent">%.1f%% هامش</string>
+
+    <!-- Customer Intelligence -->
+    <string name="new_percent">جدد %%</string>
+    <string name="returning_percent">عائدون %%</string>
+    <string name="avg_spend">متوسط الإنفاق</string>
+    <string name="lifetime_value">القيمة الدائمة</string>
+    <string name="top_customers">أفضل العملاء</string>
+    <string name="order_frequency">تكرار الطلبات</string>
+    <string name="one_order">طلب واحد</string>
+    <string name="two_to_five_orders">2-5 طلبات</string>
+    <string name="six_to_ten_orders">6-10 طلبات</string>
+    <string name="eleven_plus_orders">+11 طلب</string>
+    <string name="orders_suffix">طلبات</string>
+
+    <!-- Alerts -->
+    <string name="no_active_alerts">لا توجد تنبيهات نشطة</string>
+
+    <!-- Stock Overview -->
+    <string name="stock_value">قيمة المخزون</string>
+    <string name="selling_value">قيمة البيع</string>
+    <string name="profit_potential">الربح المتوقع</string>
+    <string name="total_items">إجمالي الأصناف</string>
+    <string name="low_stock">مخزون منخفض</string>
+    <string name="out_of_stock">نفذ من المخزون</string>
+    <string name="stock_movement_14_days">حركة المخزون (14 يوم)</string>
+
+    <!-- Export -->
+    <string name="export_pdf">تصدير PDF</string>
+    <string name="export_excel">تصدير Excel</string>
+    <string name="generating_report">جارٍ إنشاء التقرير…</string>
+    <string name="export_again">تصدير مرة أخرى</string>
+    <string name="try_again">حاول مرة أخرى</string>
+
+    <!-- Common -->
+    <string name="retry">إعادة المحاولة</string>
+    <string name="refresh">تحديث</string>
+
+    <!-- Day abbreviations for charts -->
+    <string name="day_mon">إثنين</string>
+    <string name="day_tue">ثلاثاء</string>
+    <string name="day_wed">أربعاء</string>
+    <string name="day_thu">خميس</string>
+    <string name="day_fri">جمعة</string>
+    <string name="day_sat">سبت</string>
+    <string name="day_sun">أحد</string>
 </resources>

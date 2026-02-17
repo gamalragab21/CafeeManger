@@ -12,6 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun <T> SectionContainer(
@@ -60,7 +63,7 @@ fun <T> SectionContainer(
                         )
                         Spacer(Modifier.height(8.dp))
                         TextButton(onClick = onRetry) {
-                            Text("Retry")
+                            Text(stringResource(Res.string.retry))
                         }
                     }
                 }

@@ -10,6 +10,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.CashierPerformanceV2
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun CashierPerformanceSection(
@@ -18,13 +21,13 @@ fun CashierPerformanceSection(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Cashier Performance",
+        title = stringResource(Res.string.cashier_performance),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
     ) { data ->
         if (data.isEmpty()) {
-            Text("No cashier data available", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.no_cashier_data), style = MaterialTheme.typography.bodyMedium)
             return@SectionContainer
         }
 
@@ -33,10 +36,10 @@ fun CashierPerformanceSection(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Name", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f))
-            Text("Orders", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("Revenue", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("Cancel %", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.name), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f))
+            Text(stringResource(Res.string.orders), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.revenue), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.cancel_percent), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
         HorizontalDivider()
 

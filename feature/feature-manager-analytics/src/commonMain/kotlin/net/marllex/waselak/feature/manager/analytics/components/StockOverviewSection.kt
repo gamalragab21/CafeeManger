@@ -9,6 +9,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.StockOverview
 import net.marllex.waselak.feature.manager.analytics.AnalyticsViewModel.SectionState
+import org.jetbrains.compose.resources.stringResource
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
 
 @Composable
 fun StockOverviewSection(
@@ -17,7 +20,7 @@ fun StockOverviewSection(
     modifier: Modifier = Modifier,
 ) {
     SectionContainer(
-        title = "Stock Overview",
+        title = stringResource(Res.string.stock_overview),
         state = state,
         onRetry = onRetry,
         modifier = modifier,
@@ -26,25 +29,25 @@ fun StockOverviewSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(label = "Stock Value", value = formatCurrency(data.totalStockValue), modifier = Modifier.weight(1f))
-            KpiCard(label = "Selling Value", value = formatCurrency(data.totalSellingValue), modifier = Modifier.weight(1f))
-            KpiCard(label = "Profit Potential", value = formatCurrency(data.potentialProfit), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.stock_value), value = formatCurrency(data.totalStockValue), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.selling_value), value = formatCurrency(data.totalSellingValue), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.profit_potential), value = formatCurrency(data.potentialProfit), modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(label = "Total Items", value = data.totalItems.toString(), modifier = Modifier.weight(1f))
-            KpiCard(label = "Low Stock", value = data.lowStockItems.size.toString(), modifier = Modifier.weight(1f))
-            KpiCard(label = "Out of Stock", value = data.outOfStockItems.size.toString(), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.total_items), value = data.totalItems.toString(), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.low_stock), value = data.lowStockItems.size.toString(), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.out_of_stock), value = data.outOfStockItems.size.toString(), modifier = Modifier.weight(1f))
         }
 
         // Out of stock items
         if (data.outOfStockItems.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Out of Stock",
+                stringResource(Res.string.out_of_stock),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.error,
@@ -58,7 +61,7 @@ fun StockOverviewSection(
         // Low stock items
         if (data.lowStockItems.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("Low Stock", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(Res.string.low_stock), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
             data.lowStockItems.take(5).forEach { item ->
                 Row(
@@ -78,7 +81,7 @@ fun StockOverviewSection(
         // Stock movement
         if (data.movementSummary.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("Stock Movement (14 days)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(Res.string.stock_movement_14_days), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             SimpleBarChart(
                 items = data.movementSummary.takeLast(7).map {
