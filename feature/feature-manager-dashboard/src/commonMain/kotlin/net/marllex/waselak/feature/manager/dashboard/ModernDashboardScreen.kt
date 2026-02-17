@@ -1,16 +1,13 @@
 package net.marllex.waselak.feature.manager.dashboard
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.*
@@ -18,111 +15,112 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import org.jetbrains.compose.resources.stringResource
-import net.marllex.waselak.feature.manager.dashboard.generated.resources.Res
-import net.marllex.waselak.feature.manager.dashboard.generated.resources.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.ui.components.ChannelChip
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
-import net.marllex.waselak.core.common.utils.CurrencyFormatter
-import net.marllex.waselak.core.ui.theme.*
+import net.marllex.waselak.feature.manager.dashboard.components.*
+import net.marllex.waselak.feature.manager.dashboard.generated.resources.Res
+import net.marllex.waselak.feature.manager.dashboard.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+// ══════════════════════════════════════════════════════════════════════
+// Branded Top Bar — kept from original
+// ══════════════════════════════════════════════════════════════════════
+
 @Composable
-fun BrandedTopBar(uiState: DashboardViewModel.UiState) {
+fun BrandedTopBar(uiState: HomeDashboardUiState) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp // Gives it that modern "rebranded" lift
+        tonalElevation = 3.dp,
     ) {
         Row(
             modifier = Modifier
-                .statusBarsPadding() // Handles the clock/battery area
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // --- 1. THE LOGO ---
+            // Logo
             val logoUrl = uiState.vendor?.logoUrl
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 if (!logoUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = logoUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
                     )
                 } else {
                     Icon(
                         Icons.Rounded.Storefront,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // --- 2. THE IDENTITY COLUMN ---
-            Column(
-                modifier = Modifier.weight(1f) // This ensures the text stays in its lane
-            ) {
+            // Identity
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = uiState.vendor?.name ?: "Our Store",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
-
                 uiState.userName?.let { name ->
                     Text(
                         text = stringResource(Res.string.welcome_message, name),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
-            // --- 3. OPTIONAL ACTION (e.g. Profile or Search) ---
-            IconButton(onClick = { /* TODO */ }) {
+            IconButton(onClick = { /* TODO: notifications */ }) {
                 Icon(Icons.Rounded.NotificationsNone, contentDescription = null)
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ══════════════════════════════════════════════════════════════════════
+// Main Dashboard Screen
+// ══════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModernDashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     onNavigateToChatbot: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     // Auto-refresh when screen becomes visible
     LaunchedEffect(lifecycleOwner) {
@@ -132,167 +130,85 @@ fun ModernDashboardScreen(
     }
 
     Scaffold(
-        topBar = {
-            BrandedTopBar(uiState)
-        },
-        floatingActionButton = {
-//            FloatingActionButton(
-//                onClick = onNavigateToChatbot,
-//                containerColor = MaterialTheme.colorScheme.primary,
-//                contentColor = MaterialTheme.colorScheme.onPrimary
-//            ) {
-//                Row(
-//                    modifier = Modifier.padding(horizontal = 16.dp),
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                    verticalAlignment = Alignment.CenterVertically
-//                ) {
-//                    Icon(
-//                        imageVector = Icons.Filled.Chat,
-//                        contentDescription = stringResource(Res.string.ai_assistant)
-//                    )
-//                    Text(
-//                        text = stringResource(Res.string.ai_assistant),
-//                        style = MaterialTheme.typography.labelLarge
-//                    )
-//                }
-//            }
-        },
+        topBar = { BrandedTopBar(uiState) },
     ) { padding ->
-        when {
-            uiState.isLoading && uiState.recentOrders.isEmpty() -> LoadingIndicator()
-            uiState.error != null && uiState.recentOrders.isEmpty() -> ErrorView(
-                message = uiState.error!!,
-                onRetry = viewModel::loadDashboard,
-            )
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                // Quick Stats Section
-                item {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // ── Section 1: Today Snapshot (KPI Cards) ──────────────────
+            item {
+                TodaySnapshotSection(
+                    state = uiState.executiveSummary,
+                    onRetry = viewModel::loadDashboard,
+                )
+            }
+
+            // ── Section 2: Real-Time Alerts ────────────────────────────
+            item {
+                AlertsSection(
+                    state = uiState.alerts,
+                    onRetry = viewModel::loadDashboard,
+                )
+            }
+
+            // ── Section 3: Top Performance ─────────────────────────────
+            item {
+                TopPerformanceSection(
+                    topProducts = uiState.topProducts,
+                    bestCashier = uiState.bestCashier,
+                    bestDriver = uiState.bestDriver,
+                    onRetry = viewModel::loadDashboard,
+                )
+            }
+
+            // ── Section 4: Stock Health ────────────────────────────────
+            item {
+                StockHealthSection(
+                    state = uiState.stockHealth,
+                    onRetry = viewModel::loadDashboard,
+                )
+            }
+
+            // ── Section 5: Recent Orders ───────────────────────────────
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        text = stringResource(Res.string.quick_overview),
+                        text = stringResource(Res.string.recent_orders),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
                     )
-                }
-
-                // Horizontal scrolling stats cards
-                item {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp), // Increased spacing for a cleaner look
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp) // Proper breathing room
-                    ) {
-                        // 1. ACTIVE ORDERS - High Priority (Purple/Indigo)
-                        item {
-                            ModernStatCard(
-                                title = stringResource(Res.string.active_orders),
-                                value = uiState.activeOrdersCount.toString(),
-                                icon = Icons.Default.PendingActions, // More modern icon
-                                gradient = listOf(ChartIndigo, ChartPurple),
-                                subtitle = "Needs Attention"
-                            )
-                        }
-
-                        // 2. COMPLETED ORDERS - Success (Emerald/Green)
-                        item {
-                            ModernStatCard(
-                                title = "Daily Total", // Changed from Today's Orders to differentiate
-                                value = uiState.todayOrdersCount.toString(),
-                                icon = Icons.Default.CheckCircle,
-                                gradient = listOf(ChartGreen, Color(0xFF34D399)),
-                                subtitle = "Total Processed"
-                            )
-                        }
-
-                        // 3. PERFORMANCE/SPEED - (Optional but great for UX)
-                        item {
-                            ModernStatCard(
-                                title = "Completed",
-                                value = uiState.completedOrdersCount.toString(),
-                                icon = Icons.Default.FactCheck,
-                                gradient = listOf(ChartCyan, ChartBlue), // Cyan to Blue
-                                subtitle = "Ready for pickup"
-                            )
-                        }
-
-                        // 4. REVENUE - Crucial Metric (Amber/Orange)
-                        item {
-                            // Using a simple currency formatter for better UX
-                            val formattedRevenue = "${uiState.todayRevenue.toInt()}"
-                            ModernStatCard(
-                                title = stringResource(Res.string.today_s_revenue),
-                                value = formattedRevenue,
-                                icon = Icons.Default.Payments,
-                                gradient = listOf(ChartAmber, Color(0xFFD97706)),
-                                subtitle = "EGP Total",
-                            )
-                        }
-                    }
-                }
-
-                // Stock Overview Section
-                item {
                     Text(
-                        text = stringResource(Res.string.stock_overview),
-                        style = MaterialTheme.typography.titleLarge,
+                        text = "${uiState.recentOrders.size}",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
+            }
 
+            if (uiState.recentOrders.isEmpty() && !uiState.isLoading) {
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(80.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        CompactStatCard(
-                            title = stringResource(Res.string.total_items),
-                            value = uiState.totalStockItems.toString(),
-                            icon = Icons.Filled.Inventory,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        
-                        val hasAlerts = uiState.lowStockCount > 0 || uiState.outOfStockCount > 0
-                        CompactStatCard(
-                            title = stringResource(Res.string.stock_alerts),
-                            value = "${uiState.lowStockCount + uiState.outOfStockCount}",
-                            icon = Icons.Filled.Warning,
-                            color = if (hasAlerts) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.weight(1f),
-                            subtitle = if (hasAlerts) "${uiState.outOfStockCount} ${stringResource(Res.string.critical)}" else null
+                        Text(
+                            text = stringResource(Res.string.no_recent_orders),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-
-                // Recent Orders Section
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.recent_orders),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "${uiState.recentOrders.size}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-                items(uiState.recentOrders.take(10), key = { it.id }) { order ->
+            } else {
+                items(uiState.recentOrders, key = { it.id }) { order ->
                     ModernOrderCard(order = order)
                 }
             }
@@ -300,166 +216,319 @@ fun ModernDashboardScreen(
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Section 1: Today Snapshot
+// ══════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ModernStatCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    gradient: List<Color>,
-    subtitle: String,
-    modifier: Modifier = Modifier,
+private fun TodaySnapshotSection(
+    state: SectionState<net.marllex.waselak.core.model.ExecutiveSummary>,
+    onRetry: () -> Unit,
 ) {
-    Card(
-        modifier = modifier
-            .width(180.dp)
-            .height(160.dp), // Increased height for better padding
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        // Subtle border instead of flat elevation
-        border = BorderStroke(1.dp, gradient[0].copy(alpha = 0.2f))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            gradient[0].copy(alpha = 0.05f),
-                            Color.Transparent
-                        )
-                    )
-                )
-                .padding(16.dp)
+    SectionContainer(
+        title = stringResource(Res.string.today_snapshot),
+        state = state,
+        onRetry = onRetry,
+    ) { summary ->
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            maxItemsInEachRow = 2,
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Header: Icon and Label
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Brush.linearGradient(gradient)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Body: Value and Trend
-                Column {
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        letterSpacing = (-0.5).sp // Modern tight lettering
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Optional: Add a tiny up/down arrow icon here later
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = gradient[0], // Use the primary gradient color for the "trend"
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactStatCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null
-) {
-    Card(
-        modifier = modifier.height(100.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
+            KpiCard(
+                label = stringResource(Res.string.total_revenue),
+                value = "${formatCurrency(summary.current.totalRevenue)} EGP",
+                changePercent = summary.revenueChangePercent,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = color
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-                subtitle?.let {
+            )
+            KpiCard(
+                label = stringResource(Res.string.total_orders),
+                value = formatNumber(summary.current.totalOrders),
+                changePercent = summary.ordersChangePercent,
+                modifier = Modifier.weight(1f),
+            )
+            KpiCard(
+                label = stringResource(Res.string.avg_order_value),
+                value = "${formatCurrency(summary.current.averageOrderValue)} EGP",
+                changePercent = summary.aovChangePercent,
+                modifier = Modifier.weight(1f),
+            )
+            KpiCard(
+                label = stringResource(Res.string.delivery_fees),
+                value = "${formatCurrency(summary.current.totalDeliveryFees)} EGP",
+                modifier = Modifier.weight(1f),
+            )
+            KpiCard(
+                label = stringResource(Res.string.active_orders),
+                value = formatNumber(summary.activeOrders),
+                modifier = Modifier.weight(1f),
+            )
+            KpiCard(
+                label = stringResource(Res.string.staff_present),
+                value = formatNumber(summary.attendanceToday),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Section 2: Alerts
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun AlertsSection(
+    state: SectionState<List<net.marllex.waselak.core.model.AnalyticsAlert>>,
+    onRetry: () -> Unit,
+) {
+    SectionContainer(
+        title = stringResource(Res.string.alerts),
+        state = state,
+        onRetry = onRetry,
+    ) { alerts ->
+        if (alerts.isEmpty()) {
+            AllClearCard()
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                alerts.take(5).forEach { alert ->
+                    AlertCard(alert = alert)
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Section 3: Top Performance
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun TopPerformanceSection(
+    topProducts: SectionState<List<net.marllex.waselak.core.model.ProductItem>>,
+    bestCashier: SectionState<net.marllex.waselak.core.model.CashierPerformanceV2?>,
+    bestDriver: SectionState<net.marllex.waselak.core.model.DeliveryPerformanceV2?>,
+    onRetry: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(Res.string.top_performance),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            // Top 5 Products
+            Text(
+                text = stringResource(Res.string.top_products),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            when (topProducts) {
+                is SectionState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(80.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                }
+                is SectionState.Error -> {
                     Text(
-                        text = it,
+                        text = topProducts.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                is SectionState.Success -> {
+                    if (topProducts.data.isEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.no_data),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        SimpleBarChart(
+                            items = topProducts.data.map { it.itemName to it.quantitySold.toDouble() },
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(12.dp))
+
+            // Best Cashier + Best Driver side by side
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Best Cashier
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.best_cashier),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    when (bestCashier) {
+                        is SectionState.Loading -> {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                        is SectionState.Error -> {
+                            Text(
+                                text = bestCashier.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        is SectionState.Success -> {
+                            val cashier = bestCashier.data
+                            if (cashier != null) {
+                                StaffHighlightCard(
+                                    name = cashier.cashierName,
+                                    metric1Label = stringResource(Res.string.revenue_label),
+                                    metric1Value = "${formatCurrency(cashier.revenue)} EGP",
+                                    metric2Label = stringResource(Res.string.orders_label),
+                                    metric2Value = cashier.orderCount.toString(),
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(Res.string.no_data),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Best Driver
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.best_driver),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    when (bestDriver) {
+                        is SectionState.Loading -> {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                        is SectionState.Error -> {
+                            Text(
+                                text = bestDriver.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        is SectionState.Success -> {
+                            val driver = bestDriver.data
+                            if (driver != null) {
+                                StaffHighlightCard(
+                                    name = driver.driverName,
+                                    metric1Label = stringResource(Res.string.deliveries_label),
+                                    metric1Value = driver.ordersCompleted.toString(),
+                                    metric2Label = stringResource(Res.string.fees_collected),
+                                    metric2Value = "${formatCurrency(driver.feesCollected)} EGP",
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(Res.string.no_data),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Section 4: Stock Health
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun StockHealthSection(
+    state: SectionState<net.marllex.waselak.core.model.StockOverview>,
+    onRetry: () -> Unit,
+) {
+    SectionContainer(
+        title = stringResource(Res.string.stock_health),
+        state = state,
+        onRetry = onRetry,
+    ) { stock ->
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Stock Value
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                ),
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = stringResource(Res.string.stock_value),
                         style = MaterialTheme.typography.labelSmall,
-                        color = color,
-                        fontWeight = FontWeight.SemiBold
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "${CurrencyFormatter.format(stock.totalStockValue)}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
+
+            // Badges row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
+                StockBadge(
+                    label = stringResource(Res.string.low_stock_label),
+                    count = stock.lowStockItems.size,
+                    color = Color(0xFFF59E0B), // Amber
+                    modifier = Modifier.weight(1f),
+                )
+                StockBadge(
+                    label = stringResource(Res.string.out_of_stock_label),
+                    count = stock.outOfStockItems.size,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                StockBadge(
+                    label = stringResource(Res.string.dead_stock_label),
+                    count = stock.deadStockItems.size,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// Order Card — kept from original
+// ══════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun ModernOrderCard(order: Order) {
@@ -467,36 +536,36 @@ private fun ModernOrderCard(order: Order) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Filled.Receipt,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                     Column {
@@ -514,10 +583,10 @@ private fun ModernOrderCard(order: Order) {
                         }
                     }
                 }
-                
+
                 Column(
                     horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
                         text = CurrencyFormatter.format(order.total),
@@ -534,18 +603,18 @@ private fun ModernOrderCard(order: Order) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 ChannelChip(channel = order.channel.name)
                 Text(
-                    text = "•",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "\u2022",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = "${order.items.size} ${stringResource(Res.string.items_label)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }

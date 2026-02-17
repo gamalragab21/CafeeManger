@@ -14,6 +14,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:core-data"))
+            implementation(project(":core:core-model"))
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
         }

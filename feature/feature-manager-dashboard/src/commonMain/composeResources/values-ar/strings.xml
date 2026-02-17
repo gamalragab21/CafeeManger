@@ -20,4 +20,29 @@
     <string name="quick_overview">نظرة سريعة</string>
     <string name="welcome_message">مرحبًا، %1$s</string>
     <string name="items_label">عناصر</string>
+    <!-- لوحة التحكم التنفيذية -->
+    <string name="today_snapshot">لقطة اليوم</string>
+    <string name="total_revenue">إجمالي الإيرادات</string>
+    <string name="total_orders">إجمالي الطلبات</string>
+    <string name="avg_order_value">متوسط قيمة الطلب</string>
+    <string name="delivery_fees">رسوم التوصيل</string>
+    <string name="staff_present">الموظفون الحاضرون</string>
+    <string name="alerts">التنبيهات</string>
+    <string name="all_clear">كل شيء على ما يرام</string>
+    <string name="all_clear_message">لا توجد تنبيهات حاليًا. كل شيء يسير بشكل جيد!</string>
+    <string name="top_performance">أفضل أداء</string>
+    <string name="top_products">أفضل ٥ منتجات</string>
+    <string name="best_cashier">أفضل كاشير</string>
+    <string name="best_driver">أفضل سائق</string>
+    <string name="revenue_label">الإيرادات</string>
+    <string name="orders_label">الطلبات</string>
+    <string name="deliveries_label">التوصيلات</string>
+    <string name="fees_collected">الرسوم المحصلة</string>
+    <string name="stock_health">صحة المخزون</string>
+    <string name="low_stock_label">مخزون منخفض</string>
+    <string name="out_of_stock_label">نفذ المخزون</string>
+    <string name="dead_stock_label">مخزون راكد</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="no_data">لا توجد بيانات</string>
+    <string name="no_recent_orders">لا توجد طلبات حديثة</string>
 </resources>
