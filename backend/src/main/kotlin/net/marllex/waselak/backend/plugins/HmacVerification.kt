@@ -52,7 +52,7 @@ fun Application.configureHmacVerification() {
         val signature = call.request.header("X-Signature")
 
         if (timestamp == null || nonce == null || signature == null) {
-            logger.warn("HMAC: Missing headers on {} {} - ts={} nonce={} sig={}", call.request.httpMethod.value, path, timestamp, nonce, signature != null)
+            logger.warn("HMAC: Missing headers on {} {} - ts={} nonce={} sig={}", call.request.httpMethod.value, path, timestamp != null, nonce != null, signature != null)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Missing security headers")
@@ -64,7 +64,7 @@ fun Application.configureHmacVerification() {
         // 1. Validate timestamp window
         val requestTime = timestamp.toLongOrNull()
         if (requestTime == null) {
-            logger.warn("HMAC: Invalid timestamp format: {}", timestamp)
+            logger.warn("HMAC: Invalid timestamp format: '{}'", timestamp)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Invalid timestamp")
@@ -109,7 +109,9 @@ fun Application.configureHmacVerification() {
 
         if (!constantTimeEquals(signature, expectedSignature)) {
             logger.warn("HMAC: Signature mismatch on {} {}", method, path)
-            logger.debug("HMAC: payload='{}' expected='{}' received='{}'", payload, expectedSignature, signature)
+            logger.warn("HMAC: client_sig='{}' server_sig='{}'", signature, expectedSignature)
+            logger.warn("HMAC: payload='{}'", payload)
+            logger.warn("HMAC: body_length={} body_hash='{}'", body.length, bodyHash)
             call.respond(
                 HttpStatusCode.Unauthorized,
                 mapOf("error" to "Invalid request signature")
@@ -117,6 +119,8 @@ fun Application.configureHmacVerification() {
             finish()
             return@intercept
         }
+
+        logger.debug("HMAC: Verified {} {}", method, path)
     }
 }
 

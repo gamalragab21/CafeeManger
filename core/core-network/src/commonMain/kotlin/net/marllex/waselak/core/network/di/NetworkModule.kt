@@ -13,7 +13,6 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.plugin
-import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.TextContent
@@ -135,9 +134,14 @@ val networkModule = module {
                     val payload = "$method\n$path\n$timestamp\n$nonce\n$bodyHash"
                     val signature = HmacSigner.hmacSha256(hmacSecret, payload)
 
-                    request.header("X-Timestamp", timestamp)
-                    request.header("X-Nonce", nonce)
-                    request.header("X-Signature", signature)
+                    // Remove old HMAC headers first (prevents duplicate values on retries)
+                    request.headers.remove("X-Timestamp")
+                    request.headers.remove("X-Nonce")
+                    request.headers.remove("X-Signature")
+
+                    request.headers.append("X-Timestamp", timestamp)
+                    request.headers.append("X-Nonce", nonce)
+                    request.headers.append("X-Signature", signature)
 
                     execute(request)
                 }
