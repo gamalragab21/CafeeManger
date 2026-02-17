@@ -53,6 +53,7 @@ fun BiometricGateScreen(
     // Resolve string resources at composition time for use in coroutines
     val authReason = stringResource(Res.string.biometric_subtitle)
     val cancelledMsg = stringResource(Res.string.biometric_cancelled)
+    val notAvailableMsg = stringResource(Res.string.biometric_error)
 
     fun doAuthenticate() {
         scope.launch {
@@ -61,7 +62,7 @@ fun BiometricGateScreen(
                 is BiometricResult.Success -> onSuccess()
                 is BiometricResult.Cancelled -> errorMessage = cancelledMsg
                 is BiometricResult.Error -> errorMessage = result.message
-                is BiometricResult.NotAvailable -> onSuccess()
+                is BiometricResult.NotAvailable -> errorMessage = notAvailableMsg
             }
         }
     }
@@ -72,7 +73,7 @@ fun BiometricGateScreen(
             is BiometricResult.Success -> onSuccess()
             is BiometricResult.Cancelled -> errorMessage = cancelledMsg
             is BiometricResult.Error -> errorMessage = result.message
-            is BiometricResult.NotAvailable -> onSuccess()
+            is BiometricResult.NotAvailable -> errorMessage = notAvailableMsg
         }
     }
 

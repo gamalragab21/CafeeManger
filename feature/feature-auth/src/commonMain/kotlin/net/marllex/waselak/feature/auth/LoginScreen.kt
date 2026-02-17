@@ -84,15 +84,10 @@ fun LoginScreen(
 
     val biometricAuth = rememberBiometricAuthenticator()
 
-    // Navigate through biometric gate (or directly if unavailable)
+    // Always navigate through biometric/security gate on every platform
     val navigateWithBiometric: () -> Unit = {
         if (!navigated) {
-            if (biometricAuth.isAvailable()) {
-                showBiometricGate = true
-            } else {
-                navigated = true
-                onLoginSuccess()
-            }
+            showBiometricGate = true
         }
     }
 
