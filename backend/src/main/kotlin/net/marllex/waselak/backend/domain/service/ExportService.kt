@@ -66,92 +66,97 @@ class ExportService {
         val ordersByStatus: Map<String, Int>
     )
 
-//    fun getExportData(vendorId: UUID, fromDate: Long, toDate: Long): ExportData {
-//        return transaction {
-//            // Get vendor info
-//            val vendor = VendorsTable.select { VendorsTable.id eq vendorId }
-//                .singleOrNull()
-//                ?: throw IllegalArgumentException("Vendor not found")
-//
-//            val vendorName = vendor[VendorsTable.name]
-//
-//            // Get orders in date range
-//            val fromInstant = Instant.fromEpochMilliseconds(fromDate)
-//            val toInstant = Instant.fromEpochMilliseconds(toDate)
-//
-//            val orders = OrdersTable
-//                .leftJoin(UsersTable, { OrdersTable.cashierId }, { UsersTable.id })
-//                .select {
-//                    (OrdersTable.vendorId eq vendorId) and
-//                            (OrdersTable.createdAt greaterEq fromInstant) and
-//                            (OrdersTable.createdAt lessEq toInstant)
-//                }
-//                .orderBy(OrdersTable.createdAt, SortOrder.DESC)
-//                .map { orderRow ->
-//                    val orderId = orderRow[OrdersTable.id]
-//                    val createdAt = orderRow[OrdersTable.createdAt].toEpochMilliseconds()
-//                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-//                    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-//
-//                    // Get order items
-//                    val items = OrderItemsTable
-//                        .select { OrderItemsTable.orderId eq orderId }
-//                        .map { itemRow ->
-//                            OrderItemExportData(
-//                                itemName = itemRow[OrderItemsTable.itemNameSnapshot],
-//                                quantity = itemRow[OrderItemsTable.quantity],
-//                                price = itemRow[OrderItemsTable.itemPriceSnapshot].toDouble(),
-//                                total = itemRow[OrderItemsTable.itemPriceSnapshot].toDouble() * itemRow[OrderItemsTable.quantity]
-//                            )
-//                        }
-//
-//                    // Get delivery person name if exists
-//                    val deliveryPersonName = orderRow[OrdersTable.deliveryUserId]?.let { deliveryId ->
-//                        UsersTable.select { UsersTable.id eq deliveryId }
-//                            .singleOrNull()
-//                            ?.get(UsersTable.name)
-//                    }
-//
-//                    OrderExportData(
-//                        orderId = orderId.toString(),
-//                        orderNumber = orderId.toString().takeLast(8).uppercase(),
-//                        date = dateFormat.format(Date(createdAt)),
-//                        time = timeFormat.format(Date(createdAt)),
-//                        channel = orderRow[OrdersTable.channel],
-//                        status = orderRow[OrdersTable.status],
-//                        paymentMethod = orderRow[OrdersTable.paymentMethod],
-//                        customerName = orderRow[OrdersTable.clientName],
-//                        customerPhone = orderRow[OrdersTable.clientPhone],
-//                        items = items,
-//                        subtotal = orderRow[OrdersTable.subtotal].toDouble(),
-//                        tax = orderRow[OrdersTable.tax].toDouble(),
-//                        deliveryFee = orderRow[OrdersTable.deliveryFee]?.toDouble() ?: 0.0,
-//                        total = orderRow[OrdersTable.total].toDouble(),
-//                        cashierName = orderRow.getOrNull(UsersTable.name),
-//                        deliveryPersonName = deliveryPersonName
-//                    )
-//                }
-//
-//            // Calculate summary
-//            val summary = ExportSummary(
-//                totalOrders = orders.size,
-//                totalRevenue = orders.sumOf { it.total },
-//                totalTax = orders.sumOf { it.tax },
-//                totalDeliveryFees = orders.sumOf { it.deliveryFee },
-//                ordersByChannel = orders.groupBy { it.channel }.mapValues { it.value.size },
-//                ordersByPaymentMethod = orders.groupBy { it.paymentMethod }.mapValues { it.value.size },
-//                ordersByStatus = orders.groupBy { it.status }.mapValues { it.value.size }
-//            )
-//
-//            ExportData(
-//                vendorName = vendorName,
-//                fromDate = fromDate,
-//                toDate = toDate,
-//                orders = orders,
-//                summary = summary
-//            )
-//        }
-//    }
+    fun getExportData(vendorId: UUID, fromDate: Long, toDate: Long): ExportData {
+        return transaction {
+            // Get vendor info
+            val vendor = VendorsTable.selectAll().where { VendorsTable.id eq vendorId }
+                .singleOrNull()
+                ?: throw IllegalArgumentException("Vendor not found")
+
+            val vendorName = vendor[VendorsTable.name]
+
+            // Get orders in date range
+            val fromInstant = Instant.fromEpochMilliseconds(fromDate)
+            val toInstant = Instant.fromEpochMilliseconds(toDate)
+
+            // Pre-fetch all cashier names
+            val cashierNames = UsersTable.selectAll().where {
+                UsersTable.vendorId eq vendorId
+            }.associate { it[UsersTable.id] to it[UsersTable.name] }
+
+            val orderRows = OrdersTable.selectAll().where {
+                (OrdersTable.vendorId eq vendorId) and
+                        (OrdersTable.createdAt greaterEq fromInstant) and
+                        (OrdersTable.createdAt lessEq toInstant)
+            }.orderBy(OrdersTable.createdAt, SortOrder.DESC).toList()
+
+            // Pre-fetch all order items in one query
+            val allOrderIds = orderRows.map { it[OrdersTable.id] }
+            val allOrderItems = if (allOrderIds.isNotEmpty()) {
+                OrderItemsTable.selectAll().where {
+                    OrderItemsTable.orderId inList allOrderIds
+                }.toList().groupBy { it[OrderItemsTable.orderId] }
+            } else emptyMap()
+
+            val orders = orderRows.map { orderRow ->
+                val orderId = orderRow[OrdersTable.id]
+                val createdAt = orderRow[OrdersTable.createdAt].toEpochMilliseconds()
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+                val items = (allOrderItems[orderId] ?: emptyList()).map { itemRow ->
+                    OrderItemExportData(
+                        itemName = itemRow[OrderItemsTable.itemNameSnapshot],
+                        quantity = itemRow[OrderItemsTable.quantity],
+                        price = itemRow[OrderItemsTable.itemPriceSnapshot].toDouble(),
+                        total = itemRow[OrderItemsTable.itemPriceSnapshot].toDouble() * itemRow[OrderItemsTable.quantity]
+                    )
+                }
+
+                val deliveryPersonName = orderRow[OrdersTable.deliveryUserId]?.let { deliveryId ->
+                    cashierNames[deliveryId]
+                }
+
+                OrderExportData(
+                    orderId = orderId.toString(),
+                    orderNumber = orderId.toString().takeLast(8).uppercase(),
+                    date = dateFormat.format(Date(createdAt)),
+                    time = timeFormat.format(Date(createdAt)),
+                    channel = orderRow[OrdersTable.channel],
+                    status = orderRow[OrdersTable.status],
+                    paymentMethod = orderRow[OrdersTable.paymentMethod],
+                    customerName = orderRow[OrdersTable.clientName],
+                    customerPhone = orderRow[OrdersTable.clientPhone],
+                    items = items,
+                    subtotal = orderRow[OrdersTable.subtotal].toDouble(),
+                    tax = orderRow[OrdersTable.tax].toDouble(),
+                    deliveryFee = orderRow[OrdersTable.deliveryFee].toDouble(),
+                    total = orderRow[OrdersTable.total].toDouble(),
+                    cashierName = cashierNames[orderRow[OrdersTable.cashierId]],
+                    deliveryPersonName = deliveryPersonName
+                )
+            }
+
+            // Calculate summary
+            val summary = ExportSummary(
+                totalOrders = orders.size,
+                totalRevenue = orders.sumOf { it.total },
+                totalTax = orders.sumOf { it.tax },
+                totalDeliveryFees = orders.sumOf { it.deliveryFee },
+                ordersByChannel = orders.groupBy { it.channel }.mapValues { it.value.size },
+                ordersByPaymentMethod = orders.groupBy { it.paymentMethod }.mapValues { it.value.size },
+                ordersByStatus = orders.groupBy { it.status }.mapValues { it.value.size }
+            )
+
+            ExportData(
+                vendorName = vendorName,
+                fromDate = fromDate,
+                toDate = toDate,
+                orders = orders,
+                summary = summary
+            )
+        }
+    }
 
     fun generatePDF(data: ExportData): ByteArray {
         val outputStream = ByteArrayOutputStream()
