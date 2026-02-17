@@ -36,8 +36,10 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -72,11 +74,34 @@ fun LoginScreen(
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState(initial = false)
-    var hasNavigated by rememberSaveable { mutableStateOf(false) }
-    var showBiometricGate by rememberSaveable { mutableStateOf(false) }
+    // Use null initial so we can distinguish "loading" from "not logged in"
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState(initial = null)
+    var showBiometricGate by remember { mutableStateOf(false) }
+    // Track whether we already handled navigation to prevent double-fire
+    var navigated by remember { mutableStateOf(false) }
+    // Track manual login so the LaunchedEffect doesn't also trigger
+    var manualLoginDone by remember { mutableStateOf(false) }
 
     val biometricAuth = rememberBiometricAuthenticator()
+
+    // Navigate through biometric gate (or directly if unavailable)
+    val navigateWithBiometric: () -> Unit = {
+        if (!navigated) {
+            if (biometricAuth.isAvailable()) {
+                showBiometricGate = true
+            } else {
+                navigated = true
+                onLoginSuccess()
+            }
+        }
+    }
+
+    // Auto-login: when isLoggedIn transitions to true (app reopen with saved token)
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn == true && !navigated && !manualLoginDone) {
+            navigateWithBiometric()
+        }
+    }
 
     // Biometric gate overlay — shown after login success (auto or manual)
     if (showBiometricGate) {
@@ -84,32 +109,26 @@ fun LoginScreen(
             biometricAuth = biometricAuth,
             onSuccess = {
                 showBiometricGate = false
-                hasNavigated = true
+                navigated = true
                 onLoginSuccess()
             },
         )
         return
     }
 
-    // Auto-login path: token exists → gate through biometric if available
-    if (isLoggedIn && !hasNavigated) {
-        if (biometricAuth.isAvailable()) {
-            showBiometricGate = true
-        } else {
-            hasNavigated = true
-            onLoginSuccess()
-        }
+    // While loading initial state, show nothing (avoids login form flash)
+    if (isLoggedIn == null || (isLoggedIn == true && !navigated)) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        )
         return
     }
 
     // Manual login path: gate through biometric after successful credentials login
     val gatedOnLoginSuccess: () -> Unit = {
-        if (biometricAuth.isAvailable()) {
-            showBiometricGate = true
-        } else {
-            hasNavigated = true
-            onLoginSuccess()
-        }
+        manualLoginDone = true
+        navigateWithBiometric()
     }
 
     LoginContent(
