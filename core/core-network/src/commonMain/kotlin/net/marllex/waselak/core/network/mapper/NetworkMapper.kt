@@ -188,7 +188,7 @@ fun DailyAnalyticsResponse.toDomain() = DailyAnalytics(
 fun SettlementByPaymentMethodResponse.toDomain() = SettlementByPaymentMethod(
     orderCount = orderCount,
     totalRevenue = totalRevenue,
-    totalTax = totalTax,
+    totalDeliveryFees = totalDeliveryFees,
     totalSubtotal = totalSubtotal
 )
 
@@ -201,7 +201,7 @@ fun DeliveryPerformanceResponse.toDomain() = DeliveryPerformance(
     deliveryUserName = deliveryUserName,
     orderCount = orderCount,
     totalRevenue = totalRevenue,
-    totalTax = totalTax
+    totalDeliveryFees = totalDeliveryFees
 )
 
 // ─── Analytics Dashboard V2 Mappers ─────────────────────────────────
@@ -210,7 +210,6 @@ fun PeriodMetricsResponse.toDomain() = PeriodMetrics(
     totalRevenue = totalRevenue,
     totalOrders = totalOrders,
     averageOrderValue = averageOrderValue,
-    totalTax = totalTax,
     totalDeliveryFees = totalDeliveryFees,
     totalDiscounts = totalDiscounts,
 )
@@ -238,7 +237,6 @@ fun DailyRevenuePointResponse.toDomain() = DailyRevenuePoint(
 
 fun RevenueProfitResponse.toDomain() = RevenueProfit(
     grossRevenue = grossRevenue,
-    totalTax = totalTax,
     totalDeliveryFees = totalDeliveryFees,
     netRevenue = netRevenue,
     paymentMethods = paymentMethods.map { it.toDomain() },

@@ -17,7 +17,7 @@
     <string name="phone">الهاتف</string>
     <string name="order_items">عناصر الطلب</string>
     <string name="subtotal">المجموع الفرعي</string>
-    <string name="tax">الضريبة</string>
+    <string name="delivery_fee">رسوم التوصيل</string>
     <string name="total">الإجمالي</string>
     <string name="notes">ملاحظات</string>
     <string name="address">العنوان</string>

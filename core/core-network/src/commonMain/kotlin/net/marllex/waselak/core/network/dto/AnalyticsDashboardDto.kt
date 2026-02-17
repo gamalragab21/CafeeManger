@@ -13,7 +13,6 @@ data class PeriodMetricsResponse(
     @SerialName("total_revenue") val totalRevenue: Double,
     @SerialName("total_orders") val totalOrders: Int,
     @SerialName("average_order_value") val averageOrderValue: Double,
-    @SerialName("total_tax") val totalTax: Double,
     @SerialName("total_delivery_fees") val totalDeliveryFees: Double,
     @SerialName("total_discounts") val totalDiscounts: Double,
 )
@@ -46,7 +45,6 @@ data class DailyRevenuePointResponse(
 @Serializable
 data class RevenueProfitResponse(
     @SerialName("gross_revenue") val grossRevenue: Double,
-    @SerialName("total_tax") val totalTax: Double,
     @SerialName("total_delivery_fees") val totalDeliveryFees: Double,
     @SerialName("net_revenue") val netRevenue: Double,
     @SerialName("payment_methods") val paymentMethods: List<PaymentMethodDetailResponse>,

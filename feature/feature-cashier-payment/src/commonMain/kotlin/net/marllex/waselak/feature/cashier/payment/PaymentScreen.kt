@@ -127,8 +127,8 @@ fun PaymentScreen(
                                 value = order.subtotal,
                             )
                             SummaryRow(
-                                label = stringResource(Res.string.tax),
-                                value = order.tax,
+                                label = stringResource(Res.string.delivery_fee),
+                                value = order.deliveryFee + order.tax,
                             )
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

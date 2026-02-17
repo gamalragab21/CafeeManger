@@ -38,7 +38,6 @@ fun RevenueProfitSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(label = stringResource(Res.string.tax), value = formatCurrency(data.totalTax), modifier = Modifier.weight(1f))
             KpiCard(label = stringResource(Res.string.delivery_fees), value = formatCurrency(data.totalDeliveryFees), modifier = Modifier.weight(1f))
         }
 

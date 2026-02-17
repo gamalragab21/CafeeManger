@@ -47,16 +47,11 @@ fun ExecutiveSummaryCards(
             )
         }
         Spacer(Modifier.height(8.dp))
-        // Row 2: Tax, Delivery Fees, Active Orders, Attendance
+        // Row 2: Delivery Fees, Active Orders, Attendance
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            KpiCard(
-                label = stringResource(Res.string.tax),
-                value = formatCurrency(data.current.totalTax),
-                modifier = Modifier.weight(1f),
-            )
             KpiCard(
                 label = stringResource(Res.string.delivery_fees),
                 value = formatCurrency(data.current.totalDeliveryFees),
@@ -67,18 +62,11 @@ fun ExecutiveSummaryCards(
                 value = data.activeOrders.toString(),
                 modifier = Modifier.weight(1f),
             )
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
             KpiCard(
                 label = stringResource(Res.string.attendance_today),
                 value = data.attendanceToday.toString(),
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(2f))
         }
     }
 }

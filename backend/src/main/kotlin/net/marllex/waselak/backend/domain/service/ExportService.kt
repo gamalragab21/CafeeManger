@@ -42,7 +42,6 @@ class ExportService {
         val customerPhone: String?,
         val items: List<OrderItemExportData>,
         val subtotal: Double,
-        val tax: Double,
         val deliveryFee: Double,
         val total: Double,
         val cashierName: String?,
@@ -59,7 +58,6 @@ class ExportService {
     data class ExportSummary(
         val totalOrders: Int,
         val totalRevenue: Double,
-        val totalTax: Double,
         val totalDeliveryFees: Double,
         val ordersByChannel: Map<String, Int>,
         val ordersByPaymentMethod: Map<String, Int>,
@@ -129,8 +127,7 @@ class ExportService {
                     customerPhone = orderRow[OrdersTable.clientPhone],
                     items = items,
                     subtotal = orderRow[OrdersTable.subtotal].toDouble(),
-                    tax = orderRow[OrdersTable.tax].toDouble(),
-                    deliveryFee = orderRow[OrdersTable.deliveryFee].toDouble(),
+                    deliveryFee = orderRow[OrdersTable.deliveryFee].toDouble() + orderRow[OrdersTable.tax].toDouble(),
                     total = orderRow[OrdersTable.total].toDouble(),
                     cashierName = cashierNames[orderRow[OrdersTable.cashierId]],
                     deliveryPersonName = deliveryPersonName
@@ -141,7 +138,6 @@ class ExportService {
             val summary = ExportSummary(
                 totalOrders = orders.size,
                 totalRevenue = orders.sumOf { it.total },
-                totalTax = orders.sumOf { it.tax },
                 totalDeliveryFees = orders.sumOf { it.deliveryFee },
                 ordersByChannel = orders.groupBy { it.channel }.mapValues { it.value.size },
                 ordersByPaymentMethod = orders.groupBy { it.paymentMethod }.mapValues { it.value.size },
@@ -196,8 +192,10 @@ class ExportService {
         summaryTable.addCell(createCell("Total Revenue:", true))
         summaryTable.addCell(createCell(String.format("%.2f EGP", data.summary.totalRevenue), false))
 
-        summaryTable.addCell(createCell("Total Delivery Fees:", true))
-        summaryTable.addCell(createCell(String.format("%.2f EGP", data.summary.totalDeliveryFees), false))
+        if (data.summary.totalDeliveryFees > 0) {
+            summaryTable.addCell(createCell("Total Delivery Fees:", true))
+            summaryTable.addCell(createCell(String.format("%.2f EGP", data.summary.totalDeliveryFees), false))
+        }
 
         document.add(summaryTable)
         document.add(Paragraph("\n"))
@@ -298,9 +296,11 @@ class ExportService {
         row.createCell(0).setCellValue("Total Revenue (EGP)")
         row.createCell(1).setCellValue(data.summary.totalRevenue)
 
-        row = summarySheet.createRow(rowNum++)
-        row.createCell(0).setCellValue("Total Delivery Fees (EGP)")
-        row.createCell(1).setCellValue(data.summary.totalDeliveryFees)
+        if (data.summary.totalDeliveryFees > 0) {
+            row = summarySheet.createRow(rowNum++)
+            row.createCell(0).setCellValue("Total Delivery Fees (EGP)")
+            row.createCell(1).setCellValue(data.summary.totalDeliveryFees)
+        }
 
         rowNum++ // Empty row
 
@@ -341,8 +341,8 @@ class ExportService {
         // Header
         row = ordersSheet.createRow(rowNum++)
         val headerStyle = createHeaderStyle(workbook)
-        val headers = listOf("Order #", "Date", "Time", "Channel", "Payment Method", "Status", 
-                            "Customer Name", "Customer Phone", "Subtotal", "Delivery Fees", "Total", 
+        val headers = listOf("Order #", "Date", "Time", "Channel", "Payment Method", "Status",
+                            "Customer Name", "Customer Phone", "Subtotal", "Delivery Fees", "Total",
                             "Cashier", "Delivery Person")
         headers.forEachIndexed { index, header ->
             cell = row.createCell(index)

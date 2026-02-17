@@ -34,7 +34,7 @@ data class DailyAnalyticsResponse(
 data class SettlementByPaymentMethodResponse(
     @SerialName("order_count") val orderCount: Int,
     @SerialName("total_revenue") val totalRevenue: Double,
-    @SerialName("total_tax") val totalTax: Double,
+    @SerialName("total_delivery_fees") val totalDeliveryFees: Double,
     @SerialName("total_subtotal") val totalSubtotal: Double
 )
 
@@ -49,5 +49,5 @@ data class DeliveryPerformanceResponse(
     @SerialName("delivery_user_name") val deliveryUserName: String,
     @SerialName("order_count") val orderCount: Int,
     @SerialName("total_revenue") val totalRevenue: Double,
-    @SerialName("total_tax") val totalTax: Double
+    @SerialName("total_delivery_fees") val totalDeliveryFees: Double
 )

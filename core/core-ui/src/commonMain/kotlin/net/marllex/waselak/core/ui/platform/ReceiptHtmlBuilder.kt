@@ -192,11 +192,9 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     // Totals
     append("<div class='totals'>")
     append("<div class='info-row'><span class='label'>Subtotal</span><span class='value'>${formatAmount(order.subtotal)}</span></div>")
-    if (order.tax > 0.0) {
-        append("<div class='info-row'><span class='label'>Tax</span><span class='value'>${formatAmount(order.tax)}</span></div>")
-    }
-    if (order.deliveryFee > 0.0) {
-        append("<div class='info-row'><span class='label'>Delivery Fee</span><span class='value'>${formatAmount(order.deliveryFee)}</span></div>")
+    val totalDeliveryFee = order.deliveryFee + order.tax
+    if (totalDeliveryFee > 0.0) {
+        append("<div class='info-row'><span class='label'>Delivery Fee</span><span class='value'>${formatAmount(totalDeliveryFee)}</span></div>")
     }
     append("</div>")
 

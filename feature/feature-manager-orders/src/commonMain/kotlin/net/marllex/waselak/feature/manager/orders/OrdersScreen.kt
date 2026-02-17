@@ -493,7 +493,7 @@ private fun OrderCard(
 
                     // Price Breakdown
                     PriceRow(stringResource(Res.string.subtotal), CurrencyFormatter.format(order.subtotal))
-                    PriceRow(stringResource(Res.string.tax), CurrencyFormatter.format(order.tax))
+                    PriceRow(stringResource(Res.string.delivery_fee), CurrencyFormatter.format(order.deliveryFee + order.tax))
                     PriceRow(stringResource(Res.string.total), CurrencyFormatter.format(order.total), isBold = true)
 
                     // Secondary Info

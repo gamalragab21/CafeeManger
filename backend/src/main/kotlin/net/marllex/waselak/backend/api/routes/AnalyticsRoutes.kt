@@ -47,14 +47,14 @@ data class DeliveryPerformanceDto(
     val delivery_user_name: String,
     val order_count: Int,
     val total_revenue: Double,
-    val total_tax: Double // NOTE: This field represents delivery fees, not actual tax
+    val total_delivery_fees: Double
 )
 
 @Serializable
 data class SettlementByPaymentMethodDto(
     val order_count: Int,
     val total_revenue: Double,
-    val total_tax: Double, // NOTE: This field represents delivery fees, not actual tax
+    val total_delivery_fees: Double,
     val total_subtotal: Double
 )
 
@@ -187,7 +187,7 @@ fun Route.analyticsRoutes() {
                         SettlementByPaymentMethodDto(
                             order_count = rows.size,
                             total_revenue = rows.sumOf { it[OrdersTable.total].toDouble() },
-                            total_tax = rows.sumOf { it[OrdersTable.tax].toDouble() },
+                            total_delivery_fees = rows.sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() },
                             total_subtotal = rows.sumOf { it[OrdersTable.subtotal].toDouble() }
                         )
                     }
@@ -229,7 +229,7 @@ fun Route.analyticsRoutes() {
                         delivery_user_name = userRow[UsersTable.name],
                         order_count = orderRows.size,
                         total_revenue = orderRows.sumOf { it[OrdersTable.total].toDouble() },
-                        total_tax = orderRows.sumOf { it[OrdersTable.tax].toDouble() }
+                        total_delivery_fees = orderRows.sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
                     )
                 }
             }
@@ -266,7 +266,7 @@ fun Route.analyticsRoutes() {
                         delivery_user_name = userRow[UsersTable.name],
                         order_count = orderRows.size,
                         total_revenue = orderRows.sumOf { it[OrdersTable.total].toDouble() },
-                        total_tax = orderRows.sumOf { it[OrdersTable.tax].toDouble() }
+                        total_delivery_fees = orderRows.sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
                     )
                 }
             }

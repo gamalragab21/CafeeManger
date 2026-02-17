@@ -1073,7 +1073,7 @@ private fun buildReceiptHtml(
 
           <div class="totals-section">
             <div class="total-row"><span class="label">Subtotal</span> <span>${"%.2f".format(order.subtotal)} EGP</span></div>
-            <div class="total-row"><span class="label">Tax</span> <span>${"%.2f".format(order.tax)} EGP</span></div>
+            <div class="total-row"><span class="label">Delivery Fee</span> <span>${"%.2f".format(order.delivery_fee + order.tax)} EGP</span></div>
             <div class="total-row grand-total"><span>Total</span> <span>${"%.2f".format(order.total)} EGP</span></div>
           </div>
 

@@ -17,7 +17,7 @@
     <string name="phone">Phone</string>
     <string name="order_items">Order Items</string>
     <string name="subtotal">Subtotal</string>
-    <string name="tax">Tax</string>
+    <string name="delivery_fee">Delivery Fee</string>
     <string name="total">Total</string>
     <string name="notes">Notes</string>
     <string name="address">Address</string>

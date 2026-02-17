@@ -23,7 +23,6 @@ data class PeriodMetricsDto(
     val total_revenue: Double,
     val total_orders: Int,
     val average_order_value: Double,
-    val total_tax: Double,
     val total_delivery_fees: Double,
     val total_discounts: Double,
 )
@@ -56,7 +55,6 @@ data class DailyRevenuePointDto(
 @Serializable
 data class RevenueProfitDto(
     val gross_revenue: Double,
-    val total_tax: Double,
     val total_delivery_fees: Double,
     val net_revenue: Double,
     val payment_methods: List<PaymentMethodDetailDto>,
@@ -291,15 +289,14 @@ fun Route.analyticsDashboardRoutes() {
                     val totalRevenue = orders.sumOf { it[OrdersTable.total].toDouble() }
                     val totalOrders = orders.size
                     val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
-                    val totalTax = orders.sumOf { it[OrdersTable.tax].toDouble() }
+                    // tax column stores delivery zone fees, merge into delivery fees
                     val totalDeliveryFees = orders
                         .filter { it[OrdersTable.channel] == "DELIVERY" }
-                        .sumOf { it[OrdersTable.deliveryFee].toDouble() }
+                        .sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
                     return PeriodMetricsDto(
                         total_revenue = totalRevenue,
                         total_orders = totalOrders,
                         average_order_value = aov,
-                        total_tax = totalTax,
                         total_delivery_fees = totalDeliveryFees,
                         total_discounts = 0.0,
                     )
@@ -352,10 +349,10 @@ fun Route.analyticsDashboardRoutes() {
                 }.toList()
 
                 val gross = orders.sumOf { it[OrdersTable.total].toDouble() }
-                val tax = orders.sumOf { it[OrdersTable.tax].toDouble() }
+                // tax column stores delivery zone fees, merge into delivery fees
                 val deliveryFees = orders
                     .filter { it[OrdersTable.channel] == "DELIVERY" }
-                    .sumOf { it[OrdersTable.deliveryFee].toDouble() }
+                    .sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
                 val net = orders.sumOf { it[OrdersTable.subtotal].toDouble() }
 
                 val paymentMethods = orders
@@ -381,7 +378,6 @@ fun Route.analyticsDashboardRoutes() {
 
                 RevenueProfitDto(
                     gross_revenue = gross,
-                    total_tax = tax,
                     total_delivery_fees = deliveryFees,
                     net_revenue = net,
                     payment_methods = paymentMethods,

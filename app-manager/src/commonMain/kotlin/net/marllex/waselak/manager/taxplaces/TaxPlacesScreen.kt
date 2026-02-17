@@ -55,7 +55,7 @@ fun TaxPlacesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tax Places") },
+                title = { Text("Delivery Zones") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -68,7 +68,7 @@ fun TaxPlacesScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add tax place")
+                Icon(Icons.Default.Add, contentDescription = "Add delivery zone")
             }
         }
     ) { padding ->
@@ -84,7 +84,7 @@ fun TaxPlacesScreen(
             ) {
                 item {
                     Text(
-                        "Tax places (used for delivery orders). Set name and tax % per place; one can be default.",
+                        "Delivery zones for delivery orders. Set the zone name and delivery fee per zone; one can be the default.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -135,7 +135,7 @@ private fun TaxPlaceCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "+${place.taxPercent} EGP" + if (place.isDefault) " (default)" else "",
+                    text = "+${place.taxPercent} EGP delivery fee" + if (place.isDefault) " (default)" else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -158,20 +158,20 @@ private fun AddTaxPlaceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add tax place") },
+        title = { Text("Add Delivery Zone") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Place name") },
+                    label = { Text("Zone name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = taxPercent,
                     onValueChange = { taxPercent = it },
-                    label = { Text("Tax amount (EGP)") },
+                    label = { Text("Delivery fee (EGP)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),

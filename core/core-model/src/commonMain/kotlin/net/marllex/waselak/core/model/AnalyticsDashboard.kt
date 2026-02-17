@@ -9,7 +9,6 @@ data class PeriodMetrics(
     val totalRevenue: Double,
     val totalOrders: Int,
     val averageOrderValue: Double,
-    val totalTax: Double,
     val totalDeliveryFees: Double,
     val totalDiscounts: Double,
 )
@@ -38,7 +37,6 @@ data class DailyRevenuePoint(
 
 data class RevenueProfit(
     val grossRevenue: Double,
-    val totalTax: Double,
     val totalDeliveryFees: Double,
     val netRevenue: Double,
     val paymentMethods: List<PaymentMethodDetail>,

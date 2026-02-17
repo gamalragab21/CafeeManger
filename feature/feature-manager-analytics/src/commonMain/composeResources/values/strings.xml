@@ -15,12 +15,12 @@
     <string name="settlements">Settlements</string>
     <string name="by_payment_method">By Payment Method</string>
     <string name="order_count">Orders</string>
-    <string name="total_tax">Total Tax</string>
+    <string name="total_delivery_fees">Total Delivery Fees</string>
     <string name="subtotal">Subtotal</string>
     <string name="delivery_performance">Delivery Performance</string>
     <string name="delivery_person">Delivery Person</string>
     <string name="orders_delivered">Orders Delivered</string>
-    <string name="total_with_tax">Total (with Tax)</string>
+    <string name="total_with_delivery">Total (with Delivery)</string>
     <string name="all">All</string>
     <string name="completed">Completed</string>
     <string name="pending">Pending</string>
@@ -49,7 +49,6 @@
     <string name="product_insights">Product Insights</string>
     <string name="gross_revenue">Gross Revenue</string>
     <string name="net_revenue">Net Revenue</string>
-    <string name="tax_collected">Tax Collected</string>
     <string name="delivery_fees">Delivery Fees</string>
     <string name="orders">Orders</string>
     <string name="orders_by_channel">Orders by Channel</string>
@@ -65,8 +64,8 @@
     <string name="team_performance">Team Performance</string>
     <string name="top_items">Top Items</string>
     <string name="sold">Sold</string>
-    <string name="after_tax">After Tax</string>
-    <string name="after_tax_hint">Revenue after tax deductions</string>
+    <string name="after_delivery_fees">After Delivery Fees</string>
+    <string name="after_delivery_fees_hint">Revenue after delivery fee deductions</string>
     <string name="afternoon">Afternoon</string>
     <string name="almost_there">Almost There!</string>
     <string name="best_sellers">Best Sellers</string>
@@ -126,9 +125,9 @@
     <string name="select_time_period">Select Time Period</string>
     <string name="share_report">Share Report</string>
     <string name="takeaway_orders">Takeaway Orders</string>
-    <string name="tax_paid">Tax Paid</string>
+    <string name="delivery_fees_paid">Delivery Fees Paid</string>
     <string name="team_hint">Your team\'s performance</string>
-    <string name="total_money_hint">All money made including tax</string>
+    <string name="total_money_hint">All money made including delivery fees</string>
     <string name="total_money_made">Total Money Made</string>
     <string name="total_orders_count">Total Orders: %1$d</string>
     <string name="vs_last_month">vs Last Month</string>
@@ -159,7 +158,6 @@
 
     <!-- Executive Summary KPIs -->
     <string name="avg_order">Avg Order</string>
-    <string name="tax">Tax</string>
     <string name="active_orders">Active Orders</string>
     <string name="attendance_today">Attendance Today</string>
 

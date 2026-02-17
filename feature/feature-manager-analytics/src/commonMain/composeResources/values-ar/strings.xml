@@ -15,12 +15,12 @@
     <string name="settlements">التسويات</string>
     <string name="by_payment_method">حسب طريقة الدفع</string>
     <string name="order_count">الطلبات</string>
-    <string name="total_tax">إجمالي الضريبة</string>
+    <string name="total_delivery_fees">إجمالي رسوم التوصيل</string>
     <string name="subtotal">المجموع الفرعي</string>
     <string name="delivery_performance">أداء التوصيل</string>
     <string name="delivery_person">مندوب التوصيل</string>
     <string name="orders_delivered">الطلبات المُوصّلة</string>
-    <string name="total_with_tax">الإجمالي (شامل الضريبة)</string>
+    <string name="total_with_delivery">الإجمالي (شامل التوصيل)</string>
     <string name="all">الكل</string>
     <string name="completed">مكتمل</string>
     <string name="pending">قيد الانتظار</string>
@@ -49,7 +49,6 @@
     <string name="product_insights">رؤى المنتجات</string>
     <string name="gross_revenue">إجمالي الإيرادات</string>
     <string name="net_revenue">صافي الإيرادات</string>
-    <string name="tax_collected">الضرائب المحصلة</string>
     <string name="delivery_fees">رسوم التوصيل</string>
     <string name="orders">الطلبات</string>
     <string name="orders_by_channel">الطلبات حسب القناة</string>
@@ -65,8 +64,8 @@
     <string name="team_performance">أداء الفريق</string>
     <string name="top_items">أفضل الأصناف</string>
     <string name="sold">مُباع</string>
-    <string name="after_tax">بعد الضريبة</string>
-    <string name="after_tax_hint">الإيرادات بعد خصم الضرائب</string>
+    <string name="after_delivery_fees">بعد رسوم التوصيل</string>
+    <string name="after_delivery_fees_hint">الإيرادات بعد خصم رسوم التوصيل</string>
     <string name="afternoon">بعد الظهر</string>
     <string name="almost_there">أوشكت على الوصول!</string>
     <string name="best_sellers">الأكثر مبيعًا</string>
@@ -126,9 +125,9 @@
     <string name="select_time_period">اختر الفترة الزمنية</string>
     <string name="share_report">مشاركة التقرير</string>
     <string name="takeaway_orders">طلبات سفري</string>
-    <string name="tax_paid">الضرائب المدفوعة</string>
+    <string name="delivery_fees_paid">رسوم التوصيل المدفوعة</string>
     <string name="team_hint">أداء فريقك</string>
-    <string name="total_money_hint">كل الأموال شاملة الضريبة</string>
+    <string name="total_money_hint">كل الأموال شاملة رسوم التوصيل</string>
     <string name="total_money_made">إجمالي الأموال المكتسبة</string>
     <string name="total_orders_count">إجمالي الطلبات: %1$d</string>
     <string name="vs_last_month">مقارنة بالشهر الماضي</string>
@@ -159,7 +158,6 @@
 
     <!-- Executive Summary KPIs -->
     <string name="avg_order">متوسط الطلب</string>
-    <string name="tax">الضريبة</string>
     <string name="active_orders">الطلبات النشطة</string>
     <string name="attendance_today">الحضور اليوم</string>
 
