@@ -56,8 +56,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.drop
 import androidx.compose.ui.Alignment
@@ -87,6 +89,8 @@ import net.marllex.waselak.core.ui.components.WaslekLogo
 import org.jetbrains.compose.resources.stringResource
 import waselak.core.core_ui.generated.resources.Res as CoreRes
 import waselak.core.core_ui.generated.resources.*
+import net.marllex.waselak.feature.auth.BiometricGateScreen
+import net.marllex.waselak.feature.auth.biometric.rememberBiometricAuthenticator
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.feature.cashier.attendance.AttendanceScreen
@@ -617,6 +621,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val currentUser by authRepository.currentUser.collectAsState(initial = null)
     val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val biometricAuth = rememberBiometricAuthenticator()
+    var showSignOutBiometricGate by remember { mutableStateOf(false) }
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
@@ -630,7 +636,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             }
     }
 
-    val onSignOut: () -> Unit = remember(navController, scope) {
+    // Biometric verification before sign-out
+    val performSignOut: () -> Unit = remember(navController, scope) {
         {
             scope.launch {
                 authRepository.logout()
@@ -639,6 +646,28 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 }
             }
         }
+    }
+
+    val onSignOut: () -> Unit = remember(scope) {
+        {
+            if (biometricAuth.hasBiometricHardware) {
+                showSignOutBiometricGate = true
+            } else {
+                performSignOut()
+            }
+        }
+    }
+
+    // Show biometric gate overlay for sign-out verification
+    if (showSignOutBiometricGate) {
+        BiometricGateScreen(
+            biometricAuth = biometricAuth,
+            onSuccess = {
+                showSignOutBiometricGate = false
+                performSignOut()
+            },
+        )
+        return
     }
 
     val showNav = allRoutes.any { route ->

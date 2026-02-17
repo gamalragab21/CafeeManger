@@ -14,6 +14,9 @@ import kotlin.coroutines.resume
 
 actual class BiometricAuthenticator(private val context: Context) {
 
+    actual val hasBiometricHardware: Boolean
+        get() = isAvailable()
+
     actual fun isAvailable(): Boolean {
         val biometricManager = BiometricManager.from(context)
         return biometricManager.canAuthenticate(

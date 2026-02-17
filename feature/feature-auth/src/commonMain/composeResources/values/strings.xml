@@ -25,4 +25,7 @@
     <string name="tap_to_retry">Tap to authenticate</string>
     <string name="biometric_cancelled">Authentication cancelled. Tap to retry.</string>
     <string name="biometric_error">Authentication failed. Please try again.</string>
+
+    <string name="desktop_verify_subtitle">Enter your password to verify your identity</string>
+    <string name="verify_button">Verify</string>
 </resources>

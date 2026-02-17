@@ -25,4 +25,7 @@
     <string name="tap_to_retry">اضغط للمصادقة</string>
     <string name="biometric_cancelled">تم إلغاء المصادقة. اضغط للمحاولة مرة أخرى.</string>
     <string name="biometric_error">فشلت المصادقة. يرجى المحاولة مرة أخرى.</string>
+
+    <string name="desktop_verify_subtitle">أدخل كلمة المرور للتحقق من هويتك</string>
+    <string name="verify_button">تحقق</string>
 </resources>

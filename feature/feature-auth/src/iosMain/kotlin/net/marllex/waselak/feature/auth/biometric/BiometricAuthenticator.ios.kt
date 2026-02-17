@@ -13,6 +13,15 @@ import kotlin.coroutines.resume
 
 actual class BiometricAuthenticator {
 
+    actual val hasBiometricHardware: Boolean
+        get() {
+            val context = LAContext()
+            return context.canEvaluatePolicy(
+                LAPolicyDeviceOwnerAuthenticationWithBiometrics,
+                error = null
+            )
+        }
+
     actual fun isAvailable(): Boolean {
         val context = LAContext()
         // Check biometric first, fall back to device passcode

@@ -107,6 +107,9 @@ fun LoginScreen(
                 navigated = true
                 onLoginSuccess()
             },
+            onVerifyPassword = { password ->
+                viewModel.verifyPassword(password, appType)
+            },
         )
         return
     }
