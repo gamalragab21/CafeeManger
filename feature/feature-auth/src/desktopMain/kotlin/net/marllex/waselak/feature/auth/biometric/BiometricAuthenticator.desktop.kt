@@ -6,20 +6,11 @@ import androidx.compose.runtime.remember
 actual class BiometricAuthenticator {
 
     /**
-     * Desktop has no biometric hardware — the Compose BiometricGateScreen
-     * will show a password verification UI instead.
+     * Desktop JVM has no system-level biometric/credential API.
+     * Returns false so the app skips the biometric gate on desktop.
      */
-    actual val hasBiometricHardware: Boolean = false
+    actual fun isAvailable(): Boolean = false
 
-    /**
-     * Always true — the password-based security gate is always available on desktop.
-     */
-    actual fun isAvailable(): Boolean = true
-
-    /**
-     * Returns NotAvailable so that BiometricGateScreen knows to show
-     * the password verification UI instead of a biometric prompt.
-     */
     actual suspend fun authenticate(reason: String): BiometricResult {
         return BiometricResult.NotAvailable
     }

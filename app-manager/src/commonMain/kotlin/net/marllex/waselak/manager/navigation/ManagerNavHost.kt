@@ -95,7 +95,6 @@ import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.QrCodeImage
 import net.marllex.waselak.core.ui.components.SignOutButton
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
-import net.marllex.waselak.feature.auth.BiometricGateScreen
 import net.marllex.waselak.feature.auth.biometric.BiometricResult
 import net.marllex.waselak.feature.auth.biometric.rememberBiometricAuthenticator
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
@@ -255,7 +254,6 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
     val biometricAuth = rememberBiometricAuthenticator()
-    var showSignOutBiometricGate by remember { mutableStateOf(false) }
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
@@ -269,40 +267,28 @@ fun ManagerNavHost(authRepository: AuthRepository) {
             }
     }
 
-    // Biometric verification before sign-out
-    val performSignOut: () -> Unit = remember(navController, scope) {
+    // Sign-out with biometric verification (system prompt on Android/iOS)
+    val onSignOut: () -> Unit = remember(scope) {
         {
             scope.launch {
-                authRepository.logout()
-                navController.navigate(AUTH_ROUTE) {
-                    popUpTo(0) { inclusive = true }
+                val canProceed = if (biometricAuth.isAvailable()) {
+                    // Trigger system auth prompt (fingerprint / Face ID / PIN)
+                    when (biometricAuth.authenticate("Sign out verification")) {
+                        is BiometricResult.Success -> true
+                        is BiometricResult.NotAvailable -> true
+                        else -> false // Cancelled or Error — don't sign out
+                    }
+                } else {
+                    true // Desktop — no system auth, proceed directly
+                }
+                if (canProceed) {
+                    authRepository.logout()
+                    navController.navigate(AUTH_ROUTE) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             }
         }
-    }
-
-    val onSignOut: () -> Unit = remember(scope) {
-        {
-            // Trigger biometric gate before sign-out
-            if (biometricAuth.hasBiometricHardware) {
-                showSignOutBiometricGate = true
-            } else {
-                // Desktop: proceed directly (already gated on login)
-                performSignOut()
-            }
-        }
-    }
-
-    // Show biometric gate overlay for sign-out verification
-    if (showSignOutBiometricGate) {
-        BiometricGateScreen(
-            biometricAuth = biometricAuth,
-            onSuccess = {
-                showSignOutBiometricGate = false
-                performSignOut()
-            },
-        )
-        return
     }
 
     val showNav = ManagerTab.entries.any { tab ->

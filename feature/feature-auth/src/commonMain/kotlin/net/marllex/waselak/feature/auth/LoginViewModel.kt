@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
@@ -76,24 +75,6 @@ class LoginViewModel constructor(
                     }
                 }
         }
-    }
-
-    /**
-     * Verifies a password against the current user's credentials (for desktop gate).
-     * Re-authenticates using the stored phone + given password.
-     * Returns null on success, or error message on failure.
-     */
-    suspend fun verifyPassword(password: String, appType: String): String? {
-        // Get phone from login form state or from cached user data
-        val phone = _uiState.value.phone.ifBlank {
-            authRepository.currentUser.first()?.phone
-        } ?: return "Unable to verify. Please sign in again."
-
-        return authRepository.login(phone, password, appType)
-            .fold(
-                onSuccess = { null }, // Success — password is correct
-                onFailure = { it.message ?: "Invalid password" },
-            )
     }
 
     private fun isRoleAllowed(role: UserRole, appType: String): Boolean {

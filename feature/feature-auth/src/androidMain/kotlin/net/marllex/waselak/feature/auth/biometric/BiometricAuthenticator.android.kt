@@ -2,6 +2,7 @@ package net.marllex.waselak.feature.auth.biometric
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.Composable
@@ -14,15 +15,19 @@ import kotlin.coroutines.resume
 
 actual class BiometricAuthenticator(private val context: Context) {
 
-    actual val hasBiometricHardware: Boolean
-        get() = isAvailable()
+    private val allowedAuthenticators: Int
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: biometric OR device credential (PIN/pattern/password)
+            BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            // Android 10 and below: biometric only (DEVICE_CREDENTIAL not supported with setNegativeButtonText)
+            BiometricManager.Authenticators.BIOMETRIC_WEAK
+        }
 
     actual fun isAvailable(): Boolean {
         val biometricManager = BiometricManager.from(context)
-        return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.BIOMETRIC_WEAK
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        return biometricManager.canAuthenticate(allowedAuthenticators) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     actual suspend fun authenticate(reason: String): BiometricResult {
@@ -54,13 +59,17 @@ actual class BiometricAuthenticator(private val context: Context) {
                 }
             }
 
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            val promptBuilder = BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Waslek")
                 .setSubtitle(reason)
-                .setNegativeButtonText("Cancel")
-                .build()
+                .setAllowedAuthenticators(allowedAuthenticators)
 
-            BiometricPrompt(activity, executor, callback).authenticate(promptInfo)
+            // setNegativeButtonText is not allowed when DEVICE_CREDENTIAL is set
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                promptBuilder.setNegativeButtonText("Cancel")
+            }
+
+            BiometricPrompt(activity, executor, callback).authenticate(promptBuilder.build())
         }
     }
 

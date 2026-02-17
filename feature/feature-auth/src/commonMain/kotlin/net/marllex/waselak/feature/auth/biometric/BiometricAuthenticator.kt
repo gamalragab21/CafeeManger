@@ -3,13 +3,10 @@ package net.marllex.waselak.feature.auth.biometric
 import androidx.compose.runtime.Composable
 
 expect class BiometricAuthenticator {
-    /** Whether the security gate is available (always true on all platforms). */
+    /** Whether system authentication (biometric/PIN/pattern/passcode) is available. */
     fun isAvailable(): Boolean
 
-    /** Whether the device has biometric hardware (fingerprint, face, etc.). */
-    val hasBiometricHardware: Boolean
-
-    /** Authenticate using biometric prompt (Android/iOS) or returns NotAvailable on desktop. */
+    /** Triggers the system built-in authentication (fingerprint, face, PIN, pattern, passcode). */
     suspend fun authenticate(reason: String): BiometricResult
 }
 
