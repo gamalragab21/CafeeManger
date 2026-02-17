@@ -118,7 +118,9 @@ val networkModule = module {
             if (hmacSecret.isNotBlank()) {
                 client.plugin(HttpSend).intercept { request ->
                     val method = request.method.value
-                    val path = request.url.encodedPath
+                    val rawPath = request.url.encodedPath
+                    // Ensure leading slash for consistency with server's call.request.path()
+                    val path = if (rawPath.startsWith("/")) rawPath else "/$rawPath"
                     val timestamp = kotlinx.datetime.Clock.System.now()
                         .toEpochMilliseconds().toString()
                     val nonce = Uuid.random().toString()
