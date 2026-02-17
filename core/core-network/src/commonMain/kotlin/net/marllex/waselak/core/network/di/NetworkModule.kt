@@ -2,6 +2,7 @@ package net.marllex.waselak.core.network.di
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.call.save
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpSend
@@ -66,25 +67,6 @@ val networkModule = module {
             }
             HttpResponseValidator {
                 validateResponse { response ->
-                    // Verify response HMAC signature from server
-                    if (hmacSecret.isNotBlank()) {
-                        val respTimestamp = response.headers["X-Response-Timestamp"]
-                        val respSignature = response.headers["X-Response-Signature"]
-                        if (respTimestamp != null && respSignature != null) {
-                            val respBody = response.bodyAsText()
-                            val respBodyHash = HmacSigner.sha256(respBody)
-                            val respPayload = "$respTimestamp\n$respBodyHash"
-                            val expectedSig = HmacSigner.hmacSha256(hmacSecret, respPayload)
-                            if (respSignature != expectedSig) {
-                                throw ApiException(
-                                    statusCode = 0,
-                                    errorMessage = "Response signature verification failed",
-                                    errorType = "RESPONSE_TAMPERED"
-                                )
-                            }
-                        }
-                    }
-
                     if (!response.status.isSuccess()) {
                         val errorBody = try {
                             response.body<ApiErrorResponse>()
@@ -172,7 +154,29 @@ val networkModule = module {
                     request.headers.append("X-Nonce", nonce)
                     request.headers.append("X-Signature", signature)
 
-                    execute(request)
+                    val call = execute(request)
+
+                    // Verify response HMAC signature from server
+                    val respTimestamp = call.response.headers["X-Response-Timestamp"]
+                    val respSignature = call.response.headers["X-Response-Signature"]
+                    if (respTimestamp != null && respSignature != null) {
+                        // save() buffers the response body so it can be read multiple times
+                        val savedCall = call.save()
+                        val respBody = savedCall.response.bodyAsText()
+                        val respBodyHash = HmacSigner.sha256(respBody)
+                        val respPayload = "$respTimestamp\n$respBodyHash"
+                        val expectedSig = HmacSigner.hmacSha256(hmacSecret, respPayload)
+                        if (respSignature != expectedSig) {
+                            throw ApiException(
+                                statusCode = 0,
+                                errorMessage = "Response signature verification failed",
+                                errorType = "RESPONSE_TAMPERED"
+                            )
+                        }
+                        savedCall
+                    } else {
+                        call
+                    }
                 }
             }
         }
