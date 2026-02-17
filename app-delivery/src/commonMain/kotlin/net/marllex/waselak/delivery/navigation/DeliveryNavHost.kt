@@ -49,6 +49,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.drop
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -507,10 +509,14 @@ fun DeliveryNavHost(
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
-    LaunchedEffect(isLoggedIn) {
-        if (!isLoggedIn) {
-            navController.navigate(AUTH_ROUTE) { popUpTo(0) { inclusive = true } }
-        }
+    LaunchedEffect(Unit) {
+        snapshotFlow { isLoggedIn }
+            .drop(1) // skip initial value — NavHost graph may not be ready yet
+            .collect { loggedIn ->
+                if (!loggedIn) {
+                    navController.navigate(AUTH_ROUTE) { popUpTo(0) { inclusive = true } }
+                }
+            }
     }
 
     val onSignOut: () -> Unit = remember(navController, scope) {
