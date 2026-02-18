@@ -3,10 +3,14 @@ package net.marllex.waselak.core.ui.platform
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
+import platform.Foundation.NSData
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
+import platform.Foundation.create
 import platform.Foundation.writeToFile
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
@@ -51,6 +55,21 @@ actual class PlatformActions {
             applicationActivities = null
         )
         viewController.presentViewController(activityVC, animated = true, completion = null)
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    actual fun saveFileToDownloads(bytes: ByteArray, fileName: String): String {
+        val documentsDir = platform.Foundation.NSSearchPathForDirectoriesInDomains(
+            platform.Foundation.NSDocumentDirectory,
+            platform.Foundation.NSUserDomainMask,
+            true
+        ).firstOrNull() as? String ?: NSTemporaryDirectory()
+        val path = "$documentsDir/$fileName"
+        val data = bytes.usePinned { pinned ->
+            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+        }
+        data.writeToFile(path, atomically = true)
+        return path
     }
 
     @OptIn(ExperimentalForeignApi::class)

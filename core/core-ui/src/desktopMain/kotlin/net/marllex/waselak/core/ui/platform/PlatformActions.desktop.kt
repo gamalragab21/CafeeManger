@@ -45,6 +45,18 @@ actual class PlatformActions {
         copyToClipboard(text)
     }
 
+    actual fun saveFileToDownloads(bytes: ByteArray, fileName: String): String {
+        val downloadsDir = File(System.getProperty("user.home"), "Downloads")
+        downloadsDir.mkdirs()
+        val file = File(downloadsDir, fileName)
+        file.writeBytes(bytes)
+        // Open file in default app
+        if (Desktop.isDesktopSupported()) {
+            try { Desktop.getDesktop().open(file) } catch (_: Exception) {}
+        }
+        return file.absolutePath
+    }
+
     actual fun shareHtmlAsImage(htmlContent: String, fileName: String) {
         SwingUtilities.invokeLater {
             try {

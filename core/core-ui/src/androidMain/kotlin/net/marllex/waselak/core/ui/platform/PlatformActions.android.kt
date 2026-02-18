@@ -167,6 +167,16 @@ actual class PlatformActions(private val context: Context) {
         }
     }
 
+    actual fun saveFileToDownloads(bytes: ByteArray, fileName: String): String {
+        val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        )
+        downloadsDir.mkdirs()
+        val file = File(downloadsDir, fileName)
+        FileOutputStream(file).use { it.write(bytes) }
+        return file.absolutePath
+    }
+
     private fun Context.findActivity(): android.app.Activity? {
         var ctx = this
         while (ctx is android.content.ContextWrapper) {

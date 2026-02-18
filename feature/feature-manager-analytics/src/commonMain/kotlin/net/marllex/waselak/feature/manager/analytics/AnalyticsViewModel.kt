@@ -105,24 +105,47 @@ class AnalyticsViewModel(
         }
     }
 
-    fun exportPDF() {
+    fun exportPDF(fileSaver: (ByteArray, String) -> String) {
         val (from, to) = getDateRange()
         viewModelScope.launch {
             _uiState.update { it.copy(exportState = ExportState.Exporting) }
             analyticsRepository.exportOrdersPDF(from, to)
-                .onSuccess { _uiState.update { it.copy(exportState = ExportState.Done("PDF exported")) } }
+                .onSuccess { bytes ->
+                    try {
+                        val fileName = buildExportFileName(from, to, "pdf")
+                        val path = fileSaver(bytes, fileName)
+                        _uiState.update { it.copy(exportState = ExportState.Done("PDF saved to Downloads")) }
+                    } catch (e: Exception) {
+                        _uiState.update { it.copy(exportState = ExportState.Failed("Save failed: ${e.message}")) }
+                    }
+                }
                 .onFailure { e -> _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
     }
 
-    fun exportExcel() {
+    fun exportExcel(fileSaver: (ByteArray, String) -> String) {
         val (from, to) = getDateRange()
         viewModelScope.launch {
             _uiState.update { it.copy(exportState = ExportState.Exporting) }
             analyticsRepository.exportOrdersExcel(from, to)
-                .onSuccess { _uiState.update { it.copy(exportState = ExportState.Done("Excel exported")) } }
+                .onSuccess { bytes ->
+                    try {
+                        val fileName = buildExportFileName(from, to, "xlsx")
+                        val path = fileSaver(bytes, fileName)
+                        _uiState.update { it.copy(exportState = ExportState.Done("Excel saved to Downloads")) }
+                    } catch (e: Exception) {
+                        _uiState.update { it.copy(exportState = ExportState.Failed("Save failed: ${e.message}")) }
+                    }
+                }
                 .onFailure { e -> _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
+    }
+
+    private fun buildExportFileName(from: Long, to: Long, extension: String): String {
+        val tz = TimeZone.currentSystemDefault()
+        val fromDate = Instant.fromEpochMilliseconds(from).toLocalDateTime(tz).date
+        val toDate = Instant.fromEpochMilliseconds(to).toLocalDateTime(tz).date
+        return "sales_report_${fromDate}_to_${toDate}.$extension"
     }
 
     fun clearExportState() {

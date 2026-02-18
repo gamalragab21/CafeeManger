@@ -9,6 +9,12 @@ expect class PlatformActions {
     fun copyToClipboard(text: String)
     fun shareText(text: String, title: String = "")
     fun shareHtmlAsImage(htmlContent: String, fileName: String = "receipt")
+
+    /**
+     * Save a byte array to the Downloads folder (or equivalent).
+     * Returns the absolute path of the saved file.
+     */
+    fun saveFileToDownloads(bytes: ByteArray, fileName: String): String
 }
 
 @Composable

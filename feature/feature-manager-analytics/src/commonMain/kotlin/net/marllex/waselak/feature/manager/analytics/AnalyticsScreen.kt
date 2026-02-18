@@ -37,6 +37,7 @@ import net.marllex.waselak.feature.manager.analytics.components.StockOverviewSec
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
 import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +46,7 @@ fun AnalyticsScreen(
     viewModel: AnalyticsViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val platformActions = rememberPlatformActions()
 
     Scaffold(
         topBar = {
@@ -160,10 +162,13 @@ fun AnalyticsScreen(
 
             // 12. Export Report
             item {
+                val fileSaver: (ByteArray, String) -> String = { bytes, name ->
+                    platformActions.saveFileToDownloads(bytes, name)
+                }
                 ExportSection(
                     exportState = state.exportState,
-                    onExportPDF = viewModel::exportPDF,
-                    onExportExcel = viewModel::exportExcel,
+                    onExportPDF = { viewModel.exportPDF(fileSaver) },
+                    onExportExcel = { viewModel.exportExcel(fileSaver) },
                     onClearExportState = viewModel::clearExportState,
                 )
             }
