@@ -332,140 +332,62 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Customer phone field — shown for both DELIVERY and TAKEAWAY
-            if (isDeliveryOrTakeaway) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Phone field
-                    val isPhoneError = hasAttemptedSubmit && uiState.clientPhone.isBlank()
-                    OutlinedTextField(
-                        value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
-                        label = { Text(stringResource(Res.string.customer_phone)) }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = isPhoneError,
-                        supportingText = if (isPhoneError) {{ Text(stringResource(Res.string.phone_required)) }} else null,
-                        trailingIcon = {
-                            when {
-                                uiState.isLookingUpCustomer -> CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
-                                    Icons.Filled.CheckCircle,
-                                    contentDescription = stringResource(Res.string.customer_found),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        },
-                    )
-                }
-
-                // Phone autocomplete suggestions — shown as inline cards (no popup, no focus stealing)
-                if (uiState.showPhoneDropdown && uiState.phoneSearchResults.isNotEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                uiState.phoneSearchResults.take(5).forEach { customer ->
-                                    val displayName = customer.name.orEmpty()
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { viewModel.selectCustomerFromDropdown(customer) }
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    ) {
-                                        Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(customer.phone, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                            if (displayName.isNotBlank()) {
-                                                Text(displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+            // Customer phone field — shown for all channels (required for DELIVERY/TAKEAWAY, optional for DINE_IN)
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                val isPhoneError = hasAttemptedSubmit && isDeliveryOrTakeaway && uiState.clientPhone.isBlank()
+                val phoneLabel = stringResource(Res.string.customer_phone) +
+                    if (!isDeliveryOrTakeaway) " (${stringResource(Res.string.optional_hint)})" else ""
+                OutlinedTextField(
+                    value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
+                    label = { Text(phoneLabel) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = isPhoneError,
+                    supportingText = if (isPhoneError) {{ Text(stringResource(Res.string.phone_required)) }} else null,
+                    trailingIcon = {
+                        when {
+                            uiState.isLookingUpCustomer -> CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            uiState.customerLookupDone && uiState.selectedCustomer != null -> Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = stringResource(Res.string.customer_found),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
                         }
-                    }
-                }
+                    },
+                )
+            }
 
-                // Customer info card when found
-                if (uiState.selectedCustomer != null) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            // Phone autocomplete suggestions — shown as inline cards (no popup, no focus stealing)
+            if (uiState.showPhoneDropdown && uiState.phoneSearchResults.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            uiState.phoneSearchResults.take(5).forEach { customer ->
+                                val displayName = customer.name.orEmpty()
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.selectCustomerFromDropdown(customer) }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
-                                    Icon(
-                                        Icons.Filled.Person,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(24.dp),
-                                    )
+                                    Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
-                                        Text(
-                                            text = stringResource(Res.string.customer_found),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        )
-                                    }
-                                    if (uiState.selectedCustomer.orderCount > 0) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                        ) {
-                                            Text("${uiState.selectedCustomer.orderCount}")
-                                        }
-                                    }
-                                }
-                                // Show saved addresses in customer card
-                                if (uiState.customerAddresses.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    uiState.customerAddresses.forEach { addr ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.LocationOn,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                            )
-                                            Text(
-                                                text = buildString {
-                                                    val lbl = addr.label
-                                                    if (!lbl.isNullOrBlank()) append("$lbl: ")
-                                                    append(addr.address)
-                                                },
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                                                maxLines = 1,
-                                            )
+                                        Text(customer.phone, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                        if (displayName.isNotBlank()) {
+                                            Text(displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
@@ -473,16 +395,98 @@ private fun CartBottomSheet(
                         }
                     }
                 }
+            }
 
-                // Client name field (optional)
+            // Customer info card when found
+            if (uiState.selectedCustomer != null) {
                 item {
-                    OutlinedTextField(
-                        value = uiState.clientName, onValueChange = viewModel::setClientName,
-                        label = { Text(stringResource(Res.string.client_name)) }, singleLine = true,
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                    )
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = stringResource(Res.string.customer_found),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                                if (uiState.selectedCustomer.orderCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                    ) {
+                                        Text("${uiState.selectedCustomer.orderCount}")
+                                    }
+                                }
+                            }
+                            // Show saved addresses in customer card
+                            if (uiState.customerAddresses.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                uiState.customerAddresses.forEach { addr ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.LocationOn,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                        )
+                                        Text(
+                                            text = buildString {
+                                                val lbl = addr.label
+                                                if (!lbl.isNullOrBlank()) append("$lbl: ")
+                                                append(addr.address)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+            }
 
+            // Client name field (optional for all channels)
+            item {
+                val nameLabel = stringResource(Res.string.client_name) +
+                    if (!isDeliveryOrTakeaway) " (${stringResource(Res.string.optional_hint)})" else ""
+                OutlinedTextField(
+                    value = uiState.clientName, onValueChange = viewModel::setClientName,
+                    label = { Text(nameLabel) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            // Delivery-only fields: address, address suggestions, tax place, recent orders
+            if (isDeliveryOrTakeaway) {
                 // Delivery address field — required for DELIVERY, optional for TAKEAWAY
                 if (uiState.channel == OrderChannel.DELIVERY) {
                     item {

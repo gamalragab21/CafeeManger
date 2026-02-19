@@ -26,4 +26,5 @@
     <string name="payment_timing">توقيت الدفع</string>
     <string name="pay_now">دفع الآن</string>
     <string name="pay_later">دفع لاحقًا</string>
+    <string name="optional_hint">اختياري</string>
 </resources>

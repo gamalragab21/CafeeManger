@@ -26,4 +26,5 @@
     <string name="payment_timing">Payment Timing</string>
     <string name="pay_now">Pay Now</string>
     <string name="pay_later">Pay Later</string>
+    <string name="optional_hint">optional</string>
 </resources>
