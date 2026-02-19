@@ -423,13 +423,15 @@ class PosViewModel constructor(
                 notes = s.notes.ifBlank { null },
                 items = orderItems,
             ).onSuccess { order ->
+                // Call onSuccess first (dismiss sheet) while cart is still non-empty,
+                // so the BottomSheet is still in the composition tree
+                onSuccess(order)
                 _uiState.update { it.copy(isSubmitting = false, createdOrder = order, cart = emptyList()) }
                 // Table is automatically set to OCCUPIED by backend for dine-in orders
                 // Refresh tables to reflect the new status locally
                 if (s.channel == OrderChannel.DINE_IN && s.selectedTableId != null) {
                     tableRepository.refreshTables()
                 }
-                onSuccess(order)
             }.onFailure { e ->
                 _uiState.update { it.copy(isSubmitting = false, error = e.message) }
             }

@@ -667,7 +667,7 @@ private fun CartBottomSheet(
                     onClick = {
                         hasAttemptedSubmit = true
                         if (uiState.canSubmit) {
-                            viewModel.submitOrder(selectedPayment, selectedTiming) { onOrderCreated(it); onDismiss() }
+                            viewModel.submitOrder(selectedPayment, selectedTiming) { onDismiss(); onOrderCreated(it) }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
