@@ -12,6 +12,7 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentStatus
 
 class DeliveryOrdersViewModel constructor(
     private val orderRepository: OrderRepository,
@@ -83,6 +84,16 @@ class DeliveryOrdersViewModel constructor(
     fun updateStatus(orderId: String, newStatus: OrderStatus) {
         viewModelScope.launch {
             orderRepository.updateOrderStatus(orderId, newStatus)
+                .onSuccess { loadOrders() }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    fun confirmPayment(orderId: String) {
+        viewModelScope.launch {
+            orderRepository.updatePaymentStatus(orderId, PaymentStatus.PAID)
                 .onSuccess { loadOrders() }
                 .onFailure { e ->
                     _uiState.update { it.copy(error = e.message) }

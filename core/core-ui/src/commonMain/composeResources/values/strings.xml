@@ -24,6 +24,15 @@
     <string name="status_completed">Completed</string>
     <string name="status_canceled">Canceled</string>
 
+    <!-- Payment Status -->
+    <string name="payment_status_pending">Pending</string>
+    <string name="payment_status_paid">Paid</string>
+    <string name="payment_status_partially_paid">Partially Paid</string>
+    <string name="payment_status_refunded">Refunded</string>
+    <string name="payment_status_failed">Failed</string>
+    <string name="pay_now">Pay Now</string>
+    <string name="pay_later">Pay Later</string>
+
     <!-- User Roles -->
     <string name="role_manager">Manager</string>
     <string name="role_cashier">Cashier</string>

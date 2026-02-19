@@ -23,4 +23,7 @@
     <string name="client_address">عنوان العميل</string>
     <string name="phone_required">رقم الهاتف مطلوب</string>
     <string name="address_required">عنوان التوصيل مطلوب</string>
+    <string name="payment_timing">توقيت الدفع</string>
+    <string name="pay_now">دفع الآن</string>
+    <string name="pay_later">دفع لاحقًا</string>
 </resources>

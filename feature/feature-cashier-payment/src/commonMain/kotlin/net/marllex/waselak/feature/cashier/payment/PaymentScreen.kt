@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
+import net.marllex.waselak.core.ui.components.PaymentStatusChip
 import net.marllex.waselak.core.ui.components.PaymentMethodChip
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -91,7 +92,10 @@ fun PaymentScreen(
                                     ),
                                     style = MaterialTheme.typography.titleMedium,
                                 )
-                                OrderStatusChip(status = order.status)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OrderStatusChip(status = order.status)
+                                    PaymentStatusChip(status = order.paymentStatus)
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))

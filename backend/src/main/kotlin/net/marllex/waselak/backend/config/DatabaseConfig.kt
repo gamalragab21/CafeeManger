@@ -71,6 +71,10 @@ object DatabaseConfig {
 
             // Migrate ON_TABLE → SERVED (status rename)
             exec("UPDATE orders SET status = 'SERVED' WHERE status = 'ON_TABLE'")
+
+            // Backfill payment_status for existing orders
+            exec("UPDATE orders SET payment_status = 'PAID' WHERE status = 'COMPLETED' AND payment_status = 'PENDING'")
+            exec("UPDATE orders SET payment_timing = 'PAY_NOW' WHERE payment_timing IS NULL")
         }
 
         // Auto-seed demo data if database is empty

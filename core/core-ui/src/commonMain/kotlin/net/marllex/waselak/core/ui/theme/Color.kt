@@ -79,6 +79,13 @@ val StatusPickedUp = Color(0xFF0891B2)      // Cyan 600
 val StatusCompleted = Color(0xFF059669)     // Emerald 600
 val StatusCanceled = Color(0xFFEF4444)      // Red 500
 
+// ─── Payment status colors ──────────────────────────────────────────
+val PaymentPending = Color(0xFFF59E0B)        // Amber 500
+val PaymentPaid = Color(0xFF059669)           // Emerald 600
+val PaymentPartiallyPaid = Color(0xFF2563EB)  // Blue 600
+val PaymentRefunded = Color(0xFF8B5CF6)       // Violet 500
+val PaymentFailed = Color(0xFFDC2626)         // Red 600
+
 // ─── Role colors ──────────────────────────────────────────────────
 val ManagerColor = Color(0xFF1565C0)        // Blue 800
 val CashierColor = Color(0xFF00838F)        // Cyan 800

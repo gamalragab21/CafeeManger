@@ -21,6 +21,10 @@ data class Order(
     val geoLat: Double? = null,
     val geoLng: Double? = null,
     val paymentMethod: PaymentMethod,
+    val paymentStatus: PaymentStatus = PaymentStatus.PENDING,
+    val paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW,
+    val paymentConfirmedAt: Long? = null,
+    val paymentConfirmedBy: String? = null,
     val subtotal: Double,
     val deliveryFee: Double = 0.0,
     val tax: Double = 0.0,
@@ -123,6 +127,21 @@ enum class PaymentMethod {
     CASH,
     WALLET,
     CARD
+}
+
+@Serializable
+enum class PaymentStatus {
+    PENDING,
+    PAID,
+    PARTIALLY_PAID,
+    REFUNDED,
+    FAILED
+}
+
+@Serializable
+enum class PaymentTiming {
+    PAY_NOW,
+    PAY_LATER
 }
 
 data class ReceiptShareLink(

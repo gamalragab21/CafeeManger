@@ -12,6 +12,8 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentStatus
+import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.ReceiptShareLink
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.*
@@ -119,7 +121,8 @@ class OrderRepositoryImpl constructor(
         clientName: String?, clientPhone: String?, clientAddress: String?,
         customerId: String?,
         geoLat: Double?, geoLng: Double?,
-        paymentMethod: PaymentMethod, taxPlaceId: String?, notes: String?,
+        paymentMethod: PaymentMethod, paymentTiming: PaymentTiming,
+        taxPlaceId: String?, notes: String?,
         items: List<CreateOrderItemRequest>
     ): Result<Order> = runCatching {
         val response = api.createOrder(
@@ -130,6 +133,7 @@ class OrderRepositoryImpl constructor(
                 customerId = customerId,
                 geoLat = geoLat, geoLng = geoLng,
                 paymentMethod = paymentMethod.name,
+                paymentTiming = paymentTiming.name,
                 taxPlaceId = taxPlaceId,
                 notes = notes,
                 items = items
@@ -180,6 +184,16 @@ class OrderRepositoryImpl constructor(
             val response = api.updateOrderStatus(id, UpdateOrderStatusRequest(status.name))
             val order = response.toDomain()
             // Update local DB with full order from server
+            orderDao.insertOrder(order.toDbEntity())
+            orderDao.deleteOrderItems(order.id)
+            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+            order
+        }
+
+    override suspend fun updatePaymentStatus(id: String, status: PaymentStatus): Result<Order> =
+        runCatching {
+            val response = api.updatePaymentStatus(id, UpdatePaymentStatusRequest(status.name))
+            val order = response.toDomain()
             orderDao.insertOrder(order.toDbEntity())
             orderDao.deleteOrderItems(order.id)
             orderDao.insertOrderItems(order.items.map { it.toDbEntity() })

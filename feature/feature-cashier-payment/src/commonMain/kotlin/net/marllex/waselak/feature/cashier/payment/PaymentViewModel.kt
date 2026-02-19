@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
-import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentStatus
 
 class PaymentViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -47,25 +47,14 @@ class PaymentViewModel constructor(
         val order = _uiState.value.order ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
-            // Move order to COMPLETED if it's in a valid state
-            val targetStatus = when (order.status) {
-                OrderStatus.READY,
-                OrderStatus.ASSIGNED,
-                OrderStatus.OUT_FOR_DELIVERY,
-                OrderStatus.DELIVERED -> OrderStatus.COMPLETED
-                else -> null
-            }
-            if (targetStatus != null) {
-                orderRepository.updateOrderStatus(order.id, targetStatus)
-                    .onSuccess {
-                        _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
-                    }
-                    .onFailure { e ->
-                        _uiState.update { it.copy(isProcessing = false, error = e.message) }
-                    }
-            } else {
-                _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
-            }
+            // Update payment status to PAID (independent from order status)
+            orderRepository.updatePaymentStatus(order.id, PaymentStatus.PAID)
+                .onSuccess {
+                    _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isProcessing = false, error = e.message) }
+                }
         }
     }
 }

@@ -63,6 +63,7 @@ data class CreateOrderDto(
     val geo_lat: Double? = null,
     val geo_lng: Double? = null,
     val payment_method: String,
+    val payment_timing: String = "PAY_NOW",
     val delivery_fee: Double = 0.0,
     val tax_place_id: String? = null,
     val notes: String? = null,
@@ -88,6 +89,9 @@ data class UpdateOrderDto(
 
 @Serializable
 data class UpdateStatusDto(val status: String)
+
+@Serializable
+data class UpdatePaymentStatusDto(val payment_status: String)
 
 @Serializable
 data class AssignDeliveryDto(val delivery_user_id: String)
@@ -116,6 +120,10 @@ data class OrderDto(
     val geo_lat: Double? = null,
     val geo_lng: Double? = null,
     val payment_method: String,
+    val payment_status: String = "PENDING",
+    val payment_timing: String = "PAY_NOW",
+    val payment_confirmed_at: Long? = null,
+    val payment_confirmed_by: String? = null,
     val subtotal: Double,
     val delivery_fee: Double = 0.0,
     val tax: Double = 0.0,
@@ -440,6 +448,8 @@ fun Route.orderRoutes() {
                     stmt[geoLat] = request.geo_lat
                     stmt[geoLng] = request.geo_lng
                     stmt[paymentMethod] = request.payment_method
+                    stmt[paymentStatus] = "PENDING"
+                    stmt[paymentTiming] = request.payment_timing
                     stmt[OrdersTable.subtotal] = subtotal
                     stmt[deliveryFee] = deliveryFeeAmount
                     stmt[tax] = taxAmount
@@ -787,6 +797,59 @@ fun Route.orderRoutes() {
             call.respond(HttpStatusCode.OK, order)
         }
 
+        // Update payment status independently from order status
+        patch("/{id}/payment-status") {
+            val principal = requireRole("MANAGER", "CASHIER", "DELIVERY")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<UpdatePaymentStatusDto>()
+
+            val validStatuses = listOf("PENDING", "PAID", "PARTIALLY_PAID", "REFUNDED", "FAILED")
+            require(request.payment_status in validStatuses) {
+                "Invalid payment status. Must be one of: ${validStatuses.joinToString()}"
+            }
+
+            val order = transaction {
+                val current = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and
+                    (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+
+                OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
+                    it[paymentStatus] = request.payment_status
+                    it[updatedAt] = Clock.System.now()
+                    if (request.payment_status == "PAID") {
+                        it[paymentConfirmedAt] = Clock.System.now()
+                        it[paymentConfirmedBy] = UUID.fromString(principal.userId)
+                    }
+                }
+
+                ActivityLogsTable.insert {
+                    it[orderId] = UUID.fromString(id)
+                    it[userId] = UUID.fromString(principal.userId)
+                    it[action] = "PAYMENT_STATUS_CHANGED"
+                    it[payload] = """{"from":"${current[OrdersTable.paymentStatus]}","to":"${request.payment_status}"}"""
+                    it[createdAt] = Clock.System.now()
+                }
+
+                // Re-fetch and return full order DTO
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                    .map { it.toOrderItemDto() }
+                val updatedRow = OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }.first()
+                val userIds = listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId])
+                    .filterNotNull().distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                val tablesMap = updatedRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                updatedRow.toOrderDto(items, usersMap, tablesMap)
+            }
+            call.respond(HttpStatusCode.OK, order)
+        }
+
         // Generate a temporary shareable receipt URL (30 minutes)
         post("/{id}/share") {
             val principal = currentUser()
@@ -895,6 +958,10 @@ private fun ResultRow.toOrderDto(
     geo_lat = this[OrdersTable.geoLat],
     geo_lng = this[OrdersTable.geoLng],
     payment_method = this[OrdersTable.paymentMethod],
+    payment_status = this[OrdersTable.paymentStatus],
+    payment_timing = this[OrdersTable.paymentTiming],
+    payment_confirmed_at = this[OrdersTable.paymentConfirmedAt]?.toEpochMilliseconds(),
+    payment_confirmed_by = this[OrdersTable.paymentConfirmedBy]?.toString(),
     subtotal = this[OrdersTable.subtotal].toDouble(),
     delivery_fee = this[OrdersTable.deliveryFee].toDouble(),
     tax = this[OrdersTable.tax].toDouble(),

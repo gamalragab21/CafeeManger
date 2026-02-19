@@ -24,6 +24,15 @@
     <string name="status_completed">مكتمل</string>
     <string name="status_canceled">ملغي</string>
 
+    <!-- Payment Status -->
+    <string name="payment_status_pending">معلّق</string>
+    <string name="payment_status_paid">مدفوع</string>
+    <string name="payment_status_partially_paid">مدفوع جزئيًا</string>
+    <string name="payment_status_refunded">مُسترد</string>
+    <string name="payment_status_failed">فشل الدفع</string>
+    <string name="pay_now">دفع الآن</string>
+    <string name="pay_later">دفع لاحقًا</string>
+
     <!-- User Roles -->
     <string name="role_manager">مدير</string>
     <string name="role_cashier">كاشير</string>

@@ -21,6 +21,7 @@ import java.util.UUID
 @Serializable
 data class PeriodMetricsDto(
     val total_revenue: Double,
+    val pending_revenue: Double = 0.0,
     val total_orders: Int,
     val average_order_value: Double,
     val total_delivery_fees: Double,
@@ -286,7 +287,12 @@ fun Route.analyticsDashboardRoutes() {
                                 (OrdersTable.createdAt lessEq end) and
                                 (OrdersTable.status notInList cancelledStatuses)
                     }.toList()
-                    val totalRevenue = orders.sumOf { it[OrdersTable.total].toDouble() }
+                    // Revenue only from PAID orders
+                    val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
+                    val totalRevenue = paidOrders.sumOf { it[OrdersTable.total].toDouble() }
+                    val pendingRevenue = orders
+                        .filter { it[OrdersTable.paymentStatus] == "PENDING" }
+                        .sumOf { it[OrdersTable.total].toDouble() }
                     val totalOrders = orders.size
                     val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
                     // tax column stores delivery zone fees, merge into delivery fees
@@ -295,6 +301,7 @@ fun Route.analyticsDashboardRoutes() {
                         .sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
                     return PeriodMetricsDto(
                         total_revenue = totalRevenue,
+                        pending_revenue = pendingRevenue,
                         total_orders = totalOrders,
                         average_order_value = aov,
                         total_delivery_fees = totalDeliveryFees,
@@ -348,12 +355,14 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.status notInList cancelledStatuses)
                 }.toList()
 
-                val gross = orders.sumOf { it[OrdersTable.total].toDouble() }
+                // Revenue only from PAID orders
+                val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
+                val gross = paidOrders.sumOf { it[OrdersTable.total].toDouble() }
                 // tax column stores delivery zone fees, merge into delivery fees
-                val deliveryFees = orders
+                val deliveryFees = paidOrders
                     .filter { it[OrdersTable.channel] == "DELIVERY" }
                     .sumOf { it[OrdersTable.deliveryFee].toDouble() + it[OrdersTable.tax].toDouble() }
-                val net = orders.sumOf { it[OrdersTable.subtotal].toDouble() }
+                val net = paidOrders.sumOf { it[OrdersTable.subtotal].toDouble() }
 
                 val paymentMethods = orders
                     .groupBy { it[OrdersTable.paymentMethod] }

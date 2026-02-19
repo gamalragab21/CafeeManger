@@ -22,6 +22,10 @@ data class OrderResponse(
     @SerialName("geo_lat") val geoLat: Double? = null,
     @SerialName("geo_lng") val geoLng: Double? = null,
     @SerialName("payment_method") val paymentMethod: String,
+    @SerialName("payment_status") val paymentStatus: String = "PENDING",
+    @SerialName("payment_timing") val paymentTiming: String = "PAY_NOW",
+    @SerialName("payment_confirmed_at") val paymentConfirmedAt: Long? = null,
+    @SerialName("payment_confirmed_by") val paymentConfirmedBy: String? = null,
     val subtotal: Double,
     @SerialName("delivery_fee") val deliveryFee: Double = 0.0,
     val tax: Double = 0.0,
@@ -61,6 +65,7 @@ data class CreateOrderRequest(
     @SerialName("geo_lat") val geoLat: Double? = null,
     @SerialName("geo_lng") val geoLng: Double? = null,
     @SerialName("payment_method") val paymentMethod: String,
+    @SerialName("payment_timing") val paymentTiming: String = "PAY_NOW",
     @SerialName("delivery_fee") val deliveryFee: Double = 0.0,
     @SerialName("tax_place_id") val taxPlaceId: String? = null,
     val notes: String? = null,
@@ -89,6 +94,11 @@ data class UpdateOrderRequest(
 @Serializable
 data class UpdateOrderStatusRequest(
     val status: String
+)
+
+@Serializable
+data class UpdatePaymentStatusRequest(
+    @SerialName("payment_status") val paymentStatus: String
 )
 
 @Serializable

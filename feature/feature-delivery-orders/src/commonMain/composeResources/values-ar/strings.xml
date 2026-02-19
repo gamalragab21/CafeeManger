@@ -52,4 +52,5 @@
     <string name="payment_cash">نقدي</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
+    <string name="confirm_payment">تأكيد الدفع</string>
 </resources>

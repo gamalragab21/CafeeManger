@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.ui.theme.*
 import waselak.core.core_ui.generated.resources.Res
 import waselak.core.core_ui.generated.resources.*
@@ -84,6 +85,47 @@ fun PaymentMethodChip(
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
+}
+
+@Composable
+fun PaymentStatusChip(
+    status: PaymentStatus,
+    modifier: Modifier = Modifier
+) {
+    val chipColor = getPaymentStatusColor(status)
+    val displayLabel = formatPaymentStatusLabel(status)
+
+    Text(
+        text = displayLabel,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = chipColor,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(chipColor.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
+}
+
+fun getPaymentStatusColor(status: PaymentStatus): Color {
+    return when (status) {
+        PaymentStatus.PENDING -> PaymentPending
+        PaymentStatus.PAID -> PaymentPaid
+        PaymentStatus.PARTIALLY_PAID -> PaymentPartiallyPaid
+        PaymentStatus.REFUNDED -> PaymentRefunded
+        PaymentStatus.FAILED -> PaymentFailed
+    }
+}
+
+@Composable
+fun formatPaymentStatusLabel(status: PaymentStatus): String {
+    return when (status) {
+        PaymentStatus.PENDING -> stringResource(Res.string.payment_status_pending)
+        PaymentStatus.PAID -> stringResource(Res.string.payment_status_paid)
+        PaymentStatus.PARTIALLY_PAID -> stringResource(Res.string.payment_status_partially_paid)
+        PaymentStatus.REFUNDED -> stringResource(Res.string.payment_status_refunded)
+        PaymentStatus.FAILED -> stringResource(Res.string.payment_status_failed)
+    }
 }
 
 fun getStatusColor(status: OrderStatus): Color {

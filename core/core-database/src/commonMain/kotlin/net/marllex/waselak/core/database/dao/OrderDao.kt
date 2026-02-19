@@ -57,6 +57,10 @@ class OrderDao(private val db: WaselakDatabase) {
             geo_lat = order.geo_lat,
             geo_lng = order.geo_lng,
             payment_method = order.payment_method,
+            payment_status = order.payment_status,
+            payment_timing = order.payment_timing,
+            payment_confirmed_at = order.payment_confirmed_at,
+            payment_confirmed_by = order.payment_confirmed_by,
             subtotal = order.subtotal,
             delivery_fee = order.delivery_fee,
             tax = order.tax,
@@ -69,6 +73,10 @@ class OrderDao(private val db: WaselakDatabase) {
 
     suspend fun updateOrderStatus(orderId: String, status: String, updatedAt: Long) {
         orderQueries.updateOrderStatus(status, updatedAt, orderId)
+    }
+
+    suspend fun updatePaymentStatus(paymentStatus: String, updatedAt: Long, orderId: String) {
+        orderQueries.updatePaymentStatus(paymentStatus, updatedAt, orderId)
     }
 
     suspend fun assignDeliveryUser(orderId: String, userId: String, updatedAt: Long) {

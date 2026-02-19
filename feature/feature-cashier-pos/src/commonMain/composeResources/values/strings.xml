@@ -23,4 +23,7 @@
     <string name="client_address">Client Address</string>
     <string name="phone_required">Phone number is required</string>
     <string name="address_required">Delivery address is required</string>
+    <string name="payment_timing">Payment Timing</string>
+    <string name="pay_now">Pay Now</string>
+    <string name="pay_later">Pay Later</string>
 </resources>

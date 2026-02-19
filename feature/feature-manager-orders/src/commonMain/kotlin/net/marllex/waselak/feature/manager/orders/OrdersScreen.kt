@@ -94,6 +94,7 @@ import net.marllex.waselak.core.ui.components.ChannelChip
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
+import net.marllex.waselak.core.ui.components.PaymentStatusChip
 import net.marllex.waselak.core.ui.components.PaymentMethodChip
 import net.marllex.waselak.core.ui.components.formatStatusLabel
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
@@ -411,6 +412,7 @@ private fun OrderCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     OrderStatusChip(status = order.status)
+                    PaymentStatusChip(status = order.paymentStatus)
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (expanded) "Collapse" else "Expand",

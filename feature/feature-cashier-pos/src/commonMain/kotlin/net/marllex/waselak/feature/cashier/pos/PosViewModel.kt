@@ -26,6 +26,7 @@ import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Table
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
@@ -375,7 +376,7 @@ class PosViewModel constructor(
 
     // ─── Submit & Clear ───────────────────────────────────────────
 
-    fun submitOrder(paymentMethod: PaymentMethod, onSuccess: (Order) -> Unit) {
+    fun submitOrder(paymentMethod: PaymentMethod, paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW, onSuccess: (Order) -> Unit) {
         val s = _uiState.value
         if (!s.canSubmit) return
 
@@ -417,6 +418,7 @@ class PosViewModel constructor(
                 customerId = customerId,
                 geoLat = null, geoLng = null,
                 paymentMethod = paymentMethod,
+                paymentTiming = paymentTiming,
                 taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
                 notes = s.notes.ifBlank { null },
                 items = orderItems,

@@ -190,6 +190,11 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    suspend fun updatePaymentStatus(id: String, request: UpdatePaymentStatusRequest): OrderResponse =
+        client.patch("api/v1/orders/$id/payment-status") {
+            setBody(request)
+        }.body()
+
     suspend fun assignDeliveryUser(id: String, request: AssignDeliveryRequest): OrderResponse =
         client.patch("api/v1/orders/$id/assign") {
             setBody(request)

@@ -82,6 +82,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.UserRole
+import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
@@ -675,7 +676,10 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
         posScreen(
             onOrderCreated = { order ->
-                navController.navigateToPayment(order.id)
+                if (order.paymentTiming == PaymentTiming.PAY_NOW) {
+                    navController.navigateToPayment(order.id)
+                }
+                // PAY_LATER: stay on POS, no navigation to payment screen
             },
         )
         composable(CashierTab.ORDERS.route) {

@@ -52,4 +52,5 @@
     <string name="payment_cash">Cash</string>
     <string name="payment_wallet">Wallet</string>
     <string name="payment_card">Card</string>
+    <string name="confirm_payment">Confirm Payment</string>
 </resources>

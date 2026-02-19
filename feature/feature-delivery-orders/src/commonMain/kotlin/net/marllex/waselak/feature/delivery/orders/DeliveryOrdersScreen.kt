@@ -59,6 +59,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentStatus
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -70,6 +72,7 @@ import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.ui.components.OrderStatusChip
+import net.marllex.waselak.core.ui.components.PaymentStatusChip
 import net.marllex.waselak.core.ui.components.formatStatusLabel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -196,7 +199,8 @@ fun DeliveryOrdersScreen(
                                         order = order,
                                         onStatusUpdate = { viewModel.updateStatus(order.id, it) },
                                         onNavigate = { onNavigateToOrder(order.id) },
-                                        onViewReceipt = { onNavigateToReceipt(order.id) }
+                                        onViewReceipt = { onNavigateToReceipt(order.id) },
+                                        onConfirmPayment = { viewModel.confirmPayment(order.id) },
                                     )
                                 }
                             }
@@ -240,6 +244,7 @@ private fun DeliveryOrderCard(
     onStatusUpdate: (OrderStatus) -> Unit,
     onNavigate: () -> Unit,
     onViewReceipt: () -> Unit,
+    onConfirmPayment: () -> Unit = {},
 ) {
     val platformActions = rememberPlatformActions()
     // Dynamic color logic based on status
@@ -272,7 +277,10 @@ private fun DeliveryOrderCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                OrderStatusChip(status = order.status)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    OrderStatusChip(status = order.status)
+                    PaymentStatusChip(status = order.paymentStatus)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -408,6 +416,23 @@ private fun DeliveryOrderCard(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(stringResource(Res.string.retry_delivery), maxLines = 1)
+                    }
+                }
+
+                // Confirm COD Payment (DELIVERED + CASH + payment PENDING)
+                if (order.status == OrderStatus.DELIVERED &&
+                    order.paymentMethod == PaymentMethod.CASH &&
+                    order.paymentStatus == PaymentStatus.PENDING
+                ) {
+                    Button(
+                        onClick = onConfirmPayment,
+                        modifier = Modifier.weight(1f, fill = false).defaultMinSize(minWidth = 140.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(Res.string.confirm_payment), maxLines = 1)
                     }
                 }
 

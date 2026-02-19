@@ -67,6 +67,7 @@ import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentTiming
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
@@ -288,6 +289,9 @@ private fun CartBottomSheet(
     onOrderCreated: (Order) -> Unit,
 ) {
     var selectedPayment by remember { mutableStateOf(PaymentMethod.CASH) }
+    var selectedTiming by remember { mutableStateOf(
+        if (uiState.channel == OrderChannel.DINE_IN) PaymentTiming.PAY_LATER else PaymentTiming.PAY_NOW
+    ) }
     var hasAttemptedSubmit by remember { mutableStateOf(false) }
     val isDeliveryOrTakeaway = uiState.channel == OrderChannel.DELIVERY || uiState.channel == OrderChannel.TAKEAWAY
 
@@ -637,13 +641,33 @@ private fun CartBottomSheet(
                 }
             }
 
+            // Payment timing: Pay Now / Pay Later
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(stringResource(Res.string.payment_timing), style = MaterialTheme.typography.labelMedium)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    PaymentTiming.entries.forEachIndexed { index, timing ->
+                        SegmentedButton(
+                            selected = selectedTiming == timing,
+                            onClick = { selectedTiming = timing },
+                            shape = SegmentedButtonDefaults.itemShape(index, PaymentTiming.entries.size),
+                        ) {
+                            Text(when (timing) {
+                                PaymentTiming.PAY_NOW -> stringResource(Res.string.pay_now)
+                                PaymentTiming.PAY_LATER -> stringResource(Res.string.pay_later)
+                            })
+                        }
+                    }
+                }
+            }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
                         hasAttemptedSubmit = true
                         if (uiState.canSubmit) {
-                            viewModel.submitOrder(selectedPayment) { onOrderCreated(it); onDismiss() }
+                            viewModel.submitOrder(selectedPayment, selectedTiming) { onOrderCreated(it); onDismiss() }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

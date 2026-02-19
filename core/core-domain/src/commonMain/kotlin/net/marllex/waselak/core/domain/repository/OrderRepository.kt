@@ -5,6 +5,8 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentStatus
+import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.ReceiptShareLink
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 
@@ -30,6 +32,7 @@ interface OrderRepository {
         customerId: String?,
         geoLat: Double?, geoLng: Double?,
         paymentMethod: PaymentMethod,
+        paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW,
         taxPlaceId: String?,
         notes: String?,
         items: List<CreateOrderItemRequest>
@@ -44,6 +47,7 @@ interface OrderRepository {
         items: List<CreateOrderItemRequest>? = null,
     ): Result<Order>
     suspend fun updateOrderStatus(id: String, status: OrderStatus): Result<Order>
+    suspend fun updatePaymentStatus(id: String, status: PaymentStatus): Result<Order>
     suspend fun assignDeliveryUser(id: String, deliveryUserId: String): Result<Order>
     suspend fun shareReceipt(id: String): Result<ReceiptShareLink>
 }

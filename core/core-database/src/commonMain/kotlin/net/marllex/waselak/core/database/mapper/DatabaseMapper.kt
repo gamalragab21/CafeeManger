@@ -99,6 +99,10 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     clientAddress = client_address, customerId = customer_id,
     geoLat = geo_lat, geoLng = geo_lng,
     paymentMethod = PaymentMethod.valueOf(payment_method),
+    paymentStatus = PaymentStatus.valueOf(payment_status),
+    paymentTiming = PaymentTiming.valueOf(payment_timing),
+    paymentConfirmedAt = payment_confirmed_at,
+    paymentConfirmedBy = payment_confirmed_by,
     subtotal = subtotal, deliveryFee = delivery_fee, tax = tax, total = total,
     notes = notes, items = items,
     createdAt = created_at, updatedAt = updated_at
@@ -114,6 +118,10 @@ fun Order.toDbEntity() = Orders(
     client_address = clientAddress, customer_id = customerId,
     geo_lat = geoLat, geo_lng = geoLng,
     payment_method = paymentMethod.name,
+    payment_status = paymentStatus.name,
+    payment_timing = paymentTiming.name,
+    payment_confirmed_at = paymentConfirmedAt,
+    payment_confirmed_by = paymentConfirmedBy,
     subtotal = subtotal, delivery_fee = deliveryFee, tax = tax, total = total,
     notes = notes, created_at = createdAt, updated_at = updatedAt
 )
