@@ -109,6 +109,12 @@ enum class OrderStatus {
                 OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
             }
         }
+
+        /** Parse status string with legacy name support (ON_TABLE → SERVED). */
+        fun parse(value: String): OrderStatus = when (value) {
+            "ON_TABLE" -> SERVED
+            else -> valueOf(value)
+        }
     }
 }
 

@@ -90,7 +90,7 @@ fun Table.toDbEntity() = Tables(
 fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     id = id, vendorId = vendor_id,
     channel = OrderChannel.valueOf(channel),
-    status = OrderStatus.valueOf(status),
+    status = OrderStatus.parse(status),
     tableId = table_id, tableNumber = table_number,
     cashierId = cashier_id,
     cashierName = cashier_name, deliveryUserId = delivery_user_id,
