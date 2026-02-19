@@ -91,10 +91,13 @@ fun getStatusColor(status: OrderStatus): Color {
         OrderStatus.CREATED -> StatusCreated
         OrderStatus.IN_PREPARATION -> StatusInPreparation
         OrderStatus.READY -> StatusReady
-        OrderStatus.ON_TABLE -> StatusOnTable
+        OrderStatus.SERVED -> StatusServed
         OrderStatus.ASSIGNED -> StatusAssigned
         OrderStatus.OUT_FOR_DELIVERY -> StatusOutForDelivery
         OrderStatus.DELIVERED -> StatusDelivered
+        OrderStatus.DELIVERY_FAILED -> StatusDeliveryFailed
+        OrderStatus.RETURNED -> StatusReturned
+        OrderStatus.PICKED_UP -> StatusPickedUp
         OrderStatus.COMPLETED -> StatusCompleted
         OrderStatus.CANCELED -> StatusCanceled
     }
@@ -110,10 +113,13 @@ fun formatStatusLabel(status: OrderStatus): String {
         OrderStatus.CREATED -> stringResource(Res.string.status_created)
         OrderStatus.IN_PREPARATION -> stringResource(Res.string.status_in_preparation)
         OrderStatus.READY -> stringResource(Res.string.status_ready)
-        OrderStatus.ON_TABLE -> stringResource(Res.string.status_on_table)
+        OrderStatus.SERVED -> stringResource(Res.string.status_served)
         OrderStatus.ASSIGNED -> stringResource(Res.string.status_assigned)
         OrderStatus.OUT_FOR_DELIVERY -> stringResource(Res.string.status_out_for_delivery)
         OrderStatus.DELIVERED -> stringResource(Res.string.status_delivered)
+        OrderStatus.DELIVERY_FAILED -> stringResource(Res.string.status_delivery_failed)
+        OrderStatus.RETURNED -> stringResource(Res.string.status_returned)
+        OrderStatus.PICKED_UP -> stringResource(Res.string.status_picked_up)
         OrderStatus.COMPLETED -> stringResource(Res.string.status_completed)
         OrderStatus.CANCELED -> stringResource(Res.string.status_canceled)
     }

@@ -73,7 +73,9 @@ val StatusReady = Color(0xFF10B981)         // Emerald 500
 val StatusAssigned = Color(0xFF7C3AED)      // Violet 600
 val StatusOutForDelivery = Color(0xFF8B5CF6)// Violet 500
 val StatusDelivered = Color(0xFF10B981)     // Emerald 500
-val StatusOnTable = Color(0xFF2563EB)       // Blue 600
+val StatusDeliveryFailed = Color(0xFFDC2626)// Red 600
+val StatusReturned = Color(0xFF78716C)      // Stone 500
+val StatusPickedUp = Color(0xFF0891B2)      // Cyan 600
 val StatusCompleted = Color(0xFF059669)     // Emerald 600
 val StatusCanceled = Color(0xFFEF4444)      // Red 500
 

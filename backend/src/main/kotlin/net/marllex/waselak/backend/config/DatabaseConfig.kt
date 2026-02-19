@@ -68,6 +68,9 @@ object DatabaseConfig {
                 AnnouncementsTable, AnnouncementReadsTable,
                 CustomersTable, CustomerAddressesTable,
             )
+
+            // Migrate ON_TABLE → SERVED (status rename)
+            exec("UPDATE orders SET status = 'SERVED' WHERE status = 'ON_TABLE'")
         }
 
         // Auto-seed demo data if database is empty

@@ -14,10 +14,13 @@
     <string name="status_created">جديد</string>
     <string name="status_in_preparation">قيد التحضير</string>
     <string name="status_ready">جاهز</string>
-    <string name="status_on_table">على الطاولة</string>
+    <string name="status_served">تم التقديم</string>
     <string name="status_assigned">تم التعيين</string>
     <string name="status_out_for_delivery">في الطريق</string>
     <string name="status_delivered">تم التوصيل</string>
+    <string name="status_delivery_failed">فشل التوصيل</string>
+    <string name="status_returned">مُرتجع</string>
+    <string name="status_picked_up">تم الاستلام</string>
     <string name="status_completed">مكتمل</string>
     <string name="status_canceled">ملغي</string>
 

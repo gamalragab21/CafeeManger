@@ -8,6 +8,9 @@
     <string name="no_available_orders">لا توجد طلبات متاحة</string>
     <string name="start_delivery">بدء التوصيل</string>
     <string name="mark_delivered">تحديد كـ تم التوصيل</string>
+    <string name="report_failed">إبلاغ فشل</string>
+    <string name="return_to_store">إرجاع للمتجر</string>
+    <string name="retry_delivery">إعادة التوصيل</string>
     <string name="pick_up_order">استلام الطلب</string>
     <string name="complete">إتمام</string>
     <string name="view_receipt">عرض الإيصال</string>

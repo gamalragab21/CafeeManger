@@ -167,7 +167,7 @@ fun DeliveryOrdersScreen(
                                     label = { Text(stringResource(Res.string.all)) },
                                 )
                             }
-                            val statuses = listOf(OrderStatus.ASSIGNED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED)
+                            val statuses = listOf(OrderStatus.ASSIGNED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, OrderStatus.DELIVERY_FAILED, OrderStatus.RETURNED)
                             items(statuses) { status ->
                                 FilterChip(
                                     selected = uiState.selectedStatus == status.name,
@@ -247,6 +247,8 @@ private fun DeliveryOrderCard(
         OrderStatus.ASSIGNED -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
         OrderStatus.OUT_FOR_DELIVERY -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         OrderStatus.DELIVERED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+        OrderStatus.DELIVERY_FAILED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+        OrderStatus.RETURNED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         else -> MaterialTheme.colorScheme.surface
     }
 
@@ -365,6 +367,7 @@ private fun DeliveryOrderCard(
                     OrderStatus.ASSIGNED -> stringResource(Res.string.start_delivery) to OrderStatus.OUT_FOR_DELIVERY
                     OrderStatus.OUT_FOR_DELIVERY -> stringResource(Res.string.mark_delivered) to OrderStatus.DELIVERED
                     OrderStatus.DELIVERED -> stringResource(Res.string.complete) to OrderStatus.COMPLETED
+                    OrderStatus.DELIVERY_FAILED -> stringResource(Res.string.return_to_store) to OrderStatus.RETURNED
                     else -> null to null
                 }
 
@@ -373,7 +376,9 @@ private fun DeliveryOrderCard(
                         onClick = { onStatusUpdate(nextStatus) },
                         modifier = Modifier.weight(1f).defaultMinSize(minWidth = 140.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
+                            containerColor = if (order.status == OrderStatus.DELIVERY_FAILED)
+                                MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -381,8 +386,33 @@ private fun DeliveryOrderCard(
                     }
                 }
 
-                // Tertiary Action: Navigation (Only if in delivery/delivered)
-                if (order.status == OrderStatus.OUT_FOR_DELIVERY || order.status == OrderStatus.DELIVERED) {
+                // Destructive Action: Report Failed (only when out for delivery)
+                if (order.status == OrderStatus.OUT_FOR_DELIVERY) {
+                    OutlinedButton(
+                        onClick = { onStatusUpdate(OrderStatus.DELIVERY_FAILED) },
+                        modifier = Modifier.weight(1f, fill = false).defaultMinSize(minWidth = 120.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(Res.string.report_failed), maxLines = 1)
+                    }
+                }
+
+                // Retry Action: Re-assign delivery (only when delivery failed)
+                if (order.status == OrderStatus.DELIVERY_FAILED) {
+                    OutlinedButton(
+                        onClick = { onStatusUpdate(OrderStatus.ASSIGNED) },
+                        modifier = Modifier.weight(1f, fill = false).defaultMinSize(minWidth = 120.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(Res.string.retry_delivery), maxLines = 1)
+                    }
+                }
+
+                // Tertiary Action: Navigation (Only if in delivery/delivered/failed)
+                if (order.status == OrderStatus.OUT_FOR_DELIVERY || order.status == OrderStatus.DELIVERED || order.status == OrderStatus.DELIVERY_FAILED) {
                     FilledIconButton(
                         onClick = { platformActions.openMap(order.clientAddress, order.geoLat, order.geoLng) },
                         colors = IconButtonDefaults.filledIconButtonColors(

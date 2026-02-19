@@ -42,12 +42,15 @@ enum class OrderChannel {
 enum class OrderStatus {
     CREATED,
     IN_PREPARATION,
-    READY,            // ready to handoff / assign
-    ON_TABLE,         // dine-in: served to table
-    ASSIGNED,         // delivery assigned
-    OUT_FOR_DELIVERY, // on the way
-    DELIVERED,        // delivered to customer
-    COMPLETED,        // final settlement done
+    READY,
+    SERVED,              // dine-in: food served to table
+    ASSIGNED,            // delivery: driver assigned
+    OUT_FOR_DELIVERY,    // delivery: on the way
+    DELIVERED,           // delivery: delivered to customer
+    DELIVERY_FAILED,     // delivery: failed to reach customer
+    RETURNED,            // delivery: order returned to store
+    PICKED_UP,           // takeaway: customer picked up order
+    COMPLETED,           // final settlement done
     CANCELED;
 
     fun canTransitionTo(newStatus: OrderStatus, channel: OrderChannel): Boolean {
@@ -62,11 +65,11 @@ enum class OrderStatus {
         return when (this) {
             CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(ON_TABLE, CANCELED)
-            ON_TABLE -> newStatus in listOf(COMPLETED, CANCELED)
+            READY -> newStatus in listOf(SERVED, CANCELED)
+            SERVED -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> false
             CANCELED -> false
-            else -> false // ASSIGNED, OUT_FOR_DELIVERY, DELIVERED not valid for dine-in
+            else -> false
         }
     }
 
@@ -76,11 +79,13 @@ enum class OrderStatus {
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
             READY -> newStatus in listOf(ASSIGNED, CANCELED)
             ASSIGNED -> newStatus in listOf(OUT_FOR_DELIVERY, CANCELED)
-            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, CANCELED)
+            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, DELIVERY_FAILED, CANCELED)
+            DELIVERY_FAILED -> newStatus in listOf(RETURNED, ASSIGNED, CANCELED)
             DELIVERED -> newStatus in listOf(COMPLETED, CANCELED)
+            RETURNED -> false // terminal
             COMPLETED -> false
             CANCELED -> false
-            else -> false // ON_TABLE not valid for delivery
+            else -> false
         }
     }
 
@@ -88,19 +93,20 @@ enum class OrderStatus {
         return when (this) {
             CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(COMPLETED, CANCELED)
+            READY -> newStatus in listOf(PICKED_UP, CANCELED)
+            PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> false
             CANCELED -> false
-            else -> false // No table, delivery, or assignment states for takeaway
+            else -> false
         }
     }
 
     companion object {
         fun getAvailableStatuses(channel: OrderChannel): List<OrderStatus> {
             return when (channel) {
-                OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, ON_TABLE, COMPLETED, CANCELED)
-                OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELED)
-                OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, COMPLETED, CANCELED)
+                OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, SERVED, COMPLETED, CANCELED)
+                OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNED, COMPLETED, CANCELED)
+                OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
             }
         }
     }

@@ -14,10 +14,13 @@
     <string name="status_created">Created</string>
     <string name="status_in_preparation">In Preparation</string>
     <string name="status_ready">Ready</string>
-    <string name="status_on_table">On Table</string>
+    <string name="status_served">Served</string>
     <string name="status_assigned">Assigned</string>
     <string name="status_out_for_delivery">Out for Delivery</string>
     <string name="status_delivered">Delivered</string>
+    <string name="status_delivery_failed">Delivery Failed</string>
+    <string name="status_returned">Returned</string>
+    <string name="status_picked_up">Picked Up</string>
     <string name="status_completed">Completed</string>
     <string name="status_canceled">Canceled</string>
 
