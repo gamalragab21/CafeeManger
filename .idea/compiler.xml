@@ -3,6 +3,35 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="17">
       <module name="CafeeManger.app" target="21" />
+      <module name="CafeeManger.app-cashier" target="21" />
+      <module name="CafeeManger.app-delivery" target="21" />
+      <module name="CafeeManger.app-manager" target="21" />
+      <module name="CafeeManger.core.core-auth" target="21" />
+      <module name="CafeeManger.core.core-common" target="21" />
+      <module name="CafeeManger.core.core-data" target="21" />
+      <module name="CafeeManger.core.core-database" target="21" />
+      <module name="CafeeManger.core.core-domain" target="21" />
+      <module name="CafeeManger.core.core-model" target="21" />
+      <module name="CafeeManger.core.core-network" target="21" />
+      <module name="CafeeManger.core.core-ui" target="21" />
+      <module name="CafeeManger.feature.feature-auth" target="21" />
+      <module name="CafeeManger.feature.feature-cashier-attendance" target="21" />
+      <module name="CafeeManger.feature.feature-cashier-payment" target="21" />
+      <module name="CafeeManger.feature.feature-cashier-pos" target="21" />
+      <module name="CafeeManger.feature.feature-cashier-receipt" target="21" />
+      <module name="CafeeManger.feature.feature-delivery-navigation" target="21" />
+      <module name="CafeeManger.feature.feature-delivery-orders" target="21" />
+      <module name="CafeeManger.feature.feature-delivery-status" target="21" />
+      <module name="CafeeManger.feature.feature-manager-analytics" target="21" />
+      <module name="CafeeManger.feature.feature-manager-categories" target="21" />
+      <module name="CafeeManger.feature.feature-manager-chatbot" target="21" />
+      <module name="CafeeManger.feature.feature-manager-dashboard" target="21" />
+      <module name="CafeeManger.feature.feature-manager-items" target="21" />
+      <module name="CafeeManger.feature.feature-manager-orders" target="21" />
+      <module name="CafeeManger.feature.feature-manager-staff" target="21" />
+      <module name="CafeeManger.feature.feature-manager-stock" target="21" />
+      <module name="CafeeManger.feature.feature-manager-tables" target="21" />
+      <module name="CafeeManger.feature.feature-manager-users" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

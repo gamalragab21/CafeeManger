@@ -19,6 +19,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
+import org.koin.ktor.ext.inject
 import java.math.BigDecimal
 import java.time.YearMonth
 import java.util.UUID
@@ -73,11 +74,6 @@ data class AttendanceSummaryDto(
 // ─── Routes ──────────────────────────────────────────────────────
 
 fun Route.attendanceRoutes() {
-    // Inject services once at route-registration time using KoinJavaComponent
-    // (org.koin.ktor.ext.inject relies on RoutingKt which may not be on the classpath at runtime)
-    val pinService by KoinJavaComponent.inject<PinService>(clazz = PinService::class.java)
-    val qrCodeService by KoinJavaComponent.inject<QrCodeService>(clazz = QrCodeService::class.java)
-
     route("/api/v1/attendance") {
 
         // GET attendance records (Manager: all workers; Cashier: today only)
@@ -200,6 +196,8 @@ fun Route.attendanceRoutes() {
         post("/check-in") {
             val principal = requireRole("CASHIER", "MANAGER")
             val request = call.receive<CheckInDto>()
+            val pinService by inject<PinService>()
+            val qrCodeService by inject<QrCodeService>()
 
             val record = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -440,6 +438,12 @@ fun Route.attendanceRoutes() {
                 pin = request.pin
             )
 
+            val pinService by KoinJavaComponent.inject<PinService>(
+                clazz = PinService::class.java
+            )
+            val qrCodeService by KoinJavaComponent.inject<QrCodeService>(
+                clazz = QrCodeService::class.java
+            )
             val record = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
                 val cashierUUID = UUID.fromString(principal.userId)
@@ -447,7 +451,7 @@ fun Route.attendanceRoutes() {
                 val today = now.toString().substring(0, 10)
 
                 val workerUUID = UUID.fromString(checkInRequest.worker_id)
-
+                
                 // Check rate limiting
                 if (!pinService.canAttemptPin(workerUUID.toString())) {
                     val remainingTime = pinService.getRemainingLockoutTime(workerUUID.toString())
@@ -601,6 +605,12 @@ fun Route.attendanceRoutes() {
             
             val request = call.receive<QrCheckInRequest>()
 
+            val pinService by KoinJavaComponent.inject<PinService>(
+                clazz = PinService::class.java
+            )
+            val qrCodeService by KoinJavaComponent.inject<QrCodeService>(
+                clazz = QrCodeService::class.java
+            )
             val record = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
                 val cashierUUID = UUID.fromString(principal.userId)
@@ -745,7 +755,9 @@ fun Route.attendanceRoutes() {
             )
             
             val request = call.receive<PinCheckOutRequest>()
-
+            val pinService by KoinJavaComponent.inject<PinService>(
+                clazz = PinService::class.java
+            )
             val record = transaction {
                 val attnUUID = UUID.fromString(attendanceId)
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -803,6 +815,7 @@ fun Route.attendanceRoutes() {
             )
             
             val request = call.receive<QrCheckOutRequest>()
+            val qrCodeService by inject<QrCodeService>()
 
             val record = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)

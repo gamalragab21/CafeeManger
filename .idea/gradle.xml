@@ -49,6 +49,7 @@
             <option value="$PROJECT_DIR$/feature/feature-manager-analytics" />
             <option value="$PROJECT_DIR$/feature/feature-manager-categories" />
             <option value="$PROJECT_DIR$/feature/feature-manager-chatbot" />
+            <option value="$PROJECT_DIR$/feature/feature-manager-customers" />
             <option value="$PROJECT_DIR$/feature/feature-manager-dashboard" />
             <option value="$PROJECT_DIR$/feature/feature-manager-items" />
             <option value="$PROJECT_DIR$/feature/feature-manager-orders" />

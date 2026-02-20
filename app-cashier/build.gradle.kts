@@ -77,6 +77,7 @@ kotlin {
 
         val desktopMain by getting
         desktopMain.dependencies {
+      
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
         }

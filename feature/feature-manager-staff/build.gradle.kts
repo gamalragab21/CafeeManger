@@ -15,6 +15,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:core-data"))
             implementation(project(":core:core-network"))
+            implementation("network.chaintech:qr-kit:3.1.3")
         }
     }
 }
