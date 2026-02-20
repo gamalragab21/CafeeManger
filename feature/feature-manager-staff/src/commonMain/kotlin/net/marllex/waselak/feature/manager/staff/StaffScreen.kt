@@ -594,13 +594,47 @@ fun StatusTag(label: String, color: Color) {
 
 @Composable
 private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
-    val presentCount = uiState.todaySummary.count { it.presentToday }
-    val absentCount = uiState.todaySummary.count { !it.presentToday }
+    val filteredSummary = viewModel.filteredTodaySummary
+    val presentCount = filteredSummary.count { it.presentToday }
+    val absentCount = filteredSummary.count { !it.presentToday }
+
+    // Collect unique roles from today's summary for filtering
+    val availableRoles = remember(uiState.todaySummary) {
+        uiState.todaySummary.map { it.workerRole }.distinct().sorted()
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Role Filter Chips
+        if (availableRoles.size > 1) {
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        FilterChip(
+                            selected = uiState.attendanceRoleFilter == null,
+                            onClick = { viewModel.setAttendanceRoleFilter(null) },
+                            label = { Text(stringResource(Res.string.all)) },
+                        )
+                    }
+                    items(availableRoles) { role ->
+                        FilterChip(
+                            selected = uiState.attendanceRoleFilter.equals(role, ignoreCase = true),
+                            onClick = {
+                                viewModel.setAttendanceRoleFilter(
+                                    if (uiState.attendanceRoleFilter.equals(role, ignoreCase = true)) null else role
+                                )
+                            },
+                            label = { Text(role) },
+                        )
+                    }
+                }
+            }
+        }
+
         // Today's Overview Card
         item {
             Card(
@@ -638,7 +672,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
         }
 
         // Worker attendance status list
-        items(uiState.todaySummary) { summary ->
+        items(filteredSummary) { summary ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -721,13 +755,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             )
         }
 
-        val filteredRecords = uiState.attendanceRecords.let { records ->
-            when (uiState.attendanceStatusFilter) {
-                "PRESENT" -> records.filter { it.checkIn > 0 }
-                "ABSENT" -> records.filter { it.checkIn <= 0 }
-                else -> records
-            }
-        }
+        val filteredRecords = viewModel.filteredAttendanceRecords
 
         if (filteredRecords.isNotEmpty()) {
             items(filteredRecords) { record ->
@@ -735,7 +763,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        if (uiState.todaySummary.isEmpty() && filteredRecords.isEmpty()) {
+        if (filteredSummary.isEmpty() && filteredRecords.isEmpty()) {
             item {
                 EmptyState(
                     icon = Icons.Filled.EventBusy,
@@ -887,11 +915,56 @@ private fun AttendanceRecordCard(record: Attendance) {
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                 )
-                Text(
-                    text = record.date,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = record.date,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!record.workerRole.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Text(
+                                text = record.workerRole!!,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    val authLabel = when (record.authMethod) {
+                        "AUTO" -> stringResource(Res.string.auth_auto)
+                        "PIN" -> "PIN"
+                        "QR" -> "QR"
+                        else -> null
+                    }
+                    if (authLabel != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = when (record.authMethod) {
+                                "AUTO" -> MaterialTheme.colorScheme.tertiaryContainer
+                                "PIN" -> MaterialTheme.colorScheme.primaryContainer
+                                "QR" -> MaterialTheme.colorScheme.primaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                        ) {
+                            Text(
+                                text = authLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (record.authMethod) {
+                                    "AUTO" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                    else -> MaterialTheme.colorScheme.onPrimaryContainer
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(

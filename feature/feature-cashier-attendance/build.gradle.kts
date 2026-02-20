@@ -22,5 +22,8 @@ kotlin {
             implementation(libs.camerax.view)
             implementation(libs.accompanist.permissions)
         }
+        desktopMain.dependencies {
+            implementation(libs.zxing.javase)
+        }
     }
 }

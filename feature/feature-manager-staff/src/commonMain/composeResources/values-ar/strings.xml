@@ -100,6 +100,7 @@
     <string name="from_date">من تاريخ</string>
     <string name="to_date">إلى تاريخ</string>
     <string name="filter_by_status">فلتر حسب الحالة</string>
+    <string name="auth_auto">تلقائي (تسجيل دخول)</string>
 
     <!-- Salary -->
     <string name="salary_payments">مدفوعات الرواتب</string>

@@ -100,6 +100,7 @@
     <string name="from_date">From Date</string>
     <string name="to_date">To Date</string>
     <string name="filter_by_status">Filter by Status</string>
+    <string name="auth_auto">Auto (Login)</string>
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>

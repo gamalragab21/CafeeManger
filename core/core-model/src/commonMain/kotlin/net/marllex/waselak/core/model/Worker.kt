@@ -51,6 +51,7 @@ data class Attendance(
     val checkOut: Long? = null,
     val workedMinutes: Int? = null,
     val recordedBy: String,
+    val authMethod: String = "MANUAL",
     val note: String? = null,
     val createdAt: Long? = null,
 ) {

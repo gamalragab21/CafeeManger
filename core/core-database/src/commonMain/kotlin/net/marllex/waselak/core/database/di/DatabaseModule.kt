@@ -56,6 +56,8 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         "ALTER TABLE orders ADD COLUMN payment_timing TEXT NOT NULL DEFAULT 'PAY_NOW'",
         "ALTER TABLE orders ADD COLUMN payment_confirmed_at INTEGER",
         "ALTER TABLE orders ADD COLUMN payment_confirmed_by TEXT",
+        // v4: add auth_method column to attendance
+        "ALTER TABLE attendance ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'MANUAL'",
     )
     migrations.forEach { sql ->
         try {

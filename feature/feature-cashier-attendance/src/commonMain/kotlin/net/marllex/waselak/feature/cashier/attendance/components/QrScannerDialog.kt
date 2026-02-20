@@ -4,8 +4,9 @@ import androidx.compose.runtime.Composable
 
 /**
  * Platform-specific QR scanner dialog.
- * On Android, uses CameraX and ML Kit for real QR code scanning.
- * On other platforms, shows a placeholder indicating QR scanning is unavailable.
+ * - Android: CameraX + ML Kit for real-time camera QR scanning.
+ * - Desktop: USB scanner input field + image file decode with ZXing.
+ * - iOS: AVFoundation camera with metadata QR detection.
  */
 @Composable
 expect fun QrScannerDialog(

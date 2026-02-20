@@ -72,6 +72,7 @@ class StaffViewModel constructor(
         val attendanceFromDate: String = "",
         val attendanceToDate: String = "",
         val attendanceStatusFilter: String? = null, // "PRESENT", "ABSENT", or null for all
+        val attendanceRoleFilter: String? = null, // "Cashier", "Delivery", or null for all
     )
 
     // NEW: Worker Type Enum
@@ -488,6 +489,10 @@ class StaffViewModel constructor(
         _uiState.update { it.copy(attendanceStatusFilter = status) }
     }
 
+    fun setAttendanceRoleFilter(role: String?) {
+        _uiState.update { it.copy(attendanceRoleFilter = role) }
+    }
+
     private fun applyAttendanceFilters() {
         val s = _uiState.value
         refreshAttendance(
@@ -500,10 +505,31 @@ class StaffViewModel constructor(
     val filteredAttendanceRecords: List<Attendance>
         get() {
             val s = _uiState.value
-            return when (s.attendanceStatusFilter) {
-                "PRESENT" -> s.attendanceRecords.filter { it.checkIn > 0 }
-                "ABSENT" -> s.attendanceRecords.filter { it.checkIn <= 0 }
-                else -> s.attendanceRecords
+            var records = s.attendanceRecords
+
+            // Apply status filter
+            records = when (s.attendanceStatusFilter) {
+                "PRESENT" -> records.filter { it.checkIn > 0 }
+                "ABSENT" -> records.filter { it.checkIn <= 0 }
+                else -> records
+            }
+
+            // Apply role filter
+            if (s.attendanceRoleFilter != null) {
+                records = records.filter {
+                    it.workerRole.equals(s.attendanceRoleFilter, ignoreCase = true)
+                }
+            }
+
+            return records
+        }
+
+    val filteredTodaySummary: List<AttendanceSummary>
+        get() {
+            val s = _uiState.value
+            if (s.attendanceRoleFilter == null) return s.todaySummary
+            return s.todaySummary.filter {
+                it.workerRole.equals(s.attendanceRoleFilter, ignoreCase = true)
             }
         }
 

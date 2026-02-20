@@ -420,7 +420,7 @@ fun AttendanceResponse.toDomain() = Attendance(
     workerName = workerName, workerRole = workerRole,
     date = date, checkIn = checkIn, checkOut = checkOut,
     workedMinutes = workedMinutes, recordedBy = recordedBy,
-    note = note, createdAt = createdAt
+    authMethod = authMethod, note = note, createdAt = createdAt
 )
 
 fun AttendanceSummaryResponse.toDomain() = AttendanceSummary(

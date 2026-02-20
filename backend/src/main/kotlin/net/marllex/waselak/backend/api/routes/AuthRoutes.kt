@@ -134,6 +134,7 @@ fun Route.authRoutes() {
                                 it[date] = todayStr
                                 it[checkIn] = now
                                 it[recordedBy] = userUUID
+                                it[authMethod] = "AUTO"
                                 it[note] = "Auto check-in on login"
                                 it[createdAt] = now
                                 it[updatedAt] = now
@@ -299,6 +300,7 @@ fun Route.authRoutes() {
                                 }) {
                                     it[checkOut] = now
                                     it[AttendanceTable.workedMinutes] = workedMinutes
+                                    it[authMethod] = "AUTO"
                                     it[AttendanceTable.note] = "Auto check-out on logout"
                                     it[updatedAt] = now
                                 }
