@@ -30,6 +30,11 @@
 			"key": "user_id",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "hmac_secret",
+			"value": "w4s3l4k-hmac-s3cr3t-k3y-ch4ng3-1n-pr0duct10n",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -4652,6 +4657,46 @@
 					}
 				}
 			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// HMAC Signature Auto-Signing for Waselak API",
+					"// Skip for admin routes (they don't require HMAC)",
+					"const url = pm.request.url.toString();",
+					"if (url.includes('/api/v1/admin')) { return; }",
+					"if (!url.includes('/api/')) { return; }",
+					"",
+					"const hmacSecret = 'w4s3l4k-hmac-s3cr3t-k3y-ch4ng3-1n-pr0duct10n';",
+					"const timestamp = Date.now().toString();",
+					"const nonce = require('uuid').v4();",
+					"",
+					"// Get request details",
+					"const method = pm.request.method;",
+					"const path = '/' + pm.request.url.getPath().replace(/^\\//, '');",
+					"const body = pm.request.body ? pm.request.body.toString() : '';",
+					"",
+					"// SHA-256 hash of the body",
+					"const bodyHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Hex);",
+					"",
+					"// Build the payload: METHOD\\nPATH\\nTIMESTAMP\\nNONCE\\nBODY_HASH",
+					"const payload = method + '\\n' + path + '\\n' + timestamp + '\\n' + nonce + '\\n' + bodyHash;",
+					"",
+					"// HMAC-SHA256 signature",
+					"const signature = CryptoJS.HmacSHA256(payload, hmacSecret).toString(CryptoJS.enc.Hex);",
+					"",
+					"// Set headers",
+					"pm.request.headers.add({ key: 'X-Timestamp', value: timestamp });",
+					"pm.request.headers.add({ key: 'X-Nonce', value: nonce });",
+					"pm.request.headers.add({ key: 'X-Signature', value: signature });",
+					"",
+					"console.log('HMAC: Signed ' + method + ' ' + path);"
+				]
+			}
 		}
 	]
 }

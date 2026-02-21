@@ -27,7 +27,7 @@ fun Application.module() {
     }
 
     // Initialize database
-    DatabaseConfig.init(environment.config,true)
+    DatabaseConfig.init(environment.config, false)
 
     // Configure plugins
     configureSerialization()
