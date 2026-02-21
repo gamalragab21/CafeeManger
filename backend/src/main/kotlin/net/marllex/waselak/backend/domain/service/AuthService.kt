@@ -8,7 +8,6 @@ import net.marllex.waselak.backend.data.database.VendorsTable
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
@@ -71,6 +70,15 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 throw IllegalArgumentException("Invalid credentials")
             }
 
+            // Check if vendor is suspended
+            val vendorRow = VendorsTable.selectAll()
+                .where { VendorsTable.id eq user[UsersTable.vendorId] }
+                .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
+            if (vendorRow[VendorsTable.isSuspended]) {
+                val reason = vendorRow[VendorsTable.suspensionReason] ?: "No reason provided"
+                throw IllegalStateException("Your vendor account is suspended: $reason")
+            }
+
             val userId = user[UsersTable.id].value
             val userIdStr = userId.toString()
             val vendorId = user[UsersTable.vendorId].toString()
@@ -114,6 +122,15 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 throw IllegalStateException("Account is disabled")
             }
 
+            // Check if vendor is suspended
+            val vendorCheck = VendorsTable.selectAll()
+                .where { VendorsTable.id eq user[UsersTable.vendorId] }
+                .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
+            if (vendorCheck[VendorsTable.isSuspended]) {
+                val reason = vendorCheck[VendorsTable.suspensionReason] ?: "No reason provided"
+                throw IllegalStateException("Your vendor account is suspended: $reason")
+            }
+
             val userUUID = user[UsersTable.id].value
             val vendorId = user[UsersTable.vendorId].toString()
             val role = user[UsersTable.role]
@@ -139,92 +156,6 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 name = user[UsersTable.name],
                 phone = user[UsersTable.phone],
                 email = user[UsersTable.email]
-            )
-        }
-    }
-
-    fun register(
-        vendorName: String,
-        vendorAddress: String,
-        vendorPhone: String,
-        managerName: String,
-        managerPhone: String,
-        managerEmail: String?,
-        password: String,
-        storeType: String? = null,
-        businessType: String = "RESTAURANT",
-        enableTables: Boolean = true,
-        enableDineIn: Boolean = true,
-        enableDelivery: Boolean = true,
-        enableTakeaway: Boolean = true,
-        enableInStore: Boolean = false,
-        enablePickupLater: Boolean = false,
-        taxEnabled: Boolean = false,
-        defaultTaxPercent: Double = 0.0,
-        stockMode: String = "NONE",
-        digitalMenuUrl: String? = null,
-    ): AuthResult {
-        return transaction {
-            // Check global phone uniqueness (login queries by phone across all vendors)
-            val existingUser = UsersTable.selectAll()
-                .where { UsersTable.phone eq managerPhone }
-                .firstOrNull()
-            if (existingUser != null) {
-                throw IllegalStateException("A user with this phone number already exists")
-            }
-
-            // Create Vendor
-            val vendorId = VendorsTable.insertAndGetId {
-                it[name] = vendorName
-                it[address] = vendorAddress
-                it[contactPhone] = vendorPhone
-                storeType?.let { v -> it[VendorsTable.storeType] = v }
-                it[VendorsTable.businessType] = businessType
-                it[VendorsTable.enableTables] = enableTables
-                it[VendorsTable.enableDineIn] = enableDineIn
-                it[VendorsTable.enableDelivery] = enableDelivery
-                it[VendorsTable.enableTakeaway] = enableTakeaway
-                it[VendorsTable.enableInStore] = enableInStore
-                it[VendorsTable.enablePickupLater] = enablePickupLater
-                it[VendorsTable.taxEnabled] = taxEnabled
-                it[VendorsTable.defaultTaxPercent] = java.math.BigDecimal.valueOf(defaultTaxPercent)
-                it[VendorsTable.stockMode] = stockMode
-                digitalMenuUrl?.let { v -> it[VendorsTable.digitalMenuUrl] = v }
-                it[createdAt] = Clock.System.now()
-                it[updatedAt] = Clock.System.now()
-            }
-
-            // Create Manager user
-            val passwordHash = hashPassword(password)
-            val userId = UsersTable.insertAndGetId {
-                it[UsersTable.vendorId] = vendorId.value
-                it[role] = "MANAGER"
-                it[name] = managerName
-                it[phone] = managerPhone
-                it[email] = managerEmail
-                it[UsersTable.passwordHash] = passwordHash
-                it[active] = true
-                it[createdAt] = Clock.System.now()
-                it[updatedAt] = Clock.System.now()
-            }
-
-            val userIdStr = userId.toString()
-            val vendorIdStr = vendorId.toString()
-
-            val refreshToken = jwtConfig.generateRefreshToken(userIdStr)
-
-            // Store refresh token for single-session enforcement
-            storeRefreshToken(userId.value, refreshToken)
-
-            AuthResult(
-                accessToken = jwtConfig.generateAccessToken(userIdStr, vendorIdStr, "MANAGER"),
-                refreshToken = refreshToken,
-                userId = userIdStr,
-                vendorId = vendorIdStr,
-                role = "MANAGER",
-                name = managerName,
-                phone = managerPhone,
-                email = managerEmail
             )
         }
     }

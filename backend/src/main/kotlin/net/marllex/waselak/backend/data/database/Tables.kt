@@ -24,6 +24,8 @@ object VendorsTable : UUIDTable("vendors") {
     val taxEnabled = bool("tax_enabled").default(false)
     val defaultTaxPercent = decimal("default_tax_percent", 5, 2).default(java.math.BigDecimal.ZERO)
     val stockMode = varchar("stock_mode", 20).default("NONE") // NONE, WARN, ENFORCE
+    val isSuspended = bool("is_suspended").default(false)
+    val suspensionReason = text("suspension_reason").nullable()
     val digitalMenuUrl = text("digital_menu_url").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())

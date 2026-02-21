@@ -38,29 +38,6 @@ data class LoginRequest(
 )
 
 @Serializable
-data class RegisterRequest(
-    val vendor_name: String,
-    val vendor_address: String,
-    val vendor_phone: String,
-    val manager_name: String,
-    val manager_phone: String,
-    val manager_email: String? = null,
-    val password: String,
-    val store_type: String? = null,
-    val business_type: String = "RESTAURANT",
-    val enable_tables: Boolean? = null,
-    val enable_dine_in: Boolean? = null,
-    val enable_delivery: Boolean? = null,
-    val enable_takeaway: Boolean? = null,
-    val enable_in_store: Boolean? = null,
-    val enable_pickup_later: Boolean? = null,
-    val tax_enabled: Boolean? = null,
-    val default_tax_percent: Double? = null,
-    val stock_mode: String? = null,
-    val digital_menu_url: String? = null,
-)
-
-@Serializable
 data class RefreshTokenRequest(val refresh_token: String)
 
 @Serializable
@@ -196,62 +173,11 @@ fun Route.authRoutes() {
             )
         }
 
+        // Registration is disabled — only admin can create vendors via /api/v1/admin/vendors
         post("/register") {
-            val request = call.receive<RegisterRequest>()
-            require(request.vendor_name.isNotBlank()) { "Vendor name is required" }
-            require(request.vendor_address.isNotBlank()) { "Vendor address is required" }
-            require(request.vendor_phone.isNotBlank()) { "Vendor phone is required" }
-            require(request.manager_name.isNotBlank()) { "Manager name is required" }
-            require(request.manager_phone.isNotBlank()) { "Manager phone is required" }
-            require(request.password.length >= 6) { "Password must be at least 6 characters" }
-
-            // Auto-configure channel flags based on business_type if not explicitly set
-            val bt = request.business_type.uppercase()
-            val enableTables = request.enable_tables ?: (bt == "RESTAURANT" || bt == "CAFE")
-            val enableDineIn = request.enable_dine_in ?: (bt == "RESTAURANT" || bt == "CAFE")
-            val enableDelivery = request.enable_delivery ?: (bt != "RETAIL")
-            val enableTakeaway = request.enable_takeaway ?: true
-            val enableInStore = request.enable_in_store ?: (bt == "RETAIL" || bt == "GROCERY")
-            val enablePickupLater = request.enable_pickup_later ?: (bt == "RETAIL" || bt == "GROCERY")
-            val taxEnabled = request.tax_enabled ?: (bt == "RETAIL" || bt == "GROCERY")
-            val defaultTaxPercent = request.default_tax_percent ?: if (bt == "RETAIL" || bt == "GROCERY") 14.0 else 0.0
-            val stockMode = request.stock_mode ?: if (bt == "RETAIL" || bt == "GROCERY") "ENFORCE" else "NONE"
-
-            val result = authService.register(
-                vendorName = request.vendor_name,
-                vendorAddress = request.vendor_address,
-                vendorPhone = request.vendor_phone,
-                managerName = request.manager_name,
-                managerPhone = request.manager_phone,
-                managerEmail = request.manager_email,
-                password = request.password,
-                storeType = request.store_type,
-                businessType = bt,
-                enableTables = enableTables,
-                enableDineIn = enableDineIn,
-                enableDelivery = enableDelivery,
-                enableTakeaway = enableTakeaway,
-                enableInStore = enableInStore,
-                enablePickupLater = enablePickupLater,
-                taxEnabled = taxEnabled,
-                defaultTaxPercent = defaultTaxPercent,
-                stockMode = stockMode,
-                digitalMenuUrl = request.digital_menu_url,
-            )
-
             call.respond(
-                HttpStatusCode.Created, AuthResponse(
-                    access_token = result.accessToken,
-                    refresh_token = result.refreshToken,
-                    user = AuthUserDto(
-                        id = result.userId,
-                        vendor_id = result.vendorId,
-                        role = result.role,
-                        name = result.name,
-                        phone = result.phone,
-                        email = result.email
-                    )
-                )
+                HttpStatusCode.Gone,
+                mapOf("error" to "Public registration is no longer available. Contact admin to create a vendor.")
             )
         }
 

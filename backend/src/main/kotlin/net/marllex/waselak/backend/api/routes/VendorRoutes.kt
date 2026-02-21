@@ -101,6 +101,18 @@ fun Route.vendorRoutes() {
 
         put("/me") {
             val principal = requireRole("MANAGER")
+
+            // Check if vendor is suspended
+            val currentVendor = transaction {
+                VendorsTable.selectAll()
+                    .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
+                    .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
+            }
+            if (currentVendor[VendorsTable.isSuspended]) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Vendor account is suspended. Contact admin."))
+                return@put
+            }
+
             val request = call.receive<UpdateVendorRequest>()
 
             val updated = transaction {

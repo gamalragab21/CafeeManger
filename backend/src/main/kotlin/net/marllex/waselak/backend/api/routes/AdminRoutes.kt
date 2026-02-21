@@ -6,13 +6,11 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
-import net.marllex.waselak.backend.data.database.UsersTable
-import net.marllex.waselak.backend.data.database.VendorsTable
-import org.jetbrains.exposed.sql.selectAll
+import net.marllex.waselak.backend.data.database.*
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.insertAndGetId
 import java.util.UUID
 
 // ─── Hardcoded admin password ────────────────────────────────────
@@ -32,6 +30,15 @@ data class AdminVendorResponse(
     val enable_tables: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
+    val enable_takeaway: Boolean = true,
+    val enable_in_store: Boolean = false,
+    val enable_pickup_later: Boolean = false,
+    val business_type: String = "RESTAURANT",
+    val tax_enabled: Boolean = false,
+    val default_tax_percent: Double = 0.0,
+    val stock_mode: String = "NONE",
+    val is_suspended: Boolean = false,
+    val suspension_reason: String? = null,
     val digital_menu_url: String? = null,
     val users_count: Int = 0,
     val created_at: Long,
@@ -50,6 +57,15 @@ data class AdminUpdateVendorRequest(
     val enable_tables: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
+    val enable_takeaway: Boolean? = null,
+    val enable_in_store: Boolean? = null,
+    val enable_pickup_later: Boolean? = null,
+    val business_type: String? = null,
+    val tax_enabled: Boolean? = null,
+    val default_tax_percent: Double? = null,
+    val stock_mode: String? = null,
+    val is_suspended: Boolean? = null,
+    val suspension_reason: String? = null,
     val digital_menu_url: String? = null,
 )
 
@@ -61,11 +77,21 @@ data class AdminCreateVendorRequest(
     val wallet_phone: String? = null,
     val default_delivery_fee: Double = 0.0,
     val store_type: String? = null,
-    val enable_tables: Boolean = true,
-    val enable_dine_in: Boolean = true,
-    val enable_delivery: Boolean = true,
-    val digital_menu_url: String? = null,
     val logo_url: String? = null,
+    val digital_menu_url: String? = null,
+    // Channel flags — nullable = auto-configure from business_type
+    val business_type: String = "RESTAURANT",
+    val enable_tables: Boolean? = null,
+    val enable_dine_in: Boolean? = null,
+    val enable_delivery: Boolean? = null,
+    val enable_takeaway: Boolean? = null,
+    val enable_in_store: Boolean? = null,
+    val enable_pickup_later: Boolean? = null,
+    // Tax & stock
+    val tax_enabled: Boolean? = null,
+    val default_tax_percent: Double? = null,
+    val stock_mode: String? = null,
+    // Manager user
     val manager_name: String,
     val manager_phone: String,
     val manager_email: String? = null,
@@ -234,7 +260,7 @@ private suspend fun RoutingContext.requireAdminPassword(): Boolean {
 }
 
 // ─── Helper: map a DB row to AdminVendorResponse ─────────────────
-private fun mapVendorRow(row: org.jetbrains.exposed.sql.ResultRow, usersCount: Int = 0) =
+private fun mapVendorRow(row: ResultRow, usersCount: Int = 0) =
     AdminVendorResponse(
         id = row[VendorsTable.id].toString(),
         name = row[VendorsTable.name],
@@ -247,6 +273,15 @@ private fun mapVendorRow(row: org.jetbrains.exposed.sql.ResultRow, usersCount: I
         enable_tables = row[VendorsTable.enableTables],
         enable_dine_in = row[VendorsTable.enableDineIn],
         enable_delivery = row[VendorsTable.enableDelivery],
+        enable_takeaway = row[VendorsTable.enableTakeaway],
+        enable_in_store = row[VendorsTable.enableInStore],
+        enable_pickup_later = row[VendorsTable.enablePickupLater],
+        business_type = row[VendorsTable.businessType],
+        tax_enabled = row[VendorsTable.taxEnabled],
+        default_tax_percent = row[VendorsTable.defaultTaxPercent].toDouble(),
+        stock_mode = row[VendorsTable.stockMode],
+        is_suspended = row[VendorsTable.isSuspended],
+        suspension_reason = row[VendorsTable.suspensionReason],
         digital_menu_url = row[VendorsTable.digitalMenuUrl],
         users_count = usersCount,
         created_at = row[VendorsTable.createdAt].toEpochMilliseconds(),
@@ -262,8 +297,32 @@ fun Route.adminRoutes() {
             if (!requireAdminPassword()) return@post
 
             val request = call.receive<AdminCreateVendorRequest>()
+            require(request.vendor_name.isNotBlank()) { "Vendor name is required" }
+            require(request.manager_name.isNotBlank()) { "Manager name is required" }
+            require(request.manager_phone.isNotBlank()) { "Manager phone is required" }
+            require(request.manager_password.length >= 6) { "Password must be at least 6 characters" }
+
+            // Auto-configure channel flags based on business_type
+            val bt = request.business_type.uppercase()
+            val enableTables = request.enable_tables ?: (bt == "RESTAURANT" || bt == "CAFE")
+            val enableDineIn = request.enable_dine_in ?: (bt == "RESTAURANT" || bt == "CAFE")
+            val enableDelivery = request.enable_delivery ?: (bt != "RETAIL")
+            val enableTakeaway = request.enable_takeaway ?: true
+            val enableInStore = request.enable_in_store ?: (bt == "RETAIL" || bt == "GROCERY")
+            val enablePickupLater = request.enable_pickup_later ?: (bt == "RETAIL" || bt == "GROCERY")
+            val taxEnabled = request.tax_enabled ?: (bt == "RETAIL" || bt == "GROCERY")
+            val defaultTaxPercent = request.default_tax_percent ?: if (bt == "RETAIL" || bt == "GROCERY") 14.0 else 0.0
+            val stockMode = request.stock_mode ?: if (bt == "RETAIL" || bt == "GROCERY") "ENFORCE" else "NONE"
 
             val result = transaction {
+                // Check manager phone uniqueness
+                val existingUser = UsersTable.selectAll()
+                    .where { UsersTable.phone eq request.manager_phone }
+                    .firstOrNull()
+                if (existingUser != null) {
+                    throw IllegalStateException("A user with this phone number already exists")
+                }
+
                 // Create vendor
                 val vendorId = VendorsTable.insertAndGetId {
                     it[name] = request.vendor_name
@@ -272,11 +331,19 @@ fun Route.adminRoutes() {
                     it[walletPhone] = request.wallet_phone
                     it[defaultDeliveryFee] = java.math.BigDecimal.valueOf(request.default_delivery_fee)
                     it[storeType] = request.store_type
-                    it[enableTables] = request.enable_tables
-                    it[enableDineIn] = request.enable_dine_in
-                    it[enableDelivery] = request.enable_delivery
-                    it[digitalMenuUrl] = request.digital_menu_url
                     it[logoUrl] = request.logo_url
+                    it[digitalMenuUrl] = request.digital_menu_url
+                    it[businessType] = bt
+                    it[VendorsTable.enableTables] = enableTables
+                    it[VendorsTable.enableDineIn] = enableDineIn
+                    it[VendorsTable.enableDelivery] = enableDelivery
+                    it[VendorsTable.enableTakeaway] = enableTakeaway
+                    it[VendorsTable.enableInStore] = enableInStore
+                    it[VendorsTable.enablePickupLater] = enablePickupLater
+                    it[VendorsTable.taxEnabled] = taxEnabled
+                    it[VendorsTable.defaultTaxPercent] = java.math.BigDecimal.valueOf(defaultTaxPercent)
+                    it[VendorsTable.stockMode] = stockMode
+                    it[isSuspended] = false
                     it[createdAt] = Clock.System.now()
                     it[updatedAt] = Clock.System.now()
                 }
@@ -387,6 +454,15 @@ fun Route.adminRoutes() {
                     request.enable_tables?.let { stmt[enableTables] = it }
                     request.enable_dine_in?.let { stmt[enableDineIn] = it }
                     request.enable_delivery?.let { stmt[enableDelivery] = it }
+                    request.enable_takeaway?.let { stmt[enableTakeaway] = it }
+                    request.enable_in_store?.let { stmt[enableInStore] = it }
+                    request.enable_pickup_later?.let { stmt[enablePickupLater] = it }
+                    request.business_type?.let { stmt[businessType] = it }
+                    request.tax_enabled?.let { stmt[taxEnabled] = it }
+                    request.default_tax_percent?.let { stmt[defaultTaxPercent] = java.math.BigDecimal.valueOf(it) }
+                    request.stock_mode?.let { stmt[stockMode] = it }
+                    request.is_suspended?.let { stmt[isSuspended] = it }
+                    request.suspension_reason?.let { stmt[suspensionReason] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -406,6 +482,103 @@ fun Route.adminRoutes() {
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Vendor not found"))
             } else {
                 call.respond(HttpStatusCode.OK, updated)
+            }
+        }
+
+        // DELETE /api/v1/admin/vendors/{id} — delete vendor and ALL associated data
+        delete("/vendors/{id}") {
+            if (!requireAdminPassword()) return@delete
+
+            val vendorId = call.parameters["id"]
+                ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing vendor ID"))
+
+            val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid vendor ID format"))
+            }
+
+            val deleted = transaction {
+                val exists = VendorsTable.selectAll()
+                    .where { VendorsTable.id eq vendorUuid }
+                    .firstOrNull() != null
+                if (!exists) return@transaction false
+
+                // 1. Get all order IDs for this vendor
+                val orderIds = OrdersTable.selectAll()
+                    .where { OrdersTable.vendorId eq vendorUuid }
+                    .map { it[OrdersTable.id].value }
+
+                // 2. Delete order-dependent records
+                if (orderIds.isNotEmpty()) {
+                    ActivityLogsTable.deleteWhere { ActivityLogsTable.orderId inList orderIds }
+                    OrderItemsTable.deleteWhere { OrderItemsTable.orderId inList orderIds }
+                    StockTransactionsTable.deleteWhere { StockTransactionsTable.orderId inList orderIds }
+                }
+
+                // 3. Delete stock transactions by stock items
+                val stockIds = StockTable.selectAll()
+                    .where { StockTable.vendorId eq vendorUuid }
+                    .map { it[StockTable.id].value }
+                if (stockIds.isNotEmpty()) {
+                    StockTransactionsTable.deleteWhere { StockTransactionsTable.stockId inList stockIds }
+                }
+
+                // 4. Delete worker-dependent records
+                val workerIds = WorkersTable.selectAll()
+                    .where { WorkersTable.vendorId eq vendorUuid }
+                    .map { it[WorkersTable.id].value }
+                if (workerIds.isNotEmpty()) {
+                    AttendanceAuthLogsTable.deleteWhere { AttendanceAuthLogsTable.workerId inList workerIds }
+                    AttendanceTable.deleteWhere { AttendanceTable.workerId inList workerIds }
+                    SalaryPaymentsTable.deleteWhere { SalaryPaymentsTable.workerId inList workerIds }
+                }
+
+                // 5. Delete announcement reads, then announcements
+                val announcementIds = AnnouncementsTable.selectAll()
+                    .where { AnnouncementsTable.vendorId eq vendorUuid }
+                    .map { it[AnnouncementsTable.id].value }
+                if (announcementIds.isNotEmpty()) {
+                    AnnouncementReadsTable.deleteWhere { AnnouncementReadsTable.announcementId inList announcementIds }
+                }
+                AnnouncementsTable.deleteWhere { AnnouncementsTable.vendorId eq vendorUuid }
+
+                // 6. Delete customer addresses, then customers
+                val customerIds = CustomersTable.selectAll()
+                    .where { CustomersTable.vendorId eq vendorUuid }
+                    .map { it[CustomersTable.id].value }
+                if (customerIds.isNotEmpty()) {
+                    CustomerAddressesTable.deleteWhere { CustomerAddressesTable.customerId inList customerIds }
+                }
+                CustomersTable.deleteWhere { CustomersTable.vendorId eq vendorUuid }
+
+                // 7. Delete vendor-level tables
+                StockTable.deleteWhere { StockTable.vendorId eq vendorUuid }
+                OrdersTable.deleteWhere { OrdersTable.vendorId eq vendorUuid }
+                ItemsTable.deleteWhere { ItemsTable.vendorId eq vendorUuid }
+                WorkerRolesTable.deleteWhere { WorkerRolesTable.vendorId eq vendorUuid }
+                WorkersTable.deleteWhere { WorkersTable.vendorId eq vendorUuid }
+                TaxPlacesTable.deleteWhere { TaxPlacesTable.vendorId eq vendorUuid }
+                TablesTable.deleteWhere { TablesTable.vendorId eq vendorUuid }
+                CategoriesTable.deleteWhere { CategoriesTable.vendorId eq vendorUuid }
+
+                // 8. Delete users and their refresh tokens
+                val userIds = UsersTable.selectAll()
+                    .where { UsersTable.vendorId eq vendorUuid }
+                    .map { it[UsersTable.id].value }
+                if (userIds.isNotEmpty()) {
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId inList userIds }
+                }
+                UsersTable.deleteWhere { UsersTable.vendorId eq vendorUuid }
+
+                // 9. Finally delete the vendor
+                VendorsTable.deleteWhere { VendorsTable.id eq vendorUuid }
+
+                true
+            }
+
+            if (!deleted) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Vendor not found"))
+            } else {
+                call.respond(HttpStatusCode.OK, mapOf("success" to true, "message" to "Vendor and all associated data deleted"))
             }
         }
     }
