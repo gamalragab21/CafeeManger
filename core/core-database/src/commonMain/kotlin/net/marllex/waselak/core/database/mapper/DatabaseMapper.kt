@@ -25,6 +25,8 @@ fun Vendors.toDomain() = Vendor(
     storeType = store_type, enableTables = enable_tables,
     enableDineIn = enable_dine_in, enableDelivery = enable_delivery,
     enableTakeaway = enable_takeaway,
+    enableInStore = enable_in_store,
+    enablePickupLater = enable_pickup_later,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -36,6 +38,8 @@ fun Vendor.toDbEntity() = Vendors(
     store_type = storeType, enable_tables = enableTables,
     enable_dine_in = enableDineIn, enable_delivery = enableDelivery,
     enable_takeaway = enableTakeaway,
+    enable_in_store = enableInStore,
+    enable_pickup_later = enablePickupLater,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )
@@ -209,7 +213,7 @@ fun AttendanceDb.toDomain() = net.marllex.waselak.core.model.Attendance(
     workerName = worker_name, workerRole = worker_role,
     date = date, checkIn = check_in, checkOut = check_out,
     workedMinutes = worked_minutes, recordedBy = recorded_by,
-    note = note, createdAt = created_at
+    authMethod = auth_method, note = note, createdAt = created_at
 )
 
 fun net.marllex.waselak.core.model.Attendance.toDbEntity() = AttendanceDb(
@@ -217,7 +221,7 @@ fun net.marllex.waselak.core.model.Attendance.toDbEntity() = AttendanceDb(
     worker_name = workerName, worker_role = workerRole,
     date = date, check_in = checkIn, check_out = checkOut,
     worked_minutes = workedMinutes, recorded_by = recordedBy,
-    note = note, created_at = createdAt
+    auth_method = authMethod, note = note, created_at = createdAt
 )
 
 // ─── Salary Payment Mappers ──────────────────────────────────────

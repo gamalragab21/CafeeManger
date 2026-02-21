@@ -17,7 +17,9 @@ data class UpdateUserRequest(
     val name: String? = null,
     val phone: String? = null,
     val email: String? = null,
-    val active: Boolean? = null
+    val active: Boolean? = null,
+    val role: String? = null,
+    val password: String? = null
 )
 
 @Serializable

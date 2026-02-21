@@ -94,6 +94,7 @@ data class AttendanceResponse(
     @SerialName("check_out") val checkOut: Long? = null,
     @SerialName("worked_minutes") val workedMinutes: Int? = null,
     @SerialName("recorded_by") val recordedBy: String,
+    @SerialName("auth_method") val authMethod: String = "MANUAL",
     val note: String? = null,
     @SerialName("created_at") val createdAt: Long? = null,
 )

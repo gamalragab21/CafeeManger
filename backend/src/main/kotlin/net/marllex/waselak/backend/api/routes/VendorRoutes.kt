@@ -31,6 +31,8 @@ data class VendorResponse(
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
     val enable_takeaway: Boolean = true,
+    val enable_in_store: Boolean = false,
+    val enable_pickup_later: Boolean = false,
     val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
@@ -49,6 +51,8 @@ data class UpdateVendorRequest(
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
+    val enable_in_store: Boolean? = null,
+    val enable_pickup_later: Boolean? = null,
     val digital_menu_url: String? = null
 )
 
@@ -75,6 +79,8 @@ fun Route.vendorRoutes() {
                 enable_dine_in = vendor[VendorsTable.enableDineIn],
                 enable_delivery = vendor[VendorsTable.enableDelivery],
                 enable_takeaway = vendor[VendorsTable.enableTakeaway],
+                enable_in_store = vendor[VendorsTable.enableInStore],
+                enable_pickup_later = vendor[VendorsTable.enablePickupLater],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
@@ -98,6 +104,8 @@ fun Route.vendorRoutes() {
                     request.enable_dine_in?.let { stmt[enableDineIn] = it }
                     request.enable_delivery?.let { stmt[enableDelivery] = it }
                     request.enable_takeaway?.let { stmt[enableTakeaway] = it }
+                    request.enable_in_store?.let { stmt[enableInStore] = it }
+                    request.enable_pickup_later?.let { stmt[enablePickupLater] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -120,6 +128,8 @@ fun Route.vendorRoutes() {
                 enable_dine_in = updated[VendorsTable.enableDineIn],
                 enable_delivery = updated[VendorsTable.enableDelivery],
                 enable_takeaway = updated[VendorsTable.enableTakeaway],
+                enable_in_store = updated[VendorsTable.enableInStore],
+                enable_pickup_later = updated[VendorsTable.enablePickupLater],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()

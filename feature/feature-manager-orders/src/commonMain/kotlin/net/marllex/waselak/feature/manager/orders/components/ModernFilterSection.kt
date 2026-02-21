@@ -247,6 +247,22 @@ fun ModernFilterSection(
                                 icon = Icons.Default.ShoppingBag
                             )
                         }
+                        item {
+                            ModernFilterChip(
+                                label = stringResource(Res.string.channel_in_store),
+                                selected = selectedChannel == "IN_STORE",
+                                onClick = { onChannelSelected("IN_STORE") },
+                                icon = Icons.Default.Store
+                            )
+                        }
+                        item {
+                            ModernFilterChip(
+                                label = stringResource(Res.string.channel_pickup_later),
+                                selected = selectedChannel == "PICKUP_LATER",
+                                onClick = { onChannelSelected("PICKUP_LATER") },
+                                icon = Icons.Default.Schedule
+                            )
+                        }
                     }
                 }
 
@@ -255,6 +271,8 @@ fun ModernFilterSection(
                     "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
                     "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
                     "TAKEAWAY" -> OrderStatus.getAvailableStatuses(OrderChannel.TAKEAWAY)
+                    "IN_STORE" -> OrderStatus.getAvailableStatuses(OrderChannel.IN_STORE)
+                    "PICKUP_LATER" -> OrderStatus.getAvailableStatuses(OrderChannel.PICKUP_LATER)
                     else -> OrderStatus.entries.toList()
                 }
 

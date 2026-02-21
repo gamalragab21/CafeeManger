@@ -49,12 +49,16 @@ fun ChannelChip(
         "DINE_IN" -> DineInColor
         "DELIVERY" -> DeliveryChannelColor
         "TAKEAWAY" -> TakeawayColor
+        "IN_STORE" -> InStoreColor
+        "PICKUP_LATER" -> PickupLaterColor
         else -> Color.Gray
     }
     val displayLabel = label ?: when (channel) {
         "DINE_IN" -> stringResource(Res.string.channel_dine_in)
         "DELIVERY" -> stringResource(Res.string.channel_delivery)
         "TAKEAWAY" -> stringResource(Res.string.channel_takeaway)
+        "IN_STORE" -> stringResource(Res.string.channel_in_store)
+        "PICKUP_LATER" -> stringResource(Res.string.channel_pickup_later)
         else -> channel
     }
 

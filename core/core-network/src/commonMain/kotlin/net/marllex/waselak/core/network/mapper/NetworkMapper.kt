@@ -18,6 +18,8 @@ fun VendorResponse.toDomain() = Vendor(
     enableDineIn = enableDineIn,
     enableDelivery = enableDelivery,
     enableTakeaway = enableTakeaway,
+    enableInStore = enableInStore,
+    enablePickupLater = enablePickupLater,
     digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt,
     updatedAt = updatedAt
@@ -420,7 +422,7 @@ fun AttendanceResponse.toDomain() = Attendance(
     workerName = workerName, workerRole = workerRole,
     date = date, checkIn = checkIn, checkOut = checkOut,
     workedMinutes = workedMinutes, recordedBy = recordedBy,
-    note = note, createdAt = createdAt
+    authMethod = authMethod, note = note, createdAt = createdAt
 )
 
 fun AttendanceSummaryResponse.toDomain() = AttendanceSummary(

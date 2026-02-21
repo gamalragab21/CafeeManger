@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Attendance
+import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.SalaryPayment
 import net.marllex.waselak.core.model.SalaryType
 import net.marllex.waselak.core.model.Worker
@@ -592,142 +593,234 @@ fun StatusTag(label: String, color: Color) {
 
 // ─── Attendance Tab ──────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
-    val presentCount = uiState.todaySummary.count { it.presentToday }
-    val absentCount = uiState.todaySummary.count { !it.presentToday }
+    val filteredSummary = viewModel.filteredTodaySummary
+    val presentCount = filteredSummary.count { it.presentToday }
+    val absentCount = filteredSummary.count { !it.presentToday }
+    val totalCount = filteredSummary.size
+
+    // Build a lookup map: workerId -> Worker (for checking isLoginEnabled / role)
+    val workerLookup = remember(uiState.workers) {
+        uiState.workers.associateBy { it.id }
+    }
+
+    // Collect unique roles from today's summary + attendance records
+    val availableRoles = remember(uiState.todaySummary, uiState.attendanceRecords) {
+        val summaryRoles = uiState.todaySummary.map { it.workerRole }
+        val recordRoles = uiState.attendanceRecords.mapNotNull { it.workerRole }
+        (summaryRoles + recordRoles).distinct().sorted()
+    }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Today's Overview Card
+        // ─── Today's Overview Card ───────────────────────────────
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(Res.string.who_is_working),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.who_is_working),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+
+                    // Stats Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        AttendanceCountChip(
+                        // Total
+                        AttendanceStatCard(
+                            count = totalCount,
+                            label = stringResource(Res.string.all),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        // Present
+                        AttendanceStatCard(
                             count = presentCount,
                             label = stringResource(Res.string.present),
-                            color = MaterialTheme.colorScheme.primary,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
                         )
-                        AttendanceCountChip(
+                        Spacer(Modifier.width(8.dp))
+                        // Absent
+                        AttendanceStatCard(
                             count = absentCount,
                             label = stringResource(Res.string.absent),
-                            color = MaterialTheme.colorScheme.error,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
         }
 
-        // Worker attendance status list
-        items(uiState.todaySummary) { summary ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        // ─── Role Filter Chips ──────────────────────────────────
+        if (availableRoles.size > 1) {
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (summary.presentToday) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error
-                            )
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = summary.workerName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = summary.workerRole,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    item {
+                        FilterChip(
+                            selected = uiState.attendanceRoleFilter == null,
+                            onClick = { viewModel.setAttendanceRoleFilter(null) },
+                            label = { Text(stringResource(Res.string.all)) },
+                            leadingIcon = if (uiState.attendanceRoleFilter == null) {
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                         )
                     }
-                    AssistChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                if (summary.presentToday) stringResource(Res.string.present)
-                                else stringResource(Res.string.absent),
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        },
-                        modifier = Modifier.height(28.dp),
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = if (summary.presentToday)
-                                MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.errorContainer,
-                            labelColor = if (summary.presentToday)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    )
+                    items(availableRoles) { role ->
+                        FilterChip(
+                            selected = uiState.attendanceRoleFilter.equals(role, ignoreCase = true),
+                            onClick = {
+                                viewModel.setAttendanceRoleFilter(
+                                    if (uiState.attendanceRoleFilter.equals(role, ignoreCase = true)) null else role
+                                )
+                            },
+                            label = { Text(role) },
+                            leadingIcon = if (uiState.attendanceRoleFilter.equals(role, ignoreCase = true)) {
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
                 }
             }
         }
 
-        // Attendance History with Filters
-        item {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(Res.string.attendance_history),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp),
+        // ─── Worker Summary Cards (Today) ────────────────────────
+        items(filteredSummary) { summary ->
+            val worker = workerLookup[summary.workerId]
+            val isAppUser = worker?.isLoginEnabled == true
+
+            WorkerAttendanceSummaryCard(
+                summary = summary,
+                isAppUser = isAppUser,
+                workerRole = summary.workerRole,
             )
         }
 
-        // Filter section
+        // ─── Attendance History Section ──────────────────────────
+        item {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.EventBusy,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(Res.string.attendance_history),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        // Period Filter (Today / Week / Month / Custom)
+        item {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val periods = listOf(
+                    StaffViewModel.AttendancePeriod.TODAY to stringResource(Res.string.today),
+                    StaffViewModel.AttendancePeriod.WEEK to stringResource(Res.string.this_week),
+                    StaffViewModel.AttendancePeriod.MONTH to stringResource(Res.string.this_month),
+                    StaffViewModel.AttendancePeriod.CUSTOM to stringResource(Res.string.custom_range),
+                )
+                periods.forEachIndexed { index, (period, label) ->
+                    SegmentedButton(
+                        selected = uiState.attendancePeriod == period,
+                        onClick = { viewModel.setAttendancePeriod(period) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = periods.size),
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
+        // Custom date range inputs
+        if (uiState.attendancePeriod == StaffViewModel.AttendancePeriod.CUSTOM) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = uiState.attendanceFromDate,
+                        onValueChange = viewModel::setAttendanceFromDate,
+                        label = { Text(stringResource(Res.string.from_date)) },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    OutlinedTextField(
+                        value = uiState.attendanceToDate,
+                        onValueChange = viewModel::setAttendanceToDate,
+                        label = { Text(stringResource(Res.string.to_date)) },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+            }
+        }
+
+        // Status + Worker Filters
         item {
             AttendanceFilters(
                 workers = uiState.workers,
                 selectedWorkerId = uiState.attendanceWorkerFilter,
-                fromDate = uiState.attendanceFromDate,
-                toDate = uiState.attendanceToDate,
                 statusFilter = uiState.attendanceStatusFilter,
                 onWorkerSelected = viewModel::setAttendanceWorkerFilter,
-                onFromDateChanged = viewModel::setAttendanceFromDate,
-                onToDateChanged = viewModel::setAttendanceToDate,
                 onStatusFilterChanged = viewModel::setAttendanceStatusFilter,
             )
         }
 
-        val filteredRecords = uiState.attendanceRecords.let { records ->
-            when (uiState.attendanceStatusFilter) {
-                "PRESENT" -> records.filter { it.checkIn > 0 }
-                "ABSENT" -> records.filter { it.checkIn <= 0 }
-                else -> records
-            }
-        }
+        val filteredRecords = viewModel.filteredAttendanceRecords
 
         if (filteredRecords.isNotEmpty()) {
             items(filteredRecords) { record ->
@@ -735,7 +828,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        if (uiState.todaySummary.isEmpty() && filteredRecords.isEmpty()) {
+        if (filteredSummary.isEmpty() && filteredRecords.isEmpty()) {
             item {
                 EmptyState(
                     icon = Icons.Filled.EventBusy,
@@ -743,20 +836,195 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
                 )
             }
         }
+
+        // Bottom spacing
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
+
+// ─── Worker Attendance Summary Card (Today's overview per worker) ──
+
+@Composable
+private fun WorkerAttendanceSummaryCard(
+    summary: AttendanceSummary,
+    isAppUser: Boolean,
+    workerRole: String,
+) {
+    val statusColor = if (summary.presentToday) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.error
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (summary.presentToday)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Avatar with status indicator
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Surface(
+                    shape = CircleShape,
+                    color = statusColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            summary.workerName.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor,
+                        )
+                    }
+                }
+                // Online/Offline dot
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // Name + Role + Tags
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = summary.workerName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Role badge
+                    val roleColor = when (workerRole.lowercase()) {
+                        "cashier" -> MaterialTheme.colorScheme.tertiary
+                        "delivery" -> MaterialTheme.colorScheme.secondary
+                        "manager" -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = roleColor.copy(alpha = 0.1f),
+                    ) {
+                        Text(
+                            text = workerRole,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = roleColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                    // Auto-tracked badge for app users
+                    if (isAppUser) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.auto_login),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Status chip
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = statusColor.copy(alpha = 0.1f),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                    )
+                    Text(
+                        text = if (summary.presentToday) stringResource(Res.string.present)
+                        else stringResource(Res.string.absent),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Attendance Stats Card ──────────────────────────────────────
+
+@Composable
+private fun AttendanceStatCard(
+    count: Int,
+    label: String,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = containerColor,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = contentColor.copy(alpha = 0.8f),
+            )
+        }
+    }
+}
+
+// ─── Attendance Filters ─────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AttendanceFilters(
     workers: List<Worker>,
     selectedWorkerId: String?,
-    fromDate: String,
-    toDate: String,
     statusFilter: String?,
     onWorkerSelected: (String?) -> Unit,
-    onFromDateChanged: (String) -> Unit,
-    onToDateChanged: (String) -> Unit,
     onStatusFilterChanged: (String?) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -776,6 +1044,7 @@ private fun AttendanceFilters(
                     .fillMaxWidth()
                     .menuAnchor(),
                 singleLine = true,
+                shape = RoundedCornerShape(12.dp),
             )
             ExposedDropdownMenu(
                 expanded = workerExpanded,
@@ -790,7 +1059,38 @@ private fun AttendanceFilters(
                 )
                 workers.forEach { worker ->
                     DropdownMenuItem(
-                        text = { Text(worker.fullName) },
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(worker.fullName)
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Text(
+                                        text = worker.role,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    )
+                                }
+                                if (worker.isLoginEnabled) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                                    ) {
+                                        Text(
+                                            text = stringResource(Res.string.has_app_access),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        },
                         onClick = {
                             onWorkerSelected(worker.id)
                             workerExpanded = false
@@ -798,29 +1098,6 @@ private fun AttendanceFilters(
                     )
                 }
             }
-        }
-
-        // Date range filters
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = fromDate,
-                onValueChange = onFromDateChanged,
-                label = { Text(stringResource(Res.string.from_date)) },
-                placeholder = { Text("YYYY-MM-DD") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = toDate,
-                onValueChange = onToDateChanged,
-                label = { Text(stringResource(Res.string.to_date)) },
-                placeholder = { Text("YYYY-MM-DD") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
         }
 
         // Status filter chips
@@ -831,86 +1108,219 @@ private fun AttendanceFilters(
                 selected = statusFilter == null,
                 onClick = { onStatusFilterChanged(null) },
                 label = { Text(stringResource(Res.string.all)) },
+                leadingIcon = if (statusFilter == null) {
+                    { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                } else null,
             )
             FilterChip(
                 selected = statusFilter == "PRESENT",
                 onClick = { onStatusFilterChanged(if (statusFilter == "PRESENT") null else "PRESENT") },
                 label = { Text(stringResource(Res.string.present)) },
+                leadingIcon = if (statusFilter == "PRESENT") {
+                    { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
             )
             FilterChip(
                 selected = statusFilter == "ABSENT",
                 onClick = { onStatusFilterChanged(if (statusFilter == "ABSENT") null else "ABSENT") },
                 label = { Text(stringResource(Res.string.absent)) },
+                leadingIcon = if (statusFilter == "ABSENT") {
+                    { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                ),
             )
         }
     }
 }
 
-@Composable
-private fun AttendanceCountChip(
-    count: Int,
-    label: String,
-    color: androidx.compose.ui.graphics.Color
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = color,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
-    }
-}
+// ─── Attendance Record Card (History) ────────────────────────────
 
 @Composable
 private fun AttendanceRecordCard(record: Attendance) {
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(14.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = record.workerName ?: stringResource(Res.string.worker),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = record.date,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "Check-in: ${record.checkIn.formatEpochMs("hh:mm a")}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                record.checkOut?.let {
-                    Text(
-                        text = "Check-out: ${it.formatEpochMs("hh:mm a")}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
+            // Top Row: Name + Role + Auth Method
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Worker avatar
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            (record.workerName ?: "W").take(1).uppercase(),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
                 }
-                record.workedMinutes?.let {
+
+                Spacer(Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Worked: ${record.workedHoursFormatted}",
+                        text = record.workerName ?: stringResource(Res.string.worker),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Date
+                        Text(
+                            text = record.date,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // Role badge
+                        if (!record.workerRole.isNullOrBlank()) {
+                            val roleColor = when (record.workerRole!!.lowercase()) {
+                                "cashier" -> MaterialTheme.colorScheme.tertiary
+                                "delivery" -> MaterialTheme.colorScheme.secondary
+                                "manager" -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = roleColor.copy(alpha = 0.1f),
+                            ) {
+                                Text(
+                                    text = record.workerRole!!,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = roleColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                        // Auth method badge
+                        val authLabel = when (record.authMethod) {
+                            "AUTO" -> stringResource(Res.string.auth_auto)
+                            "PIN" -> "PIN"
+                            "QR" -> "QR"
+                            else -> null
+                        }
+                        if (authLabel != null) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = when (record.authMethod) {
+                                    "AUTO" -> MaterialTheme.colorScheme.tertiaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
+                            ) {
+                                Text(
+                                    text = authLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = when (record.authMethod) {
+                                        "AUTO" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(Modifier.height(10.dp))
+
+            // Bottom Row: Check-in / Check-out / Worked
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Check In
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(Res.string.checked_in),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = record.checkIn.formatEpochMs("hh:mm a"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                // Check Out
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(Res.string.checked_out),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    val checkOutTime = record.checkOut
+                    if (checkOutTime != null) {
+                        Text(
+                            text = checkOutTime.formatEpochMs("hh:mm a"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                        ) {
+                            Text(
+                                text = "-- : --",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Worked
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(Res.string.worked_label),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = record.workedMinutes?.let { record.workedHoursFormatted } ?: "-- : --",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -2037,11 +2447,19 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
         } else {
             uiState.dialogPin.length in 4..6 && uiState.dialogPin == uiState.dialogPinConfirm
         }
-        
-        return uiState.dialogName.isNotBlank() && 
+
+        // For edit mode: password is NOT required (keep existing password)
+        // For new workers: password required only if login is enabled
+        val passwordValid = if (isEdit) {
+            true // Don't require password re-entry when editing
+        } else {
+            !uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6
+        }
+
+        return uiState.dialogName.isNotBlank() &&
                uiState.dialogRole.isNotBlank() &&
                 pinValid &&
-               (!uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6)
+                passwordValid
     }
 
     // Determine dialog title based on step

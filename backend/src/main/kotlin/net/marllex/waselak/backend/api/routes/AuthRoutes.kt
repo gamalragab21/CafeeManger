@@ -50,6 +50,8 @@ data class RegisterRequest(
     val enable_tables: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
+    val enable_in_store: Boolean = false,
+    val enable_pickup_later: Boolean = false,
     val digital_menu_url: String? = null,
 )
 
@@ -134,6 +136,7 @@ fun Route.authRoutes() {
                                 it[date] = todayStr
                                 it[checkIn] = now
                                 it[recordedBy] = userUUID
+                                it[authMethod] = "AUTO"
                                 it[note] = "Auto check-in on login"
                                 it[createdAt] = now
                                 it[updatedAt] = now
@@ -209,6 +212,8 @@ fun Route.authRoutes() {
                 enableTables = request.enable_tables,
                 enableDineIn = request.enable_dine_in,
                 enableDelivery = request.enable_delivery,
+                enableInStore = request.enable_in_store,
+                enablePickupLater = request.enable_pickup_later,
                 digitalMenuUrl = request.digital_menu_url,
             )
 
@@ -299,6 +304,7 @@ fun Route.authRoutes() {
                                 }) {
                                     it[checkOut] = now
                                     it[AttendanceTable.workedMinutes] = workedMinutes
+                                    it[authMethod] = "AUTO"
                                     it[AttendanceTable.note] = "Auto check-out on logout"
                                     it[updatedAt] = now
                                 }

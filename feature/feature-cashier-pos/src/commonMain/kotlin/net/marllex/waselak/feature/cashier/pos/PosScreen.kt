@@ -150,11 +150,13 @@ fun PosScreen(
                 modifier = Modifier.then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth()),
             ) {
                 // Channel selector – only show enabled channels
-                val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery, uiState.enableTakeaway) {
+                val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery, uiState.enableTakeaway, uiState.enableInStore, uiState.enablePickupLater) {
                     buildList {
                         if (uiState.enableDineIn) add(OrderChannel.DINE_IN)
+                        if (uiState.enableInStore) add(OrderChannel.IN_STORE)
                         if (uiState.enableDelivery) add(OrderChannel.DELIVERY)
                         if (uiState.enableTakeaway) add(OrderChannel.TAKEAWAY)
+                        if (uiState.enablePickupLater) add(OrderChannel.PICKUP_LATER)
                         if (isEmpty()) addAll(OrderChannel.entries) // fallback: show all
                     }
                 }
@@ -175,6 +177,8 @@ fun PosScreen(
                                         OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
                                         OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
                                         OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
+                                        OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
+                                        OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
                                     }
                                 )
                             }
@@ -293,7 +297,7 @@ private fun CartBottomSheet(
         if (uiState.channel == OrderChannel.DINE_IN) PaymentTiming.PAY_LATER else PaymentTiming.PAY_NOW
     ) }
     var hasAttemptedSubmit by remember { mutableStateOf(false) }
-    val isDeliveryOrTakeaway = uiState.channel == OrderChannel.DELIVERY || uiState.channel == OrderChannel.TAKEAWAY
+    val isDeliveryOrTakeaway = uiState.channel in listOf(OrderChannel.DELIVERY, OrderChannel.TAKEAWAY, OrderChannel.PICKUP_LATER)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -712,17 +716,23 @@ private fun RecentOrderCard(order: Order) {
                     OrderChannel.DINE_IN -> "Dine-in"
                     OrderChannel.DELIVERY -> "Delivery"
                     OrderChannel.TAKEAWAY -> "Takeaway"
+                    OrderChannel.IN_STORE -> "In-Store"
+                    OrderChannel.PICKUP_LATER -> "Pickup Later"
                 }
                 Badge(
                     containerColor = when (order.channel) {
                         OrderChannel.DINE_IN -> MaterialTheme.colorScheme.primaryContainer
                         OrderChannel.DELIVERY -> MaterialTheme.colorScheme.tertiaryContainer
                         OrderChannel.TAKEAWAY -> MaterialTheme.colorScheme.secondaryContainer
+                        OrderChannel.IN_STORE -> MaterialTheme.colorScheme.primaryContainer
+                        OrderChannel.PICKUP_LATER -> MaterialTheme.colorScheme.secondaryContainer
                     },
                     contentColor = when (order.channel) {
                         OrderChannel.DINE_IN -> MaterialTheme.colorScheme.onPrimaryContainer
                         OrderChannel.DELIVERY -> MaterialTheme.colorScheme.onTertiaryContainer
                         OrderChannel.TAKEAWAY -> MaterialTheme.colorScheme.onSecondaryContainer
+                        OrderChannel.IN_STORE -> MaterialTheme.colorScheme.onPrimaryContainer
+                        OrderChannel.PICKUP_LATER -> MaterialTheme.colorScheme.onSecondaryContainer
                     },
                 ) {
                     Text(

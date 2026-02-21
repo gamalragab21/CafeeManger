@@ -14,10 +14,10 @@
     <string name="biometric_not_available">Biometric authentication not available on this device</string>
     <string name="present">Present</string>
     <string name="absent">Absent</string>
-    <string name="today_attendance">Today\'s Attendance</string>
+    <string name="today_attendance">Today Attendance</string>
     <string name="no_workers_available">No active workers available</string>
     <string name="search_worker">Search worker…</string>
-    <string name="checked_out">Check-out </string>
+    <string name="checked_out">Checked Out</string>
     <string name="scan_qr_to_check_in">Scan QR to Check In</string>
     <string name="scan_qr_to_check_out">Scan QR to Check Out</string>
     <string name="scan_qr_code">Scan QR Code</string>

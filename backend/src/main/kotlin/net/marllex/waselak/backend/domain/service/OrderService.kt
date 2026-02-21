@@ -2,7 +2,7 @@ package net.marllex.waselak.backend.domain.service
 
 class OrderService {
 
-    enum class OrderChannel { DINE_IN, DELIVERY, TAKEAWAY }
+    enum class OrderChannel { DINE_IN, DELIVERY, TAKEAWAY, IN_STORE, PICKUP_LATER }
     enum class OrderStatus {
         CREATED, IN_PREPARATION, READY,
         SERVED,              // dine-in: food served to table (renamed from ON_TABLE)
@@ -29,6 +29,8 @@ class OrderService {
             "DINE_IN" -> validateDineIn(current, next)
             "DELIVERY" -> validateDelivery(current, next)
             "TAKEAWAY" -> validateTakeaway(current, next)
+            "IN_STORE" -> validateInStore(current, next)
+            "PICKUP_LATER" -> validatePickupLater(current, next)
             else -> false
         }
     }
@@ -51,6 +53,27 @@ class OrderService {
             OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
             OrderStatus.READY -> next in listOf(OrderStatus.SERVED, OrderStatus.CANCELED)
             OrderStatus.SERVED -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
+            OrderStatus.COMPLETED -> false
+            OrderStatus.CANCELED -> false
+            else -> false
+        }
+    }
+
+    private fun validateInStore(current: OrderStatus, next: OrderStatus): Boolean {
+        return when (current) {
+            OrderStatus.CREATED -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
+            OrderStatus.COMPLETED -> false
+            OrderStatus.CANCELED -> false
+            else -> false
+        }
+    }
+
+    private fun validatePickupLater(current: OrderStatus, next: OrderStatus): Boolean {
+        return when (current) {
+            OrderStatus.CREATED -> next in listOf(OrderStatus.IN_PREPARATION, OrderStatus.CANCELED)
+            OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
+            OrderStatus.READY -> next in listOf(OrderStatus.PICKED_UP, OrderStatus.CANCELED)
+            OrderStatus.PICKED_UP -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
             OrderStatus.COMPLETED -> false
             OrderStatus.CANCELED -> false
             else -> false

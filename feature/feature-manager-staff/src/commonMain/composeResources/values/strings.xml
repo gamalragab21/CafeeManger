@@ -88,7 +88,7 @@
     <string name="daily_view">Daily</string>
     <string name="weekly_view">Weekly</string>
     <string name="monthly_view">Monthly</string>
-    <string name="who_is_working">Who\'s Working Today</string>
+    <string name="who_is_working">Who is Working Today</string>
     <string name="present_count">%d Present</string>
     <string name="absent_count">%d Absent</string>
     <string name="attendance_history">Attendance History</string>
@@ -100,6 +100,13 @@
     <string name="from_date">From Date</string>
     <string name="to_date">To Date</string>
     <string name="filter_by_status">Filter by Status</string>
+    <string name="auth_auto">Auto (Login)</string>
+    <string name="this_week">This Week</string>
+    <string name="this_month">This Month</string>
+    <string name="custom_range">Custom</string>
+    <string name="not_checked_out">Not Checked Out</string>
+    <string name="auto_login">Auto (Login)</string>
+    <string name="worked_label">Worked</string>
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>

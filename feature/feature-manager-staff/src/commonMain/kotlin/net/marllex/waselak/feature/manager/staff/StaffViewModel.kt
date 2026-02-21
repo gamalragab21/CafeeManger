@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.*
 import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.*
 
@@ -69,15 +70,22 @@ class StaffViewModel constructor(
 
         // Attendance filters
         val attendanceWorkerFilter: String? = null,
+        val attendancePeriod: AttendancePeriod = AttendancePeriod.TODAY,
         val attendanceFromDate: String = "",
         val attendanceToDate: String = "",
         val attendanceStatusFilter: String? = null, // "PRESENT", "ABSENT", or null for all
+        val attendanceRoleFilter: String? = null, // "Cashier", "Delivery", or null for all
     )
 
-    // NEW: Worker Type Enum
+    // Worker Type Enum
     enum class WorkerType {
         NORMAL,  // Regular worker, no system access
         MAIN     // System user with app access (Cashier/Delivery/Manager)
+    }
+
+    // Attendance Date Period Filter
+    enum class AttendancePeriod {
+        TODAY, WEEK, MONTH, CUSTOM
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -474,6 +482,33 @@ class StaffViewModel constructor(
         applyAttendanceFilters()
     }
 
+    fun setAttendancePeriod(period: AttendancePeriod) {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val (from, to) = when (period) {
+            AttendancePeriod.TODAY -> today.toString() to today.toString()
+            AttendancePeriod.WEEK -> {
+                val startOfWeek = today.minus(today.dayOfWeek.ordinal, DateTimeUnit.DAY)
+                startOfWeek.toString() to today.toString()
+            }
+            AttendancePeriod.MONTH -> {
+                val startOfMonth = LocalDate(today.year, today.month, 1)
+                startOfMonth.toString() to today.toString()
+            }
+            AttendancePeriod.CUSTOM -> {
+                _uiState.update { it.copy(attendancePeriod = period) }
+                return // Don't auto-fetch, wait for user to set dates
+            }
+        }
+        _uiState.update {
+            it.copy(
+                attendancePeriod = period,
+                attendanceFromDate = from,
+                attendanceToDate = to,
+            )
+        }
+        applyAttendanceFilters()
+    }
+
     fun setAttendanceFromDate(date: String) {
         _uiState.update { it.copy(attendanceFromDate = date) }
         applyAttendanceFilters()
@@ -488,6 +523,10 @@ class StaffViewModel constructor(
         _uiState.update { it.copy(attendanceStatusFilter = status) }
     }
 
+    fun setAttendanceRoleFilter(role: String?) {
+        _uiState.update { it.copy(attendanceRoleFilter = role) }
+    }
+
     private fun applyAttendanceFilters() {
         val s = _uiState.value
         refreshAttendance(
@@ -500,10 +539,31 @@ class StaffViewModel constructor(
     val filteredAttendanceRecords: List<Attendance>
         get() {
             val s = _uiState.value
-            return when (s.attendanceStatusFilter) {
-                "PRESENT" -> s.attendanceRecords.filter { it.checkIn > 0 }
-                "ABSENT" -> s.attendanceRecords.filter { it.checkIn <= 0 }
-                else -> s.attendanceRecords
+            var records = s.attendanceRecords
+
+            // Apply status filter
+            records = when (s.attendanceStatusFilter) {
+                "PRESENT" -> records.filter { it.checkIn > 0 }
+                "ABSENT" -> records.filter { it.checkIn <= 0 }
+                else -> records
+            }
+
+            // Apply role filter
+            if (s.attendanceRoleFilter != null) {
+                records = records.filter {
+                    it.workerRole.equals(s.attendanceRoleFilter, ignoreCase = true)
+                }
+            }
+
+            return records
+        }
+
+    val filteredTodaySummary: List<AttendanceSummary>
+        get() {
+            val s = _uiState.value
+            if (s.attendanceRoleFilter == null) return s.todaySummary
+            return s.todaySummary.filter {
+                it.workerRole.equals(s.attendanceRoleFilter, ignoreCase = true)
             }
         }
 

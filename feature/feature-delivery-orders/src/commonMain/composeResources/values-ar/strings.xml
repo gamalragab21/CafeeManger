@@ -48,6 +48,8 @@
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
     <string name="channel_takeaway">سفري</string>
+    <string name="channel_in_store">شراء مباشر</string>
+    <string name="channel_pickup_later">استلام لاحق</string>
     <!-- Payment method names -->
     <string name="payment_cash">نقدي</string>
     <string name="payment_wallet">محفظة</string>

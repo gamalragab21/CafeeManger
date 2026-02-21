@@ -49,9 +49,10 @@ class UserManagementRepositoryImpl constructor(
 
     override suspend fun updateUser(
         id: String, name: String?, phone: String?,
-        email: String?, active: Boolean?
+        email: String?, active: Boolean?,
+        role: String?, password: String?
     ): Result<User> = runCatching {
-        val response = api.updateUser(id, UpdateUserRequest(name, phone, email, active))
+        val response = api.updateUser(id, UpdateUserRequest(name, phone, email, active, role, password))
         val user = response.toDomain()
         userDao.insertUser(user.toDbEntity())
         user

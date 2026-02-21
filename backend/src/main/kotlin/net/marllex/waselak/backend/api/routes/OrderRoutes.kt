@@ -389,7 +389,7 @@ fun Route.orderRoutes() {
             require(request.items.isNotEmpty()) { "Order must have at least one item" }
 
             // Validate channel value
-            val validChannels = listOf("DINE_IN", "DELIVERY", "TAKEAWAY")
+            val validChannels = listOf("DINE_IN", "DELIVERY", "TAKEAWAY", "IN_STORE", "PICKUP_LATER")
             require(request.channel in validChannels) { "Invalid channel. Must be one of: ${validChannels.joinToString()}" }
 
             // Validate table for DINE_IN orders

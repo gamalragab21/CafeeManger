@@ -109,6 +109,8 @@ class OrdersViewModel constructor(
                 "DINE_IN" -> OrderStatus.getAvailableStatuses(OrderChannel.DINE_IN)
                 "DELIVERY" -> OrderStatus.getAvailableStatuses(OrderChannel.DELIVERY)
                 "TAKEAWAY" -> OrderStatus.getAvailableStatuses(OrderChannel.TAKEAWAY)
+                "IN_STORE" -> OrderStatus.getAvailableStatuses(OrderChannel.IN_STORE)
+                "PICKUP_LATER" -> OrderStatus.getAvailableStatuses(OrderChannel.PICKUP_LATER)
                 else -> OrderStatus.entries.toList()
             }
             if (availableStatuses.none { it.name == currentStatus }) null else currentStatus

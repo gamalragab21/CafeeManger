@@ -53,6 +53,8 @@ class PosViewModel constructor(
         val enableDineIn: Boolean = true,
         val enableDelivery: Boolean = true,
         val enableTakeaway: Boolean = true,
+        val enableInStore: Boolean = false,
+        val enablePickupLater: Boolean = false,
         val vendorName: String = "",
         val vendorLogoUrl: String? = null,
         val selectedTableId: String? = null,
@@ -83,6 +85,8 @@ class PosViewModel constructor(
                 OrderChannel.DELIVERY -> clientPhone.isNotBlank() && clientAddress.isNotBlank()
                 OrderChannel.TAKEAWAY -> clientPhone.isNotBlank()
                 OrderChannel.DINE_IN -> true
+                OrderChannel.IN_STORE -> true
+                OrderChannel.PICKUP_LATER -> clientPhone.isNotBlank()
             }
         }
     }
@@ -101,8 +105,10 @@ class PosViewModel constructor(
             vendorRepository.refreshVendor().onSuccess { vendor ->
                 val defaultChannel = when {
                     vendor.enableDineIn -> OrderChannel.DINE_IN
+                    vendor.enableInStore -> OrderChannel.IN_STORE
                     vendor.enableDelivery -> OrderChannel.DELIVERY
                     vendor.enableTakeaway -> OrderChannel.TAKEAWAY
+                    vendor.enablePickupLater -> OrderChannel.PICKUP_LATER
                     else -> OrderChannel.DINE_IN
                 }
                 _uiState.update { it.copy(
@@ -110,6 +116,8 @@ class PosViewModel constructor(
                     enableDineIn = vendor.enableDineIn,
                     enableDelivery = vendor.enableDelivery,
                     enableTakeaway = vendor.enableTakeaway,
+                    enableInStore = vendor.enableInStore,
+                    enablePickupLater = vendor.enablePickupLater,
                     vendorName = vendor.name,
                     vendorLogoUrl = vendor.logoUrl,
                     channel = defaultChannel,
@@ -191,8 +199,9 @@ class PosViewModel constructor(
                 } else null,
             )
         }
-        // Clear customer data when switching away from DELIVERY/TAKEAWAY
-        if (channel != OrderChannel.DELIVERY && channel != OrderChannel.TAKEAWAY) {
+        // Clear customer data when switching to channels that don't need it
+        val needsCustomer = channel in listOf(OrderChannel.DELIVERY, OrderChannel.TAKEAWAY, OrderChannel.PICKUP_LATER)
+        if (!needsCustomer) {
             clearCustomer()
         }
         if (channel == OrderChannel.DELIVERY && _uiState.value.taxPlaces.isEmpty()) {
@@ -406,6 +415,7 @@ class PosViewModel constructor(
             val clientAddress = when (s.channel) {
                 OrderChannel.DELIVERY -> s.clientAddress.ifBlank { null }
                 OrderChannel.TAKEAWAY -> s.clientAddress.ifBlank { null }
+                OrderChannel.PICKUP_LATER -> s.clientAddress.ifBlank { null }
                 else -> null
             }
 

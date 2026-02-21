@@ -143,6 +143,7 @@ class WorkerDao(private val db: WaselakDatabase) {
             check_out = record.check_out,
             worked_minutes = record.worked_minutes,
             recorded_by = record.recorded_by,
+            auth_method = record.auth_method,
             note = record.note,
             created_at = record.created_at
         )

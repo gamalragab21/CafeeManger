@@ -8,9 +8,10 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
-import net.marllex.waselak.backend.data.database.UsersTable
+import net.marllex.waselak.backend.data.database.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 import java.util.UUID
@@ -189,11 +190,72 @@ fun Route.userManagementRoutes() {
             require(id != principal.userId) { "Cannot delete your own account" }
 
             transaction {
-                val deleted = UsersTable.deleteWhere {
-                    (UsersTable.id eq UUID.fromString(id)) and
-                    (vendorId eq UUID.fromString(principal.vendorId))
+                val userUUID = UUID.fromString(id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                // Verify user exists and belongs to this vendor
+                val userExists = UsersTable.selectAll().where {
+                    (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                }.count() > 0
+                if (!userExists) throw NoSuchElementException("User not found")
+
+                // Check if user has non-nullable FK references (orders as cashier, attendance as recorder)
+                val hasOrders = OrdersTable.selectAll().where { OrdersTable.cashierId eq userUUID }.count() > 0
+                val hasAttendanceRecords = AttendanceTable.selectAll().where { AttendanceTable.recordedBy eq userUUID }.count() > 0
+
+                if (hasOrders || hasAttendanceRecords) {
+                    // Soft delete: deactivate instead of hard delete to preserve data integrity
+                    UsersTable.update({ (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID) }) {
+                        it[active] = false
+                        it[updatedAt] = Clock.System.now()
+                    }
+
+                    // Unlink any worker connected to this user
+                    WorkersTable.update({ WorkersTable.userId eq userUUID }) {
+                        it[userId] = null
+                    }
+
+                    // Invalidate sessions
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                } else {
+                    // Safe to hard delete - clean up ALL dependent records first
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                    ActivityLogsTable.deleteWhere { ActivityLogsTable.userId eq userUUID }
+                    AnnouncementReadsTable.deleteWhere { AnnouncementReadsTable.userId eq userUUID }
+
+                    // Delete announcements sent by this user
+                    val announcementIds = AnnouncementsTable.selectAll()
+                        .where { AnnouncementsTable.senderId eq userUUID }
+                        .map { it[AnnouncementsTable.id] }
+                    if (announcementIds.isNotEmpty()) {
+                        AnnouncementReadsTable.deleteWhere { AnnouncementReadsTable.announcementId inList announcementIds }
+                        AnnouncementsTable.deleteWhere { AnnouncementsTable.senderId eq userUUID }
+                    }
+                    AnnouncementsTable.update({ AnnouncementsTable.targetUserId eq userUUID }) {
+                        it[targetUserId] = null
+                    }
+
+                    AttendanceAuthLogsTable.deleteWhere { AttendanceAuthLogsTable.cashierId eq userUUID }
+
+                    OrdersTable.update({ OrdersTable.deliveryUserId eq userUUID }) {
+                        it[deliveryUserId] = null
+                    }
+                    OrdersTable.update({ OrdersTable.paymentConfirmedBy eq userUUID }) {
+                        it[paymentConfirmedBy] = null
+                    }
+
+                    SalaryPaymentsTable.update({ SalaryPaymentsTable.paidBy eq userUUID }) {
+                        it[paidBy] = null
+                    }
+
+                    WorkersTable.update({ WorkersTable.userId eq userUUID }) {
+                        it[userId] = null
+                    }
+
+                    UsersTable.deleteWhere {
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }
                 }
-                if (deleted == 0) throw NoSuchElementException("User not found")
             }
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }

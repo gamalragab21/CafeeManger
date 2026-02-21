@@ -39,7 +39,9 @@ data class Order(
 enum class OrderChannel {
     DINE_IN,
     DELIVERY,
-    TAKEAWAY
+    TAKEAWAY,
+    IN_STORE,
+    PICKUP_LATER
 }
 
 @Serializable
@@ -62,6 +64,8 @@ enum class OrderStatus {
             OrderChannel.DINE_IN -> canTransitionDineIn(newStatus)
             OrderChannel.DELIVERY -> canTransitionDelivery(newStatus)
             OrderChannel.TAKEAWAY -> canTransitionTakeaway(newStatus)
+            OrderChannel.IN_STORE -> canTransitionInStore(newStatus)
+            OrderChannel.PICKUP_LATER -> canTransitionPickupLater(newStatus)
         }
     }
 
@@ -105,12 +109,35 @@ enum class OrderStatus {
         }
     }
 
+    private fun canTransitionInStore(newStatus: OrderStatus): Boolean {
+        return when (this) {
+            CREATED -> newStatus in listOf(COMPLETED, CANCELED)
+            COMPLETED -> false
+            CANCELED -> false
+            else -> false
+        }
+    }
+
+    private fun canTransitionPickupLater(newStatus: OrderStatus): Boolean {
+        return when (this) {
+            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
+            READY -> newStatus in listOf(PICKED_UP, CANCELED)
+            PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
+            COMPLETED -> false
+            CANCELED -> false
+            else -> false
+        }
+    }
+
     companion object {
         fun getAvailableStatuses(channel: OrderChannel): List<OrderStatus> {
             return when (channel) {
                 OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, SERVED, COMPLETED, CANCELED)
                 OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNED, COMPLETED, CANCELED)
                 OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
+                OrderChannel.IN_STORE -> listOf(CREATED, COMPLETED, CANCELED)
+                OrderChannel.PICKUP_LATER -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
             }
         }
 
