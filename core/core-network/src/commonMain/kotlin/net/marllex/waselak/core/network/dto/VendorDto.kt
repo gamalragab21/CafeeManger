@@ -19,6 +19,10 @@ data class VendorResponse(
     @SerialName("enable_takeaway") val enableTakeaway: Boolean = true,
     @SerialName("enable_in_store") val enableInStore: Boolean = false,
     @SerialName("enable_pickup_later") val enablePickupLater: Boolean = false,
+    @SerialName("business_type") val businessType: String = "RESTAURANT",
+    @SerialName("tax_enabled") val taxEnabled: Boolean = false,
+    @SerialName("default_tax_percent") val defaultTaxPercent: Double = 0.0,
+    @SerialName("stock_mode") val stockMode: String = "NONE",
     @SerialName("digital_menu_url") val digitalMenuUrl: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
@@ -38,5 +42,9 @@ data class UpdateVendorRequest(
     @SerialName("enable_delivery") val enableDelivery: Boolean? = null,
     @SerialName("enable_takeaway") val enableTakeaway: Boolean? = null,
     @SerialName("enable_in_store") val enableInStore: Boolean? = null,
-    @SerialName("enable_pickup_later") val enablePickupLater: Boolean? = null
+    @SerialName("enable_pickup_later") val enablePickupLater: Boolean? = null,
+    @SerialName("business_type") val businessType: String? = null,
+    @SerialName("tax_enabled") val taxEnabled: Boolean? = null,
+    @SerialName("default_tax_percent") val defaultTaxPercent: Double? = null,
+    @SerialName("stock_mode") val stockMode: String? = null,
 )

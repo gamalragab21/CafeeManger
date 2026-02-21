@@ -152,11 +152,16 @@ class AuthService(private val jwtConfig: JwtConfig) {
         managerEmail: String?,
         password: String,
         storeType: String? = null,
+        businessType: String = "RESTAURANT",
         enableTables: Boolean = true,
         enableDineIn: Boolean = true,
         enableDelivery: Boolean = true,
+        enableTakeaway: Boolean = true,
         enableInStore: Boolean = false,
         enablePickupLater: Boolean = false,
+        taxEnabled: Boolean = false,
+        defaultTaxPercent: Double = 0.0,
+        stockMode: String = "NONE",
         digitalMenuUrl: String? = null,
     ): AuthResult {
         return transaction {
@@ -174,11 +179,16 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 it[address] = vendorAddress
                 it[contactPhone] = vendorPhone
                 storeType?.let { v -> it[VendorsTable.storeType] = v }
+                it[VendorsTable.businessType] = businessType
                 it[VendorsTable.enableTables] = enableTables
                 it[VendorsTable.enableDineIn] = enableDineIn
                 it[VendorsTable.enableDelivery] = enableDelivery
+                it[VendorsTable.enableTakeaway] = enableTakeaway
                 it[VendorsTable.enableInStore] = enableInStore
                 it[VendorsTable.enablePickupLater] = enablePickupLater
+                it[VendorsTable.taxEnabled] = taxEnabled
+                it[VendorsTable.defaultTaxPercent] = java.math.BigDecimal.valueOf(defaultTaxPercent)
+                it[VendorsTable.stockMode] = stockMode
                 digitalMenuUrl?.let { v -> it[VendorsTable.digitalMenuUrl] = v }
                 it[createdAt] = Clock.System.now()
                 it[updatedAt] = Clock.System.now()

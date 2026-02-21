@@ -65,6 +65,8 @@ data class CreateOrderDto(
     val payment_method: String,
     val payment_timing: String = "PAY_NOW",
     val delivery_fee: Double = 0.0,
+    val discount: Double = 0.0,
+    val discount_type: String = "FIXED", // FIXED or PERCENT
     val tax_place_id: String? = null,
     val notes: String? = null,
     val items: List<CreateOrderItemDto>
@@ -126,7 +128,10 @@ data class OrderDto(
     val payment_confirmed_by: String? = null,
     val subtotal: Double,
     val delivery_fee: Double = 0.0,
+    val discount: Double = 0.0,
+    val discount_type: String = "FIXED",
     val tax: Double = 0.0,
+    val tax_percent: Double = 0.0,
     val total: Double,
     val notes: String? = null,
     val items: List<OrderItemDto> = emptyList(),
@@ -403,11 +408,31 @@ fun Route.orderRoutes() {
             }
 
             val order = transaction {
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                // Load vendor settings for tax and stock mode
+                val vendor = VendorsTable.selectAll()
+                    .where { VendorsTable.id eq vendorUUID }
+                    .first()
+                val vendorStockMode = vendor[VendorsTable.stockMode]
+
                 // Calculate totals from item snapshots
                 var subtotal = BigDecimal.ZERO
                 val itemSnapshots = request.items.map { orderItem ->
                     val item = ItemsTable.selectAll().where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
                         .firstOrNull() ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
+
+                    // Stock enforcement check (Phase 5)
+                    if (vendorStockMode == "ENFORCE") {
+                        val stockRow = StockTable.selectAll().where {
+                            (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and
+                            (StockTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+                        if (stockRow != null && stockRow[StockTable.quantity] < orderItem.quantity) {
+                            throw IllegalStateException(
+                                "Insufficient stock for '${item[ItemsTable.name]}': available=${stockRow[StockTable.quantity]}, requested=${orderItem.quantity}"
+                            )
+                        }
+                    }
 
                     val price = item[ItemsTable.price]
                     subtotal += price * BigDecimal(orderItem.quantity)
@@ -417,30 +442,48 @@ fun Route.orderRoutes() {
                 val deliveryFeeAmount = if (request.channel == "DELIVERY") {
                     BigDecimal.valueOf(request.delivery_fee)
                 } else BigDecimal.ZERO
-                val baseAmount = subtotal + deliveryFeeAmount
+
+                // Discount calculation (Phase 3)
+                val discountType = request.discount_type.uppercase()
+                val discountAmount = when (discountType) {
+                    "PERCENT" -> (subtotal * BigDecimal.valueOf(request.discount) / BigDecimal(100))
+                        .setScale(2, java.math.RoundingMode.HALF_UP)
+                    else -> BigDecimal.valueOf(request.discount).coerceAtMost(subtotal)
+                }
+
+                val afterDiscount = (subtotal - discountAmount).coerceAtLeast(BigDecimal.ZERO)
+
+                // Tax calculation - percentage-based on all channels (Phase 3)
                 var taxAmount = BigDecimal.ZERO
+                var taxPercentValue = BigDecimal.ZERO
                 val taxPlaceIdUuid = request.tax_place_id?.let { UUID.fromString(it) }
-                if (request.channel == "DELIVERY" && taxPlaceIdUuid != null) {
+                if (taxPlaceIdUuid != null) {
                     val taxPlace = TaxPlacesTable.selectAll().where {
-                        (TaxPlacesTable.id eq taxPlaceIdUuid) and (TaxPlacesTable.vendorId eq UUID.fromString(
-                            principal.vendorId
-                        ))
+                        (TaxPlacesTable.id eq taxPlaceIdUuid) and (TaxPlacesTable.vendorId eq vendorUUID)
                     }.firstOrNull()
                     taxPlace?.let {
-                        val fixed = it[TaxPlacesTable.taxPercent] // interpret as fixed amount (EGP)
-                        taxAmount = fixed.setScale(2, java.math.RoundingMode.HALF_UP)
+                        taxPercentValue = it[TaxPlacesTable.taxPercent]
+                        taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
+                            .setScale(2, java.math.RoundingMode.HALF_UP)
+                    }
+                } else if (vendor[VendorsTable.taxEnabled]) {
+                    // Use vendor default tax percent if no tax place specified
+                    taxPercentValue = vendor[VendorsTable.defaultTaxPercent]
+                    if (taxPercentValue > BigDecimal.ZERO) {
+                        taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
+                            .setScale(2, java.math.RoundingMode.HALF_UP)
                     }
                 }
-                val total = baseAmount + taxAmount
+                val total = afterDiscount + deliveryFeeAmount + taxAmount
 
                 val orderId = OrdersTable.insertAndGetId { stmt ->
-                    stmt[vendorId] = UUID.fromString(principal.vendorId)
+                    stmt[OrdersTable.vendorId] = vendorUUID
                     stmt[channel] = request.channel
                     stmt[status] = "CREATED"
                     request.table_id?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
                     stmt[cashierId] = UUID.fromString(principal.userId)
-                    stmt[deliveryUserId] = null
-                    request.customer_id?.let { cid -> stmt[customerId] = UUID.fromString(cid) }
+                    stmt[OrdersTable.deliveryUserId] = null
+                    request.customer_id?.let { cid -> stmt[OrdersTable.customerId] = UUID.fromString(cid) }
                     taxPlaceIdUuid?.let { uuid -> stmt[OrdersTable.taxPlaceId] = uuid }
                     stmt[clientName] = request.client_name
                     stmt[clientPhone] = request.client_phone
@@ -452,7 +495,10 @@ fun Route.orderRoutes() {
                     stmt[paymentTiming] = request.payment_timing
                     stmt[OrdersTable.subtotal] = subtotal
                     stmt[deliveryFee] = deliveryFeeAmount
+                    stmt[OrdersTable.discount] = discountAmount
+                    stmt[OrdersTable.discountType] = discountType
                     stmt[tax] = taxAmount
+                    stmt[OrdersTable.taxPercent] = taxPercentValue
                     stmt[OrdersTable.total] = total
                     stmt[notes] = request.notes
                     stmt[createdAt] = Clock.System.now()
@@ -482,7 +528,6 @@ fun Route.orderRoutes() {
                 }
 
                 // Deduct stock for each item in the order
-                val vendorUUID = UUID.fromString(principal.vendorId)
                 itemSnapshots.forEach { (item, orderItem, _) ->
                     val itemUUID = UUID.fromString(orderItem.item_id)
                     val stockRow = StockTable.selectAll()
@@ -964,7 +1009,10 @@ private fun ResultRow.toOrderDto(
     payment_confirmed_by = this[OrdersTable.paymentConfirmedBy]?.toString(),
     subtotal = this[OrdersTable.subtotal].toDouble(),
     delivery_fee = this[OrdersTable.deliveryFee].toDouble(),
+    discount = this[OrdersTable.discount].toDouble(),
+    discount_type = this[OrdersTable.discountType],
     tax = this[OrdersTable.tax].toDouble(),
+    tax_percent = this[OrdersTable.taxPercent].toDouble(),
     total = this[OrdersTable.total].toDouble(),
     notes = this[OrdersTable.notes],
     items = items,

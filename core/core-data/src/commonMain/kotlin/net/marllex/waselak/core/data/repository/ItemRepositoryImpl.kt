@@ -43,7 +43,10 @@ class ItemRepositoryImpl constructor(
         categoryId: String, name: String, description: String?,
         price: Double, imageUrl: String?, available: Boolean
     ): Result<Item> = runCatching {
-        val response = api.createItem(CreateItemRequest(categoryId, name, description, price, imageUrl, available))
+        val response = api.createItem(CreateItemRequest(
+            categoryId = categoryId, name = name, description = description,
+            price = price, imageUrl = imageUrl, available = available
+        ))
         val item = response.toDomain()
         itemDao.insertItem(item.toDbEntity())
         item
@@ -53,7 +56,10 @@ class ItemRepositoryImpl constructor(
         id: String, categoryId: String?, name: String?,
         description: String?, price: Double?, imageUrl: String?, available: Boolean?
     ): Result<Item> = runCatching {
-        val response = api.updateItem(id, UpdateItemRequest(categoryId, name, description, price, imageUrl, available))
+        val response = api.updateItem(id, UpdateItemRequest(
+            categoryId = categoryId, name = name, description = description,
+            price = price, imageUrl = imageUrl, available = available
+        ))
         val item = response.toDomain()
         itemDao.insertItem(item.toDbEntity())
         item

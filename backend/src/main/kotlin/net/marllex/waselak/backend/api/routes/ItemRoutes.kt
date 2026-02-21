@@ -24,6 +24,9 @@ data class ItemDto(
     val name: String,
     val description: String? = null,
     val price: Double,
+    val cost_price: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     val image_url: String? = null,
     val available: Boolean = true,
     val created_at: Long? = null,
@@ -36,6 +39,9 @@ data class CreateItemDto(
     val name: String,
     val description: String? = null,
     val price: Double,
+    val cost_price: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     val image_url: String? = null,
     val available: Boolean = true
 )
@@ -46,6 +52,9 @@ data class UpdateItemDto(
     val name: String? = null,
     val description: String? = null,
     val price: Double? = null,
+    val cost_price: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     val image_url: String? = null,
     val available: Boolean? = null
 )
@@ -128,6 +137,9 @@ fun Route.itemRoutes() {
                     it[name] = request.name
                     it[description] = request.description
                     it[price] = BigDecimal.valueOf(request.price)
+                    request.cost_price?.let { cp -> it[costPrice] = BigDecimal.valueOf(cp) }
+                    it[sku] = request.sku
+                    it[barcode] = request.barcode
                     it[imageUrl] = request.image_url
                     it[available] = request.available
                     it[createdAt] = Clock.System.now()
@@ -162,6 +174,9 @@ fun Route.itemRoutes() {
                     request.name?.let { stmt[name] = it }
                     request.description?.let { stmt[description] = it }
                     request.price?.let { stmt[price] = BigDecimal.valueOf(it) }
+                    request.cost_price?.let { stmt[costPrice] = BigDecimal.valueOf(it) }
+                    request.sku?.let { stmt[sku] = it }
+                    request.barcode?.let { stmt[barcode] = it }
                     request.image_url?.let { stmt[imageUrl] = it }
                     request.available?.let { stmt[available] = it }
                     stmt[updatedAt] = Clock.System.now()
@@ -218,6 +233,9 @@ private fun ResultRow.toItemDto() = ItemDto(
     name = this[ItemsTable.name],
     description = this[ItemsTable.description],
     price = this[ItemsTable.price].toDouble(),
+    cost_price = this[ItemsTable.costPrice]?.toDouble(),
+    sku = this[ItemsTable.sku],
+    barcode = this[ItemsTable.barcode],
     image_url = this[ItemsTable.imageUrl],
     available = this[ItemsTable.available],
     created_at = this[ItemsTable.createdAt].toEpochMilliseconds(),

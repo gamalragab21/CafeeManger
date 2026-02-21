@@ -33,6 +33,9 @@ class ItemDao(private val db: WaselakDatabase) {
                     name = item.name,
                     description = item.description,
                     price = item.price,
+                    cost_price = item.cost_price,
+                    sku = item.sku,
+                    barcode = item.barcode,
                     image_url = item.image_url,
                     available = item.available
                 )
@@ -48,6 +51,9 @@ class ItemDao(private val db: WaselakDatabase) {
             name = item.name,
             description = item.description,
             price = item.price,
+            cost_price = item.cost_price,
+            sku = item.sku,
+            barcode = item.barcode,
             image_url = item.image_url,
             available = item.available
         )

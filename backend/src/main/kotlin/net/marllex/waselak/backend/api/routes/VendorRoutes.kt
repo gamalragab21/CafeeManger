@@ -33,6 +33,10 @@ data class VendorResponse(
     val enable_takeaway: Boolean = true,
     val enable_in_store: Boolean = false,
     val enable_pickup_later: Boolean = false,
+    val business_type: String = "RESTAURANT",
+    val tax_enabled: Boolean = false,
+    val default_tax_percent: Double = 0.0,
+    val stock_mode: String = "NONE",
     val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
@@ -53,6 +57,10 @@ data class UpdateVendorRequest(
     val enable_takeaway: Boolean? = null,
     val enable_in_store: Boolean? = null,
     val enable_pickup_later: Boolean? = null,
+    val business_type: String? = null,
+    val tax_enabled: Boolean? = null,
+    val default_tax_percent: Double? = null,
+    val stock_mode: String? = null,
     val digital_menu_url: String? = null
 )
 
@@ -81,6 +89,10 @@ fun Route.vendorRoutes() {
                 enable_takeaway = vendor[VendorsTable.enableTakeaway],
                 enable_in_store = vendor[VendorsTable.enableInStore],
                 enable_pickup_later = vendor[VendorsTable.enablePickupLater],
+                business_type = vendor[VendorsTable.businessType],
+                tax_enabled = vendor[VendorsTable.taxEnabled],
+                default_tax_percent = vendor[VendorsTable.defaultTaxPercent].toDouble(),
+                stock_mode = vendor[VendorsTable.stockMode],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
@@ -106,6 +118,10 @@ fun Route.vendorRoutes() {
                     request.enable_takeaway?.let { stmt[enableTakeaway] = it }
                     request.enable_in_store?.let { stmt[enableInStore] = it }
                     request.enable_pickup_later?.let { stmt[enablePickupLater] = it }
+                    request.business_type?.let { stmt[businessType] = it }
+                    request.tax_enabled?.let { stmt[taxEnabled] = it }
+                    request.default_tax_percent?.let { stmt[defaultTaxPercent] = java.math.BigDecimal.valueOf(it) }
+                    request.stock_mode?.let { stmt[stockMode] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -130,6 +146,10 @@ fun Route.vendorRoutes() {
                 enable_takeaway = updated[VendorsTable.enableTakeaway],
                 enable_in_store = updated[VendorsTable.enableInStore],
                 enable_pickup_later = updated[VendorsTable.enablePickupLater],
+                business_type = updated[VendorsTable.businessType],
+                tax_enabled = updated[VendorsTable.taxEnabled],
+                default_tax_percent = updated[VendorsTable.defaultTaxPercent].toDouble(),
+                stock_mode = updated[VendorsTable.stockMode],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
