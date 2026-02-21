@@ -27,6 +27,8 @@ private fun channelLabel(channel: OrderChannel): String = when (channel) {
     OrderChannel.DINE_IN -> "Dine In"
     OrderChannel.DELIVERY -> "Delivery"
     OrderChannel.TAKEAWAY -> "Takeaway"
+    OrderChannel.IN_STORE -> "In-Store"
+    OrderChannel.PICKUP_LATER -> "Pickup Later"
 }
 
 private fun paymentLabel(method: PaymentMethod): String = when (method) {

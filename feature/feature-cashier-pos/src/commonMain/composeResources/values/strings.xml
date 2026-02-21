@@ -9,6 +9,8 @@
     <string name="channel_dine_in">Dine-In</string>
     <string name="channel_delivery">Delivery</string>
     <string name="channel_takeaway">Takeaway</string>
+    <string name="channel_in_store">In-Store</string>
+    <string name="channel_pickup_later">Pickup Later</string>
     <string name="customer_phone">Customer Phone</string>
     <string name="customer_name">Customer Name</string>
     <string name="customer_found">Customer found</string>

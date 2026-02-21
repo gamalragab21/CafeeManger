@@ -84,6 +84,8 @@ private fun localizedChannel(channel: OrderChannel): String = when (channel) {
     OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
     OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
     OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
+    OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
+    OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
 }
 
 @Composable

@@ -155,6 +155,8 @@ class AuthService(private val jwtConfig: JwtConfig) {
         enableTables: Boolean = true,
         enableDineIn: Boolean = true,
         enableDelivery: Boolean = true,
+        enableInStore: Boolean = false,
+        enablePickupLater: Boolean = false,
         digitalMenuUrl: String? = null,
     ): AuthResult {
         return transaction {
@@ -175,6 +177,8 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 it[VendorsTable.enableTables] = enableTables
                 it[VendorsTable.enableDineIn] = enableDineIn
                 it[VendorsTable.enableDelivery] = enableDelivery
+                it[VendorsTable.enableInStore] = enableInStore
+                it[VendorsTable.enablePickupLater] = enablePickupLater
                 digitalMenuUrl?.let { v -> it[VendorsTable.digitalMenuUrl] = v }
                 it[createdAt] = Clock.System.now()
                 it[updatedAt] = Clock.System.now()

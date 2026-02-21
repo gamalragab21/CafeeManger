@@ -50,6 +50,8 @@ data class RegisterRequest(
     val enable_tables: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
+    val enable_in_store: Boolean = false,
+    val enable_pickup_later: Boolean = false,
     val digital_menu_url: String? = null,
 )
 
@@ -210,6 +212,8 @@ fun Route.authRoutes() {
                 enableTables = request.enable_tables,
                 enableDineIn = request.enable_dine_in,
                 enableDelivery = request.enable_delivery,
+                enableInStore = request.enable_in_store,
+                enablePickupLater = request.enable_pickup_later,
                 digitalMenuUrl = request.digital_menu_url,
             )
 
