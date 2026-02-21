@@ -27,6 +27,10 @@ fun Vendors.toDomain() = Vendor(
     enableTakeaway = enable_takeaway,
     enableInStore = enable_in_store,
     enablePickupLater = enable_pickup_later,
+    businessType = business_type,
+    taxEnabled = tax_enabled,
+    defaultTaxPercent = default_tax_percent,
+    stockMode = stock_mode,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -40,6 +44,10 @@ fun Vendor.toDbEntity() = Vendors(
     enable_takeaway = enableTakeaway,
     enable_in_store = enableInStore,
     enable_pickup_later = enablePickupLater,
+    business_type = businessType,
+    tax_enabled = taxEnabled,
+    default_tax_percent = defaultTaxPercent,
+    stock_mode = stockMode,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )
@@ -70,12 +78,14 @@ fun Category.toDbEntity() = Categories(
 fun Items.toDomain() = Item(
     id = id, vendorId = vendor_id, categoryId = category_id,
     name = name, description = description, price = price,
+    costPrice = cost_price, sku = sku, barcode = barcode,
     imageUrl = image_url, available = available
 )
 
 fun Item.toDbEntity() = Items(
     id = id, vendor_id = vendorId, category_id = categoryId,
     name = name, description = description, price = price,
+    cost_price = costPrice, sku = sku, barcode = barcode,
     image_url = imageUrl, available = available
 )
 
@@ -107,7 +117,9 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     paymentTiming = PaymentTiming.valueOf(payment_timing),
     paymentConfirmedAt = payment_confirmed_at,
     paymentConfirmedBy = payment_confirmed_by,
-    subtotal = subtotal, deliveryFee = delivery_fee, tax = tax, total = total,
+    subtotal = subtotal, deliveryFee = delivery_fee,
+    discount = discount, discountType = discount_type,
+    tax = tax, taxPercent = tax_percent, total = total,
     notes = notes, items = items,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -126,7 +138,9 @@ fun Order.toDbEntity() = Orders(
     payment_timing = paymentTiming.name,
     payment_confirmed_at = paymentConfirmedAt,
     payment_confirmed_by = paymentConfirmedBy,
-    subtotal = subtotal, delivery_fee = deliveryFee, tax = tax, total = total,
+    subtotal = subtotal, delivery_fee = deliveryFee,
+    discount = discount, discount_type = discountType,
+    tax = tax, tax_percent = taxPercent, total = total,
     notes = notes, created_at = createdAt, updated_at = updatedAt
 )
 

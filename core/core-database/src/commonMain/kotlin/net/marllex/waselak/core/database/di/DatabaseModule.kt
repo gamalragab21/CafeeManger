@@ -61,6 +61,19 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         // v5: add new order channel flags to vendors
         "ALTER TABLE vendors ADD COLUMN enable_in_store INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE vendors ADD COLUMN enable_pickup_later INTEGER NOT NULL DEFAULT 0",
+        // v6: Phase 2 - business type and tax/stock settings on vendors
+        "ALTER TABLE vendors ADD COLUMN business_type TEXT NOT NULL DEFAULT 'RESTAURANT'",
+        "ALTER TABLE vendors ADD COLUMN tax_enabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN default_tax_percent REAL NOT NULL DEFAULT 0.0",
+        "ALTER TABLE vendors ADD COLUMN stock_mode TEXT NOT NULL DEFAULT 'NONE'",
+        // v7: Phase 3 - discount and tax_percent on orders
+        "ALTER TABLE orders ADD COLUMN discount REAL NOT NULL DEFAULT 0.0",
+        "ALTER TABLE orders ADD COLUMN discount_type TEXT NOT NULL DEFAULT 'FIXED'",
+        "ALTER TABLE orders ADD COLUMN tax_percent REAL NOT NULL DEFAULT 0.0",
+        // v8: Phase 4 - enhanced item model
+        "ALTER TABLE items ADD COLUMN cost_price REAL",
+        "ALTER TABLE items ADD COLUMN sku TEXT",
+        "ALTER TABLE items ADD COLUMN barcode TEXT",
     )
     migrations.forEach { sql ->
         try {

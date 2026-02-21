@@ -18,6 +18,10 @@ data class Vendor(
     val enableTakeaway: Boolean = true,
     val enableInStore: Boolean = false,
     val enablePickupLater: Boolean = false,
+    val businessType: String = "RESTAURANT",
+    val taxEnabled: Boolean = false,
+    val defaultTaxPercent: Double = 0.0,
+    val stockMode: String = "NONE",
     val digitalMenuUrl: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null

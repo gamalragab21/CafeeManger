@@ -11,6 +11,9 @@ data class ItemResponse(
     val name: String,
     val description: String? = null,
     val price: Double,
+    @SerialName("cost_price") val costPrice: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     val available: Boolean = true,
     @SerialName("created_at") val createdAt: Long? = null,
@@ -23,6 +26,9 @@ data class CreateItemRequest(
     val name: String,
     val description: String? = null,
     val price: Double,
+    @SerialName("cost_price") val costPrice: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     val available: Boolean = true
 )
@@ -33,6 +39,9 @@ data class UpdateItemRequest(
     val name: String? = null,
     val description: String? = null,
     val price: Double? = null,
+    @SerialName("cost_price") val costPrice: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     val available: Boolean? = null
 )
