@@ -500,8 +500,14 @@ fun Route.orderRoutes() {
                     stmt[geoLat] = request.geo_lat
                     stmt[geoLng] = request.geo_lng
                     stmt[paymentMethod] = request.payment_method
-                    stmt[paymentStatus] = "PENDING"
+                    // PAY_NOW: customer already paid → mark as PAID immediately
+                    // PAY_LATER: payment pending → cashier must confirm via PATCH /payment-status before completing
+                    stmt[paymentStatus] = if (request.payment_timing == "PAY_NOW") "PAID" else "PENDING"
                     stmt[paymentTiming] = request.payment_timing
+                    if (request.payment_timing == "PAY_NOW") {
+                        stmt[paymentConfirmedAt] = Clock.System.now()
+                        stmt[paymentConfirmedBy] = UUID.fromString(principal.userId)
+                    }
                     stmt[OrdersTable.subtotal] = subtotal
                     stmt[deliveryFee] = deliveryFeeAmount
                     stmt[OrdersTable.discount] = discountAmount
