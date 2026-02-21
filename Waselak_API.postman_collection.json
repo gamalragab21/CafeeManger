@@ -1,0 +1,4657 @@
+{
+	"info": {
+		"_postman_id": "waselak-api-v1",
+		"name": "Waselak POS API",
+		"description": "Complete API collection for Waselak POS system — multi-business-type support (RESTAURANT, CAFE, RETAIL, GROCERY) with order channels, tax, discounts, stock enforcement, and more.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "vendor_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Enums & Constants Reference",
+			"description": "Complete reference of all enum types and constants used in the Waselak POS API. These are NOT executable requests — they serve as documentation you can browse inside Postman.",
+			"item": [
+				{
+					"name": "1. business_type — Vendor Business Type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/business-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"business-type"
+							]
+						},
+						"description": "## business_type — Vendor Business Type\n\nUsed in: `POST /admin/vendors`, `PUT /admin/vendors/:id`, `PUT /vendors/me`\n\n| Value | Description | Auto-Config |\n|-------|-------------|-------------|\n| `RESTAURANT` | Full-service restaurant (default) | tables=true, dine_in=true, delivery=true, takeaway=true, in_store=false, pickup_later=false, tax=false, stock=NONE |\n| `CAFE` | Coffee shop / cafe | tables=true, dine_in=true, delivery=true, takeaway=true, in_store=false, pickup_later=false, tax=false, stock=NONE |\n| `RETAIL` | Retail store (clothing, electronics, etc.) | tables=false, dine_in=false, delivery=false, takeaway=true, in_store=true, pickup_later=true, tax=true(14%), stock=ENFORCE |\n| `GROCERY` | Grocery / supermarket | tables=false, dine_in=false, delivery=true, takeaway=true, in_store=true, pickup_later=true, tax=true(14%), stock=ENFORCE |"
+					}
+				},
+				{
+					"name": "2. channel — Order Channel",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/channel",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"channel"
+							]
+						},
+						"description": "## channel — Order Channel\n\nUsed in: `POST /orders` (channel field), `GET /orders?channel=`\n\n| Value | Used By | Description |\n|-------|---------|-------------|\n| `DINE_IN` | Restaurant, Cafe | Customer eats at a table |\n| `DELIVERY` | Restaurant, Cafe, Grocery | Order delivered to customer address |\n| `TAKEAWAY` | All business types | Customer picks up immediately |\n| `IN_STORE` | Retail, Grocery | Walk-in purchase, instant completion |\n| `PICKUP_LATER` | Retail, Grocery | Customer orders now, picks up later |"
+					}
+				},
+				{
+					"name": "3. order status — Full Status List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-status"
+							]
+						},
+						"description": "## order status — All Values\n\nUsed in: `PATCH /orders/:id/status`, `GET /orders?status=`\n\n| Value | Description |\n|-------|-------------|\n| `CREATED` | Order just placed |\n| `IN_PREPARATION` | Kitchen/staff preparing |\n| `READY` | Ready for pickup/serve/delivery |\n| `SERVED` | Dine-in only: served to table |\n| `ASSIGNED` | Delivery only: assigned to driver |\n| `OUT_FOR_DELIVERY` | Delivery only: driver on the way |\n| `DELIVERED` | Delivery only: arrived to customer |\n| `DELIVERY_FAILED` | Delivery only: couldn't reach customer |\n| `RETURNED` | Order returned to store |\n| `PICKED_UP` | Takeaway/Pickup: customer collected |\n| `COMPLETED` | Final: order done |\n| `CANCELED` | Final: order cancelled |"
+					}
+				},
+				{
+					"name": "3a. Order Status Flow — DINE_IN",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-flow/dine-in",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-flow",
+								"dine-in"
+							]
+						},
+						"description": "## DINE_IN Order Status Flow\n\n```\nCREATED → IN_PREPARATION → READY → SERVED → COMPLETED\n                                              ↘ CANCELED (from any)\n```\n\nValid transitions:\n- `CREATED` → `IN_PREPARATION` or `CANCELED`\n- `IN_PREPARATION` → `READY` or `CANCELED`\n- `READY` → `SERVED` or `CANCELED`\n- `SERVED` → `COMPLETED` or `CANCELED`"
+					}
+				},
+				{
+					"name": "3b. Order Status Flow — DELIVERY",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-flow/delivery",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-flow",
+								"delivery"
+							]
+						},
+						"description": "## DELIVERY Order Status Flow\n\n```\nCREATED → IN_PREPARATION → READY → ASSIGNED → OUT_FOR_DELIVERY → DELIVERED → COMPLETED\n                                                    ↓\n                                             DELIVERY_FAILED → RETURNED\n                                                    ↓\n                                                ASSIGNED (retry)\n                                              ↘ CANCELED (from any)\n```\n\nValid transitions:\n- `CREATED` → `IN_PREPARATION` or `CANCELED`\n- `IN_PREPARATION` → `READY` or `CANCELED`\n- `READY` → `ASSIGNED` or `CANCELED`\n- `ASSIGNED` → `OUT_FOR_DELIVERY` or `CANCELED`\n- `OUT_FOR_DELIVERY` → `DELIVERED` or `DELIVERY_FAILED` or `CANCELED`\n- `DELIVERED` → `COMPLETED`\n- `DELIVERY_FAILED` → `RETURNED` or `ASSIGNED` (retry)"
+					}
+				},
+				{
+					"name": "3c. Order Status Flow — TAKEAWAY",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-flow/takeaway",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-flow",
+								"takeaway"
+							]
+						},
+						"description": "## TAKEAWAY Order Status Flow\n\n```\nCREATED → IN_PREPARATION → READY → PICKED_UP → COMPLETED\n                                              ↘ CANCELED (from any)\n```\n\nValid transitions:\n- `CREATED` → `IN_PREPARATION` or `CANCELED`\n- `IN_PREPARATION` → `READY` or `CANCELED`\n- `READY` → `PICKED_UP` or `CANCELED`\n- `PICKED_UP` → `COMPLETED`"
+					}
+				},
+				{
+					"name": "3d. Order Status Flow — IN_STORE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-flow/in-store",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-flow",
+								"in-store"
+							]
+						},
+						"description": "## IN_STORE Order Status Flow\n\n```\nCREATED → COMPLETED\n   ↘ CANCELED\n```\n\nSimplest flow — walk-in purchase, completes immediately.\n\nValid transitions:\n- `CREATED` → `COMPLETED` or `CANCELED`"
+					}
+				},
+				{
+					"name": "3e. Order Status Flow — PICKUP_LATER",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/order-flow/pickup-later",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"order-flow",
+								"pickup-later"
+							]
+						},
+						"description": "## PICKUP_LATER Order Status Flow\n\n```\nCREATED → IN_PREPARATION → READY → PICKED_UP → COMPLETED\n                                              ↘ CANCELED (from any)\n```\n\nSame flow as TAKEAWAY.\n\nValid transitions:\n- `CREATED` → `IN_PREPARATION` or `CANCELED`\n- `IN_PREPARATION` → `READY` or `CANCELED`\n- `READY` → `PICKED_UP` or `CANCELED`\n- `PICKED_UP` → `COMPLETED`"
+					}
+				},
+				{
+					"name": "4. payment_status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/payment-status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"payment-status"
+							]
+						},
+						"description": "## payment_status\n\nUsed in: `PATCH /orders/:id/payment-status`, `GET /orders`\n\n| Value | Description |\n|-------|-------------|\n| `PENDING` | Payment not yet received |\n| `PAID` | Fully paid |\n| `PARTIALLY_PAID` | Partial payment received |\n| `REFUNDED` | Payment refunded |\n| `FAILED` | Payment attempt failed |"
+					}
+				},
+				{
+					"name": "5. payment_method",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/payment-method",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"payment-method"
+							]
+						},
+						"description": "## payment_method\n\nUsed in: `POST /orders`, `PUT /orders/:id`\n\n| Value | Description |\n|-------|-------------|\n| `CASH` | Cash payment |\n| `CARD` | Credit/debit card |\n| `WALLET` | Mobile wallet (e.g. Vodafone Cash) |"
+					}
+				},
+				{
+					"name": "6. payment_timing",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/payment-timing",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"payment-timing"
+							]
+						},
+						"description": "## payment_timing\n\nUsed in: `POST /orders`\n\n| Value | Description |\n|-------|-------------|\n| `PAY_NOW` | Pay at order time (default) |\n| `PAY_LATER` | Pay on delivery/pickup |"
+					}
+				},
+				{
+					"name": "7. discount_type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/discount-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"discount-type"
+							]
+						},
+						"description": "## discount_type\n\nUsed in: `POST /orders`, `PUT /orders/:id`\n\n| Value | Description | Example |\n|-------|-------------|--------|\n| `FIXED` | Flat amount discount | 10 EGP off total |\n| `PERCENT` | Percentage discount | 5% off subtotal |"
+					}
+				},
+				{
+					"name": "8. stock_mode",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/stock-mode",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"stock-mode"
+							]
+						},
+						"description": "## stock_mode\n\nUsed in: `POST /admin/vendors`, `PUT /admin/vendors/:id`, `PUT /vendors/me`\n\n| Value | Description | Default For |\n|-------|-------------|-------------|\n| `NONE` | No stock checking | RESTAURANT, CAFE |\n| `WARN` | Allow order but warn when low stock | — |\n| `ENFORCE` | Block order if insufficient stock | RETAIL, GROCERY |"
+					}
+				},
+				{
+					"name": "9. salary_type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/salary-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"salary-type"
+							]
+						},
+						"description": "## salary_type\n\nUsed in: `POST /workers`, `PUT /workers/:id`\n\n| Value | Description |\n|-------|-------------|\n| `DAILY` | Worker paid daily (salary auto-generated on login) |\n| `MONTHLY` | Worker paid monthly |"
+					}
+				},
+				{
+					"name": "10. user role",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/user-role",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"user-role"
+							]
+						},
+						"description": "## user role (login role)\n\nUsed in: `POST /users`, `POST /auth/login` (app_type validation)\n\n| Value | Apps Allowed | Description |\n|-------|-------------|-------------|\n| `MANAGER` | Manager + Cashier + Delivery | Full access to all 3 apps |\n| `CASHIER` | Cashier only | Can only login to Cashier app |\n| `DELIVERY` | Delivery only | Can only login to Delivery app |\n\n**Login validation by app_type:**\n- `app_type: MANAGER` → only `MANAGER` role can login\n- `app_type: CASHIER` → `CASHIER` or `MANAGER` can login\n- `app_type: DELIVERY` → `DELIVERY` or `MANAGER` can login"
+					}
+				},
+				{
+					"name": "11. table status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/table-status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"table-status"
+							]
+						},
+						"description": "## table status\n\nUsed in: `PATCH /tables/:id/status`, `GET /tables?status=`\n\n| Value | Description |\n|-------|-------------|\n| `AVAILABLE` | Table is free |\n| `OCCUPIED` | Table has active diners |\n| `RESERVED` | Table is reserved |"
+					}
+				},
+				{
+					"name": "12. stock transaction type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/stock-transaction-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"stock-transaction-type"
+							]
+						},
+						"description": "## stock transaction type\n\nUsed in: `GET /stock/:id/transactions`, `GET /stock/analytics/transactions?type=`\n\n| Value | Description |\n|-------|-------------|\n| `ADD` | Stock quantity increased (manual restock) |\n| `DEDUCT` | Stock quantity decreased (manual deduction or order) |\n| `ADJUST` | Stock quantity corrected/adjusted |"
+					}
+				},
+				{
+					"name": "13. attendance auth_method",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/attendance-auth-method",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"attendance-auth-method"
+							]
+						},
+						"description": "## attendance auth_method\n\nUsed in: Attendance records (auto-set based on check-in endpoint used)\n\n| Value | Endpoint | Description |\n|-------|----------|-------------|\n| `MANUAL` | `POST /attendance/check-in` | Manager manually checks in worker |\n| `PIN` | `POST /attendance/check-in/pin` | Worker enters their PIN |\n| `QR` | `POST /attendance/check-in/qr` | Worker scans QR code |\n| `AUTO` | — | Auto check-in on login (if worker linked to user) |"
+					}
+				},
+				{
+					"name": "14. salary period_type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/salary-period-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"salary-period-type"
+							]
+						},
+						"description": "## salary period_type\n\nUsed in: `GET /salary-payments?period_type=`\n\n| Value | Description |\n|-------|-------------|\n| `DAY` | Daily salary period (for DAILY salary_type workers) |\n| `MONTH` | Monthly salary period (for MONTHLY salary_type workers) |"
+					}
+				},
+				{
+					"name": "15. announcement target_type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/enums/announcement-target-type",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"enums",
+								"announcement-target-type"
+							]
+						},
+						"description": "## announcement target_type\n\nUsed in: `POST /announcements`\n\n| Value | Description |\n|-------|-------------|\n| `ALL` | Announcement visible to all users |\n| `CASHIER` | Only visible to CASHIER role users |\n| `DELIVERY` | Only visible to DELIVERY role users |"
+					}
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register Vendor (DEPRECATED - 410 Gone)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendor_name\": \"My Restaurant\",\n  \"vendor_address\": \"123 Main St\",\n  \"vendor_phone\": \"01000000000\",\n  \"manager_name\": \"John Doe\",\n  \"manager_phone\": \"01000000001\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "DEPRECATED: Public registration is no longer available. This endpoint returns 410 Gone. Use POST /api/v1/admin/vendors instead (requires X-Admin-Password header)."
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.access_token) {",
+									"    pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"    pm.collectionVariables.set('refresh_token', jsonData.refresh_token);",
+									"    pm.collectionVariables.set('user_id', jsonData.user.id);",
+									"    pm.collectionVariables.set('vendor_id', jsonData.user.vendor_id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phone\": \"01000000001\",\n  \"password\": \"password123\",\n  \"app_type\": \"MANAGER\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.access_token) {",
+									"    pm.collectionVariables.set('access_token', jsonData.access_token);",
+									"    pm.collectionVariables.set('refresh_token', jsonData.refresh_token);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"refresh"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Vendor",
+			"item": [
+				{
+					"name": "Get My Vendor Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/vendors/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"vendors",
+								"me"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Vendor Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Restaurant\",\n  \"address\": \"456 New St\",\n  \"contact_phone\": \"01000000000\",\n  \"business_type\": \"RESTAURANT\",\n  \"tax_enabled\": true,\n  \"default_tax_percent\": 14.0,\n  \"stock_mode\": \"WARN\",\n  \"enable_tables\": true,\n  \"enable_dine_in\": true,\n  \"enable_delivery\": true,\n  \"enable_takeaway\": true,\n  \"enable_in_store\": false,\n  \"enable_pickup_later\": false,\n  \"default_delivery_fee\": 15.0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/vendors/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"vendors",
+								"me"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "List Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Beverages\",\n  \"display_order\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Hot Beverages\",\n  \"display_order\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categories",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Items",
+			"item": [
+				{
+					"name": "List All Items",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/items?category_id=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items"
+							],
+							"query": [
+								{
+									"key": "category_id",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Available Items",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/items/available?category_id=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items",
+								"available"
+							],
+							"query": [
+								{
+									"key": "category_id",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Item by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/items/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"category_id\": \"<category-uuid>\",\n  \"name\": \"Cappuccino\",\n  \"description\": \"Rich espresso with steamed milk\",\n  \"price\": 45.0,\n  \"cost_price\": 15.0,\n  \"sku\": \"BEV-001\",\n  \"barcode\": \"1234567890123\",\n  \"image_url\": null,\n  \"available\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/items",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Item",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Double Cappuccino\",\n  \"price\": 55.0,\n  \"cost_price\": 20.0,\n  \"sku\": \"BEV-001-L\",\n  \"barcode\": \"1234567890124\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/items/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Item Availability",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"available\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/items/:id/availability",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items",
+								":id",
+								"availability"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/items/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"items",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "List Orders (Paginated)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders?status=&channel=&cashier_id=&delivery_user_id=&from=&to=&limit=50&offset=0",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "channel",
+									"value": "",
+									"disabled": true,
+									"description": "DINE_IN|DELIVERY|TAKEAWAY|IN_STORE|PICKUP_LATER"
+								},
+								{
+									"key": "cashier_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "delivery_user_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true,
+									"description": "timestamp ms"
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true,
+									"description": "timestamp ms"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Order by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"channel\": \"DINE_IN\",\n  \"table_id\": null,\n  \"customer_id\": null,\n  \"client_name\": \"Ahmed\",\n  \"client_phone\": \"01000000002\",\n  \"client_address\": null,\n  \"geo_lat\": null,\n  \"geo_lng\": null,\n  \"payment_method\": \"CASH\",\n  \"payment_timing\": \"PAY_NOW\",\n  \"delivery_fee\": 0.0,\n  \"discount\": 10.0,\n  \"discount_type\": \"FIXED\",\n  \"tax_place_id\": null,\n  \"notes\": \"Extra sugar\",\n  \"items\": [\n    {\n      \"item_id\": \"<item-uuid>\",\n      \"quantity\": 2,\n      \"note\": \"No ice\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							]
+						}
+					},
+					"description": "Create a new order. Channels: DINE_IN, DELIVERY, TAKEAWAY, IN_STORE, PICKUP_LATER.\nDiscount types: FIXED (flat amount) or PERCENT (percentage of subtotal).\nTax is calculated after discount (percentage-based on all channels).\nStock enforcement: If vendor stock_mode is ENFORCE, will block if insufficient stock."
+				},
+				{
+					"name": "Create Order (Delivery)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"channel\": \"DELIVERY\",\n  \"customer_id\": null,\n  \"client_name\": \"Mohamed\",\n  \"client_phone\": \"01200000000\",\n  \"client_address\": \"45 El Nasr St\",\n  \"geo_lat\": 30.0444,\n  \"geo_lng\": 31.2357,\n  \"payment_method\": \"CASH\",\n  \"payment_timing\": \"PAY_NOW\",\n  \"delivery_fee\": 0.0,\n  \"discount\": 5.0,\n  \"discount_type\": \"PERCENT\",\n  \"tax_place_id\": null,\n  \"notes\": null,\n  \"items\": [\n    {\n      \"item_id\": \"<item-uuid>\",\n      \"quantity\": 1,\n      \"note\": null\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							]
+						},
+						"description": "Create a delivery order. If delivery_fee is 0 or omitted, vendor's default_delivery_fee is used automatically. Delivery fee is ONLY applied to DELIVERY channel orders."
+					}
+				},
+				{
+					"name": "Create Order (IN_STORE)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"channel\": \"IN_STORE\",\n  \"client_name\": \"Sara\",\n  \"payment_method\": \"CASH\",\n  \"payment_timing\": \"PAY_NOW\",\n  \"discount\": 0,\n  \"discount_type\": \"FIXED\",\n  \"items\": [\n    {\n      \"item_id\": \"<item-uuid>\",\n      \"quantity\": 3\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Order (PICKUP_LATER)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"channel\": \"PICKUP_LATER\",\n  \"client_name\": \"Nour\",\n  \"client_phone\": \"01100000000\",\n  \"payment_method\": \"CASH\",\n  \"payment_timing\": \"PAY_LATER\",\n  \"discount\": 0,\n  \"discount_type\": \"FIXED\",\n  \"items\": [\n    {\n      \"item_id\": \"<item-uuid>\",\n      \"quantity\": 1\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Order",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"client_name\": \"Updated Name\",\n  \"client_phone\": \"01000000099\",\n  \"notes\": \"Updated notes\",\n  \"payment_method\": \"CARD\",\n  \"items\": [\n    {\n      \"item_id\": \"<item-uuid>\",\n      \"quantity\": 3,\n      \"note\": \"Updated note\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Order Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"PREPARING\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"description": "Status flow: CREATED → PREPARING → READY → COMPLETED\nDelivery: CREATED → PREPARING → READY → ASSIGNED → OUT_FOR_DELIVERY → DELIVERED → COMPLETED\nAny status → CANCELED"
+				},
+				{
+					"name": "Update Payment Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"payment_status\": \"PAID\",\n  \"payment_method\": \"CASH\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id/payment-status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id",
+								"payment-status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						},
+						"description": "Update payment status. When marking as PAID, optionally specify payment_method (CASH, CARD, WALLET) to record how customer paid.\n\nIMPORTANT: Orders cannot be marked COMPLETED until payment_status is PAID."
+					},
+					"description": "Valid statuses: PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED"
+				},
+				{
+					"name": "Confirm Payment (PAY_LATER)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"payment_status\": \"PAID\",\n  \"payment_method\": \"CARD\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id/payment-status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id",
+								"payment-status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						},
+						"description": "Confirm payment for a PAY_LATER order. Choose the payment method (CASH, CARD, WALLET) at time of payment.\n\nThis must be called BEFORE the order can be marked as COMPLETED.\n\nFlow for PAY_LATER:\n1. Create order with payment_timing: PAY_LATER\n2. Process order through statuses (IN_PREPARATION → READY → etc.)\n3. When customer pays: PATCH /payment-status with {payment_status: PAID, payment_method: CASH}\n4. Now the order can be marked COMPLETED"
+					}
+				},
+				{
+					"name": "Assign Delivery User",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"delivery_user_id\": \"<user-uuid>\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id/assign",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id",
+								"assign"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Share Receipt (Get URL)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/:id/share",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								":id",
+								"share"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delivery Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/delivery-dashboard",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"delivery-dashboard"
+							]
+						}
+					}
+				},
+				{
+					"name": "Available Delivery Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/delivery/available",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"delivery",
+								"available"
+							]
+						}
+					}
+				},
+				{
+					"name": "My Delivery Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/orders/delivery/mine?status=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"delivery",
+								"mine"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Tables",
+			"item": [
+				{
+					"name": "List Tables",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables?status=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true,
+									"description": "AVAILABLE|OCCUPIED|RESERVED"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Available Tables",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/available",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables",
+								"available"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Table by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Table",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"number\": \"T-01\",\n  \"capacity\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Table",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"number\": \"T-01A\",\n  \"capacity\": 6\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Table Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"OCCUPIED\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/:id/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables",
+								":id",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"description": "Status: AVAILABLE, OCCUPIED, RESERVED"
+				},
+				{
+					"name": "Delete Table",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tables/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tables",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Tax Places",
+			"item": [
+				{
+					"name": "List Tax Places",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tax-places",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tax-places"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Tax Place by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tax-places/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tax-places",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Tax Place",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Standard Tax\",\n  \"tax_percent\": 14.0,\n  \"is_default\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tax-places",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tax-places"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Tax Place",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Reduced Tax\",\n  \"tax_percent\": 5.0,\n  \"is_default\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/tax-places/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tax-places",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Tax Place",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/tax-places/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tax-places",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Customers",
+			"item": [
+				{
+					"name": "List Customers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers?search=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Customer by Phone",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/by-phone?phone=01000000002",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								"by-phone"
+							],
+							"query": [
+								{
+									"key": "phone",
+									"value": "01000000002"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Customer by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phone\": \"01000000002\",\n  \"name\": \"Ahmed Mohamed\",\n  \"notes\": \"Regular customer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Customer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Ahmed M.\",\n  \"notes\": \"VIP customer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Customer",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Customer Addresses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customerId/addresses",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":customerId",
+								"addresses"
+							],
+							"variable": [
+								{
+									"key": "customerId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Customer Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"label\": \"Home\",\n  \"address\": \"123 Tahrir St, Cairo\",\n  \"geo_lat\": 30.0444,\n  \"geo_lng\": 31.2357\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customerId/addresses",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":customerId",
+								"addresses"
+							],
+							"variable": [
+								{
+									"key": "customerId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Customer Address",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customerId/addresses/:addressId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":customerId",
+								"addresses",
+								":addressId"
+							],
+							"variable": [
+								{
+									"key": "customerId",
+									"value": ""
+								},
+								{
+									"key": "addressId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Customer Order History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customerId/orders?limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								":customerId",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							],
+							"variable": [
+								{
+									"key": "customerId",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Stock",
+			"item": [
+				{
+					"name": "List All Stock",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Stock by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Stock by Item ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/by-item/:itemId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								"by-item",
+								":itemId"
+							],
+							"variable": [
+								{
+									"key": "itemId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Stock (Menu Item)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"item_id\": \"<item-uuid>\",\n  \"quantity\": 100,\n  \"min_quantity\": 10,\n  \"cost_price\": 15.0,\n  \"unit\": \"pcs\",\n  \"alert_enabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Stock (Independent)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"item_name\": \"Coffee Beans\",\n  \"quantity\": 50,\n  \"min_quantity\": 5,\n  \"cost_price\": 200.0,\n  \"unit\": \"kg\",\n  \"alert_enabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Stock",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 150,\n  \"min_quantity\": 20,\n  \"cost_price\": 18.0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Add Stock Quantity",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 50,\n  \"note\": \"Restocked from supplier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id/add",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id",
+								"add"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Deduct Stock Quantity",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 5,\n  \"note\": \"Damaged items\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id/deduct",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id",
+								"deduct"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Stock Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id/transactions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id",
+								"transactions"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Stock",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Stock Analytics: All Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/analytics/transactions?stock_id=&type=&from=&to=&limit=100",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								"analytics",
+								"transactions"
+							],
+							"query": [
+								{
+									"key": "stock_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "type",
+									"value": "",
+									"disabled": true,
+									"description": "ADD|DEDUCT|ADJUST"
+								},
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Stock Analytics: Low Stock Alerts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/analytics/alerts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								"analytics",
+								"alerts"
+							]
+						}
+					}
+				},
+				{
+					"name": "Stock Analytics: Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stock/analytics/summary",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"stock",
+								"analytics",
+								"summary"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users?role=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users"
+							],
+							"query": [
+								{
+									"key": "role",
+									"value": "",
+									"disabled": true,
+									"description": "MANAGER|CASHIER|DELIVERY"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update My Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Name\",\n  \"phone\": \"01000000099\",\n  \"email\": \"new@email.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"me"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"CASHIER\",\n  \"name\": \"Cashier User\",\n  \"phone\": \"01000000010\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated User\",\n  \"phone\": \"01000000011\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Workers",
+			"item": [
+				{
+					"name": "List Workers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers?active=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers"
+							],
+							"query": [
+								{
+									"key": "active",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Worker by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Worker",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Ali Hassan\",\n  \"phone\": \"01000000020\",\n  \"description\": \"Kitchen staff\",\n  \"role\": \"Chef\",\n  \"salary_type\": \"DAILY\",\n  \"salary_amount\": 200.0,\n  \"pin\": \"1234\",\n  \"is_login_enabled\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Worker (with Login)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Cashier Worker\",\n  \"phone\": \"01000000030\",\n  \"role\": \"Cashier\",\n  \"salary_type\": \"MONTHLY\",\n  \"salary_amount\": 5000.0,\n  \"is_login_enabled\": true,\n  \"password\": \"password123\",\n  \"login_role\": \"CASHIER\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Worker",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Ali Hassan Sr.\",\n  \"salary_amount\": 250.0,\n  \"role\": \"Head Chef\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Worker",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Worker PIN",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pin\": \"5678\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id/pin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id",
+								"pin"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Worker QR Code (PNG)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id/qr-code",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id",
+								"qr-code"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Regenerate QR Code",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/workers/:id/qr-code/regenerate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"workers",
+								":id",
+								"qr-code",
+								"regenerate"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Worker Roles",
+			"item": [
+				{
+					"name": "List Worker Roles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/worker-roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"worker-roles"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Worker Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Chef\",\n  \"description\": \"Kitchen staff responsible for food preparation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/worker-roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"worker-roles"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Worker Role",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/worker-roles/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"worker-roles",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Salary Payments",
+			"item": [
+				{
+					"name": "List Salary Payments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/salary-payments?worker_id=&paid=&period_type=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"salary-payments"
+							],
+							"query": [
+								{
+									"key": "worker_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "paid",
+									"value": "",
+									"disabled": true,
+									"description": "true|false"
+								},
+								{
+									"key": "period_type",
+									"value": "",
+									"disabled": true,
+									"description": "DAY|MONTH"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Mark Payment as Paid",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"note\": \"Paid in cash\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/salary-payments/:id/pay",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"salary-payments",
+								":id",
+								"pay"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Mark Payment as Unpaid",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/salary-payments/:id/unpay",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"salary-payments",
+								":id",
+								"unpay"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Batch Pay Salaries",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"payment_ids\": [\"<payment-uuid-1>\", \"<payment-uuid-2>\"],\n  \"note\": \"Batch payment\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/salary-payments/batch-pay",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"salary-payments",
+								"batch-pay"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Attendance",
+			"item": [
+				{
+					"name": "List Attendance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance?worker_id=&date=&from_date=&to_date=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance"
+							],
+							"query": [
+								{
+									"key": "worker_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "date",
+									"value": "",
+									"disabled": true,
+									"description": "YYYY-MM-DD"
+								},
+								{
+									"key": "from_date",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to_date",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Today's Attendance Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/today",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"today"
+							]
+						}
+					}
+				},
+				{
+					"name": "Worker Attendance Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/summary/:workerId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"summary",
+								":workerId"
+							],
+							"variable": [
+								{
+									"key": "workerId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-In (General)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"worker_id\": \"<worker-uuid>\",\n  \"auth_method\": \"MANUAL\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-in",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-in"
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-In with PIN",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"worker_id\": \"<worker-uuid>\",\n  \"pin\": \"1234\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-in/pin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-in",
+								"pin"
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-In with QR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"qr_data\": \"<qr-code-json-string>\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-in/qr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-in",
+								"qr"
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-Out",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-out/:attendanceId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-out",
+								":attendanceId"
+							],
+							"variable": [
+								{
+									"key": "attendanceId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-Out with PIN",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pin\": \"1234\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-out/:attendanceId/pin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-out",
+								":attendanceId",
+								"pin"
+							],
+							"variable": [
+								{
+									"key": "attendanceId",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Check-Out with QR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"qr_data\": \"<qr-code-json-string>\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/check-out/qr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"check-out",
+								"qr"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Attendance Record",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Announcements",
+			"item": [
+				{
+					"name": "List Announcements",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"announcements"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Announcement",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"target_type\": \"ALL\",\n  \"title\": \"Staff Meeting\",\n  \"message\": \"All-hands meeting tomorrow at 10 AM\",\n  \"priority\": \"NORMAL\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"announcements"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Unread Count",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements/unread-count",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"announcements",
+								"unread-count"
+							]
+						}
+					}
+				},
+				{
+					"name": "Mark as Read",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements/:id/read",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"announcements",
+								":id",
+								"read"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Announcement",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"announcements",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Analytics",
+			"item": [
+				{
+					"name": "Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/summary?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"summary"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Filtered Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/filtered-summary?status=&channel=&cashier_id=&delivery_user_id=&from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"filtered-summary"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "channel",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "cashier_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "delivery_user_id",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Settlements",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/settlements?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"settlements"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delivery Performance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/delivery-performance?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"delivery-performance"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Cashier Performance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/cashier-performance?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"cashier-performance"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Daily Analytics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/daily?days=30",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"daily"
+							],
+							"query": [
+								{
+									"key": "days",
+									"value": "30"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Order Count",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/orders/count?status=&channel=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"orders",
+								"count"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "channel",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Revenue Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/revenue",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"revenue"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Analytics Dashboard (V2)",
+			"item": [
+				{
+					"name": "Executive Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/executive-summary?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"executive-summary"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Revenue & Profit",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/revenue-profit?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"revenue-profit"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Orders Intelligence",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/orders-intelligence?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"orders-intelligence"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Peak Times",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/peak-times?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"peak-times"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Cashier Performance V2",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/cashier-performance-v2?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"cashier-performance-v2"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delivery Performance V2",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/delivery-performance-v2?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"delivery-performance-v2"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Product Intelligence",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/product-intelligence?from=&to=&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"product-intelligence"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Customer Intelligence",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/customer-intelligence?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"customer-intelligence"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Alerts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/alerts?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"alerts"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Stock Overview",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analytics/dashboard/stock-overview",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"dashboard",
+								"stock-overview"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Export",
+			"item": [
+				{
+					"name": "Export Orders PDF",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/export/orders/pdf?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"export",
+								"orders",
+								"pdf"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"description": "timestamp ms"
+								},
+								{
+									"key": "to",
+									"value": "",
+									"description": "timestamp ms"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Export Orders Excel",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/export/orders/excel?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"export",
+								"orders",
+								"excel"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"description": "timestamp ms"
+								},
+								{
+									"key": "to",
+									"value": "",
+									"description": "timestamp ms"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Export Preview",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/export/orders/preview?from=&to=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"export",
+								"orders",
+								"preview"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": ""
+								},
+								{
+									"key": "to",
+									"value": ""
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Chatbot",
+			"item": [
+				{
+					"name": "Query Chatbot",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"What were my top selling items today?\",\n  \"context\": null,\n  \"language\": \"en\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/chatbot/query",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"chatbot",
+								"query"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Suggestions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/chatbot/suggestions?language=en",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"chatbot",
+								"suggestions"
+							],
+							"query": [
+								{
+									"key": "language",
+									"value": "en"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Create Vendor - Restaurant (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendor_name\": \"My Restaurant\",\n  \"vendor_address\": \"123 Main St\",\n  \"vendor_phone\": \"01000000000\",\n  \"wallet_phone\": \"01000000000\",\n  \"default_delivery_fee\": 15.0,\n  \"store_type\": \"restaurant\",\n  \"logo_url\": null,\n  \"digital_menu_url\": null,\n  \"business_type\": \"RESTAURANT\",\n  \"enable_tables\": true,\n  \"enable_dine_in\": true,\n  \"enable_delivery\": true,\n  \"enable_takeaway\": true,\n  \"enable_in_store\": false,\n  \"enable_pickup_later\": false,\n  \"tax_enabled\": false,\n  \"default_tax_percent\": 0.0,\n  \"stock_mode\": \"NONE\",\n  \"manager_name\": \"John Manager\",\n  \"manager_phone\": \"01000000001\",\n  \"manager_email\": \"john@example.com\",\n  \"manager_password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Create a new RESTAURANT vendor with manager user. Channel flags are auto-configured from business_type if omitted."
+					}
+				},
+				{
+					"name": "Create Vendor - Cafe (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendor_name\": \"My Cafe\",\n  \"vendor_address\": \"456 Cafe Ave\",\n  \"vendor_phone\": \"01000000010\",\n  \"business_type\": \"CAFE\",\n  \"manager_name\": \"Sara Manager\",\n  \"manager_phone\": \"01000000011\",\n  \"manager_password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Create CAFE vendor (minimal). Auto-configures: tables=true, dine_in=true, delivery=true, takeaway=true, in_store=false, pickup_later=false, tax=false, stock=NONE."
+					}
+				},
+				{
+					"name": "Create Vendor - Retail (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendor_name\": \"My Retail Store\",\n  \"vendor_address\": \"789 Retail Blvd\",\n  \"vendor_phone\": \"01000000020\",\n  \"business_type\": \"RETAIL\",\n  \"manager_name\": \"Ahmed Manager\",\n  \"manager_phone\": \"01000000021\",\n  \"manager_password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Create RETAIL vendor (minimal). Auto-configures: tables=false, dine_in=false, delivery=false, takeaway=true, in_store=true, pickup_later=true, tax=true(14%), stock=ENFORCE."
+					}
+				},
+				{
+					"name": "Create Vendor - Grocery (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendor_name\": \"My Grocery Store\",\n  \"vendor_address\": \"321 Grocery Ln\",\n  \"vendor_phone\": \"01000000030\",\n  \"business_type\": \"GROCERY\",\n  \"manager_name\": \"Fatima Manager\",\n  \"manager_phone\": \"01000000031\",\n  \"manager_password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Create GROCERY vendor (minimal). Auto-configures: tables=false, dine_in=false, delivery=true, takeaway=true, in_store=true, pickup_later=true, tax=true(14%), stock=ENFORCE."
+					}
+				},
+				{
+					"name": "List All Vendors (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors"
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "List all vendors with user counts. Returns AdminVendorResponse[] including suspension status."
+					}
+				},
+				{
+					"name": "Get Vendor by ID (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{vendor_id}}"
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Get a single vendor by UUID. Returns full AdminVendorResponse with suspension status."
+					}
+				},
+				{
+					"name": "Update Vendor (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Store Name\",\n  \"address\": \"456 New Address\",\n  \"contact_phone\": \"01000000099\",\n  \"wallet_phone\": \"01000000099\",\n  \"default_delivery_fee\": 20.0,\n  \"store_type\": \"restaurant\",\n  \"business_type\": \"RESTAURANT\",\n  \"enable_tables\": true,\n  \"enable_dine_in\": true,\n  \"enable_delivery\": true,\n  \"enable_takeaway\": true,\n  \"enable_in_store\": false,\n  \"enable_pickup_later\": false,\n  \"tax_enabled\": true,\n  \"default_tax_percent\": 14.0,\n  \"stock_mode\": \"WARN\",\n  \"digital_menu_url\": null\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{vendor_id}}"
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Update any vendor fields. All fields are optional — only provided fields are updated."
+					}
+				},
+				{
+					"name": "Suspend Vendor (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"is_suspended\": true,\n  \"suspension_reason\": \"Payment overdue\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{vendor_id}}"
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Suspend a vendor. Suspended vendors cannot: login, refresh tokens, or update their own profile via PUT /vendors/me."
+					}
+				},
+				{
+					"name": "Unsuspend Vendor (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"is_suspended\": false,\n  \"suspension_reason\": null\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{vendor_id}}"
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "Unsuspend a vendor — restores login, token refresh, and self-update capabilities."
+					}
+				},
+				{
+					"name": "Delete Vendor (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Admin-Password",
+								"value": "123456"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/vendors/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"vendors",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{vendor_id}}"
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						},
+						"description": "DANGER: Permanently deletes a vendor and ALL associated data (orders, items, categories, tables, users, workers, attendance, salaries, stock, customers, announcements, etc.). This action cannot be undone."
+					}
+				}
+			]
+		},
+		{
+			"name": "Public",
+			"item": [
+				{
+					"name": "View Public Receipt",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/public/receipts/:id?token=<receipt-token>",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"public",
+								"receipts",
+								":id"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "<receipt-token>"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					}
+				},
+				{
+					"name": "Digital Menu",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/menu/:vendorId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"menu",
+								":vendorId"
+							],
+							"variable": [
+								{
+									"key": "vendorId",
+									"value": ""
+								}
+							]
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					}
+				}
+			]
+		}
+	]
+}

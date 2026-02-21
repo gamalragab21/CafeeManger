@@ -3,35 +3,35 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cafeemanger-postgres
+    container_name: waselak-postgres
     environment:
-      POSTGRES_USER: cafeemanger
-      POSTGRES_PASSWORD: cafeemanger_dev
-      POSTGRES_DB: cafeemanger
+      POSTGRES_USER: waselak_db
+      POSTGRES_PASSWORD: waselak_db_dev
+      POSTGRES_DB: waselak_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cafeemanger"]
+      test: ["CMD-SHELL", "pg_isready -U waselak_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
     build: .
-    container_name: cafeemanger-backend
+    container_name: waselak-backend
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/cafeemanger
-      DATABASE_USER: cafeemanger
-      DATABASE_PASSWORD: cafeemanger_dev
+      DATABASE_URL: jdbc:postgresql://postgres:5432/waselak_db
+      DATABASE_USER: waselak_db
+      DATABASE_PASSWORD: waselak_db_dev
       JWT_SECRET: dev-secret-key-change-in-production-12345
-      JWT_ISSUER: cafeemanger
-      JWT_AUDIENCE: cafeemanger-api
+      JWT_ISSUER: waselak
+      JWT_AUDIENCE: waselak-api
     ports:
       - "8080:8080"
 

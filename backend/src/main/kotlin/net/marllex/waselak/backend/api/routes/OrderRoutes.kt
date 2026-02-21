@@ -93,7 +93,10 @@ data class UpdateOrderDto(
 data class UpdateStatusDto(val status: String)
 
 @Serializable
-data class UpdatePaymentStatusDto(val payment_status: String)
+data class UpdatePaymentStatusDto(
+    val payment_status: String,
+    val payment_method: String? = null // Optional: allows changing payment method when confirming payment (CASH, CARD, WALLET)
+)
 
 @Serializable
 data class AssignDeliveryDto(val delivery_user_id: String)
@@ -439,8 +442,14 @@ fun Route.orderRoutes() {
                     Triple(item, orderItem, price)
                 }
 
+                // Delivery fee: only for DELIVERY orders
+                // If cashier provides a fee > 0, use it; otherwise fall back to vendor default
                 val deliveryFeeAmount = if (request.channel == "DELIVERY") {
-                    BigDecimal.valueOf(request.delivery_fee)
+                    if (request.delivery_fee > 0.0) {
+                        BigDecimal.valueOf(request.delivery_fee)
+                    } else {
+                        vendor[VendorsTable.defaultDeliveryFee]
+                    }
                 } else BigDecimal.ZERO
 
                 // Discount calculation (Phase 3)
@@ -727,30 +736,47 @@ fun Route.orderRoutes() {
 
                     // Recalculate totals
                     val channel = current[OrdersTable.channel]
+                    // Delivery fee only for DELIVERY orders; cashier can override, otherwise keep existing
                     val deliveryFeeAmount = if (channel == "DELIVERY") {
                         request.delivery_fee?.let { BigDecimal.valueOf(it) } ?: current[OrdersTable.deliveryFee]
                     } else BigDecimal.ZERO
 
+                    // Discount recalculation
+                    val discountAmt = current[OrdersTable.discount]
+                    val afterDiscount = (subtotal - discountAmt).coerceAtLeast(BigDecimal.ZERO)
+
+                    // Tax recalculation (same logic as create)
+                    val vendor = VendorsTable.selectAll()
+                        .where { VendorsTable.id eq vendorUUID }.first()
                     var taxAmount = BigDecimal.ZERO
+                    var taxPercentValue = BigDecimal.ZERO
                     val taxPlaceIdUuid: UUID? = request.tax_place_id?.let { UUID.fromString(it) }
                         ?: current[OrdersTable.taxPlaceId]?.value
-                    if (channel == "DELIVERY" && taxPlaceIdUuid != null) {
+                    if (taxPlaceIdUuid != null) {
                         val taxPlace = TaxPlacesTable.selectAll().where {
                             (TaxPlacesTable.id eq taxPlaceIdUuid) and
                             (TaxPlacesTable.vendorId eq vendorUUID)
                         }.firstOrNull()
                         taxPlace?.let {
-                            taxAmount = it[TaxPlacesTable.taxPercent].setScale(2, java.math.RoundingMode.HALF_UP)
+                            taxPercentValue = it[TaxPlacesTable.taxPercent]
+                            taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
+                                .setScale(2, java.math.RoundingMode.HALF_UP)
+                        }
+                    } else if (vendor[VendorsTable.taxEnabled]) {
+                        taxPercentValue = vendor[VendorsTable.defaultTaxPercent]
+                        if (taxPercentValue > BigDecimal.ZERO) {
+                            taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
+                                .setScale(2, java.math.RoundingMode.HALF_UP)
                         }
                     }
-                    val total = subtotal + deliveryFeeAmount + taxAmount
+                    val total = afterDiscount + deliveryFeeAmount + taxAmount
 
                     OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) { stmt ->
                         stmt[OrdersTable.subtotal] = subtotal
                         stmt[deliveryFee] = deliveryFeeAmount
                         stmt[tax] = taxAmount
+                        stmt[OrdersTable.taxPercent] = taxPercentValue
                         stmt[OrdersTable.total] = total
-                        request.delivery_fee?.let { stmt[deliveryFee] = BigDecimal.valueOf(it) }
                         request.tax_place_id?.let { stmt[OrdersTable.taxPlaceId] = UUID.fromString(it) }
                     }
                 }
@@ -798,6 +824,16 @@ fun Route.orderRoutes() {
                     current[OrdersTable.status], targetStatus, current[OrdersTable.channel], principal.role
                 )
                 if (!valid) throw IllegalStateException("Invalid status transition")
+
+                // Block completion if payment is not settled (PAY_LATER orders)
+                if (targetStatus == "COMPLETED") {
+                    val paymentStatus = current[OrdersTable.paymentStatus]
+                    if (paymentStatus != "PAID") {
+                        throw IllegalStateException(
+                            "Cannot complete order: payment is $paymentStatus. Please confirm payment before completing the order."
+                        )
+                    }
+                }
 
                 OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
                     it[status] = targetStatus
@@ -853,6 +889,14 @@ fun Route.orderRoutes() {
                 "Invalid payment status. Must be one of: ${validStatuses.joinToString()}"
             }
 
+            // Validate payment_method if provided
+            val validMethods = listOf("CASH", "CARD", "WALLET")
+            if (request.payment_method != null) {
+                require(request.payment_method in validMethods) {
+                    "Invalid payment method. Must be one of: ${validMethods.joinToString()}"
+                }
+            }
+
             val order = transaction {
                 val current = OrdersTable.selectAll().where {
                     (OrdersTable.id eq UUID.fromString(id)) and
@@ -866,13 +910,16 @@ fun Route.orderRoutes() {
                         it[paymentConfirmedAt] = Clock.System.now()
                         it[paymentConfirmedBy] = UUID.fromString(principal.userId)
                     }
+                    // Update payment method if provided (allows choosing method at payment time)
+                    request.payment_method?.let { method -> it[paymentMethod] = method }
                 }
 
+                val methodInfo = request.payment_method?.let { ",\"payment_method\":\"$it\"" } ?: ""
                 ActivityLogsTable.insert {
                     it[orderId] = UUID.fromString(id)
                     it[userId] = UUID.fromString(principal.userId)
                     it[action] = "PAYMENT_STATUS_CHANGED"
-                    it[payload] = """{"from":"${current[OrdersTable.paymentStatus]}","to":"${request.payment_status}"}"""
+                    it[payload] = """{"from":"${current[OrdersTable.paymentStatus]}","to":"${request.payment_status}"$methodInfo}"""
                     it[createdAt] = Clock.System.now()
                 }
 
