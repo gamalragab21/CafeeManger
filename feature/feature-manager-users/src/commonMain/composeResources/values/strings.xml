@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="users">Users</string>
+    <string name="users">Role and Permissions</string>
     <string name="add_new_staff_member">Add New Staff Member</string>
     <string name="role">Role</string>
     <string name="full_name">Full Name</string>
@@ -10,4 +10,14 @@
     <string name="saving">Saving...</string>
     <string name="create_user">Create User</string>
     <string name="cancel">Cancel</string>
+    <string name="change_role">Change Role</string>
+    <string name="change_role_desc">Select a new role for this user</string>
+    <string name="confirm">Confirm</string>
+    <string name="all_roles">All</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="no_users">No users with app access found</string>
+    <string name="app_access_info">Users with app access are managed from Staff screen. Here you can change roles and permissions.</string>
+    <string name="delete_user_title">Delete User</string>
+    <string name="delete_user_confirm">Are you sure you want to remove app access for this user? If they have orders or attendance records, they will be deactivated instead.</string>
 </resources>

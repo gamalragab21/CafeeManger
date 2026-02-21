@@ -401,6 +401,20 @@ fun Route.workerRoutes() {
                         stmt[updatedAt] = now
                     }
 
+                    // Update UNPAID salary records when salary amount or type changes
+                    if (request.salary_amount != null || request.salary_type != null) {
+                        val newAmount = request.salary_amount?.let { BigDecimal.valueOf(it) }
+                            ?: currentWorker[WorkersTable.salaryAmount]
+
+                        // Update all unpaid salary records with the new amount
+                        SalaryPaymentsTable.update({
+                            (SalaryPaymentsTable.workerId eq workerUUID) and
+                            (SalaryPaymentsTable.paid eq false)
+                        }) { stmt ->
+                            stmt[amount] = newAmount
+                        }
+                    }
+
                     // Regenerate QR code if name or role changed
                     if (needsQrRegeneration) {
                         val updatedWorker = WorkersTable.selectAll()
@@ -443,7 +457,8 @@ fun Route.workerRoutes() {
                 val workerUUID = UUID.fromString(id)
                 val vendorUUID = UUID.fromString(principal.vendorId)
 
-                // Delete related records first
+                // Delete ALL related records first (order matters for FK constraints)
+                AttendanceAuthLogsTable.deleteWhere { AttendanceAuthLogsTable.workerId eq workerUUID }
                 AttendanceTable.deleteWhere { AttendanceTable.workerId eq workerUUID }
                 SalaryPaymentsTable.deleteWhere { SalaryPaymentsTable.workerId eq workerUUID }
 

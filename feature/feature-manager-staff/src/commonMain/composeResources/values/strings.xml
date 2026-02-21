@@ -106,6 +106,7 @@
     <string name="custom_range">Custom</string>
     <string name="not_checked_out">Not Checked Out</string>
     <string name="auto_login">Auto (Login)</string>
+    <string name="worked_label">Worked</string>
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>

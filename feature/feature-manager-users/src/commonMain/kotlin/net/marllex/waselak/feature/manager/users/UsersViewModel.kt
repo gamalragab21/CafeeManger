@@ -22,13 +22,12 @@ class UsersViewModel constructor(
         val selectedRole: UserRole? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
-        val showAddDialog: Boolean = false,
-        val dialogName: String = "",
-        val dialogPhone: String = "",
-        val dialogEmail: String = "",
-        val dialogPassword: String = "",
-        val dialogRole: UserRole = UserRole.CASHIER,
         val isSaving: Boolean = false,
+
+        // Change Role Dialog
+        val showChangeRoleDialog: Boolean = false,
+        val changeRoleUser: User? = null,
+        val changeRoleSelected: UserRole = UserRole.CASHIER,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -54,61 +53,6 @@ class UsersViewModel constructor(
         _uiState.update { it.copy(selectedRole = role, users = filtered) }
     }
 
-    fun showAddDialog() {
-        _uiState.update {
-            it.copy(
-                showAddDialog = true,
-                dialogName = "",
-                dialogPhone = "",
-                dialogEmail = "",
-                dialogPassword = "",
-                dialogRole = UserRole.CASHIER
-            )
-        }
-    }
-
-    fun dismissDialog() {
-        _uiState.update { it.copy(showAddDialog = false) }
-    }
-
-    fun updateDialogName(v: String) {
-        _uiState.update { it.copy(dialogName = v) }
-    }
-
-    fun updateDialogPhone(v: String) {
-        _uiState.update { it.copy(dialogPhone = v) }
-    }
-
-    fun updateDialogEmail(v: String) {
-        _uiState.update { it.copy(dialogEmail = v) }
-    }
-
-    fun updateDialogPassword(v: String) {
-        _uiState.update { it.copy(dialogPassword = v) }
-    }
-
-    fun updateDialogRole(v: UserRole) {
-        _uiState.update { it.copy(dialogRole = v) }
-    }
-
-    fun saveUser() {
-        val s = _uiState.value
-        if (s.dialogName.isBlank() || s.dialogPhone.isBlank() || s.dialogPassword.length < 6) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
-            userRepository.createUser(
-                role = s.dialogRole, name = s.dialogName, phone = s.dialogPhone,
-                email = s.dialogEmail.ifBlank { null }, password = s.dialogPassword,
-            ).onSuccess {
-                _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
-                loadUsers()
-            }.onFailure { e ->
-                _uiState.update { it.copy(isSaving = false, error = e.message) }
-            }
-        }
-    }
-
     fun toggleActive(user: User) {
         viewModelScope.launch {
             userRepository.updateUser(
@@ -126,6 +70,56 @@ class UsersViewModel constructor(
             userRepository.deleteUser(id).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
             }.onSuccess { loadUsers() }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    // ─── Change Role Dialog ─────────────────────────────────────
+
+    fun showChangeRoleDialog(user: User) {
+        _uiState.update {
+            it.copy(
+                showChangeRoleDialog = true,
+                changeRoleUser = user,
+                changeRoleSelected = user.role,
+            )
+        }
+    }
+
+    fun dismissChangeRoleDialog() {
+        _uiState.update { it.copy(showChangeRoleDialog = false, changeRoleUser = null) }
+    }
+
+    fun updateChangeRoleSelected(role: UserRole) {
+        _uiState.update { it.copy(changeRoleSelected = role) }
+    }
+
+    fun confirmChangeRole() {
+        val user = _uiState.value.changeRoleUser ?: return
+        val newRole = _uiState.value.changeRoleSelected
+        if (newRole == user.role) {
+            dismissChangeRoleDialog()
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            userRepository.updateUser(
+                id = user.id,
+                name = null,
+                phone = null,
+                email = null,
+                active = null,
+                role = newRole.name,
+            ).onSuccess {
+                _uiState.update { it.copy(isSaving = false, showChangeRoleDialog = false, changeRoleUser = null) }
+                loadUsers()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isSaving = false, error = e.message) }
+            }
         }
     }
 }

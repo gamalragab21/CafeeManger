@@ -1,6 +1,9 @@
 package net.marllex.waselak.feature.manager.users
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,34 +11,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PersonOff
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,13 +51,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.BoxWithConstraints
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.manager.users.generated.resources.Res
 import net.marllex.waselak.feature.manager.users.generated.resources.*
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
@@ -72,25 +85,59 @@ fun UsersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.users)) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Security,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(Res.string.users))
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = viewModel::showAddDialog,
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add User")
-            }
-        },
+        // No FAB - users are created from Staff screen
     ) { padding ->
         when {
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.users.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadUsers)
             else -> Column(modifier = Modifier.padding(padding)) {
+                // Info banner
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.app_access_info),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                // Role filter chips
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -99,7 +146,10 @@ fun UsersScreen(
                         FilterChip(
                             selected = uiState.selectedRole == null,
                             onClick = { viewModel.filterByRole(null) },
-                            label = { Text("All") },
+                            label = { Text(stringResource(Res.string.all_roles)) },
+                            leadingIcon = if (uiState.selectedRole == null) {
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                            } else null,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -107,109 +157,281 @@ fun UsersScreen(
                         )
                     }
                     items(UserRole.entries.toList()) { role ->
+                        val roleColor = when (role) {
+                            UserRole.MANAGER -> MaterialTheme.colorScheme.primary
+                            UserRole.CASHIER -> MaterialTheme.colorScheme.tertiary
+                            UserRole.DELIVERY -> MaterialTheme.colorScheme.secondary
+                        }
                         FilterChip(
                             selected = uiState.selectedRole == role,
                             onClick = { viewModel.filterByRole(role) },
                             label = { Text(role.name) },
+                            leadingIcon = if (uiState.selectedRole == role) {
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                            } else null,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedContainerColor = roleColor.copy(alpha = 0.15f),
+                                selectedLabelColor = roleColor,
                             ),
                         )
                     }
                 }
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
-                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(uiState.users, key = { it.id }) { user ->
-                        UserCard(
-                            user = user,
-                            onToggleActive = { viewModel.toggleActive(user) },
-                            onDelete = { viewModel.deleteUser(user.id) },
-                        )
+
+                if (uiState.users.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Filled.PersonOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(Res.string.no_users),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
+                        contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(uiState.users, key = { it.id }) { user ->
+                            UserPermissionCard(
+                                user = user,
+                                onToggleActive = { viewModel.toggleActive(user) },
+                                onDelete = { viewModel.deleteUser(user.id) },
+                                onChangeRole = { viewModel.showChangeRoleDialog(user) },
+                            )
+                        }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
             }
         }
 
-        if (uiState.showAddDialog) {
-            AddUserDialog(uiState = uiState, viewModel = viewModel)
+        // Change Role Dialog
+        if (uiState.showChangeRoleDialog && uiState.changeRoleUser != null) {
+            ChangeRoleDialog(uiState = uiState, viewModel = viewModel)
         }
     }
     } // BoxWithConstraints
 }
 
 @Composable
-private fun UserCard(user: User, onToggleActive: () -> Unit, onDelete: () -> Unit) {
+private fun UserPermissionCard(
+    user: User,
+    onToggleActive: () -> Unit,
+    onDelete: () -> Unit,
+    onChangeRole: () -> Unit,
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val roleColor = when (user.role) {
+        UserRole.MANAGER -> MaterialTheme.colorScheme.primary
+        UserRole.CASHIER -> MaterialTheme.colorScheme.tertiary
+        UserRole.DELIVERY -> MaterialTheme.colorScheme.secondary
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = if (!user.active) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            )
-        } else {
-            CardDefaults.cardColors()
-        },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (user.active) MaterialTheme.colorScheme.surface
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (user.active) roleColor.copy(alpha = 0.2f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = user.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = user.role.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Text(
-                    text = user.phone,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Avatar
+                Surface(
+                    shape = CircleShape,
+                    color = roleColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            user.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = roleColor,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = user.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (user.active) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = user.phone,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (user.email != null) {
+                            Text(
+                                text = user.email!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+
+                // Active/Inactive toggle
+                Switch(
+                    checked = user.active,
+                    onCheckedChange = { onToggleActive() },
                 )
             }
-            Switch(
-                checked = user.active,
-                onCheckedChange = { onToggleActive() },
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error,
-                )
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(Modifier.height(10.dp))
+
+            // Bottom Row: Role badge + Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // Role badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = roleColor.copy(alpha = 0.1f),
+                ) {
+                    Text(
+                        text = user.role.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = roleColor,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    )
+                }
+
+                // Status + Actions
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!user.active) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.inactive),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+
+                    // Change Role button
+                    IconButton(onClick = onChangeRole) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = stringResource(Res.string.change_role),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
+                    // Delete button
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
         }
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            icon = {
+                Icon(
+                    Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text(stringResource(Res.string.delete_user_title)) },
+            text = { Text(stringResource(Res.string.delete_user_confirm)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirm = false
+                    },
+                ) {
+                    Text(stringResource(Res.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddUserDialog(uiState: UsersViewModel.UiState, viewModel: UsersViewModel) {
+private fun ChangeRoleDialog(uiState: UsersViewModel.UiState, viewModel: UsersViewModel) {
+    val user = uiState.changeRoleUser ?: return
+
     AlertDialog(
-        onDismissRequest = viewModel::dismissDialog,
-        icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text(stringResource(Res.string.add_new_staff_member)) },
+        onDismissRequest = viewModel::dismissChangeRoleDialog,
+        icon = {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = { Text(stringResource(Res.string.change_role)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                // Role selector Label
                 Text(
-                    text = stringResource(Res.string.role),
-                    style = MaterialTheme.typography.labelLarge, // Larger label looks better in dialogs
-                    color = MaterialTheme.colorScheme.primary // Brand color for the header
+                    text = "${stringResource(Res.string.change_role_desc)}: ${user.name}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 SingleChoiceSegmentedButtonRow(
@@ -217,75 +439,45 @@ private fun AddUserDialog(uiState: UsersViewModel.UiState, viewModel: UsersViewM
                 ) {
                     UserRole.entries.forEachIndexed { index, role ->
                         SegmentedButton(
-                            selected = uiState.dialogRole == role,
-                            onClick = { viewModel.updateDialogRole(role) },
+                            selected = uiState.changeRoleSelected == role,
+                            onClick = { viewModel.updateChangeRoleSelected(role) },
                             shape = SegmentedButtonDefaults.itemShape(
                                 index = index,
                                 count = UserRole.entries.size
                             ),
-                            // Customizing colors to match your theme
                             colors = SegmentedButtonDefaults.colors(
                                 activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 inactiveContainerColor = MaterialTheme.colorScheme.surface,
                                 inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            ),
                         ) {
                             Text(
                                 text = role.name,
-                                style = MaterialTheme.typography.bodySmall, // Smaller font helps multi-screen fit
+                                style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
                 }
-
-                OutlinedTextField(
-                    value = uiState.dialogName,
-                    onValueChange = viewModel::updateDialogName,
-                    label = { Text(stringResource(Res.string.full_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.dialogPhone,
-                    onValueChange = viewModel::updateDialogPhone,
-                    label = { Text(stringResource(Res.string.phone_number)) },
-                    leadingIcon = { Icon(Icons.Filled.Phone, null) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.dialogEmail,
-                    onValueChange = viewModel::updateDialogEmail,
-                    label = { Text(stringResource(Res.string.email_optional)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.dialogPassword,
-                    onValueChange = viewModel::updateDialogPassword,
-                    label = { Text(stringResource(Res.string.password_min_6_chars)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = viewModel::saveUser,
-                enabled = !uiState.isSaving && uiState.dialogName.isNotBlank() && uiState.dialogPhone.isNotBlank() && uiState.dialogPassword.length >= 6,
+            Button(
+                onClick = viewModel::confirmChangeRole,
+                enabled = !uiState.isSaving,
             ) {
-                Text(if (uiState.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.create_user))
+                Text(
+                    if (uiState.isSaving) stringResource(Res.string.saving)
+                    else stringResource(Res.string.confirm)
+                )
             }
         },
-        dismissButton = { TextButton(onClick = viewModel::dismissDialog) { Text(stringResource(Res.string.cancel)) } },
+        dismissButton = {
+            TextButton(onClick = viewModel::dismissChangeRoleDialog) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
     )
 }

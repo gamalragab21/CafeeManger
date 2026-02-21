@@ -106,6 +106,7 @@
     <string name="custom_range">مخصص</string>
     <string name="not_checked_out">لم يسجل انصراف</string>
     <string name="auto_login">تلقائي (تسجيل دخول)</string>
+    <string name="worked_label">العمل</string>
 
     <!-- Salary -->
     <string name="salary_payments">مدفوعات الرواتب</string>

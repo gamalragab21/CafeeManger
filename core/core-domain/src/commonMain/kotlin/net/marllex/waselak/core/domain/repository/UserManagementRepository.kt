@@ -13,7 +13,8 @@ interface UserManagementRepository {
     ): Result<User>
     suspend fun updateUser(
         id: String, name: String?, phone: String?,
-        email: String?, active: Boolean?
+        email: String?, active: Boolean?,
+        role: String? = null, password: String? = null
     ): Result<User>
     suspend fun deleteUser(id: String): Result<Unit>
 }
