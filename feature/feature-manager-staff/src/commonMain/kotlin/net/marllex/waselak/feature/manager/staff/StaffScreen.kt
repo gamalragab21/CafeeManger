@@ -598,43 +598,17 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
     val presentCount = filteredSummary.count { it.presentToday }
     val absentCount = filteredSummary.count { !it.presentToday }
 
-    // Collect unique roles from today's summary for filtering
-    val availableRoles = remember(uiState.todaySummary) {
-        uiState.todaySummary.map { it.workerRole }.distinct().sorted()
+    // Collect unique roles from today's summary + attendance records
+    val availableRoles = remember(uiState.todaySummary, uiState.attendanceRecords) {
+        val summaryRoles = uiState.todaySummary.map { it.workerRole }
+        val recordRoles = uiState.attendanceRecords.mapNotNull { it.workerRole }
+        (summaryRoles + recordRoles).distinct().sorted()
     }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Role Filter Chips
-        if (availableRoles.size > 1) {
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = uiState.attendanceRoleFilter == null,
-                            onClick = { viewModel.setAttendanceRoleFilter(null) },
-                            label = { Text(stringResource(Res.string.all)) },
-                        )
-                    }
-                    items(availableRoles) { role ->
-                        FilterChip(
-                            selected = uiState.attendanceRoleFilter.equals(role, ignoreCase = true),
-                            onClick = {
-                                viewModel.setAttendanceRoleFilter(
-                                    if (uiState.attendanceRoleFilter.equals(role, ignoreCase = true)) null else role
-                                )
-                            },
-                            label = { Text(role) },
-                        )
-                    }
-                }
-            }
-        }
-
         // Today's Overview Card
         item {
             Card(
@@ -671,7 +645,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        // Worker attendance status list
+        // Worker attendance status list (today's summary)
         items(filteredSummary) { summary ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -729,7 +703,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        // Attendance History with Filters
+        // ─── Attendance History with Enhanced Filters ───────────────
         item {
             Spacer(Modifier.height(8.dp))
             Text(
@@ -740,18 +714,65 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             )
         }
 
-        // Filter section
+        // Period Filter (Today / Week / Month / Custom)
+        item {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val periods = listOf(
+                    StaffViewModel.AttendancePeriod.TODAY to stringResource(Res.string.today),
+                    StaffViewModel.AttendancePeriod.WEEK to stringResource(Res.string.this_week),
+                    StaffViewModel.AttendancePeriod.MONTH to stringResource(Res.string.this_month),
+                    StaffViewModel.AttendancePeriod.CUSTOM to stringResource(Res.string.custom_range),
+                )
+                periods.forEachIndexed { index, (period, label) ->
+                    SegmentedButton(
+                        selected = uiState.attendancePeriod == period,
+                        onClick = { viewModel.setAttendancePeriod(period) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = periods.size),
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
+        // Custom date range inputs (only when Custom is selected)
+        if (uiState.attendancePeriod == StaffViewModel.AttendancePeriod.CUSTOM) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = uiState.attendanceFromDate,
+                        onValueChange = viewModel::setAttendanceFromDate,
+                        label = { Text(stringResource(Res.string.from_date)) },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = uiState.attendanceToDate,
+                        onValueChange = viewModel::setAttendanceToDate,
+                        label = { Text(stringResource(Res.string.to_date)) },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+            }
+        }
+
+        // Role + Status + Worker Filters
         item {
             AttendanceFilters(
                 workers = uiState.workers,
                 selectedWorkerId = uiState.attendanceWorkerFilter,
-                fromDate = uiState.attendanceFromDate,
-                toDate = uiState.attendanceToDate,
                 statusFilter = uiState.attendanceStatusFilter,
+                roleFilter = uiState.attendanceRoleFilter,
+                availableRoles = availableRoles,
                 onWorkerSelected = viewModel::setAttendanceWorkerFilter,
-                onFromDateChanged = viewModel::setAttendanceFromDate,
-                onToDateChanged = viewModel::setAttendanceToDate,
                 onStatusFilterChanged = viewModel::setAttendanceStatusFilter,
+                onRoleFilterChanged = viewModel::setAttendanceRoleFilter,
             )
         }
 
@@ -779,13 +800,12 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
 private fun AttendanceFilters(
     workers: List<Worker>,
     selectedWorkerId: String?,
-    fromDate: String,
-    toDate: String,
     statusFilter: String?,
+    roleFilter: String?,
+    availableRoles: List<String>,
     onWorkerSelected: (String?) -> Unit,
-    onFromDateChanged: (String) -> Unit,
-    onToDateChanged: (String) -> Unit,
     onStatusFilterChanged: (String?) -> Unit,
+    onRoleFilterChanged: (String?) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Worker filter dropdown
@@ -818,7 +838,7 @@ private fun AttendanceFilters(
                 )
                 workers.forEach { worker ->
                     DropdownMenuItem(
-                        text = { Text(worker.fullName) },
+                        text = { Text("${worker.fullName} (${worker.role})") },
                         onClick = {
                             onWorkerSelected(worker.id)
                             workerExpanded = false
@@ -828,27 +848,30 @@ private fun AttendanceFilters(
             }
         }
 
-        // Date range filters
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = fromDate,
-                onValueChange = onFromDateChanged,
-                label = { Text(stringResource(Res.string.from_date)) },
-                placeholder = { Text("YYYY-MM-DD") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = toDate,
-                onValueChange = onToDateChanged,
-                label = { Text(stringResource(Res.string.to_date)) },
-                placeholder = { Text("YYYY-MM-DD") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
+        // Role filter chips
+        if (availableRoles.size > 1) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    FilterChip(
+                        selected = roleFilter == null,
+                        onClick = { onRoleFilterChanged(null) },
+                        label = { Text(stringResource(Res.string.all)) },
+                    )
+                }
+                items(availableRoles) { role ->
+                    FilterChip(
+                        selected = roleFilter.equals(role, ignoreCase = true),
+                        onClick = {
+                            onRoleFilterChanged(
+                                if (roleFilter.equals(role, ignoreCase = true)) null else role
+                            )
+                        },
+                        label = { Text(role) },
+                    )
+                }
+            }
         }
 
         // Status filter chips
@@ -968,20 +991,33 @@ private fun AttendanceRecordCard(record: Attendance) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "Check-in: ${record.checkIn.formatEpochMs("hh:mm a")}",
+                    text = stringResource(Res.string.check_in_time, record.checkIn.formatEpochMs("hh:mm a")),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                record.checkOut?.let {
+                val checkOutTime = record.checkOut
+                if (checkOutTime != null) {
                     Text(
-                        text = "Check-out: ${it.formatEpochMs("hh:mm a")}",
+                        text = stringResource(Res.string.check_out_time, checkOutTime.formatEpochMs("hh:mm a")),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                     )
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.errorContainer,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.not_checked_out),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
                 }
                 record.workedMinutes?.let {
                     Text(
-                        text = "Worked: ${record.workedHoursFormatted}",
+                        text = stringResource(Res.string.worked, record.workedHoursFormatted),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

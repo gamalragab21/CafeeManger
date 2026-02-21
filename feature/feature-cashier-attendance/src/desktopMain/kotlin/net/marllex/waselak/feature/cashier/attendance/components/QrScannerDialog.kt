@@ -19,7 +19,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.google.zxing.*
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import kotlinx.coroutines.Dispatchers
@@ -189,13 +193,13 @@ actual fun QrScannerDialog(
                             scope.launch {
                                 isProcessing = true
                                 errorMessage = null
-                                val result = withContext(Dispatchers.IO) {
+                                val qrResult: kotlin.Result<String> = withContext(Dispatchers.IO) {
                                     selectAndDecodeQrImage()
                                 }
                                 isProcessing = false
-                                result.onSuccess { qrData ->
+                                qrResult.onSuccess { qrData: String ->
                                     onQrCodeScanned(qrData)
-                                }.onFailure { e ->
+                                }.onFailure { e: Throwable ->
                                     errorMessage = e.message ?: "Failed to decode QR code"
                                 }
                             }
@@ -243,7 +247,7 @@ actual fun QrScannerDialog(
     }
 }
 
-private fun selectAndDecodeQrImage(): Result<String> {
+private fun selectAndDecodeQrImage(): kotlin.Result<String> {
     val chooser = JFileChooser().apply {
         dialogTitle = "Select QR Code Image"
         fileFilter = FileNameExtensionFilter("Image Files", "png", "jpg", "jpeg", "bmp", "gif")
@@ -252,16 +256,16 @@ private fun selectAndDecodeQrImage(): Result<String> {
 
     val result = chooser.showOpenDialog(null)
     if (result != JFileChooser.APPROVE_OPTION) {
-        return Result.failure(Exception("No file selected"))
+        return kotlin.Result.failure(Exception("No file selected"))
     }
 
     return decodeQrFromFile(chooser.selectedFile)
 }
 
-private fun decodeQrFromFile(file: File): Result<String> {
+private fun decodeQrFromFile(file: File): kotlin.Result<String> {
     return try {
         val image = ImageIO.read(file)
-            ?: return Result.failure(Exception("Could not read image file"))
+            ?: return kotlin.Result.failure(Exception("Could not read image file"))
 
         val source = BufferedImageLuminanceSource(image)
         val bitmap = BinaryBitmap(HybridBinarizer(source))
@@ -271,10 +275,10 @@ private fun decodeQrFromFile(file: File): Result<String> {
         )
         val reader = MultiFormatReader()
         val decoded = reader.decode(bitmap, hints)
-        Result.success(decoded.text)
+        kotlin.Result.success(decoded.text)
     } catch (e: NotFoundException) {
-        Result.failure(Exception("No QR code found in the image"))
+        kotlin.Result.failure(Exception("No QR code found in the image"))
     } catch (e: Exception) {
-        Result.failure(Exception("Failed to decode QR code: ${e.message}"))
+        kotlin.Result.failure(Exception("Failed to decode QR code: ${e.message}"))
     }
 }
