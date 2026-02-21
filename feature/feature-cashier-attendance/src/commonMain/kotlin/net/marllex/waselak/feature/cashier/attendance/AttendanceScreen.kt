@@ -264,8 +264,13 @@ fun AttendanceScreen(
                     items(filteredWorkers, key = { it.id }) { worker ->
                         val summary = uiState.todaySummary.find { it.workerId == worker.id }
                         val isPresent = summary?.presentToday ?: false
-                        val todayRecord = uiState.todayRecords.find { it.workerId == worker.id }
-                        val isCheckedOut = todayRecord?.isCheckedOut ?: false
+                        // Get the LATEST attendance record for this worker today
+                        // (worker may have multiple records if they logged in/out multiple times)
+                        val workerRecords = uiState.todayRecords
+                            .filter { it.workerId == worker.id }
+                            .sortedByDescending { it.checkIn }
+                        val latestRecord = workerRecords.firstOrNull()
+                        val isCheckedOut = latestRecord?.isCheckedOut ?: false
 
                         WorkerAttendanceCard(
                             workerName = worker.fullName,
@@ -273,11 +278,11 @@ fun AttendanceScreen(
                             role = worker.role,
                             isPresent = isPresent,
                             isCheckedOut = isCheckedOut,
-                            checkInTime = todayRecord?.checkIn,
-                            checkOutTime = todayRecord?.checkOut,
+                            checkInTime = latestRecord?.checkIn,
+                            checkOutTime = latestRecord?.checkOut,
                             onCheckInWithPin = { viewModel.showPinDialogForCheckIn(worker) },
                             onCheckOutWithPin = {
-                                todayRecord?.let {
+                                latestRecord?.let {
                                     viewModel.showPinDialogForCheckOut(worker, it.id)
                                 }
                             },
