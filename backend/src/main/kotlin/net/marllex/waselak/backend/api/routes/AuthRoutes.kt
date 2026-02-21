@@ -91,6 +91,7 @@ fun Route.authRoutes() {
             }
 
             // Auto check-in: if user has linked worker, auto record attendance
+            // Note: unique constraint (vendor_id, worker_id, date) allows only ONE record per worker per day
             try {
                 transaction {
                     val userUUID = UUID.fromString(result.userId)
@@ -104,16 +105,15 @@ fun Route.authRoutes() {
                         val workerId = worker[WorkersTable.id].value
                         val vendorUUID = UUID.fromString(result.vendorId)
 
-                        // Check if already has an OPEN attendance today (no check_out)
-                        val openAttendance = AttendanceTable.selectAll().where {
+                        // Check if any attendance record exists for today
+                        val todayAttendance = AttendanceTable.selectAll().where {
                             (AttendanceTable.workerId eq workerId) and
-                            (AttendanceTable.date eq todayStr) and
-                            (AttendanceTable.checkOut.isNull())
+                            (AttendanceTable.date eq todayStr)
                         }.firstOrNull()
 
-                        if (openAttendance == null) {
-                            // Auto check-in
-                            val attendanceId = AttendanceTable.insertAndGetId {
+                        if (todayAttendance == null) {
+                            // First login today: create new attendance record
+                            AttendanceTable.insertAndGetId {
                                 it[AttendanceTable.vendorId] = vendorUUID
                                 it[AttendanceTable.workerId] = workerId
                                 it[date] = todayStr
@@ -151,7 +151,19 @@ fun Route.authRoutes() {
                                     }
                                 }
                             }
+                        } else if (todayAttendance[AttendanceTable.checkOut] != null) {
+                            // Re-login after logout: re-open existing record (clear check_out)
+                            AttendanceTable.update({
+                                AttendanceTable.id eq todayAttendance[AttendanceTable.id]
+                            }) {
+                                it[checkOut] = null
+                                it[workedMinutes] = null
+                                it[authMethod] = "AUTO"
+                                it[note] = "Auto re-check-in on login"
+                                it[updatedAt] = now
+                            }
                         }
+                        // else: already has an open attendance today → do nothing
                     }
                 }
             } catch (_: Exception) {
