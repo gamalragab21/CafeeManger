@@ -104,13 +104,14 @@ fun Route.authRoutes() {
                         val workerId = worker[WorkersTable.id].value
                         val vendorUUID = UUID.fromString(result.vendorId)
 
-                        // Check if already checked in today
-                        val existingAttendance = AttendanceTable.selectAll().where {
+                        // Check if already has an OPEN attendance today (no check_out)
+                        val openAttendance = AttendanceTable.selectAll().where {
                             (AttendanceTable.workerId eq workerId) and
-                            (AttendanceTable.date eq todayStr)
+                            (AttendanceTable.date eq todayStr) and
+                            (AttendanceTable.checkOut.isNull())
                         }.firstOrNull()
 
-                        if (existingAttendance == null) {
+                        if (openAttendance == null) {
                             // Auto check-in
                             val attendanceId = AttendanceTable.insertAndGetId {
                                 it[AttendanceTable.vendorId] = vendorUUID

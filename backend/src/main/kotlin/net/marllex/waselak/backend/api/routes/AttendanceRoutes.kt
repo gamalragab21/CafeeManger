@@ -130,18 +130,24 @@ fun Route.attendanceRoutes() {
                         (AttendanceTable.date eq today)
                     }.toList()
 
-                val presentWorkerIds = todayRecords.map { it[AttendanceTable.workerId].toString() }.toSet()
+                // Worker is "present" only if they have an OPEN attendance (check_out is null)
+                val presentWorkerIds = todayRecords
+                    .filter { it[AttendanceTable.checkOut] == null }
+                    .map { it[AttendanceTable.workerId].toString() }
+                    .toSet()
 
                 activeWorkers.map { worker ->
                     val wId = worker[WorkersTable.id].toString()
-                    val attendance = todayRecords.find { it[AttendanceTable.workerId].toString() == wId }
+                    // Get the latest attendance record for this worker today
+                    val workerRecords = todayRecords.filter { it[AttendanceTable.workerId].toString() == wId }
+                    val totalWorkedMinutes = workerRecords.sumOf { it[AttendanceTable.workedMinutes] ?: 0 }
 
                     AttendanceSummaryDto(
                         worker_id = wId,
                         worker_name = worker[WorkersTable.fullName],
                         worker_role = worker[WorkersTable.role],
                         total_days = 0, // Not relevant for today view
-                        total_worked_minutes = attendance?.get(AttendanceTable.workedMinutes) ?: 0,
+                        total_worked_minutes = totalWorkedMinutes,
                         present_today = wId in presentWorkerIds,
                     )
                 }
