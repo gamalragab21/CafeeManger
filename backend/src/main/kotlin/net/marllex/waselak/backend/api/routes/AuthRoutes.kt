@@ -58,6 +58,93 @@ data class AuthUserDto(
     val active: Boolean = true
 )
 
+/**
+ * Auto check-in helper: ensures the user's linked worker has an open attendance record today.
+ * Called on both login and token refresh so the worker is marked present regardless of how
+ * the app authenticates (fresh login or cached token refresh).
+ *
+ * Handles three cases:
+ * 1. No record today → INSERT new attendance + salary record
+ * 2. Record exists but checked out → UPDATE to clear check_out (re-open)
+ * 3. Record exists and still open → do nothing
+ */
+private fun autoCheckIn(userId: String, vendorId: String) {
+    try {
+        transaction {
+            val userUUID = UUID.fromString(userId)
+            val worker = WorkersTable.selectAll()
+                .where { WorkersTable.userId eq userUUID }
+                .firstOrNull() ?: return@transaction
+
+            val now = Clock.System.now()
+            val todayStr = now.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+            val workerId = worker[WorkersTable.id].value
+            val vendorUUID = UUID.fromString(vendorId)
+
+            val todayAttendance = AttendanceTable.selectAll().where {
+                (AttendanceTable.workerId eq workerId) and
+                (AttendanceTable.date eq todayStr)
+            }.firstOrNull()
+
+            if (todayAttendance == null) {
+                // First login today: create new attendance record
+                AttendanceTable.insertAndGetId {
+                    it[AttendanceTable.vendorId] = vendorUUID
+                    it[AttendanceTable.workerId] = workerId
+                    it[date] = todayStr
+                    it[checkIn] = now
+                    it[recordedBy] = userUUID
+                    it[authMethod] = "AUTO"
+                    it[note] = "Auto check-in on login"
+                    it[createdAt] = now
+                    it[updatedAt] = now
+                }
+
+                // Auto-generate salary record for daily workers
+                val salaryType = worker[WorkersTable.salaryType]
+                val salaryAmount = worker[WorkersTable.salaryAmount]
+
+                if (salaryType == "DAILY") {
+                    val existing = SalaryPaymentsTable.selectAll().where {
+                        (SalaryPaymentsTable.workerId eq workerId) and
+                        (SalaryPaymentsTable.periodStart eq todayStr) and
+                        (SalaryPaymentsTable.periodType eq "DAY")
+                    }.firstOrNull()
+
+                    if (existing == null) {
+                        SalaryPaymentsTable.insertAndGetId {
+                            it[SalaryPaymentsTable.vendorId] = vendorUUID
+                            it[SalaryPaymentsTable.workerId] = workerId
+                            it[periodType] = "DAY"
+                            it[periodStart] = todayStr
+                            it[periodEnd] = todayStr
+                            it[workedDays] = 1
+                            it[amount] = salaryAmount
+                            it[paid] = false
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                    }
+                }
+            } else if (todayAttendance[AttendanceTable.checkOut] != null) {
+                // Re-login after logout: re-open existing record (clear check_out)
+                AttendanceTable.update({
+                    AttendanceTable.id eq todayAttendance[AttendanceTable.id]
+                }) {
+                    it[checkOut] = null
+                    it[workedMinutes] = null
+                    it[authMethod] = "AUTO"
+                    it[note] = "Auto re-check-in on login"
+                    it[updatedAt] = now
+                }
+            }
+            // else: already has an open attendance today → do nothing
+        }
+    } catch (_: Exception) {
+        // Don't fail auth if attendance auto-record fails
+    }
+}
+
 fun Route.authRoutes() {
     val authService by inject<AuthService>(
         clazz = AuthService::class.java
@@ -90,85 +177,8 @@ fun Route.authRoutes() {
                 }
             }
 
-            // Auto check-in: if user has linked worker, auto record attendance
-            // Note: unique constraint (vendor_id, worker_id, date) allows only ONE record per worker per day
-            try {
-                transaction {
-                    val userUUID = UUID.fromString(result.userId)
-                    val worker = WorkersTable.selectAll()
-                        .where { WorkersTable.userId eq userUUID }
-                        .firstOrNull()
-
-                    if (worker != null) {
-                        val now = Clock.System.now()
-                        val todayStr = now.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
-                        val workerId = worker[WorkersTable.id].value
-                        val vendorUUID = UUID.fromString(result.vendorId)
-
-                        // Check if any attendance record exists for today
-                        val todayAttendance = AttendanceTable.selectAll().where {
-                            (AttendanceTable.workerId eq workerId) and
-                            (AttendanceTable.date eq todayStr)
-                        }.firstOrNull()
-
-                        if (todayAttendance == null) {
-                            // First login today: create new attendance record
-                            AttendanceTable.insertAndGetId {
-                                it[AttendanceTable.vendorId] = vendorUUID
-                                it[AttendanceTable.workerId] = workerId
-                                it[date] = todayStr
-                                it[checkIn] = now
-                                it[recordedBy] = userUUID
-                                it[authMethod] = "AUTO"
-                                it[note] = "Auto check-in on login"
-                                it[createdAt] = now
-                                it[updatedAt] = now
-                            }
-
-                            // Auto-generate salary record
-                            val salaryType = worker[WorkersTable.salaryType]
-                            val salaryAmount = worker[WorkersTable.salaryAmount]
-
-                            if (salaryType == "DAILY") {
-                                val existing = SalaryPaymentsTable.selectAll().where {
-                                    (SalaryPaymentsTable.workerId eq workerId) and
-                                    (SalaryPaymentsTable.periodStart eq todayStr) and
-                                    (SalaryPaymentsTable.periodType eq "DAY")
-                                }.firstOrNull()
-
-                                if (existing == null) {
-                                    SalaryPaymentsTable.insertAndGetId {
-                                        it[SalaryPaymentsTable.vendorId] = vendorUUID
-                                        it[SalaryPaymentsTable.workerId] = workerId
-                                        it[periodType] = "DAY"
-                                        it[periodStart] = todayStr
-                                        it[periodEnd] = todayStr
-                                        it[workedDays] = 1
-                                        it[amount] = salaryAmount
-                                        it[paid] = false
-                                        it[createdAt] = now
-                                        it[updatedAt] = now
-                                    }
-                                }
-                            }
-                        } else if (todayAttendance[AttendanceTable.checkOut] != null) {
-                            // Re-login after logout: re-open existing record (clear check_out)
-                            AttendanceTable.update({
-                                AttendanceTable.id eq todayAttendance[AttendanceTable.id]
-                            }) {
-                                it[checkOut] = null
-                                it[workedMinutes] = null
-                                it[authMethod] = "AUTO"
-                                it[note] = "Auto re-check-in on login"
-                                it[updatedAt] = now
-                            }
-                        }
-                        // else: already has an open attendance today → do nothing
-                    }
-                }
-            } catch (_: Exception) {
-                // Don't fail login if attendance auto-record fails
-            }
+            // Auto check-in on login (and re-open if previously checked out)
+            autoCheckIn(result.userId, result.vendorId)
 
             call.respond(
                 HttpStatusCode.OK, AuthResponse(
@@ -200,6 +210,9 @@ fun Route.authRoutes() {
 
             try {
                 val result = authService.refreshToken(request.refresh_token)
+
+                // Auto check-in on token refresh (app may re-enter via refresh, not login)
+                autoCheckIn(result.userId, result.vendorId)
 
                 call.respond(
                     HttpStatusCode.OK, AuthResponse(
