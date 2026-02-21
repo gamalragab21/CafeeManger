@@ -439,7 +439,8 @@ fun AttendanceSummaryResponse.toDomain() = AttendanceSummary(
     workerId = workerId, workerName = workerName,
     workerRole = workerRole, totalDays = totalDays,
     totalWorkedMinutes = totalWorkedMinutes,
-    presentToday = presentToday
+    presentToday = presentToday,
+    attendedToday = attendedToday
 )
 
 // ─── Salary Payment Mappers ──────────────────────────────────────

@@ -14,6 +14,7 @@
     <string name="biometric_not_available">Biometric authentication not available on this device</string>
     <string name="present">Present</string>
     <string name="absent">Absent</string>
+    <string name="away">Left</string>
     <string name="today_attendance">Today Attendance</string>
     <string name="no_workers_available">No active workers available</string>
     <string name="search_worker">Search worker…</string>

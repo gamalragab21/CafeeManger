@@ -14,6 +14,7 @@
     <string name="biometric_not_available">المصادقة البيومترية غير متوفرة على هذا الجهاز</string>
     <string name="present">حاضر</string>
     <string name="absent">غائب</string>
+    <string name="away">غادر</string>
     <string name="today_attendance">حضور اليوم</string>
     <string name="no_workers_available">لا يوجد عمال نشطون</string>
     <string name="search_worker">بحث عن عامل…</string>

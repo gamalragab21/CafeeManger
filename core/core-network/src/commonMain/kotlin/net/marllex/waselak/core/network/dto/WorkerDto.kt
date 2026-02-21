@@ -139,6 +139,7 @@ data class AttendanceSummaryResponse(
     @SerialName("total_days") val totalDays: Int,
     @SerialName("total_worked_minutes") val totalWorkedMinutes: Int,
     @SerialName("present_today") val presentToday: Boolean,
+    @SerialName("attended_today") val attendedToday: Boolean = false,
 )
 
 // ─── Salary Payment DTOs ─────────────────────────────────────────

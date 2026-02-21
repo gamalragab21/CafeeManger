@@ -598,7 +598,8 @@ fun StatusTag(label: String, color: Color) {
 private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
     val filteredSummary = viewModel.filteredTodaySummary
     val presentCount = filteredSummary.count { it.presentToday }
-    val absentCount = filteredSummary.count { !it.presentToday }
+    val awayCount = filteredSummary.count { !it.presentToday && it.attendedToday }
+    val absentCount = filteredSummary.count { !it.presentToday && !it.attendedToday }
     val totalCount = filteredSummary.size
 
     // Build a lookup map: workerId -> Worker (for checking isLoginEnabled / role)
@@ -668,6 +669,15 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
                             label = stringResource(Res.string.present),
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        // Away/Left
+                        AttendanceStatCard(
+                            count = awayCount,
+                            label = stringResource(Res.string.away),
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.weight(1f),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -850,8 +860,29 @@ private fun WorkerAttendanceSummaryCard(
     isAppUser: Boolean,
     workerRole: String,
 ) {
-    val statusColor = if (summary.presentToday) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.error
+    // Three states:
+    // 1. Present (presentToday=true): green — currently working
+    // 2. Away/Left (!presentToday && attendedToday): orange — attended but left
+    // 3. Absent (!presentToday && !attendedToday): red — never showed up
+    val isAway = !summary.presentToday && summary.attendedToday
+
+    val statusColor = when {
+        summary.presentToday -> MaterialTheme.colorScheme.primary
+        isAway -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    val statusLabel = when {
+        summary.presentToday -> stringResource(Res.string.present)
+        isAway -> stringResource(Res.string.away)
+        else -> stringResource(Res.string.absent)
+    }
+
+    val borderColor = when {
+        summary.presentToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        isAway -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -862,9 +893,7 @@ private fun WorkerAttendanceSummaryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = if (summary.presentToday)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            color = borderColor
         ),
     ) {
         Row(
@@ -969,8 +998,7 @@ private fun WorkerAttendanceSummaryCard(
                             .background(statusColor)
                     )
                     Text(
-                        text = if (summary.presentToday) stringResource(Res.string.present)
-                        else stringResource(Res.string.absent),
+                        text = statusLabel,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = statusColor,

@@ -80,6 +80,8 @@
     <string name="today">اليوم</string>
     <string name="present">حاضر</string>
     <string name="absent">غائب</string>
+    <string name="away">غادر</string>
+    <string name="away_count">%d غادر</string>
     <string name="checked_in">تم تسجيل الحضور</string>
     <string name="checked_out">تم تسجيل الانصراف</string>
     <string name="check_in_time">الحضور: %s</string>

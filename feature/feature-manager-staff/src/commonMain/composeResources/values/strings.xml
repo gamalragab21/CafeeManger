@@ -80,6 +80,8 @@
     <string name="today">Today</string>
     <string name="present">Present</string>
     <string name="absent">Absent</string>
+    <string name="away">Left</string>
+    <string name="away_count">%d Left</string>
     <string name="checked_in">Checked In</string>
     <string name="checked_out">Checked Out</string>
     <string name="check_in_time">Check-in: %s</string>

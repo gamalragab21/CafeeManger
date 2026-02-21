@@ -72,6 +72,7 @@ data class AttendanceSummary(
     val totalDays: Int,
     val totalWorkedMinutes: Int,
     val presentToday: Boolean,
+    val attendedToday: Boolean = false,
 ) {
     val totalWorkedHours: Double get() = totalWorkedMinutes / 60.0
 }

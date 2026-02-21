@@ -138,7 +138,8 @@ fun AttendanceScreen(
                     // Today's summary card
                     item {
                         val presentCount = uiState.todaySummary.count { it.presentToday }
-                        val absentCount = uiState.todaySummary.count { !it.presentToday }
+                        val awayCount = uiState.todaySummary.count { !it.presentToday && it.attendedToday }
+                        val absentCount = uiState.todaySummary.count { !it.presentToday && !it.attendedToday }
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -168,6 +169,19 @@ fun AttendanceScreen(
                                         )
                                         Text(
                                             text = stringResource(Res.string.present),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = awayCount.toString(),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.away),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         )
@@ -264,6 +278,7 @@ fun AttendanceScreen(
                     items(filteredWorkers, key = { it.id }) { worker ->
                         val summary = uiState.todaySummary.find { it.workerId == worker.id }
                         val isPresent = summary?.presentToday ?: false
+                        val attendedToday = summary?.attendedToday ?: false
                         // Get the LATEST attendance record for this worker today
                         // (worker may have multiple records if they logged in/out multiple times)
                         val workerRecords = uiState.todayRecords
@@ -277,6 +292,7 @@ fun AttendanceScreen(
                             workerId = worker.workerId,
                             role = worker.role,
                             isPresent = isPresent,
+                            attendedToday = attendedToday,
                             isCheckedOut = isCheckedOut,
                             checkInTime = latestRecord?.checkIn,
                             checkOutTime = latestRecord?.checkOut,
@@ -300,12 +316,36 @@ private fun WorkerAttendanceCard(
     workerId: String,
     role: String,
     isPresent: Boolean,
+    attendedToday: Boolean,
     isCheckedOut: Boolean,
     checkInTime: Long?,
     checkOutTime: Long?,
     onCheckInWithPin: () -> Unit,
     onCheckOutWithPin: () -> Unit,
 ) {
+    // Three states:
+    // 1. Present (isPresent=true): green — currently working (checked in, not checked out)
+    // 2. Away/Left (!isPresent && attendedToday): orange — attended today but left (checked out)
+    // 3. Absent (!isPresent && !attendedToday): red — no attendance record today
+    val isAway = !isPresent && attendedToday
+
+    val statusColor = when {
+        isPresent -> MaterialTheme.colorScheme.primary
+        isAway -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    val statusLabel = when {
+        isPresent -> stringResource(Res.string.present)
+        isAway -> stringResource(Res.string.away)
+        else -> stringResource(Res.string.absent)
+    }
+
+    val statusContainerColor = when {
+        isPresent -> MaterialTheme.colorScheme.primaryContainer
+        isAway -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.errorContainer
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -321,10 +361,7 @@ private fun WorkerAttendanceCard(
                     modifier = Modifier
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isPresent) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
+                        .background(statusColor)
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -351,15 +388,13 @@ private fun WorkerAttendanceCard(
                     onClick = {},
                     label = {
                         Text(
-                            if (isPresent) stringResource(Res.string.present) else stringResource(Res.string.absent),
+                            statusLabel,
                             style = MaterialTheme.typography.labelSmall,
                         )
                     },
                     modifier = Modifier.height(28.dp),
                     colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (isPresent)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.errorContainer,
+                        containerColor = statusContainerColor,
                     ),
                 )
             }
@@ -387,7 +422,8 @@ private fun WorkerAttendanceCard(
 
             // Action button
             when {
-                !isPresent -> {
+                // Absent: no attendance today → check in
+                !isPresent && !attendedToday -> {
                     Button(
                         onClick = onCheckInWithPin,
                         modifier = Modifier.fillMaxWidth(),
@@ -398,6 +434,7 @@ private fun WorkerAttendanceCard(
                         Text(stringResource(Res.string.check_in_with_pin))
                     }
                 }
+                // Present: currently working → can check out
                 isPresent && !isCheckedOut -> {
                     OutlinedButton(
                         onClick = onCheckOutWithPin,
@@ -409,8 +446,8 @@ private fun WorkerAttendanceCard(
                         Text(stringResource(Res.string.check_out_with_pin))
                     }
                 }
+                // Away/Left: attended today but left → show checked out message
                 else -> {
-                    // Already checked in and out
                     Text(
                         text = stringResource(Res.string.checked_out),
                         style = MaterialTheme.typography.bodySmall,

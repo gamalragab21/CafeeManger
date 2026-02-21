@@ -69,6 +69,7 @@ data class AttendanceSummaryDto(
     val total_days: Int,
     val total_worked_minutes: Int,
     val present_today: Boolean,
+    val attended_today: Boolean = false,
 )
 
 // ─── Routes ──────────────────────────────────────────────────────
@@ -136,6 +137,11 @@ fun Route.attendanceRoutes() {
                     .map { it[AttendanceTable.workerId].toString() }
                     .toSet()
 
+                // Worker "attended today" if they have ANY attendance record (even checked out)
+                val attendedWorkerIds = todayRecords
+                    .map { it[AttendanceTable.workerId].toString() }
+                    .toSet()
+
                 activeWorkers.map { worker ->
                     val wId = worker[WorkersTable.id].toString()
                     // Get the latest attendance record for this worker today
@@ -149,6 +155,7 @@ fun Route.attendanceRoutes() {
                         total_days = 0, // Not relevant for today view
                         total_worked_minutes = totalWorkedMinutes,
                         present_today = wId in presentWorkerIds,
+                        attended_today = wId in attendedWorkerIds,
                     )
                 }
             }
