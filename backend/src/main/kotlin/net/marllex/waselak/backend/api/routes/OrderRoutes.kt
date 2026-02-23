@@ -23,6 +23,8 @@ import net.marllex.waselak.backend.data.database.OrderItemsTable
 import net.marllex.waselak.backend.data.database.OrdersTable
 import net.marllex.waselak.backend.data.database.StockTable
 import net.marllex.waselak.backend.data.database.StockTransactionsTable
+import net.marllex.waselak.backend.data.database.RecipesTable
+import net.marllex.waselak.backend.data.database.RecipeIngredientsTable
 import net.marllex.waselak.backend.data.database.TaxPlacesTable
 import net.marllex.waselak.backend.data.database.VendorsTable
 import net.marllex.waselak.backend.data.database.TablesTable
@@ -424,16 +426,52 @@ fun Route.orderRoutes() {
                     val item = ItemsTable.selectAll().where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
                         .firstOrNull() ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
 
-                    // Stock enforcement check (Phase 5)
+                    // Stock enforcement check — branches on item stockBehavior
                     if (vendorStockMode == "ENFORCE") {
-                        val stockRow = StockTable.selectAll().where {
-                            (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and
-                            (StockTable.vendorId eq vendorUUID)
-                        }.firstOrNull()
-                        if (stockRow != null && stockRow[StockTable.quantity] < orderItem.quantity) {
-                            throw IllegalStateException(
-                                "Insufficient stock for '${item[ItemsTable.name]}': available=${stockRow[StockTable.quantity]}, requested=${orderItem.quantity}"
-                            )
+                        val behavior = item[ItemsTable.stockBehavior]
+                        when (behavior) {
+                            "DIRECT" -> {
+                                val stockRow = StockTable.selectAll().where {
+                                    (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and
+                                    (StockTable.vendorId eq vendorUUID)
+                                }.firstOrNull()
+                                if (stockRow != null && stockRow[StockTable.quantity] < BigDecimal(orderItem.quantity)) {
+                                    throw IllegalStateException(
+                                        "Insufficient stock for '${item[ItemsTable.name]}': available=${stockRow[StockTable.quantity].toPlainString()}, requested=${orderItem.quantity}"
+                                    )
+                                }
+                            }
+                            "RECIPE" -> {
+                                val recipe = RecipesTable.selectAll().where {
+                                    (RecipesTable.itemId eq UUID.fromString(orderItem.item_id)) and
+                                    (RecipesTable.vendorId eq vendorUUID) and
+                                    (RecipesTable.active eq true)
+                                }.firstOrNull() ?: throw IllegalStateException(
+                                    "Item '${item[ItemsTable.name]}' is set to RECIPE mode but has no active recipe"
+                                )
+                                val recipeId = recipe[RecipesTable.id]
+                                val ingredients = RecipeIngredientsTable.selectAll().where {
+                                    RecipeIngredientsTable.recipeId eq recipeId
+                                }.toList()
+                                val yieldQty = recipe[RecipesTable.yieldQuantity]
+                                val multiplier = BigDecimal(orderItem.quantity).divide(yieldQty, 6, java.math.RoundingMode.HALF_UP)
+
+                                for (ingredient in ingredients) {
+                                    val stockRow = StockTable.selectAll().where {
+                                        StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
+                                    }.firstOrNull() ?: continue
+                                    val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                    val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                    if (stockRow[StockTable.quantity] < BigDecimal.valueOf(convertedRequired)) {
+                                        throw IllegalStateException(
+                                            "Insufficient ingredient '${stockRow[StockTable.itemName]}' for '${item[ItemsTable.name]}': " +
+                                            "available=${stockRow[StockTable.quantity].toPlainString()} ${stockRow[StockTable.baseUnit]}, " +
+                                            "required=${BigDecimal.valueOf(convertedRequired).toPlainString()} ${stockRow[StockTable.baseUnit]}"
+                                        )
+                                    }
+                                }
+                            }
+                            // "NONE" -> skip stock check
                         }
                     }
 
@@ -542,36 +580,75 @@ fun Route.orderRoutes() {
                     )
                 }
 
-                // Deduct stock for each item in the order
+                // Deduct stock for each item in the order — branches on stockBehavior
                 itemSnapshots.forEach { (item, orderItem, _) ->
                     val itemUUID = UUID.fromString(orderItem.item_id)
-                    val stockRow = StockTable.selectAll()
-                        .where {
-                            (StockTable.itemId eq itemUUID) and
-                            (StockTable.vendorId eq vendorUUID)
-                        }.firstOrNull()
+                    val behavior = item[ItemsTable.stockBehavior]
+                    val now = Clock.System.now()
 
-                    if (stockRow != null) {
-                        val oldQty = stockRow[StockTable.quantity]
-                        val newQty = (oldQty - orderItem.quantity).coerceAtLeast(0)
-                        val now = Clock.System.now()
-
-                        StockTable.update({
-                            StockTable.id eq stockRow[StockTable.id]
-                        }) {
-                            it[quantity] = newQty
-                            it[updatedAt] = now
+                    when (behavior) {
+                        "DIRECT" -> {
+                            val stockRow = StockTable.selectAll().where {
+                                (StockTable.itemId eq itemUUID) and (StockTable.vendorId eq vendorUUID)
+                            }.firstOrNull()
+                            if (stockRow != null) {
+                                val oldQty = stockRow[StockTable.quantity]
+                                val deductAmt = BigDecimal(orderItem.quantity)
+                                val newQty = (oldQty - deductAmt).coerceAtLeast(BigDecimal.ZERO)
+                                StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                    it[quantity] = newQty
+                                    it[updatedAt] = now
+                                }
+                                StockTransactionsTable.insert {
+                                    it[stockId] = stockRow[StockTable.id]
+                                    it[type] = "SALE_DIRECT"
+                                    it[StockTransactionsTable.quantity] = deductAmt
+                                    it[previousQuantity] = oldQty
+                                    it[StockTransactionsTable.orderId] = orderId
+                                    it[note] = "Order deduction (direct)"
+                                    it[createdAt] = now
+                                }
+                            }
                         }
+                        "RECIPE" -> {
+                            val recipe = RecipesTable.selectAll().where {
+                                (RecipesTable.itemId eq itemUUID) and
+                                (RecipesTable.vendorId eq vendorUUID) and
+                                (RecipesTable.active eq true)
+                            }.firstOrNull() ?: return@forEach
+                            val recipeId = recipe[RecipesTable.id]
+                            val ingredients = RecipeIngredientsTable.selectAll().where {
+                                RecipeIngredientsTable.recipeId eq recipeId
+                            }.toList()
+                            val yieldQty = recipe[RecipesTable.yieldQuantity]
+                            val multiplier = BigDecimal(orderItem.quantity).divide(yieldQty, 6, java.math.RoundingMode.HALF_UP)
 
-                        StockTransactionsTable.insert {
-                            it[stockId] = stockRow[StockTable.id]
-                            it[type] = "DEDUCT"
-                            it[StockTransactionsTable.quantity] = orderItem.quantity
-                            it[previousQuantity] = oldQty
-                            it[StockTransactionsTable.orderId] = orderId
-                            it[note] = "Order deduction"
-                            it[createdAt] = now
+                            for (ingredient in ingredients) {
+                                val stockRow = StockTable.selectAll().where {
+                                    StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
+                                }.firstOrNull() ?: continue
+                                val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                val convertedRequiredDecimal = BigDecimal.valueOf(convertedRequired)
+                                val oldQty = stockRow[StockTable.quantity]
+                                val newQty = (oldQty - convertedRequiredDecimal).coerceAtLeast(BigDecimal.ZERO)
+                                StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                    it[quantity] = newQty
+                                    it[updatedAt] = now
+                                }
+                                StockTransactionsTable.insert {
+                                    it[stockId] = stockRow[StockTable.id]
+                                    it[type] = "SALE_RECIPE"
+                                    it[StockTransactionsTable.quantity] = convertedRequiredDecimal
+                                    it[previousQuantity] = oldQty
+                                    it[StockTransactionsTable.orderId] = orderId
+                                    it[StockTransactionsTable.recipeId] = recipeId
+                                    it[note] = "Recipe deduction: ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                    it[createdAt] = now
+                                }
+                            }
                         }
+                        // "NONE" -> skip stock deduction
                     }
                 }
 
@@ -677,22 +754,77 @@ fun Route.orderRoutes() {
 
                 // If items are provided, replace them and recalculate totals
                 if (request.items != null && request.items.isNotEmpty()) {
-                    // Restore stock from old items
+                    // Restore stock from old items — branches on stockBehavior
                     val vendorUUID = UUID.fromString(principal.vendorId)
                     val oldItems = OrderItemsTable.selectAll()
                         .where { OrderItemsTable.orderId eq UUID.fromString(id) }.toList()
                     oldItems.forEach { oldItem ->
                         val itemUUID = oldItem[OrderItemsTable.itemId]
-                        val stockRow = StockTable.selectAll().where {
-                            (StockTable.itemId eq itemUUID) and (StockTable.vendorId eq vendorUUID)
-                        }.firstOrNull()
-                        if (stockRow != null) {
-                            val oldQty = stockRow[StockTable.quantity]
-                            val restoredQty = oldQty + oldItem[OrderItemsTable.quantity]
-                            StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
-                                it[quantity] = restoredQty
-                                it[updatedAt] = Clock.System.now()
+                        val itemRow = ItemsTable.selectAll().where { ItemsTable.id eq itemUUID }.firstOrNull()
+                        val behavior = itemRow?.get(ItemsTable.stockBehavior) ?: "NONE"
+                        val now = Clock.System.now()
+
+                        when (behavior) {
+                            "DIRECT" -> {
+                                val stockRow = StockTable.selectAll().where {
+                                    (StockTable.itemId eq itemUUID) and (StockTable.vendorId eq vendorUUID)
+                                }.firstOrNull()
+                                if (stockRow != null) {
+                                    val currentQty = stockRow[StockTable.quantity]
+                                    val restoredQty = currentQty + BigDecimal(oldItem[OrderItemsTable.quantity])
+                                    StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                        it[quantity] = restoredQty
+                                        it[updatedAt] = now
+                                    }
+                                    StockTransactionsTable.insert {
+                                        it[stockId] = stockRow[StockTable.id]
+                                        it[type] = "RETURN"
+                                        it[StockTransactionsTable.quantity] = BigDecimal(oldItem[OrderItemsTable.quantity])
+                                        it[previousQuantity] = currentQty
+                                        it[StockTransactionsTable.orderId] = UUID.fromString(id)
+                                        it[note] = "Order edit restoration (direct)"
+                                        it[createdAt] = now
+                                    }
+                                }
                             }
+                            "RECIPE" -> {
+                                val recipe = RecipesTable.selectAll().where {
+                                    (RecipesTable.itemId eq itemUUID) and (RecipesTable.vendorId eq vendorUUID) and (RecipesTable.active eq true)
+                                }.firstOrNull()
+                                if (recipe != null) {
+                                    val recipeId = recipe[RecipesTable.id]
+                                    val ingredients = RecipeIngredientsTable.selectAll().where {
+                                        RecipeIngredientsTable.recipeId eq recipeId
+                                    }.toList()
+                                    val yieldQty = recipe[RecipesTable.yieldQuantity]
+                                    val multiplier = BigDecimal(oldItem[OrderItemsTable.quantity]).divide(yieldQty, 6, java.math.RoundingMode.HALF_UP)
+
+                                    for (ingredient in ingredients) {
+                                        val stockRow = StockTable.selectAll().where {
+                                            StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
+                                        }.firstOrNull() ?: continue
+                                        val restoreQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                        val convertedRestore = convertUnits(restoreQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                        val currentQty = stockRow[StockTable.quantity]
+                                        val newQty = currentQty + BigDecimal.valueOf(convertedRestore)
+                                        StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                            it[quantity] = newQty
+                                            it[updatedAt] = now
+                                        }
+                                        StockTransactionsTable.insert {
+                                            it[stockId] = stockRow[StockTable.id]
+                                            it[type] = "RETURN"
+                                            it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedRestore)
+                                            it[previousQuantity] = currentQty
+                                            it[StockTransactionsTable.orderId] = UUID.fromString(id)
+                                            it[StockTransactionsTable.recipeId] = recipeId
+                                            it[note] = "Order edit restoration (recipe)"
+                                            it[createdAt] = now
+                                        }
+                                    }
+                                }
+                            }
+                            // "NONE" -> skip
                         }
                     }
 
@@ -718,17 +850,70 @@ fun Route.orderRoutes() {
                             it[createdAt] = Clock.System.now()
                         }
 
-                        // Deduct stock for new item
-                        val stockRow = StockTable.selectAll().where {
-                            (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and (StockTable.vendorId eq vendorUUID)
-                        }.firstOrNull()
-                        if (stockRow != null) {
-                            val oldQty = stockRow[StockTable.quantity]
-                            val newQty = (oldQty - orderItem.quantity).coerceAtLeast(0)
-                            StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
-                                it[quantity] = newQty
-                                it[updatedAt] = Clock.System.now()
+                        // Deduct stock for new item — branches on stockBehavior
+                        val editBehavior = item[ItemsTable.stockBehavior]
+                        val editNow = Clock.System.now()
+                        when (editBehavior) {
+                            "DIRECT" -> {
+                                val stockRow = StockTable.selectAll().where {
+                                    (StockTable.itemId eq UUID.fromString(orderItem.item_id)) and (StockTable.vendorId eq vendorUUID)
+                                }.firstOrNull()
+                                if (stockRow != null) {
+                                    val sOldQty = stockRow[StockTable.quantity]
+                                    val sNewQty = (sOldQty - BigDecimal(orderItem.quantity)).coerceAtLeast(BigDecimal.ZERO)
+                                    StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                        it[quantity] = sNewQty
+                                        it[updatedAt] = editNow
+                                    }
+                                    StockTransactionsTable.insert {
+                                        it[stockId] = stockRow[StockTable.id]
+                                        it[type] = "SALE_DIRECT"
+                                        it[StockTransactionsTable.quantity] = BigDecimal(orderItem.quantity)
+                                        it[previousQuantity] = sOldQty
+                                        it[StockTransactionsTable.orderId] = UUID.fromString(id)
+                                        it[note] = "Order edit deduction (direct)"
+                                        it[createdAt] = editNow
+                                    }
+                                }
                             }
+                            "RECIPE" -> {
+                                val recipe = RecipesTable.selectAll().where {
+                                    (RecipesTable.itemId eq UUID.fromString(orderItem.item_id)) and
+                                    (RecipesTable.vendorId eq vendorUUID) and (RecipesTable.active eq true)
+                                }.firstOrNull()
+                                if (recipe != null) {
+                                    val recipeId = recipe[RecipesTable.id]
+                                    val ingredients = RecipeIngredientsTable.selectAll().where {
+                                        RecipeIngredientsTable.recipeId eq recipeId
+                                    }.toList()
+                                    val yieldQty = recipe[RecipesTable.yieldQuantity]
+                                    val multiplier = BigDecimal(orderItem.quantity).divide(yieldQty, 6, java.math.RoundingMode.HALF_UP)
+                                    for (ingredient in ingredients) {
+                                        val stockRow = StockTable.selectAll().where {
+                                            StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
+                                        }.firstOrNull() ?: continue
+                                        val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                        val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                        val sOldQty = stockRow[StockTable.quantity]
+                                        val sNewQty = (sOldQty - BigDecimal.valueOf(convertedRequired)).coerceAtLeast(BigDecimal.ZERO)
+                                        StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                                            it[quantity] = sNewQty
+                                            it[updatedAt] = editNow
+                                        }
+                                        StockTransactionsTable.insert {
+                                            it[stockId] = stockRow[StockTable.id]
+                                            it[type] = "SALE_RECIPE"
+                                            it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedRequired)
+                                            it[previousQuantity] = sOldQty
+                                            it[StockTransactionsTable.orderId] = UUID.fromString(id)
+                                            it[StockTransactionsTable.recipeId] = recipeId
+                                            it[note] = "Order edit deduction (recipe): ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                            it[createdAt] = editNow
+                                        }
+                                    }
+                                }
+                            }
+                            // "NONE" -> skip
                         }
 
                         OrderItemDto(

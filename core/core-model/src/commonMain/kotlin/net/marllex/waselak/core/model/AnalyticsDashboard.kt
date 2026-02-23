@@ -176,8 +176,8 @@ data class AnalyticsAlert(
 data class StockOverviewItem(
     val stockId: String,
     val itemName: String,
-    val quantity: Int,
-    val minQuantity: Int,
+    val quantity: Double,
+    val minQuantity: Double,
     val costPrice: Double,
     val unit: String,
     val status: String,
@@ -185,8 +185,8 @@ data class StockOverviewItem(
 
 data class StockMovement(
     val date: String,
-    val added: Int,
-    val deducted: Int,
+    val added: Double,
+    val deducted: Double,
 )
 
 data class StockOverview(

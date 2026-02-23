@@ -60,20 +60,24 @@ class StockRepositoryImpl constructor(
     override suspend fun addStockItem(
         itemId: String?,
         itemName: String,
-        quantity: Int,
-        minQuantity: Int,
+        quantity: Double,
+        minQuantity: Double,
         costPrice: Double,
         unit: String,
+        baseUnit: String,
+        conversionRate: Double,
         alertEnabled: Boolean,
     ): Result<Stock> = runCatching {
         val response = api.createStock(
             CreateStockRequest(
                 itemId = itemId,
-                itemName = if (itemId == null) itemName else null, // Only send itemName for independent items
+                itemName = if (itemId == null) itemName else null,
                 quantity = quantity,
                 minQuantity = minQuantity,
                 costPrice = costPrice,
                 unit = unit,
+                baseUnit = baseUnit,
+                conversionRate = conversionRate,
                 alertEnabled = alertEnabled,
             )
         )
@@ -85,8 +89,8 @@ class StockRepositoryImpl constructor(
     override suspend fun updateStockItem(
         id: String,
         itemName: String?,
-        quantity: Int?,
-        minQuantity: Int?,
+        quantity: Double?,
+        minQuantity: Double?,
         costPrice: Double?,
         unit: String?,
         alertEnabled: Boolean?,
@@ -107,7 +111,7 @@ class StockRepositoryImpl constructor(
         stock
     }
 
-    override suspend fun addQuantity(stockId: String, quantity: Int, note: String?): Result<Stock> = runCatching {
+    override suspend fun addQuantity(stockId: String, quantity: Double, note: String?): Result<Stock> = runCatching {
         val response = api.addStockQuantity(stockId, AdjustQuantityRequest(quantity, note))
         val stock = response.toDomain()
         stockDao.insertStock(stock.toDbEntity())
@@ -115,7 +119,7 @@ class StockRepositoryImpl constructor(
     }
 
     override suspend fun deductQuantity(
-        stockId: String, quantity: Int, orderId: String?, note: String?
+        stockId: String, quantity: Double, orderId: String?, note: String?
     ): Result<Stock> = runCatching {
         val response = api.deductStockQuantity(stockId, AdjustQuantityRequest(quantity, note))
         val stock = response.toDomain()
@@ -124,10 +128,8 @@ class StockRepositoryImpl constructor(
     }
 
     override suspend fun deductByItemId(
-        itemId: String, quantity: Int, orderId: String?
+        itemId: String, quantity: Double, orderId: String?
     ): Result<Unit> = runCatching {
-        // This is handled server-side during order creation now
-        // Just refresh stock to get the latest quantities
         refreshStock()
     }
 

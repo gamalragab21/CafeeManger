@@ -46,8 +46,14 @@
     <!-- Units -->
     <string name="unit_pcs">قطعة</string>
     <string name="unit_kg">كجم</string>
+    <string name="unit_gram">جرام</string>
     <string name="unit_liters">لتر</string>
+    <string name="unit_ml">مل</string>
+    <string name="unit_dozen">درزن</string>
     <string name="unit_boxes">صندوق</string>
+    <string name="unit_bag">كيس</string>
+    <string name="unit_bottle">زجاجة</string>
+    <string name="unit_can">علبة</string>
     <string name="unit_packs">عبوة</string>
 
     <!-- Independent Stock Items -->
@@ -65,4 +71,19 @@
     <string name="stock_added">تمت الإضافة</string>
     <string name="stock_deducted">تم الخصم</string>
     <string name="stock_adjusted">تم التعديل</string>
+    <string name="stock_purchased">شراء</string>
+    <string name="stock_sale_direct">بيع (مباشر)</string>
+    <string name="stock_sale_recipe">بيع (وصفة)</string>
+    <string name="stock_returned">مُرتجع</string>
+
+    <!-- Recipes Tab -->
+    <string name="recipes">الوصفات</string>
+    <string name="no_recipes">لا توجد وصفات بعد</string>
+    <string name="no_recipes_hint">أنشئ وصفات لربط أصناف القائمة بمكونات المخزون للخصم التلقائي.</string>
+    <string name="recipe_active">نشط</string>
+    <string name="recipe_inactive">غير نشط</string>
+    <string name="recipe_yield">الناتج</string>
+    <string name="recipe_ingredients_count">المكونات</string>
+    <string name="recipe_cost">التكلفة</string>
+    <string name="recipe_ingredients">المكونات</string>
 </resources>

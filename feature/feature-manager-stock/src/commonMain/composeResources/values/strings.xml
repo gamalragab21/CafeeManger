@@ -46,8 +46,14 @@
     <!-- Units -->
     <string name="unit_pcs">pcs</string>
     <string name="unit_kg">kg</string>
+    <string name="unit_gram">g</string>
     <string name="unit_liters">liters</string>
+    <string name="unit_ml">ml</string>
+    <string name="unit_dozen">dozen</string>
     <string name="unit_boxes">boxes</string>
+    <string name="unit_bag">bag</string>
+    <string name="unit_bottle">bottle</string>
+    <string name="unit_can">can</string>
     <string name="unit_packs">packs</string>
 
     <!-- Independent Stock Items -->
@@ -65,4 +71,19 @@
     <string name="stock_added">Stock Added</string>
     <string name="stock_deducted">Stock Deducted</string>
     <string name="stock_adjusted">Stock Adjusted</string>
+    <string name="stock_purchased">Purchased</string>
+    <string name="stock_sale_direct">Sale (Direct)</string>
+    <string name="stock_sale_recipe">Sale (Recipe)</string>
+    <string name="stock_returned">Returned</string>
+
+    <!-- Recipes Tab -->
+    <string name="recipes">Recipes</string>
+    <string name="no_recipes">No recipes yet</string>
+    <string name="no_recipes_hint">Create recipes to link menu items with stock ingredients for automatic deduction.</string>
+    <string name="recipe_active">Active</string>
+    <string name="recipe_inactive">Inactive</string>
+    <string name="recipe_yield">Yield</string>
+    <string name="recipe_ingredients_count">Ingredients</string>
+    <string name="recipe_cost">Cost</string>
+    <string name="recipe_ingredients">Ingredients</string>
 </resources>

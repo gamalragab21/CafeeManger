@@ -49,6 +49,8 @@ object DatabaseConfig {
                 OrdersTable,
                 OrderItemsTable,
                 StockTable,
+                RecipesTable,
+                RecipeIngredientsTable,
                 StockTransactionsTable,
                 WorkersTable,
                 WorkerRolesTable,
@@ -62,7 +64,8 @@ object DatabaseConfig {
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
-                VendorsTable, OrdersTable, StockTable, StockTransactionsTable,
+                VendorsTable, OrdersTable, ItemsTable, StockTable,
+                RecipesTable, RecipeIngredientsTable, StockTransactionsTable,
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable,
                 AnnouncementsTable, AnnouncementReadsTable,
@@ -75,6 +78,12 @@ object DatabaseConfig {
             // Backfill payment_status for existing orders
             exec("UPDATE orders SET payment_status = 'PAID' WHERE status = 'COMPLETED' AND payment_status = 'PENDING'")
             exec("UPDATE orders SET payment_timing = 'PAY_NOW' WHERE payment_timing IS NULL")
+
+            // Recipe/BOM migration: backfill stockBehavior for items that already have stock entries
+            exec("UPDATE items SET stock_behavior = 'DIRECT' WHERE id IN (SELECT item_id FROM stock WHERE item_id IS NOT NULL) AND stock_behavior = 'NONE'")
+            // Normalize unit values from legacy "pcs" to "PIECE"
+            exec("UPDATE stock SET unit = 'PIECE' WHERE unit = 'pcs'")
+            exec("UPDATE stock SET base_unit = 'PIECE' WHERE base_unit IS NULL OR base_unit = ''")
         }
 
         // Auto-seed demo data if database is empty
@@ -93,6 +102,8 @@ object DatabaseConfig {
                 WorkerRolesTable,
                 WorkersTable,
                 StockTransactionsTable,
+                RecipeIngredientsTable,
+                RecipesTable,
                 StockTable,
                 OrderItemsTable,
                 OrdersTable,

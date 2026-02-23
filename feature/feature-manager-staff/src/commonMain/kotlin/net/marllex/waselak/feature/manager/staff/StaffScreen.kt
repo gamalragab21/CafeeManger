@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,8 +41,11 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
@@ -52,6 +56,8 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -303,9 +309,9 @@ fun StaffScreen(
             }
         }
 
-        // Dialogs
+        // Bottom Sheet for Add/Edit Worker
         if (uiState.showAddWorkerDialog) {
-            AddEditWorkerDialog(uiState, viewModel)
+            AddEditWorkerBottomSheet(uiState, viewModel)
         }
         if (uiState.showDeleteWorkerDialog) {
             DeleteConfirmDialog(
@@ -2186,6 +2192,9 @@ private fun Step3SalaryContent(uiState: StaffViewModel.UiState, viewModel: Staff
             }
         }
 
+        val salaryTouched = uiState.dialogSalaryAmount.isNotEmpty()
+        val salaryInvalid = salaryTouched && (uiState.dialogSalaryAmount.toDoubleOrNull() ?: 0.0) <= 0
+
         OutlinedTextField(
             value = uiState.dialogSalaryAmount,
             onValueChange = viewModel::updateDialogSalaryAmount,
@@ -2194,7 +2203,21 @@ private fun Step3SalaryContent(uiState: StaffViewModel.UiState, viewModel: Staff
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            prefix = { Text("${stringResource(Res.string.egp)} ") }
+            prefix = { Text("${stringResource(Res.string.egp)} ") },
+            isError = salaryInvalid || (!salaryTouched && uiState.dialogStep == 3),
+            supportingText = {
+                if (salaryInvalid) {
+                    Text(
+                        stringResource(Res.string.salary_required),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (!salaryTouched) {
+                    Text(
+                        stringResource(Res.string.salary_required),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -2430,6 +2453,9 @@ private fun EditWorkerContent(uiState: StaffViewModel.UiState, viewModel: StaffV
             }
         }
 
+        val editSalaryTouched = uiState.dialogSalaryAmount.isNotEmpty()
+        val editSalaryInvalid = editSalaryTouched && (uiState.dialogSalaryAmount.toDoubleOrNull() ?: 0.0) <= 0
+
         OutlinedTextField(
             value = uiState.dialogSalaryAmount,
             onValueChange = viewModel::updateDialogSalaryAmount,
@@ -2438,16 +2464,26 @@ private fun EditWorkerContent(uiState: StaffViewModel.UiState, viewModel: StaffV
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            prefix = { Text("${stringResource(Res.string.egp)} ") }
+            prefix = { Text("${stringResource(Res.string.egp)} ") },
+            isError = editSalaryInvalid || !editSalaryTouched,
+            supportingText = {
+                if (editSalaryInvalid || !editSalaryTouched) {
+                    Text(
+                        stringResource(Res.string.salary_required),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+private fun AddEditWorkerBottomSheet(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
     val isEdit = uiState.editingWorker != null
     val scrollState = rememberScrollState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Validation helpers
     fun isStep1Valid(): Boolean {
@@ -2457,16 +2493,16 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
                 pinValid &&
                (isEdit || uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN || uiState.dialogRole.isNotBlank())
     }
-    
+
     fun isStep2Valid(): Boolean {
         return uiState.dialogPassword.length >= 6
     }
-    
+
     fun isStep3Valid(): Boolean {
-        return uiState.dialogSalaryAmount.toDoubleOrNull() != null && 
-               uiState.dialogSalaryAmount.toDoubleOrNull()!! > 0
+        val salary = uiState.dialogSalaryAmount.toDoubleOrNull()
+        return salary != null && salary > 0
     }
-    
+
     fun isFormValid(): Boolean {
         // For edit mode: PIN is optional, but if provided must be valid
         val pinValid = if (isEdit) {
@@ -2477,141 +2513,282 @@ private fun AddEditWorkerDialog(uiState: StaffViewModel.UiState, viewModel: Staf
         }
 
         // For edit mode: password is NOT required (keep existing password)
-        // For new workers: password required only if login is enabled
         val passwordValid = if (isEdit) {
-            true // Don't require password re-entry when editing
+            true
         } else {
             !uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6
         }
 
+        // Salary is mandatory
+        val salaryValid = (uiState.dialogSalaryAmount.toDoubleOrNull() ?: 0.0) > 0
+
         return uiState.dialogName.isNotBlank() &&
                uiState.dialogRole.isNotBlank() &&
                 pinValid &&
-                passwordValid
+                passwordValid &&
+                salaryValid
     }
 
-    // Determine dialog title based on step
-    val dialogTitle = when {
-        isEdit -> stringResource(Res.string.edit_worker)
-        uiState.dialogStep == 1 -> stringResource(Res.string.add_worker_step_1)
-        uiState.dialogStep == 2 -> stringResource(Res.string.add_worker_step_2)
-        else -> stringResource(Res.string.add_worker_step_3)
-    }
+    val totalSteps = if (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN) 3 else 2
 
-    BoxWithConstraints {
-    val screenWidth = maxWidth
-
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = viewModel::dismissWorkerDialog,
-        modifier = Modifier.widthIn(max = if (screenWidth > 600.dp) 520.dp else 560.dp),
-        icon = {
-            Icon(
-                if (isEdit) Icons.Filled.Edit else Icons.Filled.PersonAdd,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        title = {
-            Column {
-                Text(
-                    dialogTitle,
-                    style = MaterialTheme.typography.headlineSmall
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        dragHandle = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                 )
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            // ─── Header ─────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                if (isEdit) Icons.Filled.Edit else Icons.Filled.PersonAdd,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = if (isEdit) stringResource(Res.string.edit_worker) else stringResource(Res.string.add_worker),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (!isEdit) {
+                            Text(
+                                text = stringResource(Res.string.step_of, uiState.dialogStep, totalSteps),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
                 // Step indicator for multi-step flow (only for new workers)
                 if (!isEdit) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(16.dp))
                     StepIndicator(
                         currentStep = uiState.dialogStep,
-                        totalSteps = if (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN) 3 else 2,
+                        totalSteps = totalSteps,
                         isMainWorker = uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN
                     )
                 }
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
-        },
-        text = {
+
+            // ─── Scrollable Content ────────────────────────────────
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
+                    .weight(1f)
                     .verticalScroll(scrollState)
-                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Edit mode: Show all fields in single screen
                 if (isEdit) {
-                    EditWorkerContent(uiState, viewModel)
+                    // Edit mode: all fields in single view with section cards
+                    SheetSectionCard(
+                        icon = Icons.Filled.Person,
+                        title = stringResource(Res.string.basic_information),
+                    ) {
+                        EditWorkerContent(uiState, viewModel)
+                    }
                 } else {
-                    // Multi-step flow for new workers
                     when (uiState.dialogStep) {
-                        1 -> Step1BasicInfoContent(uiState, viewModel)
-                        2 -> Step2SystemAccessContent(uiState, viewModel)
-                        3 -> Step3SalaryContent(uiState, viewModel)
+                        1 -> {
+                            SheetSectionCard(
+                                icon = Icons.Filled.Person,
+                                title = stringResource(Res.string.basic_information),
+                            ) {
+                                Step1BasicInfoContent(uiState, viewModel)
+                            }
+                        }
+                        2 -> {
+                            SheetSectionCard(
+                                icon = Icons.Filled.Lock,
+                                title = stringResource(Res.string.system_access_section),
+                            ) {
+                                Step2SystemAccessContent(uiState, viewModel)
+                            }
+                        }
+                        3 -> {
+                            SheetSectionCard(
+                                icon = Icons.Filled.AttachMoney,
+                                title = stringResource(Res.string.salary_payment_section),
+                            ) {
+                                Step3SalaryContent(uiState, viewModel)
+                            }
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            if (isEdit) {
-                // Edit mode: Single Save button
-                Button(
-                    onClick = viewModel::saveWorker,
-                    enabled = !uiState.isSaving && isFormValid(),
-                    shape = RoundedCornerShape(12.dp)
+
+            // ─── Sticky Bottom Action Bar ────────────────────────
+            Surface(
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text(if (uiState.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
-                }
-            } else {
-                // Multi-step mode: Next/Save button
-                val isLastStep = (uiState.dialogWorkerType == StaffViewModel.WorkerType.MAIN && uiState.dialogStep == 3) ||
-                                 (uiState.dialogWorkerType == StaffViewModel.WorkerType.NORMAL && uiState.dialogStep == 3)
-                
-                Button(
-                    onClick = {
-                        if (isLastStep) {
-                            viewModel.saveWorker()
+                    if (isEdit) {
+                        // Edit mode: Cancel + Save
+                        TextButton(
+                            onClick = viewModel::dismissWorkerDialog,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                        Button(
+                            onClick = viewModel::saveWorker,
+                            enabled = !uiState.isSaving && isFormValid(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            if (uiState.isSaving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                if (uiState.isSaving) stringResource(Res.string.saving)
+                                else stringResource(Res.string.save)
+                            )
+                        }
+                    } else {
+                        // Multi-step: Back/Cancel + Next/Create
+                        if (uiState.dialogStep > 1) {
+                            TextButton(
+                                onClick = viewModel::previousDialogStep,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(stringResource(Res.string.back))
+                            }
                         } else {
-                            viewModel.nextDialogStep()
+                            TextButton(
+                                onClick = viewModel::dismissWorkerDialog,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(stringResource(Res.string.cancel))
+                            }
                         }
-                    },
-                    enabled = when (uiState.dialogStep) {
-                        1 -> isStep1Valid()
-                        2 -> isStep2Valid()
-                        3 -> !uiState.isSaving && isFormValid()
-                        else -> false
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        Spacer(Modifier.width(8.dp))
+
+                        val isLastStep = uiState.dialogStep == 3
+                        Button(
+                            onClick = {
+                                if (isLastStep) viewModel.saveWorker()
+                                else viewModel.nextDialogStep()
+                            },
+                            enabled = when (uiState.dialogStep) {
+                                1 -> isStep1Valid()
+                                2 -> isStep2Valid()
+                                3 -> !uiState.isSaving && isStep3Valid() && isFormValid()
+                                else -> false
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            if (uiState.isSaving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                when {
+                                    uiState.isSaving -> stringResource(Res.string.saving)
+                                    isLastStep -> stringResource(Res.string.create_worker)
+                                    else -> stringResource(Res.string.next)
+                                }
+                            )
+                        }
                     }
-                    Text(
-                        when {
-                            uiState.isSaving -> stringResource(Res.string.saving)
-                            isLastStep -> stringResource(Res.string.create_worker)
-                            else -> stringResource(Res.string.next)
-                        }
-                    )
                 }
             }
-        },
-        dismissButton = {
-            if (!isEdit && uiState.dialogStep > 1) {
-                // Show Back button for multi-step flow
-                TextButton(onClick = viewModel::previousDialogStep) {
-                    Text(stringResource(Res.string.back))
-                }
-            } else {
-                // Show Cancel button
-                TextButton(onClick = viewModel::dismissWorkerDialog) {
-                    Text(stringResource(Res.string.cancel))
-                }
+        }
+    }
+}
+
+// Section card wrapper for bottom sheet content
+@Composable
+private fun SheetSectionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 12.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
-        },
-    )
-    } // BoxWithConstraints
+            content()
+        }
+    }
 }
 @Composable
 private fun AddRoleDialog(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {

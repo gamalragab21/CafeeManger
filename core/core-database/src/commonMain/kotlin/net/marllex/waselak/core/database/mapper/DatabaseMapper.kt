@@ -10,6 +10,8 @@ import net.marllex.waselak.core.database.Orders
 import net.marllex.waselak.core.database.Order_items
 import net.marllex.waselak.core.database.Stock
 import net.marllex.waselak.core.database.Stock_transactions
+import net.marllex.waselak.core.database.Recipes
+import net.marllex.waselak.core.database.Recipe_ingredients
 import net.marllex.waselak.core.database.Workers
 import net.marllex.waselak.core.database.Worker_roles
 import net.marllex.waselak.core.database.Attendance as AttendanceDb
@@ -79,14 +81,16 @@ fun Items.toDomain() = Item(
     id = id, vendorId = vendor_id, categoryId = category_id,
     name = name, description = description, price = price,
     costPrice = cost_price, sku = sku, barcode = barcode,
-    imageUrl = image_url, available = available
+    imageUrl = image_url, available = available,
+    stockBehavior = stock_behavior
 )
 
 fun Item.toDbEntity() = Items(
     id = id, vendor_id = vendorId, category_id = categoryId,
     name = name, description = description, price = price,
     cost_price = costPrice, sku = sku, barcode = barcode,
-    image_url = imageUrl, available = available
+    image_url = imageUrl, available = available,
+    stock_behavior = stockBehavior
 )
 
 // ─── Table Mappers ───────────────────────────────────────────────
@@ -163,7 +167,8 @@ fun Stock.toDomain() = net.marllex.waselak.core.model.Stock(
     id = id, vendorId = vendor_id, itemId = item_id,
     itemName = item_name, quantity = quantity,
     minQuantity = min_quantity, costPrice = cost_price,
-    unit = unit, isMenuItem = is_menu_item, alertEnabled = alert_enabled,
+    unit = unit, baseUnit = base_unit, conversionRate = conversion_rate,
+    isMenuItem = is_menu_item, alertEnabled = alert_enabled,
     lastUpdatedAt = last_updated_at
 )
 
@@ -171,22 +176,23 @@ fun net.marllex.waselak.core.model.Stock.toDbEntity() = Stock(
     id = id, vendor_id = vendorId, item_id = itemId,
     item_name = itemName, quantity = quantity,
     min_quantity = minQuantity, cost_price = costPrice,
-    unit = unit, is_menu_item = isMenuItem, alert_enabled = alertEnabled,
+    unit = unit, base_unit = baseUnit, conversion_rate = conversionRate,
+    is_menu_item = isMenuItem, alert_enabled = alertEnabled,
     last_updated_at = lastUpdatedAt
 )
 
 fun Stock_transactions.toDomain() = StockTransaction(
     id = id, stockId = stock_id, itemName = item_name,
-    type = StockTransactionType.valueOf(type),
+    type = try { StockTransactionType.valueOf(type) } catch (_: Exception) { StockTransactionType.ADJUST },
     quantity = quantity, previousQuantity = previous_quantity,
-    orderId = order_id, note = note, createdAt = created_at
+    orderId = order_id, recipeId = recipe_id, note = note, createdAt = created_at
 )
 
 fun StockTransaction.toDbEntity() = Stock_transactions(
     id = id, stock_id = stockId, item_name = itemName,
     type = type.name,
     quantity = quantity, previous_quantity = previousQuantity,
-    order_id = orderId, note = note, created_at = createdAt
+    order_id = orderId, recipe_id = recipeId, note = note, created_at = createdAt
 )
 
 // ─── Worker Mappers ──────────────────────────────────────────────
@@ -285,4 +291,20 @@ fun CustomerAddress.toDbEntity() = Customer_addresses(
     address = address, geo_lat = geoLat, geo_lng = geoLng,
     delivery_zone_id = deliveryZoneId, delivery_fee = deliveryFee,
     is_default = isDefault, created_at = createdAt
+)
+
+// ─── Recipe Mappers ──────────────────────────────────────────────
+fun Recipes.toDomain(ingredients: List<RecipeIngredient> = emptyList()) = Recipe(
+    id = id, vendorId = vendor_id, itemId = item_id,
+    itemName = item_name, name = name, description = description,
+    yieldQuantity = yield_quantity, yieldUnit = yield_unit,
+    active = active, totalCost = total_cost,
+    ingredients = ingredients,
+    createdAt = created_at, updatedAt = updated_at
+)
+
+fun Recipe_ingredients.toDomain() = RecipeIngredient(
+    stockId = stock_id, stockItemName = stock_item_name,
+    quantity = quantity, unit = unit,
+    displayOrder = display_order, availableQuantity = available_quantity
 )

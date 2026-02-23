@@ -110,12 +110,18 @@ import net.marllex.waselak.core.common.utils.CurrencyFormatter
 @Composable
 private fun getLocalizedUnit(unitKey: String): String {
     return stringResource(
-        when (unitKey) {
-            "pcs" -> Res.string.unit_pcs
-            "kg" -> Res.string.unit_kg
-            "liters" -> Res.string.unit_liters
-            "boxes" -> Res.string.unit_boxes
-            "packs" -> Res.string.unit_packs
+        when (unitKey.uppercase()) {
+            "PCS", "PIECE" -> Res.string.unit_pcs
+            "KG", "KILOGRAM" -> Res.string.unit_kg
+            "GRAM" -> Res.string.unit_gram
+            "LITERS", "LITER" -> Res.string.unit_liters
+            "MILLILITER" -> Res.string.unit_ml
+            "DOZEN" -> Res.string.unit_dozen
+            "BOXES", "BOX" -> Res.string.unit_boxes
+            "BAG" -> Res.string.unit_bag
+            "BOTTLE" -> Res.string.unit_bottle
+            "CAN" -> Res.string.unit_can
+            "PACKS", "PACK" -> Res.string.unit_packs
             else -> Res.string.unit_pcs
         }
     )
@@ -208,6 +214,7 @@ private fun StockContent(
             onTabSelected = { index ->
                 viewModel.selectTab(index)
                 if (index == 3) viewModel.loadTransactions()
+                if (index == 4) viewModel.loadRecipes()
             }
         )
 
@@ -217,6 +224,7 @@ private fun StockContent(
             1 -> ItemsTab(uiState, viewModel)
             2 -> AlertsTab(uiState, viewModel)
             3 -> TransactionsTab(uiState)
+            4 -> RecipesTab(uiState, viewModel)
         }
     }
 }
@@ -250,6 +258,11 @@ private fun ModernTabSelector(
             title = stringResource(Res.string.transactions),
             icon = Icons.Default.Receipt,
             color = ChartPurple
+        ),
+        TabData(
+            title = stringResource(Res.string.recipes),
+            icon = Icons.Default.Receipt,
+            color = ChartCyan
         )
     )
 
@@ -800,7 +813,7 @@ private fun StockItemCard(
             // Quantity progress bar
             val progress by animateFloatAsState(
                 targetValue = if (stock.minQuantity > 0)
-                    (stock.quantity.toFloat() / (stock.minQuantity * 3f)).coerceIn(0f, 1f)
+                    (stock.quantity / (stock.minQuantity * 3.0)).toFloat().coerceIn(0f, 1f)
                 else 1f,
                 label = "progress",
             )
@@ -1207,7 +1220,7 @@ private fun AddEditStockDialog(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val unitKeys = listOf("pcs", "kg", "liters", "boxes", "packs")
+                    val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "DOZEN", "BOX", "BAG", "BOTTLE", "CAN", "PACK")
                     unitKeys.forEach { unitKey ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
@@ -1238,7 +1251,7 @@ private fun AddEditStockDialog(
                 }
 
                 // Total value preview
-                val qty = uiState.dialogQuantity.toIntOrNull() ?: 0
+                val qty = uiState.dialogQuantity.toDoubleOrNull() ?: 0.0
                 val price = uiState.dialogCostPrice.toDoubleOrNull() ?: 0.0
                 if (qty > 0 && price > 0) {
                     Card(
@@ -1350,10 +1363,10 @@ private fun QuantityDialog(
                 )
 
                 // Preview
-                val amount = uiState.quantityDialogAmount.toIntOrNull() ?: 0
+                val amount = uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0
                 if (amount > 0) {
                     val newQty = if (isAdd) stock.quantity + amount
-                    else (stock.quantity - amount).coerceAtLeast(0)
+                    else (stock.quantity - amount).coerceAtLeast(0.0)
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = if (isAdd) StockHealthy.copy(alpha = 0.1f)
@@ -1382,7 +1395,7 @@ private fun QuantityDialog(
         confirmButton = {
             TextButton(
                 onClick = viewModel::confirmQuantityChange,
-                enabled = !uiState.isSaving && (uiState.quantityDialogAmount.toIntOrNull() ?: 0) > 0,
+                enabled = !uiState.isSaving && (uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0) > 0,
             ) {
                 Text(
                     if (uiState.isSaving) stringResource(Res.string.saving)
@@ -1472,14 +1485,22 @@ private fun TransactionsTab(uiState: StockViewModel.UiState) {
 @Composable
 private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTransaction) {
     val typeColor = when (transaction.type) {
-        net.marllex.waselak.core.model.StockTransactionType.ADD -> StockHealthy
-        net.marllex.waselak.core.model.StockTransactionType.DEDUCT -> StockOut
+        net.marllex.waselak.core.model.StockTransactionType.ADD,
+        net.marllex.waselak.core.model.StockTransactionType.PURCHASE,
+        net.marllex.waselak.core.model.StockTransactionType.RETURN -> StockHealthy
+        net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
+        net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
+        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> StockOut
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> MaterialTheme.colorScheme.primary
     }
 
     val typeIcon = when (transaction.type) {
-        net.marllex.waselak.core.model.StockTransactionType.ADD -> Icons.Outlined.TrendingUp
-        net.marllex.waselak.core.model.StockTransactionType.DEDUCT -> Icons.Outlined.TrendingDown
+        net.marllex.waselak.core.model.StockTransactionType.ADD,
+        net.marllex.waselak.core.model.StockTransactionType.PURCHASE,
+        net.marllex.waselak.core.model.StockTransactionType.RETURN -> Icons.Outlined.TrendingUp
+        net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
+        net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
+        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> Icons.Outlined.TrendingDown
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> Icons.Filled.Edit
     }
 
@@ -1487,6 +1508,10 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.ADD -> stringResource(Res.string.stock_added)
         net.marllex.waselak.core.model.StockTransactionType.DEDUCT -> stringResource(Res.string.stock_deducted)
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> stringResource(Res.string.stock_adjusted)
+        net.marllex.waselak.core.model.StockTransactionType.PURCHASE -> stringResource(Res.string.stock_purchased)
+        net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT -> stringResource(Res.string.stock_sale_direct)
+        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> stringResource(Res.string.stock_sale_recipe)
+        net.marllex.waselak.core.model.StockTransactionType.RETURN -> stringResource(Res.string.stock_returned)
     }
 
     Card(
@@ -1545,8 +1570,12 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = when (transaction.type) {
-                        net.marllex.waselak.core.model.StockTransactionType.ADD -> "+${transaction.quantity}"
-                        net.marllex.waselak.core.model.StockTransactionType.DEDUCT -> "-${transaction.quantity}"
+                        net.marllex.waselak.core.model.StockTransactionType.ADD,
+                        net.marllex.waselak.core.model.StockTransactionType.PURCHASE,
+                        net.marllex.waselak.core.model.StockTransactionType.RETURN -> "+${transaction.quantity}"
+                        net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
+                        net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
+                        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> "-${transaction.quantity}"
                         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> "${transaction.quantity}"
                     },
                     style = MaterialTheme.typography.titleMedium,
@@ -1566,6 +1595,254 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Recipes Tab
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun RecipesTab(
+    uiState: StockViewModel.UiState,
+    viewModel: StockViewModel,
+) {
+    if (uiState.recipesLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingIndicator()
+        }
+    } else if (uiState.recipes.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.Receipt,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(Res.string.no_recipes),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(Res.string.no_recipes_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(uiState.recipes, key = { it.id }) { recipe ->
+                RecipeCard(
+                    recipe = recipe,
+                    onDelete = { viewModel.deleteRecipe(recipe.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecipeCard(
+    recipe: net.marllex.waselak.core.model.Recipe,
+    onDelete: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Recipe icon
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(ChartCyan.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Receipt,
+                        contentDescription = null,
+                        tint = ChartCyan,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = recipe.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = recipe.itemName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // Active badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (recipe.active) StockHealthy.copy(alpha = 0.1f)
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = if (recipe.active) stringResource(Res.string.recipe_active) else stringResource(Res.string.recipe_inactive),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (recipe.active) StockHealthy else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Yield + cost info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                DetailColumn(
+                    label = stringResource(Res.string.recipe_yield),
+                    value = "${recipe.yieldQuantity} ${getLocalizedUnit(recipe.yieldUnit)}",
+                )
+                DetailColumn(
+                    label = stringResource(Res.string.recipe_ingredients_count),
+                    value = "${recipe.ingredients.size}",
+                )
+                DetailColumn(
+                    label = stringResource(Res.string.recipe_cost),
+                    value = CurrencyFormatter.formatDecimal(recipe.totalCost),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Expand/collapse for ingredients
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.recipe_ingredients),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (expanded) "▲" else "▼",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    recipe.ingredients.forEach { ingredient ->
+                        RecipeIngredientRow(ingredient)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Delete button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Delete Recipe",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecipeIngredientRow(ingredient: net.marllex.waselak.core.model.RecipeIngredient) {
+    val hasEnough = ingredient.availableQuantity >= ingredient.quantity
+
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasEnough)
+                StockHealthy.copy(alpha = 0.05f)
+            else
+                StockOut.copy(alpha = 0.08f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Status dot
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(if (hasEnough) StockHealthy else StockOut),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = ingredient.stockItemName,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${ingredient.quantity} ${getLocalizedUnit(ingredient.unit)}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "(${ingredient.availableQuantity})",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (hasEnough) StockHealthy else StockOut,
+            )
         }
     }
 }

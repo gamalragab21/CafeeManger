@@ -17,28 +17,30 @@ interface StockRepository {
 
     // Add stock item - supports both menu-linked and independent items
     suspend fun addStockItem(
-        itemId: String? = null, // null for independent items
+        itemId: String? = null,
         itemName: String,
-        quantity: Int,
-        minQuantity: Int,
+        quantity: Double,
+        minQuantity: Double,
         costPrice: Double,
         unit: String,
+        baseUnit: String = "PIECE",
+        conversionRate: Double = 1.0,
         alertEnabled: Boolean = true,
     ): Result<Stock>
 
     suspend fun updateStockItem(
         id: String,
-        itemName: String? = null, // Only for independent items
-        quantity: Int? = null,
-        minQuantity: Int? = null,
+        itemName: String? = null,
+        quantity: Double? = null,
+        minQuantity: Double? = null,
         costPrice: Double? = null,
         unit: String? = null,
         alertEnabled: Boolean? = null,
     ): Result<Stock>
 
-    suspend fun addQuantity(stockId: String, quantity: Int, note: String? = null): Result<Stock>
-    suspend fun deductQuantity(stockId: String, quantity: Int, orderId: String? = null, note: String? = null): Result<Stock>
-    suspend fun deductByItemId(itemId: String, quantity: Int, orderId: String? = null): Result<Unit>
+    suspend fun addQuantity(stockId: String, quantity: Double, note: String? = null): Result<Stock>
+    suspend fun deductQuantity(stockId: String, quantity: Double, orderId: String? = null, note: String? = null): Result<Stock>
+    suspend fun deductByItemId(itemId: String, quantity: Double, orderId: String? = null): Result<Unit>
     suspend fun deleteStockItem(id: String): Result<Unit>
 
     // Stock Analytics

@@ -154,19 +154,80 @@ class StaffViewModel constructor(
     // ─── Worker CRUD ─────────────────────────────────────────────
 
     fun showAddWorkerDialog(worker: Worker? = null) {
+        val current = _uiState.value
+        if (worker != null) {
+            // Edit mode: always populate from the worker being edited
+            _uiState.update {
+                it.copy(
+                    showAddWorkerDialog = true,
+                    editingWorker = worker,
+                    dialogStep = 1,
+                    dialogName = worker.fullName,
+                    dialogPhone = worker.phone ?: "",
+                    dialogDescription = worker.description ?: "",
+                    dialogRole = worker.role,
+                    dialogWorkerType = if (worker.isLoginEnabled) WorkerType.MAIN else WorkerType.NORMAL,
+                    dialogSalaryType = worker.salaryType,
+                    dialogSalaryAmount = worker.salaryAmount.let { a -> if (a > 0) a.toLong().let { l -> if (a == l.toDouble()) l.toString() else a.toString() } else "" },
+                    dialogIsLoginEnabled = worker.isLoginEnabled,
+                    dialogPassword = "",
+                    dialogLoginRole = "CASHIER",
+                    dialogEmail = "",
+                    dialogPin = "",
+                    dialogPinConfirm = "",
+                    showDialogPin = false,
+                    showDialogPinConfirm = false,
+                )
+            }
+        } else if (current.dialogName.isNotBlank() && current.editingWorker == null) {
+            // Reopen draft: data already exists from a previous dismiss, just show the sheet
+            _uiState.update { it.copy(showAddWorkerDialog = true) }
+        } else {
+            // Fresh new worker: reset all fields
+            _uiState.update {
+                it.copy(
+                    showAddWorkerDialog = true,
+                    editingWorker = null,
+                    dialogStep = 1,
+                    dialogName = "",
+                    dialogPhone = "",
+                    dialogDescription = "",
+                    dialogRole = "",
+                    dialogWorkerType = WorkerType.NORMAL,
+                    dialogSalaryType = SalaryType.DAILY,
+                    dialogSalaryAmount = "",
+                    dialogIsLoginEnabled = false,
+                    dialogPassword = "",
+                    dialogLoginRole = "CASHIER",
+                    dialogEmail = "",
+                    dialogPin = "",
+                    dialogPinConfirm = "",
+                    showDialogPin = false,
+                    showDialogPinConfirm = false,
+                )
+            }
+        }
+    }
+
+    fun dismissWorkerDialog() {
+        // Only hide the sheet — preserve all form data so user can reopen
+        _uiState.update { it.copy(showAddWorkerDialog = false) }
+    }
+
+    fun clearWorkerDialogData() {
         _uiState.update {
             it.copy(
-                showAddWorkerDialog = true,
-                editingWorker = worker,
-                dialogStep = 1, // Always start at step 1
-                dialogName = worker?.fullName ?: "",
-                dialogPhone = worker?.phone ?: "",
-                dialogDescription = worker?.description ?: "",
-                dialogRole = worker?.role ?: "",
-                dialogWorkerType = if (worker?.isLoginEnabled == true) WorkerType.MAIN else WorkerType.NORMAL,
-                dialogSalaryType = worker?.salaryType ?: SalaryType.DAILY,
-                dialogSalaryAmount = worker?.salaryAmount?.let { a -> if (a > 0) a.toLong().let { l -> if (a == l.toDouble()) l.toString() else a.toString() } else "" } ?: "",
-                dialogIsLoginEnabled = worker?.isLoginEnabled ?: false,
+                showAddWorkerDialog = false,
+                editingWorker = null,
+                dialogStep = 1,
+                dialogName = "",
+                dialogPhone = "",
+                dialogDescription = "",
+                dialogRole = "",
+                dialogWorkerType = WorkerType.NORMAL,
+                dialogSalaryType = SalaryType.DAILY,
+                dialogSalaryAmount = "",
+                dialogIsLoginEnabled = false,
                 dialogPassword = "",
                 dialogLoginRole = "CASHIER",
                 dialogEmail = "",
@@ -176,10 +237,6 @@ class StaffViewModel constructor(
                 showDialogPinConfirm = false,
             )
         }
-    }
-
-    fun dismissWorkerDialog() {
-        _uiState.update { it.copy(showAddWorkerDialog = false, editingWorker = null, dialogStep = 1) }
     }
 
     // NEW: Dialog Navigation
@@ -273,7 +330,11 @@ class StaffViewModel constructor(
     fun saveWorker() {
         val s = _uiState.value
         if (s.dialogName.isBlank() || s.dialogRole.isBlank()) return
-        
+
+        // Salary is mandatory
+        val amount = s.dialogSalaryAmount.toDoubleOrNull() ?: 0.0
+        if (amount <= 0) return
+
         // Validate PIN
         if (s.editingWorker == null) {
             // New worker: PIN is required
@@ -289,7 +350,6 @@ class StaffViewModel constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val amount = s.dialogSalaryAmount.toDoubleOrNull() ?: 0.0
 
             if (s.editingWorker != null) {
                 workerRepository.updateWorker(
@@ -303,7 +363,8 @@ class StaffViewModel constructor(
                     pin = s.dialogPin.ifBlank { null }, // Only send PIN if not empty
                     active = null
                 ).onSuccess {
-                    _uiState.update { it.copy(isSaving = false, showAddWorkerDialog = false, editingWorker = null) }
+                    _uiState.update { it.copy(isSaving = false) }
+                    clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
@@ -321,7 +382,8 @@ class StaffViewModel constructor(
                     loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null,
                     pin = s.dialogPin
                 ).onSuccess {
-                    _uiState.update { it.copy(isSaving = false, showAddWorkerDialog = false) }
+                    _uiState.update { it.copy(isSaving = false) }
+                    clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
                     _uiState.update { it.copy(isSaving = false, error = e.message) }

@@ -25,10 +25,12 @@ data class StockDto(
     val vendor_id: String,
     val item_id: String?, // Nullable for independent stock items
     val item_name: String,
-    val quantity: Int,
-    val min_quantity: Int,
+    val quantity: Double,
+    val min_quantity: Double,
     val cost_price: Double,
     val unit: String,
+    val base_unit: String = "PIECE",
+    val conversion_rate: Double = 1.0,
     val is_menu_item: Boolean = true,
     val alert_enabled: Boolean = true,
     val created_at: Long? = null,
@@ -39,26 +41,30 @@ data class StockDto(
 data class CreateStockDto(
     val item_id: String? = null, // Optional - null for independent stock items
     val item_name: String? = null, // Required if item_id is null
-    val quantity: Int,
-    val min_quantity: Int = 5,
+    val quantity: Double,
+    val min_quantity: Double = 5.0,
     val cost_price: Double = 0.0,
-    val unit: String = "pcs",
+    val unit: String = "PIECE",
+    val base_unit: String = "PIECE",
+    val conversion_rate: Double = 1.0,
     val alert_enabled: Boolean = true,
 )
 
 @Serializable
 data class UpdateStockDto(
     val item_name: String? = null,
-    val quantity: Int? = null,
-    val min_quantity: Int? = null,
+    val quantity: Double? = null,
+    val min_quantity: Double? = null,
     val cost_price: Double? = null,
     val unit: String? = null,
+    val base_unit: String? = null,
+    val conversion_rate: Double? = null,
     val alert_enabled: Boolean? = null,
 )
 
 @Serializable
 data class AdjustQuantityDto(
-    val quantity: Int,
+    val quantity: Double,
     val note: String? = null,
 )
 
@@ -68,9 +74,10 @@ data class StockTransactionDto(
     val stock_id: String,
     val item_name: String? = null,
     val type: String,
-    val quantity: Int,
-    val previous_quantity: Int,
+    val quantity: Double,
+    val previous_quantity: Double,
     val order_id: String? = null,
+    val recipe_id: String? = null,
     val note: String? = null,
     val created_at: Long? = null,
 )
@@ -79,8 +86,8 @@ data class StockTransactionDto(
 data class StockAlertDto(
     val id: String,
     val item_name: String,
-    val quantity: Int,
-    val min_quantity: Int,
+    val quantity: Double,
+    val min_quantity: Double,
     val unit: String,
     val is_out_of_stock: Boolean,
     val is_menu_item: Boolean,
@@ -95,9 +102,10 @@ data class StockAnalyticsSummaryDto(
     val healthy_count: Int,
     val menu_items_count: Int,
     val independent_items_count: Int,
+    val recipe_items_count: Int = 0,
     val total_transactions_today: Int,
-    val total_added_today: Int,
-    val total_deducted_today: Int,
+    val total_added_today: Double,
+    val total_deducted_today: Double,
 )
 
 // ─── Routes ─────────────────────────────────────────────────────
@@ -191,6 +199,14 @@ fun Route.stockRoutes() {
                     if (existing != null) throw IllegalStateException("Stock already exists for this item")
 
                     finalItemName = item[ItemsTable.name]
+
+                    // Auto-set stockBehavior to DIRECT if not already set
+                    if (item[ItemsTable.stockBehavior] == "NONE") {
+                        ItemsTable.update({ ItemsTable.id eq itemUUID }) {
+                            it[stockBehavior] = "DIRECT"
+                            it[updatedAt] = now
+                        }
+                    }
                 } else {
                     // Independent stock item (not linked to menu)
                     finalItemName = request.item_name!!
@@ -209,10 +225,12 @@ fun Route.stockRoutes() {
                     it[vendorId] = vendorUUID
                     it[StockTable.itemId] = itemUUID
                     it[itemName] = finalItemName
-                    it[quantity] = request.quantity
-                    it[minQuantity] = request.min_quantity
+                    it[quantity] = BigDecimal.valueOf(request.quantity)
+                    it[minQuantity] = BigDecimal.valueOf(request.min_quantity)
                     it[costPrice] = BigDecimal.valueOf(request.cost_price)
                     it[unit] = request.unit
+                    it[baseUnit] = request.base_unit
+                    it[conversionRate] = BigDecimal.valueOf(request.conversion_rate)
                     it[isMenuItem] = isMenuLinked
                     it[alertEnabled] = request.alert_enabled
                     it[createdAt] = now
@@ -223,8 +241,8 @@ fun Route.stockRoutes() {
                 StockTransactionsTable.insertAndGetId {
                     it[StockTransactionsTable.stockId] = stockId
                     it[type] = "ADD"
-                    it[StockTransactionsTable.quantity] = request.quantity
-                    it[previousQuantity] = 0
+                    it[StockTransactionsTable.quantity] = BigDecimal.valueOf(request.quantity)
+                    it[previousQuantity] = BigDecimal.ZERO
                     it[note] = "Initial stock entry"
                     it[createdAt] = now
                 }
@@ -264,20 +282,23 @@ fun Route.stockRoutes() {
                     (StockTable.vendorId eq vendorUUID)
                 }) { stmt ->
                     request.item_name?.let { stmt[itemName] = it }
-                    request.quantity?.let { stmt[quantity] = it }
-                    request.min_quantity?.let { stmt[minQuantity] = it }
+                    request.quantity?.let { stmt[quantity] = BigDecimal.valueOf(it) }
+                    request.min_quantity?.let { stmt[minQuantity] = BigDecimal.valueOf(it) }
                     request.cost_price?.let { stmt[costPrice] = BigDecimal.valueOf(it) }
                     request.unit?.let { stmt[unit] = it }
+                    request.base_unit?.let { stmt[baseUnit] = it }
+                    request.conversion_rate?.let { stmt[conversionRate] = BigDecimal.valueOf(it) }
                     request.alert_enabled?.let { stmt[alertEnabled] = it }
                     stmt[updatedAt] = now
                 }
 
                 // Log quantity change
-                if (request.quantity != null && request.quantity != oldQty) {
+                val newQtyDecimal = request.quantity?.let { BigDecimal.valueOf(it) }
+                if (newQtyDecimal != null && newQtyDecimal.compareTo(oldQty) != 0) {
                     StockTransactionsTable.insertAndGetId {
                         it[stockId] = stockUUID
                         it[type] = "ADJUST"
-                        it[quantity] = request.quantity
+                        it[quantity] = newQtyDecimal
                         it[previousQuantity] = oldQty
                         it[note] = "Manual adjustment"
                         it[createdAt] = now
@@ -307,7 +328,7 @@ fun Route.stockRoutes() {
                     }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
 
                 val oldQty = current[StockTable.quantity]
-                val newQty = oldQty + request.quantity
+                val newQty = oldQty + BigDecimal.valueOf(request.quantity)
                 val now = Clock.System.now()
 
                 StockTable.update({
@@ -320,7 +341,7 @@ fun Route.stockRoutes() {
                 StockTransactionsTable.insertAndGetId {
                     it[stockId] = stockUUID
                     it[type] = "ADD"
-                    it[StockTransactionsTable.quantity] = request.quantity
+                    it[StockTransactionsTable.quantity] = BigDecimal.valueOf(request.quantity)
                     it[previousQuantity] = oldQty
                     it[note] = request.note ?: "Stock added"
                     it[createdAt] = now
@@ -349,7 +370,7 @@ fun Route.stockRoutes() {
                     }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
 
                 val oldQty = current[StockTable.quantity]
-                val newQty = (oldQty - request.quantity).coerceAtLeast(0)
+                val newQty = (oldQty - BigDecimal.valueOf(request.quantity)).coerceAtLeast(BigDecimal.ZERO)
                 val now = Clock.System.now()
 
                 StockTable.update({
@@ -362,7 +383,7 @@ fun Route.stockRoutes() {
                 StockTransactionsTable.insertAndGetId {
                     it[stockId] = stockUUID
                     it[type] = "DEDUCT"
-                    it[StockTransactionsTable.quantity] = request.quantity
+                    it[StockTransactionsTable.quantity] = BigDecimal.valueOf(request.quantity)
                     it[previousQuantity] = oldQty
                     it[note] = request.note ?: "Stock deducted"
                     it[createdAt] = now
@@ -427,7 +448,7 @@ fun Route.stockRoutes() {
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val stockId = call.parameters["stock_id"]?.let { UUID.fromString(it) }
-            val type = call.parameters["type"] // ADD, DEDUCT, ADJUST
+            val type = call.parameters["type"] // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 100
@@ -480,9 +501,10 @@ fun Route.stockRoutes() {
                             stock_id = row[StockTransactionsTable.stockId].toString(),
                             item_name = stockNameMap[row[StockTransactionsTable.stockId]],
                             type = row[StockTransactionsTable.type],
-                            quantity = row[StockTransactionsTable.quantity],
-                            previous_quantity = row[StockTransactionsTable.previousQuantity],
+                            quantity = row[StockTransactionsTable.quantity].toDouble(),
+                            previous_quantity = row[StockTransactionsTable.previousQuantity].toDouble(),
                             order_id = row[StockTransactionsTable.orderId]?.toString(),
+                            recipe_id = row[StockTransactionsTable.recipeId]?.toString(),
                             note = row[StockTransactionsTable.note],
                             created_at = row[StockTransactionsTable.createdAt].toEpochMilliseconds(),
                         )
@@ -509,10 +531,10 @@ fun Route.stockRoutes() {
                         StockAlertDto(
                             id = row[StockTable.id].toString(),
                             item_name = row[StockTable.itemName],
-                            quantity = row[StockTable.quantity],
-                            min_quantity = row[StockTable.minQuantity],
+                            quantity = row[StockTable.quantity].toDouble(),
+                            min_quantity = row[StockTable.minQuantity].toDouble(),
                             unit = row[StockTable.unit],
-                            is_out_of_stock = row[StockTable.quantity] <= 0,
+                            is_out_of_stock = row[StockTable.quantity] <= BigDecimal.ZERO,
                             is_menu_item = row[StockTable.isMenuItem],
                         )
                     }
@@ -532,16 +554,23 @@ fun Route.stockRoutes() {
                     .toList()
 
                 val totalItems = stocks.size
-                val totalValue = stocks.sumOf { it[StockTable.quantity] * it[StockTable.costPrice].toDouble() }
+                val totalValue = stocks.sumOf { it[StockTable.quantity].toDouble() * it[StockTable.costPrice].toDouble() }
                 val lowStockCount = stocks.count {
                     val qty = it[StockTable.quantity]
                     val minQty = it[StockTable.minQuantity]
-                    qty in 1..minQty
+                    qty > BigDecimal.ZERO && qty <= minQty
                 }
-                val outOfStockCount = stocks.count { it[StockTable.quantity] <= 0 }
+                val outOfStockCount = stocks.count { it[StockTable.quantity] <= BigDecimal.ZERO }
                 val healthyCount = totalItems - lowStockCount - outOfStockCount
                 val menuItemsCount = stocks.count { it[StockTable.isMenuItem] }
                 val independentItemsCount = stocks.count { !it[StockTable.isMenuItem] }
+
+                // Count recipe items (items with stockBehavior = RECIPE)
+                val recipeItemsCount = ItemsTable.selectAll()
+                    .where {
+                        (ItemsTable.vendorId eq vendorUUID) and
+                        (ItemsTable.stockBehavior eq "RECIPE")
+                    }.count().toInt()
 
                 // Get today's transactions
                 val todayStart = kotlinx.datetime.Clock.System.now().let {
@@ -559,11 +588,14 @@ fun Route.stockRoutes() {
                         }.toList()
                 }
 
+                val addTypes = setOf("ADD", "PURCHASE")
+                val deductTypes = setOf("DEDUCT", "SALE_DIRECT", "SALE_RECIPE")
+
                 val totalTransactionsToday = todayTransactions.size
-                val totalAddedToday = todayTransactions.filter { it[StockTransactionsTable.type] == "ADD" }
-                    .sumOf { it[StockTransactionsTable.quantity] }
-                val totalDeductedToday = todayTransactions.filter { it[StockTransactionsTable.type] == "DEDUCT" }
-                    .sumOf { it[StockTransactionsTable.quantity] }
+                val totalAddedToday = todayTransactions.filter { it[StockTransactionsTable.type] in addTypes }
+                    .sumOf { it[StockTransactionsTable.quantity].toDouble() }
+                val totalDeductedToday = todayTransactions.filter { it[StockTransactionsTable.type] in deductTypes }
+                    .sumOf { it[StockTransactionsTable.quantity].toDouble() }
 
                 StockAnalyticsSummaryDto(
                     total_items = totalItems,
@@ -573,6 +605,7 @@ fun Route.stockRoutes() {
                     healthy_count = healthyCount,
                     menu_items_count = menuItemsCount,
                     independent_items_count = independentItemsCount,
+                    recipe_items_count = recipeItemsCount,
                     total_transactions_today = totalTransactionsToday,
                     total_added_today = totalAddedToday,
                     total_deducted_today = totalDeductedToday,
@@ -590,10 +623,12 @@ private fun ResultRow.toStockDto() = StockDto(
     vendor_id = this[StockTable.vendorId].toString(),
     item_id = this[StockTable.itemId]?.toString(),
     item_name = this[StockTable.itemName],
-    quantity = this[StockTable.quantity],
-    min_quantity = this[StockTable.minQuantity],
+    quantity = this[StockTable.quantity].toDouble(),
+    min_quantity = this[StockTable.minQuantity].toDouble(),
     cost_price = this[StockTable.costPrice].toDouble(),
     unit = this[StockTable.unit],
+    base_unit = this[StockTable.baseUnit],
+    conversion_rate = this[StockTable.conversionRate].toDouble(),
     is_menu_item = this[StockTable.isMenuItem],
     alert_enabled = this[StockTable.alertEnabled],
     created_at = this[StockTable.createdAt].toEpochMilliseconds(),
@@ -604,9 +639,10 @@ private fun ResultRow.toStockTransactionDto() = StockTransactionDto(
     id = this[StockTransactionsTable.id].toString(),
     stock_id = this[StockTransactionsTable.stockId].toString(),
     type = this[StockTransactionsTable.type],
-    quantity = this[StockTransactionsTable.quantity],
-    previous_quantity = this[StockTransactionsTable.previousQuantity],
+    quantity = this[StockTransactionsTable.quantity].toDouble(),
+    previous_quantity = this[StockTransactionsTable.previousQuantity].toDouble(),
     order_id = this[StockTransactionsTable.orderId]?.toString(),
+    recipe_id = this[StockTransactionsTable.recipeId]?.toString(),
     note = this[StockTransactionsTable.note],
     created_at = this[StockTransactionsTable.createdAt].toEpochMilliseconds(),
 )

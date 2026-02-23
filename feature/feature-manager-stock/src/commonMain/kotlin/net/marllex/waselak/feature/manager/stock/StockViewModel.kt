@@ -9,9 +9,12 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.domain.repository.IngredientInput
 import net.marllex.waselak.core.domain.repository.ItemRepository
+import net.marllex.waselak.core.domain.repository.RecipeRepository
 import net.marllex.waselak.core.domain.repository.StockRepository
 import net.marllex.waselak.core.model.Item
+import net.marllex.waselak.core.model.Recipe
 import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
@@ -19,6 +22,7 @@ import net.marllex.waselak.core.model.StockTransaction
 class StockViewModel constructor(
     private val stockRepository: StockRepository,
     private val itemRepository: ItemRepository,
+    private val recipeRepository: RecipeRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -65,6 +69,10 @@ class StockViewModel constructor(
         // Transactions
         val transactions: List<StockTransaction> = emptyList(),
         val transactionsLoading: Boolean = false,
+
+        // Recipes
+        val recipes: List<Recipe> = emptyList(),
+        val recipesLoading: Boolean = false,
     ) {
         val filteredStockItems: List<Stock>
             get() = if (searchQuery.isBlank()) stockItems
@@ -155,7 +163,7 @@ class StockViewModel constructor(
                 dialogQuantity = "",
                 dialogMinQuantity = "5",
                 dialogCostPrice = "",
-                dialogUnit = "pcs",
+                dialogUnit = "PIECE",
                 dialogAlertEnabled = true,
             )
         }
@@ -217,8 +225,8 @@ class StockViewModel constructor(
         if (itemName.isBlank() || s.dialogQuantity.isBlank() || s.dialogCostPrice.isBlank()) return
         if (!s.dialogIsIndependent && s.dialogSelectedItemId.isBlank()) return
 
-        val quantity = s.dialogQuantity.toIntOrNull() ?: return
-        val minQuantity = s.dialogMinQuantity.toIntOrNull() ?: 5
+        val quantity = s.dialogQuantity.toDoubleOrNull() ?: return
+        val minQuantity = s.dialogMinQuantity.toDoubleOrNull() ?: 5.0
         val costPrice = s.dialogCostPrice.toDoubleOrNull() ?: return
 
         viewModelScope.launch {
@@ -303,7 +311,7 @@ class StockViewModel constructor(
     fun confirmQuantityChange() {
         val s = _uiState.value
         val stock = s.quantityDialogStock ?: return
-        val amount = s.quantityDialogAmount.toIntOrNull() ?: return
+        val amount = s.quantityDialogAmount.toDoubleOrNull() ?: return
         if (amount <= 0) return
 
         viewModelScope.launch {
@@ -344,5 +352,30 @@ class StockViewModel constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    // ─── Recipes ─────────────────────────────────────────────────────
+    fun loadRecipes() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(recipesLoading = true) }
+            recipeRepository.refreshRecipes()
+            recipeRepository.getAllRecipes()
+                .catch { e ->
+                    _uiState.update { it.copy(recipesLoading = false, error = e.message) }
+                }
+                .collect { recipes ->
+                    _uiState.update { it.copy(recipes = recipes, recipesLoading = false) }
+                }
+        }
+    }
+
+    fun deleteRecipe(id: String) {
+        viewModelScope.launch {
+            recipeRepository.deleteRecipe(id).onSuccess {
+                loadRecipes()
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
     }
 }

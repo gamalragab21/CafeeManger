@@ -64,6 +64,7 @@ fun ItemResponse.toDomain() = Item(
     barcode = barcode,
     imageUrl = imageUrl,
     available = available,
+    stockBehavior = stockBehavior,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -135,6 +136,8 @@ fun StockResponse.toDomain() = Stock(
     minQuantity = minQuantity,
     costPrice = costPrice,
     unit = unit,
+    baseUnit = baseUnit,
+    conversionRate = conversionRate,
     isMenuItem = isMenuItem,
     alertEnabled = alertEnabled,
     lastUpdatedAt = updatedAt ?: (createdAt ?: Clock.System.now().toEpochMilliseconds()),
@@ -144,10 +147,11 @@ fun StockTransactionResponse.toDomain() = StockTransaction(
     id = id,
     stockId = stockId,
     itemName = itemName,
-    type = StockTransactionType.valueOf(type),
+    type = try { StockTransactionType.valueOf(type) } catch (_: Exception) { StockTransactionType.ADJUST },
     quantity = quantity,
     previousQuantity = previousQuantity,
     orderId = orderId,
+    recipeId = recipeId,
     note = note,
     createdAt = createdAt ?: Clock.System.now().toEpochMilliseconds(),
 )
@@ -170,9 +174,53 @@ fun StockAnalyticsSummaryResponse.toDomain() = StockSummary(
     healthyStockCount = healthyCount,
     menuItemsCount = menuItemsCount,
     independentItemsCount = independentItemsCount,
+    recipeItemsCount = recipeItemsCount,
     totalTransactionsToday = totalTransactionsToday,
     totalAddedToday = totalAddedToday,
     totalDeductedToday = totalDeductedToday,
+)
+
+// ─── Recipe Mappers ──────────────────────────────────────────────
+fun RecipeResponse.toDomain() = Recipe(
+    id = id,
+    vendorId = vendorId,
+    itemId = itemId,
+    itemName = itemName,
+    name = name,
+    description = description,
+    yieldQuantity = yieldQuantity,
+    yieldUnit = yieldUnit,
+    active = active,
+    ingredients = ingredients.map { it.toDomain() },
+    totalCost = totalCost,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun RecipeIngredientResponse.toDomain() = RecipeIngredient(
+    stockId = stockId,
+    stockItemName = stockItemName,
+    quantity = quantity,
+    unit = unit,
+    displayOrder = displayOrder,
+    availableQuantity = availableQuantity,
+)
+
+fun RecipeAvailabilityResponse.toDomain() = RecipeAvailability(
+    recipeId = recipeId,
+    itemName = itemName,
+    available = available,
+    maxServings = maxServings,
+    requestedServings = requestedServings,
+    insufficientIngredients = insufficientIngredients.map { it.toDomain() },
+)
+
+fun InsufficientIngredientResponse.toDomain() = InsufficientIngredient(
+    stockId = stockId,
+    stockItemName = stockItemName,
+    required = required,
+    available = available,
+    unit = unit,
 )
 
 // ─── Analytics Mappers ───────────────────────────────────────────
