@@ -182,4 +182,13 @@
     <string name="pin_length_hint">PIN must be 4-6 digits</string>
     <string name="pin_must_match">PINs must match</string>
     <string name="pin_required">PIN is required</string>
+
+    <!-- Worker Bottom Sheet -->
+    <string name="salary_required">Salary amount is required</string>
+    <string name="continue_editing">Continue editing</string>
+    <string name="basic_information">Basic Information</string>
+    <string name="system_access_section">System Access</string>
+    <string name="salary_payment_section">Salary &amp; Payment</string>
+    <string name="worker_summary">Worker Summary</string>
+    <string name="step_of">Step %1$d of %2$d</string>
 </resources>

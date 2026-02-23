@@ -73,6 +73,7 @@ object ItemsTable : UUIDTable("items") {
     val barcode = varchar("barcode", 100).nullable()
     val imageUrl = text("image_url").nullable()
     val available = bool("available").default(true)
+    val stockBehavior = varchar("stock_behavior", 20).default("NONE") // NONE, DIRECT, RECIPE
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -150,23 +151,53 @@ object StockTable : UUIDTable("stock") {
     val vendorId = reference("vendor_id", VendorsTable)
     val itemId = reference("item_id", ItemsTable).nullable() // Now nullable - can be independent stock item
     val itemName = varchar("item_name", 255)
-    val quantity = integer("quantity").default(0)
-    val minQuantity = integer("min_quantity").default(5)
+    val quantity = decimal("quantity", 10, 3).default(java.math.BigDecimal.ZERO)
+    val minQuantity = decimal("min_quantity", 10, 3).default(java.math.BigDecimal("5"))
     val costPrice = decimal("cost_price", 10, 2).default(java.math.BigDecimal.ZERO)
-    val unit = varchar("unit", 50).default("pcs")
+    val unit = varchar("unit", 50).default("PIECE") // Display/purchase unit
+    val baseUnit = varchar("base_unit", 50).default("PIECE") // Canonical base unit for conversions
+    val conversionRate = decimal("conversion_rate", 10, 6).default(java.math.BigDecimal.ONE) // How many base units per 1 purchase unit
     val isMenuItem = bool("is_menu_item").default(true) // true = linked to menu, false = independent stock
     val alertEnabled = bool("alert_enabled").default(true) // Enable low stock alerts
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
 
+// ─── Recipes (BOM per menu item) ───────────────────────────────
+object RecipesTable : UUIDTable("recipes") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val itemId = reference("item_id", ItemsTable) // The sellable menu item
+    val name = varchar("name", 255) // Display name (defaults to item name)
+    val description = text("description").nullable()
+    val yieldQuantity = decimal("yield_quantity", 10, 3).default(java.math.BigDecimal.ONE) // Servings per recipe
+    val yieldUnit = varchar("yield_unit", 50).default("PIECE")
+    val active = bool("active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, itemId) // One recipe per menu item per vendor
+    }
+}
+
+// ─── Recipe Ingredients ────────────────────────────────────────
+object RecipeIngredientsTable : UUIDTable("recipe_ingredients") {
+    val recipeId = reference("recipe_id", RecipesTable, onDelete = ReferenceOption.CASCADE)
+    val stockId = reference("stock_id", StockTable) // The ingredient (stock item)
+    val quantity = decimal("quantity", 10, 3) // Amount of this ingredient needed per yield
+    val unit = varchar("unit", 50) // Unit of measurement for this ingredient line
+    val displayOrder = integer("display_order").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
 // ─── Stock Transactions ─────────────────────────────────────────
 object StockTransactionsTable : UUIDTable("stock_transactions") {
     val stockId = reference("stock_id", StockTable)
-    val type = varchar("type", 20) // ADD, DEDUCT, ADJUST
-    val quantity = integer("quantity")
-    val previousQuantity = integer("previous_quantity")
+    val type = varchar("type", 30) // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
+    val quantity = decimal("quantity", 10, 3)
+    val previousQuantity = decimal("previous_quantity", 10, 3)
     val orderId = reference("order_id", OrdersTable).nullable()
+    val recipeId = reference("recipe_id", RecipesTable).nullable() // Track which recipe caused the deduction
     val note = text("note").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }

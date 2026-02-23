@@ -3,9 +3,10 @@ CREATE TABLE IF NOT EXISTS stock_transactions (
     stock_id TEXT NOT NULL,
     item_name TEXT,
     type TEXT NOT NULL,
-    quantity INTEGER AS kotlin.Int NOT NULL,
-    previous_quantity INTEGER AS kotlin.Int NOT NULL,
+    quantity REAL NOT NULL,
+    previous_quantity REAL NOT NULL,
     order_id TEXT,
+    recipe_id TEXT,
     note TEXT,
     created_at INTEGER NOT NULL
 );
@@ -17,8 +18,8 @@ getRecentTransactions:
 SELECT * FROM stock_transactions WHERE stock_id = ? ORDER BY created_at DESC LIMIT ?;
 
 insertTransaction:
-INSERT OR REPLACE INTO stock_transactions(id, stock_id, item_name, type, quantity, previous_quantity, order_id, note, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO stock_transactions(id, stock_id, item_name, type, quantity, previous_quantity, order_id, recipe_id, note, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteTransactionsByStockId:
 DELETE FROM stock_transactions WHERE stock_id = ?;

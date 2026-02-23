@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS items (
     sku TEXT,
     barcode TEXT,
     image_url TEXT,
-    available INTEGER AS kotlin.Boolean NOT NULL
+    available INTEGER AS kotlin.Boolean NOT NULL,
+    stock_behavior TEXT NOT NULL DEFAULT 'NONE'
 );
 
 getItems:
@@ -31,8 +32,8 @@ getItemBySku:
 SELECT * FROM items WHERE vendor_id = ? AND sku = ? LIMIT 1;
 
 insertItem:
-INSERT OR REPLACE INTO items(id, vendor_id, category_id, name, description, price, cost_price, sku, barcode, image_url, available)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO items(id, vendor_id, category_id, name, description, price, cost_price, sku, barcode, image_url, available, stock_behavior)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteItem:
 DELETE FROM items WHERE id = ?;

@@ -3,10 +3,12 @@ CREATE TABLE IF NOT EXISTS stock (
     vendor_id TEXT NOT NULL,
     item_id TEXT,
     item_name TEXT NOT NULL,
-    quantity INTEGER AS kotlin.Int NOT NULL,
-    min_quantity INTEGER AS kotlin.Int NOT NULL,
+    quantity REAL NOT NULL,
+    min_quantity REAL NOT NULL,
     cost_price REAL NOT NULL,
     unit TEXT NOT NULL,
+    base_unit TEXT NOT NULL DEFAULT 'PIECE',
+    conversion_rate REAL NOT NULL DEFAULT 1.0,
     is_menu_item INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     alert_enabled INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     last_updated_at INTEGER NOT NULL
@@ -28,8 +30,8 @@ getStockByItemId:
 SELECT * FROM stock WHERE vendor_id = ? AND item_id = ?;
 
 insertStock:
-INSERT OR REPLACE INTO stock(id, vendor_id, item_id, item_name, quantity, min_quantity, cost_price, unit, is_menu_item, alert_enabled, last_updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO stock(id, vendor_id, item_id, item_name, quantity, min_quantity, cost_price, unit, base_unit, conversion_rate, is_menu_item, alert_enabled, last_updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateStockQuantity:
 UPDATE stock SET quantity = ?, last_updated_at = ? WHERE id = ?;

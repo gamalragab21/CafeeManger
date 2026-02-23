@@ -16,6 +16,7 @@ data class ItemResponse(
     val barcode: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     val available: Boolean = true,
+    @SerialName("stock_behavior") val stockBehavior: String = "NONE",
     @SerialName("created_at") val createdAt: Long? = null,
     @SerialName("updated_at") val updatedAt: Long? = null
 )

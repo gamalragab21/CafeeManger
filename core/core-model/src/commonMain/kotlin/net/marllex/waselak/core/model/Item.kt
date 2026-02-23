@@ -15,6 +15,7 @@ data class Item(
     val barcode: String? = null,
     val imageUrl: String? = null,
     val available: Boolean = true,
+    val stockBehavior: String = "NONE",
     val createdAt: Long? = null,
     val updatedAt: Long? = null
 )

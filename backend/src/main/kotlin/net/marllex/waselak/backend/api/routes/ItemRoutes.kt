@@ -29,6 +29,7 @@ data class ItemDto(
     val barcode: String? = null,
     val image_url: String? = null,
     val available: Boolean = true,
+    val stock_behavior: String = "NONE", // NONE, DIRECT, RECIPE
     val created_at: Long? = null,
     val updated_at: Long? = null
 )
@@ -43,7 +44,8 @@ data class CreateItemDto(
     val sku: String? = null,
     val barcode: String? = null,
     val image_url: String? = null,
-    val available: Boolean = true
+    val available: Boolean = true,
+    val stock_behavior: String = "NONE", // NONE, DIRECT, RECIPE
 )
 
 @Serializable
@@ -56,7 +58,8 @@ data class UpdateItemDto(
     val sku: String? = null,
     val barcode: String? = null,
     val image_url: String? = null,
-    val available: Boolean? = null
+    val available: Boolean? = null,
+    val stock_behavior: String? = null, // NONE, DIRECT, RECIPE
 )
 
 fun Route.itemRoutes() {
@@ -142,6 +145,7 @@ fun Route.itemRoutes() {
                     it[barcode] = request.barcode
                     it[imageUrl] = request.image_url
                     it[available] = request.available
+                    it[stockBehavior] = request.stock_behavior
                     it[createdAt] = Clock.System.now()
                     it[updatedAt] = Clock.System.now()
                 }
@@ -179,6 +183,7 @@ fun Route.itemRoutes() {
                     request.barcode?.let { stmt[barcode] = it }
                     request.image_url?.let { stmt[imageUrl] = it }
                     request.available?.let { stmt[available] = it }
+                    request.stock_behavior?.let { stmt[stockBehavior] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 
@@ -238,6 +243,7 @@ private fun ResultRow.toItemDto() = ItemDto(
     barcode = this[ItemsTable.barcode],
     image_url = this[ItemsTable.imageUrl],
     available = this[ItemsTable.available],
+    stock_behavior = this[ItemsTable.stockBehavior],
     created_at = this[ItemsTable.createdAt].toEpochMilliseconds(),
     updated_at = this[ItemsTable.updatedAt].toEpochMilliseconds()
 )

@@ -45,6 +45,8 @@ class StockDao(private val db: WaselakDatabase) {
             min_quantity = stock.min_quantity,
             cost_price = stock.cost_price,
             unit = stock.unit,
+            base_unit = stock.base_unit,
+            conversion_rate = stock.conversion_rate,
             is_menu_item = stock.is_menu_item,
             alert_enabled = stock.alert_enabled,
             last_updated_at = stock.last_updated_at
@@ -63,6 +65,8 @@ class StockDao(private val db: WaselakDatabase) {
                     min_quantity = stock.min_quantity,
                     cost_price = stock.cost_price,
                     unit = stock.unit,
+                    base_unit = stock.base_unit,
+                    conversion_rate = stock.conversion_rate,
                     is_menu_item = stock.is_menu_item,
                     alert_enabled = stock.alert_enabled,
                     last_updated_at = stock.last_updated_at
@@ -71,7 +75,7 @@ class StockDao(private val db: WaselakDatabase) {
         }
     }
 
-    suspend fun updateStockQuantity(id: String, quantity: Int, updatedAt: Long) {
+    suspend fun updateStockQuantity(id: String, quantity: Double, updatedAt: Long) {
         stockQueries.updateStockQuantity(quantity, updatedAt, id)
     }
 
@@ -99,6 +103,7 @@ class StockDao(private val db: WaselakDatabase) {
             quantity = transaction.quantity,
             previous_quantity = transaction.previous_quantity,
             order_id = transaction.order_id,
+            recipe_id = transaction.recipe_id,
             note = transaction.note,
             created_at = transaction.created_at
         )

@@ -74,6 +74,68 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         "ALTER TABLE items ADD COLUMN cost_price REAL",
         "ALTER TABLE items ADD COLUMN sku TEXT",
         "ALTER TABLE items ADD COLUMN barcode TEXT",
+        // v9: Recipe-based inventory / BOM
+        "ALTER TABLE items ADD COLUMN stock_behavior TEXT NOT NULL DEFAULT 'NONE'",
+        "ALTER TABLE stock ADD COLUMN base_unit TEXT NOT NULL DEFAULT 'PIECE'",
+        "ALTER TABLE stock ADD COLUMN conversion_rate REAL NOT NULL DEFAULT 1.0",
+        "ALTER TABLE stock_transactions ADD COLUMN recipe_id TEXT",
+        // Drop and recreate stock tables to change INTEGER→REAL columns
+        // (SQLite doesn't support ALTER COLUMN, so we recreate)
+        "DROP TABLE IF EXISTS stock_transactions",
+        """CREATE TABLE IF NOT EXISTS stock_transactions (
+            id TEXT NOT NULL PRIMARY KEY,
+            stock_id TEXT NOT NULL,
+            item_name TEXT,
+            type TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            previous_quantity REAL NOT NULL,
+            order_id TEXT,
+            recipe_id TEXT,
+            note TEXT,
+            created_at INTEGER NOT NULL
+        )""",
+        "DROP TABLE IF EXISTS stock",
+        """CREATE TABLE IF NOT EXISTS stock (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            item_id TEXT,
+            item_name TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            min_quantity REAL NOT NULL,
+            cost_price REAL NOT NULL,
+            unit TEXT NOT NULL,
+            base_unit TEXT NOT NULL DEFAULT 'PIECE',
+            conversion_rate REAL NOT NULL DEFAULT 1.0,
+            is_menu_item INTEGER NOT NULL DEFAULT 1,
+            alert_enabled INTEGER NOT NULL DEFAULT 1,
+            last_updated_at INTEGER NOT NULL
+        )""",
+        // Create recipe tables
+        """CREATE TABLE IF NOT EXISTS recipes (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            yield_quantity REAL NOT NULL DEFAULT 1.0,
+            yield_unit TEXT NOT NULL DEFAULT 'PIECE',
+            active INTEGER NOT NULL DEFAULT 1,
+            total_cost REAL NOT NULL DEFAULT 0.0,
+            created_at INTEGER,
+            updated_at INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS recipe_ingredients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipe_id TEXT NOT NULL,
+            stock_id TEXT NOT NULL,
+            stock_item_name TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            unit TEXT NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            available_quantity REAL NOT NULL DEFAULT 0.0,
+            FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+        )""",
     )
     migrations.forEach { sql ->
         try {
@@ -104,13 +166,8 @@ val databaseModule = module {
                 worked_daysAdapter = intAdapter,
                 worked_hoursAdapter = intAdapter,
             ),
-            stockAdapter = Stock.Adapter(
-                quantityAdapter = intAdapter,
-                min_quantityAdapter = intAdapter,
-            ),
-            stock_transactionsAdapter = Stock_transactions.Adapter(
-                quantityAdapter = intAdapter,
-                previous_quantityAdapter = intAdapter,
+            recipe_ingredientsAdapter = Recipe_ingredients.Adapter(
+                display_orderAdapter = intAdapter,
             ),
             tablesAdapter = Tables.Adapter(
                 capacityAdapter = intAdapter,
@@ -131,6 +188,7 @@ val databaseModule = module {
     single { TableDao(get()) }
     single { OrderDao(get()) }
     single { StockDao(get()) }
+    single { RecipeDao(get()) }
     single { WorkerDao(get()) }
     single { CustomerDao(get()) }
 }

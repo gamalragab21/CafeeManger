@@ -7,18 +7,20 @@ import kotlinx.serialization.Serializable
 data class Stock(
     val id: String,
     val vendorId: String,
-    val itemId: String? = null, // Nullable for independent stock items
+    val itemId: String? = null,
     val itemName: String,
-    val quantity: Int,
-    val minQuantity: Int = 5,
+    val quantity: Double,
+    val minQuantity: Double = 5.0,
     val costPrice: Double = 0.0,
-    val unit: String = "pcs",
-    val isMenuItem: Boolean = true, // true = linked to menu, false = independent stock
-    val alertEnabled: Boolean = true, // Enable low stock alerts
+    val unit: String = "PIECE",
+    val baseUnit: String = "PIECE",
+    val conversionRate: Double = 1.0,
+    val isMenuItem: Boolean = true,
+    val alertEnabled: Boolean = true,
     val lastUpdatedAt: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
     val totalValue: Double get() = costPrice * quantity
-    val isLowStock: Boolean get() = quantity in 1..minQuantity
+    val isLowStock: Boolean get() = quantity > 0 && quantity <= minQuantity
     val isOutOfStock: Boolean get() = quantity <= 0
 }
 
@@ -26,24 +28,26 @@ data class Stock(
 data class StockTransaction(
     val id: String,
     val stockId: String,
-    val itemName: String? = null, // For display in transaction list
+    val itemName: String? = null,
     val type: StockTransactionType,
-    val quantity: Int,
-    val previousQuantity: Int,
+    val quantity: Double,
+    val previousQuantity: Double,
     val orderId: String? = null,
+    val recipeId: String? = null,
     val note: String? = null,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
-    val newQuantity: Int get() = when (type) {
-        StockTransactionType.ADD -> previousQuantity + quantity
-        StockTransactionType.DEDUCT -> (previousQuantity - quantity).coerceAtLeast(0)
+    val newQuantity: Double get() = when (type) {
+        StockTransactionType.ADD, StockTransactionType.PURCHASE -> previousQuantity + quantity
+        StockTransactionType.DEDUCT, StockTransactionType.SALE_DIRECT, StockTransactionType.SALE_RECIPE -> (previousQuantity - quantity).coerceAtLeast(0.0)
         StockTransactionType.ADJUST -> quantity
+        StockTransactionType.RETURN -> previousQuantity + quantity
     }
 }
 
 @Serializable
 enum class StockTransactionType {
-    ADD, DEDUCT, ADJUST
+    ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
 }
 
 data class StockSummary(
@@ -54,17 +58,18 @@ data class StockSummary(
     val healthyStockCount: Int = 0,
     val menuItemsCount: Int = 0,
     val independentItemsCount: Int = 0,
+    val recipeItemsCount: Int = 0,
     val totalTransactionsToday: Int = 0,
-    val totalAddedToday: Int = 0,
-    val totalDeductedToday: Int = 0,
+    val totalAddedToday: Double = 0.0,
+    val totalDeductedToday: Double = 0.0,
 )
 
 @Serializable
 data class StockAlert(
     val id: String,
     val itemName: String,
-    val quantity: Int,
-    val minQuantity: Int,
+    val quantity: Double,
+    val minQuantity: Double,
     val unit: String,
     val isOutOfStock: Boolean,
     val isMenuItem: Boolean,

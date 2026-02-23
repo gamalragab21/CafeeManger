@@ -1,0 +1,55 @@
+CREATE TABLE IF NOT EXISTS recipes (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    yield_quantity REAL NOT NULL DEFAULT 1.0,
+    yield_unit TEXT NOT NULL DEFAULT 'PIECE',
+    active INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    total_cost REAL NOT NULL DEFAULT 0.0,
+    created_at INTEGER,
+    updated_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_id TEXT NOT NULL,
+    stock_id TEXT NOT NULL,
+    stock_item_name TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit TEXT NOT NULL,
+    display_order INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    available_quantity REAL NOT NULL DEFAULT 0.0,
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+);
+
+getAllRecipes:
+SELECT * FROM recipes WHERE vendor_id = ? ORDER BY name ASC;
+
+getRecipeById:
+SELECT * FROM recipes WHERE id = ?;
+
+getRecipeByItemId:
+SELECT * FROM recipes WHERE vendor_id = ? AND item_id = ?;
+
+getIngredientsByRecipeId:
+SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY display_order ASC;
+
+insertRecipe:
+INSERT OR REPLACE INTO recipes(id, vendor_id, item_id, item_name, name, description, yield_quantity, yield_unit, active, total_cost, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertIngredient:
+INSERT INTO recipe_ingredients(recipe_id, stock_id, stock_item_name, quantity, unit, display_order, available_quantity)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteIngredientsByRecipeId:
+DELETE FROM recipe_ingredients WHERE recipe_id = ?;
+
+deleteRecipe:
+DELETE FROM recipes WHERE id = ?;
+
+deleteAllRecipes:
+DELETE FROM recipes WHERE vendor_id = ?;

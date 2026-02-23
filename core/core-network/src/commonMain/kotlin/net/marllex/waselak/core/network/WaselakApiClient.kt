@@ -458,6 +458,35 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getStockAnalyticsSummary(): StockAnalyticsSummaryResponse =
         client.get("api/v1/stock/analytics/summary").body()
 
+    // ─── Recipes ────────────────────────────────────────────────────
+
+    suspend fun getRecipes(): List<RecipeResponse> =
+        client.get("api/v1/recipes").body()
+
+    suspend fun getRecipe(id: String): RecipeResponse =
+        client.get("api/v1/recipes/$id").body()
+
+    suspend fun getRecipeByItemId(itemId: String): RecipeResponse =
+        client.get("api/v1/recipes/by-item/$itemId").body()
+
+    suspend fun createRecipe(request: CreateRecipeRequest): RecipeResponse =
+        client.post("api/v1/recipes") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateRecipe(id: String, request: UpdateRecipeRequest): RecipeResponse =
+        client.put("api/v1/recipes/$id") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteRecipe(id: String): ApiSuccessResponse =
+        client.delete("api/v1/recipes/$id").body()
+
+    suspend fun checkRecipeAvailability(itemId: String, servings: Double = 1.0): RecipeAvailabilityResponse =
+        client.get("api/v1/recipes/check-availability/$itemId") {
+            parameter("servings", servings)
+        }.body()
+
     // ─── Workers ───────────────────────────────────────────────────
 
     suspend fun getWorkers(active: Boolean? = null): List<WorkerResponse> =

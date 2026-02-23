@@ -205,8 +205,8 @@ data class AlertsResponse(
 data class StockOverviewItemResponse(
     @SerialName("stock_id") val stockId: String,
     @SerialName("item_name") val itemName: String,
-    val quantity: Int,
-    @SerialName("min_quantity") val minQuantity: Int,
+    val quantity: Double,
+    @SerialName("min_quantity") val minQuantity: Double,
     @SerialName("cost_price") val costPrice: Double,
     val unit: String,
     val status: String,
@@ -215,8 +215,8 @@ data class StockOverviewItemResponse(
 @Serializable
 data class StockMovementResponse(
     val date: String,
-    val added: Int,
-    val deducted: Int,
+    val added: Double,
+    val deducted: Double,
 )
 
 @Serializable

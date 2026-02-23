@@ -37,7 +37,8 @@ class ItemDao(private val db: WaselakDatabase) {
                     sku = item.sku,
                     barcode = item.barcode,
                     image_url = item.image_url,
-                    available = item.available
+                    available = item.available,
+                    stock_behavior = item.stock_behavior,
                 )
             }
         }
@@ -55,7 +56,8 @@ class ItemDao(private val db: WaselakDatabase) {
             sku = item.sku,
             barcode = item.barcode,
             image_url = item.image_url,
-            available = item.available
+            available = item.available,
+            stock_behavior = item.stock_behavior,
         )
     }
 

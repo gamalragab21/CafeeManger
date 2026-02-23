@@ -14,6 +14,7 @@ val dataModule = module {
     single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
     single<TaxPlaceRepository> { TaxPlaceRepositoryImpl(get()) }
     single<StockRepository> { StockRepositoryImpl(get(), get(), get()) }
+    single<RecipeRepository> { RecipeRepositoryImpl(get(), get(), get()) }
     single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
 }

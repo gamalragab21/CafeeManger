@@ -216,8 +216,8 @@ data class AlertsDto(
 data class StockOverviewItemDto(
     val stock_id: String,
     val item_name: String,
-    val quantity: Int,
-    val min_quantity: Int,
+    val quantity: Double,
+    val min_quantity: Double,
     val cost_price: Double,
     val unit: String,
     val status: String,
@@ -226,8 +226,8 @@ data class StockOverviewItemDto(
 @Serializable
 data class StockMovementDto(
     val date: String,
-    val added: Int,
-    val deducted: Int,
+    val added: Double,
+    val deducted: Double,
 )
 
 @Serializable
@@ -853,9 +853,9 @@ fun Route.analyticsDashboardRoutes() {
                     (StockTable.vendorId eq vendorUUID) and (StockTable.alertEnabled eq true)
                 }.toList()
 
-                val outOfStock = stockItems.filter { it[StockTable.quantity] == 0 }
+                val outOfStock = stockItems.filter { it[StockTable.quantity].compareTo(java.math.BigDecimal.ZERO) == 0 }
                 val lowStock = stockItems.filter {
-                    it[StockTable.quantity] > 0 && it[StockTable.quantity] <= it[StockTable.minQuantity]
+                    it[StockTable.quantity].compareTo(java.math.BigDecimal.ZERO) > 0 && it[StockTable.quantity] <= it[StockTable.minQuantity]
                 }
 
                 if (outOfStock.isNotEmpty()) {
@@ -920,7 +920,8 @@ fun Route.analyticsDashboardRoutes() {
                 }.map { it[StockTransactionsTable.stockId] }.toSet()
 
                 for (stock in stockItems) {
-                    val qty = stock[StockTable.quantity]
+                    val qtyBd = stock[StockTable.quantity]
+                    val qty = qtyBd.toDouble()
                     val costPrice = stock[StockTable.costPrice].toDouble()
                     val itemId = stock[StockTable.itemId]
                     val sellingPrice = if (itemId != null) sellingPrices[itemId] ?: 0.0 else 0.0
@@ -928,9 +929,10 @@ fun Route.analyticsDashboardRoutes() {
                     totalStockValue += qty * costPrice
                     totalSellingValue += qty * sellingPrice
 
+                    val minQty = stock[StockTable.minQuantity].toDouble()
                     val status = when {
-                        qty == 0 -> "OUT_OF_STOCK"
-                        qty <= stock[StockTable.minQuantity] -> "LOW_STOCK"
+                        qty <= 0.0 -> "OUT_OF_STOCK"
+                        qty <= minQty -> "LOW_STOCK"
                         else -> "HEALTHY"
                     }
 
@@ -938,7 +940,7 @@ fun Route.analyticsDashboardRoutes() {
                         stock_id = stock[StockTable.id].toString(),
                         item_name = stock[StockTable.itemName],
                         quantity = qty,
-                        min_quantity = stock[StockTable.minQuantity],
+                        min_quantity = minQty,
                         cost_price = costPrice,
                         unit = stock[StockTable.unit],
                         status = status,
@@ -949,7 +951,7 @@ fun Route.analyticsDashboardRoutes() {
                         "LOW_STOCK" -> lowStockItems.add(dto)
                     }
 
-                    if (qty > 0 && stock[StockTable.id] !in recentTxStockIds) {
+                    if (qty > 0.0 && stock[StockTable.id] !in recentTxStockIds) {
                         deadStockItems.add(dto.copy(status = "DEAD_STOCK"))
                     }
                 }
@@ -961,13 +963,15 @@ fun Route.analyticsDashboardRoutes() {
                 }.toList()
 
                 val tz = TimeZone.currentSystemDefault()
+                val addTypes = setOf("ADD", "PURCHASE")
+                val deductTypes = setOf("DEDUCT", "SALE_DIRECT", "SALE_RECIPE")
                 val movementSummary = recentTransactions
                     .groupBy { it[StockTransactionsTable.createdAt].toLocalDateTime(tz).date.toString() }
                     .map { (date, txs) ->
                         StockMovementDto(
                             date = date,
-                            added = txs.filter { it[StockTransactionsTable.type] == "ADD" }.sumOf { it[StockTransactionsTable.quantity] },
-                            deducted = txs.filter { it[StockTransactionsTable.type] == "DEDUCT" }.sumOf { it[StockTransactionsTable.quantity] },
+                            added = txs.filter { it[StockTransactionsTable.type] in addTypes }.sumOf { it[StockTransactionsTable.quantity].toDouble() },
+                            deducted = txs.filter { it[StockTransactionsTable.type] in deductTypes }.sumOf { it[StockTransactionsTable.quantity].toDouble() },
                         )
                     }
                     .sortedBy { it.date }
