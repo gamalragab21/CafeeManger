@@ -172,14 +172,6 @@ fun Route.recipeRoutes() {
                         (ItemsTable.vendorId eq vendorUUID)
                     }.firstOrNull() ?: throw NoSuchElementException("Item not found")
 
-                // Check no recipe already exists for this item
-                val existing = RecipesTable.selectAll()
-                    .where {
-                        (RecipesTable.itemId eq itemUUID) and
-                        (RecipesTable.vendorId eq vendorUUID)
-                    }.firstOrNull()
-                if (existing != null) throw IllegalStateException("Recipe already exists for this item")
-
                 // Validate all ingredients
                 request.ingredients.forEach { ingredient ->
                     val stockUUID = UUID.fromString(ingredient.stock_id)
@@ -201,29 +193,64 @@ fun Route.recipeRoutes() {
 
                 val recipeName = request.name ?: item[ItemsTable.name]
 
-                // Create recipe
-                val recipeId = RecipesTable.insertAndGetId {
-                    it[vendorId] = vendorUUID
-                    it[RecipesTable.itemId] = itemUUID
-                    it[name] = recipeName
-                    it[description] = request.description
-                    it[yieldQuantity] = BigDecimal.valueOf(request.yield_quantity)
-                    it[yieldUnit] = request.yield_unit
-                    it[status] = "ACTIVE"
-                    it[createdAt] = now
-                    it[updatedAt] = now
-                }
+                // Upsert: if recipe already exists for this item, update it instead of 409
+                val existing = RecipesTable.selectAll()
+                    .where {
+                        (RecipesTable.itemId eq itemUUID) and
+                        (RecipesTable.vendorId eq vendorUUID)
+                    }.firstOrNull()
 
-                // Insert ingredients
-                request.ingredients.forEach { ingredient ->
-                    RecipeIngredientsTable.insertAndGetId {
-                        it[RecipeIngredientsTable.recipeId] = recipeId
-                        it[stockId] = UUID.fromString(ingredient.stock_id)
-                        it[quantity] = BigDecimal.valueOf(ingredient.quantity)
-                        it[unit] = ingredient.unit
-                        it[displayOrder] = ingredient.display_order
-                        it[createdAt] = now
+                val recipeId = if (existing != null) {
+                    // UPDATE existing recipe
+                    val existingId = existing[RecipesTable.id]
+                    RecipesTable.update({
+                        (RecipesTable.id eq existingId) and (RecipesTable.vendorId eq vendorUUID)
+                    }) {
+                        it[name] = recipeName
+                        it[description] = request.description
+                        it[yieldQuantity] = BigDecimal.valueOf(request.yield_quantity)
+                        it[yieldUnit] = request.yield_unit
+                        it[status] = "ACTIVE"
+                        it[updatedAt] = now
                     }
+                    // Replace ingredients
+                    RecipeIngredientsTable.deleteWhere { RecipeIngredientsTable.recipeId eq existingId }
+                    request.ingredients.forEach { ingredient ->
+                        RecipeIngredientsTable.insertAndGetId {
+                            it[RecipeIngredientsTable.recipeId] = existingId
+                            it[stockId] = UUID.fromString(ingredient.stock_id)
+                            it[quantity] = BigDecimal.valueOf(ingredient.quantity)
+                            it[unit] = ingredient.unit
+                            it[displayOrder] = ingredient.display_order
+                            it[createdAt] = now
+                        }
+                    }
+                    existingId
+                } else {
+                    // CREATE new recipe
+                    val newId = RecipesTable.insertAndGetId {
+                        it[vendorId] = vendorUUID
+                        it[RecipesTable.itemId] = itemUUID
+                        it[name] = recipeName
+                        it[description] = request.description
+                        it[yieldQuantity] = BigDecimal.valueOf(request.yield_quantity)
+                        it[yieldUnit] = request.yield_unit
+                        it[status] = "ACTIVE"
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    // Insert ingredients
+                    request.ingredients.forEach { ingredient ->
+                        RecipeIngredientsTable.insertAndGetId {
+                            it[RecipeIngredientsTable.recipeId] = newId
+                            it[stockId] = UUID.fromString(ingredient.stock_id)
+                            it[quantity] = BigDecimal.valueOf(ingredient.quantity)
+                            it[unit] = ingredient.unit
+                            it[displayOrder] = ingredient.display_order
+                            it[createdAt] = now
+                        }
+                    }
+                    newId
                 }
 
                 // Auto-set item's stockBehavior to RECIPE
