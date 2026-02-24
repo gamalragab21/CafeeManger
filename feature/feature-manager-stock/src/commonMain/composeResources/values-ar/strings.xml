@@ -55,6 +55,15 @@
     <string name="unit_bottle">زجاجة</string>
     <string name="unit_can">علبة</string>
     <string name="unit_packs">عبوة</string>
+    <string name="unit_cup">كوب</string>
+    <string name="unit_tablespoon">م.ك</string>
+    <string name="unit_teaspoon">م.ص</string>
+    <string name="unit_plate">طبق</string>
+    <string name="unit_carton">كرتونة</string>
+    <string name="unit_sack">شوال</string>
+    <string name="unit_tray">صينية</string>
+    <string name="unit_bucket">جردل</string>
+    <string name="unit_roll">رول</string>
 
     <!-- Unit Categories -->
     <string name="unit_category_weight">الوزن</string>

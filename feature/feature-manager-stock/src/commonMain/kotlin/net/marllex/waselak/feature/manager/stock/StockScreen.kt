@@ -128,6 +128,15 @@ private fun getLocalizedUnit(unitKey: String): String {
             "BOTTLE" -> Res.string.unit_bottle
             "CAN" -> Res.string.unit_can
             "PACKS", "PACK" -> Res.string.unit_packs
+            "CUP" -> Res.string.unit_cup
+            "TABLESPOON", "TBSP" -> Res.string.unit_tablespoon
+            "TEASPOON", "TSP" -> Res.string.unit_teaspoon
+            "PLATE" -> Res.string.unit_plate
+            "CARTON" -> Res.string.unit_carton
+            "SACK" -> Res.string.unit_sack
+            "TRAY" -> Res.string.unit_tray
+            "BUCKET" -> Res.string.unit_bucket
+            "ROLL" -> Res.string.unit_roll
             else -> Res.string.unit_pcs
         }
     )
@@ -136,16 +145,16 @@ private fun getLocalizedUnit(unitKey: String): String {
 /**
  * Returns the list of compatible unit keys based on a stock item's base unit.
  * Matches backend StockUnit compatibility rules:
- * - WEIGHT: KILOGRAM, GRAM  (base: GRAM)
- * - VOLUME: LITER, MILLILITER  (base: MILLILITER)
- * - COUNT: PIECE, DOZEN  (base: PIECE)
- * - PACKAGE: BOX, BAG, BOTTLE, CAN, PACK  (each only compatible with itself)
+ * - WEIGHT: GRAM, KILOGRAM  (base: GRAM)
+ * - VOLUME: MILLILITER, LITER, CUP, TABLESPOON, TEASPOON  (base: MILLILITER)
+ * - COUNT: PIECE, DOZEN, PLATE  (base: PIECE)
+ * - PACKAGE: each only compatible with itself
  */
 private fun getCompatibleUnits(baseUnit: String): List<String> {
     return when (baseUnit.uppercase()) {
         "GRAM", "KILOGRAM" -> listOf("GRAM", "KILOGRAM")
-        "MILLILITER", "LITER" -> listOf("MILLILITER", "LITER")
-        "PIECE", "DOZEN" -> listOf("PIECE", "DOZEN")
+        "MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON" -> listOf("MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON")
+        "PIECE", "DOZEN", "PLATE" -> listOf("PIECE", "DOZEN", "PLATE")
         else -> listOf(baseUnit.uppercase()) // Package units: only itself
     }
 }
@@ -1276,8 +1285,8 @@ private fun AddEditStockDialog(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("MILLILITER", "LITER").forEach { unitKey ->
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON").forEach { unitKey ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
                             onClick = { viewModel.updateDialogUnit(unitKey) },
@@ -1296,8 +1305,8 @@ private fun AddEditStockDialog(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("PIECE", "DOZEN").forEach { unitKey ->
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("PIECE", "DOZEN", "PLATE").forEach { unitKey ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
                             onClick = { viewModel.updateDialogUnit(unitKey) },
@@ -1317,7 +1326,7 @@ private fun AddEditStockDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("BOX", "BAG", "BOTTLE", "CAN", "PACK").forEach { unitKey ->
+                    listOf("BOX", "BAG", "BOTTLE", "CAN", "PACK", "CARTON", "SACK", "TRAY", "BUCKET", "ROLL").forEach { unitKey ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
                             onClick = { viewModel.updateDialogUnit(unitKey) },
@@ -2329,7 +2338,7 @@ private fun RecipeYieldSection(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "DOZEN", "BOX", "BAG", "BOTTLE", "CAN", "PACK")
+                val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "CUP", "TABLESPOON", "TEASPOON", "DOZEN", "PLATE", "BOX", "BAG", "BOTTLE", "CAN", "PACK", "CARTON", "SACK", "TRAY", "BUCKET", "ROLL")
                 unitKeys.forEach { unitKey ->
                     FilterChip(
                         selected = uiState.recipeYieldUnit == unitKey,

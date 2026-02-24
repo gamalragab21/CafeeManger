@@ -37,9 +37,9 @@ data class RecipeIngredientForm(
 private fun inferBaseUnit(unit: String): String {
     return when (unit.uppercase()) {
         "GRAM", "KILOGRAM" -> "GRAM"
-        "MILLILITER", "LITER" -> "MILLILITER"
-        "PIECE", "DOZEN" -> "PIECE"
-        else -> unit.uppercase()
+        "MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON" -> "MILLILITER"
+        "PIECE", "DOZEN", "PLATE" -> "PIECE"
+        else -> unit.uppercase() // Package units: each is its own base
     }
 }
 
