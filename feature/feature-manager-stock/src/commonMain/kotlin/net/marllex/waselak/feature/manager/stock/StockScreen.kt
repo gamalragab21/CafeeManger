@@ -1522,7 +1522,9 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.RETURN -> StockHealthy
         net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
-        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> StockOut
+        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
+        net.marllex.waselak.core.model.StockTransactionType.WASTE -> StockOut
+        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> MaterialTheme.colorScheme.tertiary
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> MaterialTheme.colorScheme.primary
     }
 
@@ -1532,7 +1534,9 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.RETURN -> Icons.Outlined.TrendingUp
         net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
-        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> Icons.Outlined.TrendingDown
+        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
+        net.marllex.waselak.core.model.StockTransactionType.WASTE -> Icons.Outlined.TrendingDown
+        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> Icons.Filled.Remove
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> Icons.Filled.Edit
     }
 
@@ -1544,6 +1548,8 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT -> stringResource(Res.string.stock_sale_direct)
         net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> stringResource(Res.string.stock_sale_recipe)
         net.marllex.waselak.core.model.StockTransactionType.RETURN -> stringResource(Res.string.stock_returned)
+        net.marllex.waselak.core.model.StockTransactionType.WASTE -> "Waste"
+        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> "Transfer"
     }
 
     Card(
@@ -1607,7 +1613,9 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
                         net.marllex.waselak.core.model.StockTransactionType.RETURN -> "+${transaction.quantity}"
                         net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
                         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
-                        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> "-${transaction.quantity}"
+                        net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
+                        net.marllex.waselak.core.model.StockTransactionType.WASTE,
+                        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> "-${transaction.quantity}"
                         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> "${transaction.quantity}"
                     },
                     style = MaterialTheme.typography.titleMedium,
@@ -1747,20 +1755,32 @@ private fun RecipeCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                // Active badge
+                // Status badge
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (recipe.active) StockHealthy.copy(alpha = 0.1f)
-                            else MaterialTheme.colorScheme.surfaceVariant
+                            when (recipe.status) {
+                                "ACTIVE" -> StockHealthy.copy(alpha = 0.1f)
+                                "DRAFT" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
                         )
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 ) {
                     Text(
-                        text = if (recipe.active) stringResource(Res.string.recipe_active) else stringResource(Res.string.recipe_inactive),
+                        text = when (recipe.status) {
+                            "ACTIVE" -> stringResource(Res.string.recipe_active)
+                            "DRAFT" -> "Draft"
+                            "ARCHIVED" -> stringResource(Res.string.recipe_inactive)
+                            else -> recipe.status
+                        },
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (recipe.active) StockHealthy else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = when (recipe.status) {
+                            "ACTIVE" -> StockHealthy
+                            "DRAFT" -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         fontWeight = FontWeight.SemiBold,
                     )
                 }

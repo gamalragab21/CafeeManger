@@ -28,7 +28,7 @@ data class RecipeDto(
     val description: String? = null,
     val yield_quantity: Double = 1.0,
     val yield_unit: String = "PIECE",
-    val active: Boolean = true,
+    val status: String = "ACTIVE", // DRAFT, ACTIVE, ARCHIVED
     val ingredients: List<RecipeIngredientDto> = emptyList(),
     val total_cost: Double = 0.0,
     val created_at: Long? = null,
@@ -70,7 +70,7 @@ data class UpdateRecipeDto(
     val description: String? = null,
     val yield_quantity: Double? = null,
     val yield_unit: String? = null,
-    val active: Boolean? = null,
+    val status: String? = null, // DRAFT, ACTIVE, ARCHIVED
     val ingredients: List<CreateRecipeIngredientDto>? = null, // Full replace if provided
 )
 
@@ -209,7 +209,7 @@ fun Route.recipeRoutes() {
                     it[description] = request.description
                     it[yieldQuantity] = BigDecimal.valueOf(request.yield_quantity)
                     it[yieldUnit] = request.yield_unit
-                    it[active] = true
+                    it[status] = "ACTIVE"
                     it[createdAt] = now
                     it[updatedAt] = now
                 }
@@ -258,6 +258,23 @@ fun Route.recipeRoutes() {
                         (RecipesTable.vendorId eq vendorUUID)
                     }.firstOrNull() ?: throw NoSuchElementException("Recipe not found")
 
+                // Validate status if provided
+                val validStatuses = listOf("DRAFT", "ACTIVE", "ARCHIVED")
+                request.status?.let { newStatus ->
+                    require(newStatus in validStatuses) {
+                        "Invalid recipe status '$newStatus'. Must be one of: ${validStatuses.joinToString()}"
+                    }
+                    // Activation validation: when activating, ensure recipe has ingredients
+                    if (newStatus == "ACTIVE" && current[RecipesTable.status] != "ACTIVE") {
+                        val ingredientCount = RecipeIngredientsTable.selectAll()
+                            .where { RecipeIngredientsTable.recipeId eq recipeUUID }
+                            .count()
+                        require(ingredientCount > 0) {
+                            "Cannot activate recipe without ingredients"
+                        }
+                    }
+                }
+
                 // Update recipe fields
                 RecipesTable.update({
                     (RecipesTable.id eq recipeUUID) and
@@ -267,7 +284,7 @@ fun Route.recipeRoutes() {
                     request.description?.let { stmt[description] = it }
                     request.yield_quantity?.let { stmt[yieldQuantity] = BigDecimal.valueOf(it) }
                     request.yield_unit?.let { stmt[yieldUnit] = it }
-                    request.active?.let { stmt[active] = it }
+                    request.status?.let { stmt[status] = it }
                     stmt[updatedAt] = now
                 }
 
@@ -363,7 +380,7 @@ fun Route.recipeRoutes() {
                     .where {
                         (RecipesTable.itemId eq itemUUID) and
                         (RecipesTable.vendorId eq vendorUUID) and
-                        (RecipesTable.active eq true)
+                        (RecipesTable.status eq "ACTIVE")
                     }.firstOrNull() ?: throw NoSuchElementException("No active recipe found for this item")
 
                 val recipeId = recipe[RecipesTable.id]
@@ -482,7 +499,7 @@ private fun mapRecipeRow(row: ResultRow, vendorUUID: UUID): RecipeDto {
         description = row[RecipesTable.description],
         yield_quantity = row[RecipesTable.yieldQuantity].toDouble(),
         yield_unit = row[RecipesTable.yieldUnit],
-        active = row[RecipesTable.active],
+        status = row[RecipesTable.status],
         ingredients = ingredients,
         total_cost = totalCost,
         created_at = row[RecipesTable.createdAt].toEpochMilliseconds(),

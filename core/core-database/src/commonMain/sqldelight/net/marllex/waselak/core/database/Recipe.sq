@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     description TEXT,
     yield_quantity REAL NOT NULL DEFAULT 1.0,
     yield_unit TEXT NOT NULL DEFAULT 'PIECE',
-    active INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'ACTIVE',
     total_cost REAL NOT NULL DEFAULT 0.0,
     created_at INTEGER,
     updated_at INTEGER
@@ -38,7 +38,7 @@ getIngredientsByRecipeId:
 SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY display_order ASC;
 
 insertRecipe:
-INSERT OR REPLACE INTO recipes(id, vendor_id, item_id, item_name, name, description, yield_quantity, yield_unit, active, total_cost, created_at, updated_at)
+INSERT OR REPLACE INTO recipes(id, vendor_id, item_id, item_name, name, description, yield_quantity, yield_unit, status, total_cost, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertIngredient:

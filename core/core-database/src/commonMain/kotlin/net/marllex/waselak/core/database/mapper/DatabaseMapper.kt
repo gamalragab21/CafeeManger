@@ -298,7 +298,7 @@ fun Recipes.toDomain(ingredients: List<RecipeIngredient> = emptyList()) = Recipe
     id = id, vendorId = vendor_id, itemId = item_id,
     itemName = item_name, name = name, description = description,
     yieldQuantity = yield_quantity, yieldUnit = yield_unit,
-    active = active, totalCost = total_cost,
+    status = status, totalCost = total_cost,
     ingredients = ingredients,
     createdAt = created_at, updatedAt = updated_at
 )

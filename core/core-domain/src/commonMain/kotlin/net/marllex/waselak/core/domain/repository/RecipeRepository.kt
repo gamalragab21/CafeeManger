@@ -24,7 +24,7 @@ interface RecipeRepository {
         description: String? = null,
         yieldQuantity: Double? = null,
         yieldUnit: String? = null,
-        active: Boolean? = null,
+        status: String? = null,
         ingredients: List<IngredientInput>? = null,
     ): Result<Recipe>
 

@@ -11,6 +11,7 @@ import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.StockTable
 import net.marllex.waselak.backend.data.database.StockTransactionsTable
+import net.marllex.waselak.backend.domain.model.StockUnit
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -65,6 +66,21 @@ data class UpdateStockDto(
 @Serializable
 data class AdjustQuantityDto(
     val quantity: Double,
+    val note: String? = null,
+)
+
+@Serializable
+data class TransferStockDto(
+    val target_stock_id: String,
+    val quantity: Double,
+    val note: String? = null,
+)
+
+@Serializable
+data class PurchaseStockDto(
+    val quantity: Double,
+    val unit: String, // Purchase unit (e.g., KILOGRAM) — will be converted to base unit
+    val cost_price: Double? = null, // Update cost price if provided
     val note: String? = null,
 )
 
@@ -394,6 +410,161 @@ fun Route.stockRoutes() {
             call.respond(HttpStatusCode.OK, updated)
         }
 
+        // WASTE — record stock wastage (MANAGER only)
+        patch("/{id}/waste") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<AdjustQuantityDto>()
+            require(request.quantity > 0) { "Quantity must be positive" }
+
+            val updated = transaction {
+                val stockUUID = UUID.fromString(id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                val current = StockTable.selectAll()
+                    .where {
+                        (StockTable.id eq stockUUID) and
+                        (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
+
+                val oldQty = current[StockTable.quantity]
+                val newQty = (oldQty - BigDecimal.valueOf(request.quantity)).coerceAtLeast(BigDecimal.ZERO)
+                val now = Clock.System.now()
+
+                StockTable.update({
+                    (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
+                }) {
+                    it[quantity] = newQty
+                    it[updatedAt] = now
+                }
+
+                StockTransactionsTable.insertAndGetId {
+                    it[stockId] = stockUUID
+                    it[type] = "WASTE"
+                    it[StockTransactionsTable.quantity] = BigDecimal.valueOf(request.quantity)
+                    it[previousQuantity] = oldQty
+                    it[note] = request.note ?: "Stock waste recorded"
+                    it[createdAt] = now
+                }
+
+                StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
+            }
+            call.respond(HttpStatusCode.OK, updated)
+        }
+
+        // TRANSFER — move stock between stock items (MANAGER only)
+        post("/{id}/transfer") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("Source stock ID required")
+            val request = call.receive<TransferStockDto>()
+            require(request.quantity > 0) { "Quantity must be positive" }
+
+            val result = transaction {
+                val sourceUUID = UUID.fromString(id)
+                val targetUUID = UUID.fromString(request.target_stock_id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val now = Clock.System.now()
+
+                val source = StockTable.selectAll()
+                    .where {
+                        (StockTable.id eq sourceUUID) and (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: throw NoSuchElementException("Source stock item not found")
+
+                val target = StockTable.selectAll()
+                    .where {
+                        (StockTable.id eq targetUUID) and (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: throw NoSuchElementException("Target stock item not found")
+
+                val transferQty = BigDecimal.valueOf(request.quantity)
+                val sourceOldQty = source[StockTable.quantity]
+                val targetOldQty = target[StockTable.quantity]
+                val sourceNewQty = (sourceOldQty - transferQty).coerceAtLeast(BigDecimal.ZERO)
+                val targetNewQty = targetOldQty + transferQty
+
+                // Deduct from source
+                StockTable.update({ StockTable.id eq sourceUUID }) {
+                    it[quantity] = sourceNewQty
+                    it[updatedAt] = now
+                }
+                StockTransactionsTable.insertAndGetId {
+                    it[stockId] = sourceUUID
+                    it[type] = "TRANSFER"
+                    it[StockTransactionsTable.quantity] = transferQty
+                    it[previousQuantity] = sourceOldQty
+                    it[note] = request.note ?: "Transfer to ${target[StockTable.itemName]}"
+                    it[createdAt] = now
+                }
+
+                // Add to target
+                StockTable.update({ StockTable.id eq targetUUID }) {
+                    it[quantity] = targetNewQty
+                    it[updatedAt] = now
+                }
+                StockTransactionsTable.insertAndGetId {
+                    it[stockId] = targetUUID
+                    it[type] = "TRANSFER"
+                    it[StockTransactionsTable.quantity] = transferQty
+                    it[previousQuantity] = targetOldQty
+                    it[note] = request.note ?: "Transfer from ${source[StockTable.itemName]}"
+                    it[createdAt] = now
+                }
+
+                mapOf(
+                    "source" to StockTable.selectAll().where { StockTable.id eq sourceUUID }.first().toStockDto(),
+                    "target" to StockTable.selectAll().where { StockTable.id eq targetUUID }.first().toStockDto(),
+                )
+            }
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // PURCHASE — add stock with unit conversion (MANAGER only)
+        post("/{id}/purchase") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<PurchaseStockDto>()
+            require(request.quantity > 0) { "Quantity must be positive" }
+
+            val updated = transaction {
+                val stockUUID = UUID.fromString(id)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                val current = StockTable.selectAll()
+                    .where {
+                        (StockTable.id eq stockUUID) and
+                        (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
+
+                val oldQty = current[StockTable.quantity]
+                val stockBaseUnit = current[StockTable.baseUnit]
+                val now = Clock.System.now()
+
+                // Convert purchase quantity to base unit
+                val convertedQty = convertUnits(request.quantity, request.unit, stockBaseUnit)
+                val newQty = oldQty + BigDecimal.valueOf(convertedQty)
+
+                StockTable.update({
+                    (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
+                }) {
+                    it[quantity] = newQty
+                    it[updatedAt] = now
+                    // Update cost price if provided
+                    request.cost_price?.let { cp -> it[costPrice] = BigDecimal.valueOf(cp) }
+                }
+
+                StockTransactionsTable.insertAndGetId {
+                    it[stockId] = stockUUID
+                    it[type] = "PURCHASE"
+                    it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedQty)
+                    it[previousQuantity] = oldQty
+                    it[note] = request.note ?: "Purchase: ${request.quantity} ${request.unit} → ${"%.3f".format(convertedQty)} $stockBaseUnit"
+                    it[createdAt] = now
+                }
+
+                StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
+            }
+            call.respond(HttpStatusCode.OK, updated)
+        }
+
         // GET transactions for a stock item
         get("/{id}/transactions") {
             val principal = currentUser()
@@ -448,7 +619,7 @@ fun Route.stockRoutes() {
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val stockId = call.parameters["stock_id"]?.let { UUID.fromString(it) }
-            val type = call.parameters["type"] // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
+            val type = call.parameters["type"] // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, WASTE, TRANSFER
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 100
