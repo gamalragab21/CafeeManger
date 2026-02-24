@@ -56,6 +56,12 @@
     <string name="unit_can">علبة</string>
     <string name="unit_packs">عبوة</string>
 
+    <!-- Unit Categories -->
+    <string name="unit_category_weight">الوزن</string>
+    <string name="unit_category_volume">الحجم</string>
+    <string name="unit_category_count">العدد</string>
+    <string name="unit_category_package">التغليف</string>
+
     <!-- Independent Stock Items -->
     <string name="item_type">نوع الصنف</string>
     <string name="menu_item">صنف من القائمة</string>
@@ -75,6 +81,8 @@
     <string name="stock_sale_direct">بيع (مباشر)</string>
     <string name="stock_sale_recipe">بيع (وصفة)</string>
     <string name="stock_returned">مُرتجع</string>
+    <string name="stock_waste">هالك</string>
+    <string name="stock_transfer">تحويل</string>
 
     <!-- Recipes Tab -->
     <string name="recipes">الوصفات</string>

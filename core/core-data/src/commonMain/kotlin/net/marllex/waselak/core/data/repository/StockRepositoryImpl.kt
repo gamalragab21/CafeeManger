@@ -93,6 +93,7 @@ class StockRepositoryImpl constructor(
         minQuantity: Double?,
         costPrice: Double?,
         unit: String?,
+        baseUnit: String?,
         alertEnabled: Boolean?,
     ): Result<Stock> = runCatching {
         val response = api.updateStock(
@@ -103,6 +104,7 @@ class StockRepositoryImpl constructor(
                 minQuantity = minQuantity,
                 costPrice = costPrice,
                 unit = unit,
+                baseUnit = baseUnit,
                 alertEnabled = alertEnabled,
             )
         )

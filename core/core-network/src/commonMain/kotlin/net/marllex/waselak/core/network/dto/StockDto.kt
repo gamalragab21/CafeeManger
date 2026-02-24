@@ -41,6 +41,7 @@ data class UpdateStockRequest(
     @SerialName("min_quantity") val minQuantity: Double? = null,
     @SerialName("cost_price") val costPrice: Double? = null,
     val unit: String? = null,
+    @SerialName("base_unit") val baseUnit: String? = null,
     @SerialName("alert_enabled") val alertEnabled: Boolean? = null,
 )
 
