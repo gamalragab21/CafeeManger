@@ -7,9 +7,11 @@ import org.koin.compose.viewmodel.koinViewModel
 fun DashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     onNavigateToChatbot: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
 ) {
     ModernDashboardScreen(
         viewModel = viewModel,
         onNavigateToChatbot = onNavigateToChatbot,
+        onOpenDrawer = onOpenDrawer,
     )
 }
