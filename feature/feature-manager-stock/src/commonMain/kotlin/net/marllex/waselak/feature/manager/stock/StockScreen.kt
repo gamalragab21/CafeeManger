@@ -133,6 +133,23 @@ private fun getLocalizedUnit(unitKey: String): String {
     )
 }
 
+/**
+ * Returns the list of compatible unit keys based on a stock item's base unit.
+ * Matches backend StockUnit compatibility rules:
+ * - WEIGHT: KILOGRAM, GRAM  (base: GRAM)
+ * - VOLUME: LITER, MILLILITER  (base: MILLILITER)
+ * - COUNT: PIECE, DOZEN  (base: PIECE)
+ * - PACKAGE: BOX, BAG, BOTTLE, CAN, PACK  (each only compatible with itself)
+ */
+private fun getCompatibleUnits(baseUnit: String): List<String> {
+    return when (baseUnit.uppercase()) {
+        "GRAM", "KILOGRAM" -> listOf("GRAM", "KILOGRAM")
+        "MILLILITER", "LITER" -> listOf("MILLILITER", "LITER")
+        "PIECE", "DOZEN" -> listOf("PIECE", "DOZEN")
+        else -> listOf(baseUnit.uppercase()) // Package units: only itself
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StockScreen(
@@ -2333,13 +2350,32 @@ private fun RecipeIngredientFormCard(
                     stockItems.forEach { stock ->
                         DropdownMenuItem(
                             text = {
-                                Column {
-                                    Text(stock.itemName, fontWeight = FontWeight.Medium)
-                                    Text(
-                                        "${stock.quantity} ${getLocalizedUnit(stock.unit)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(stock.itemName, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            "${stock.quantity} ${getLocalizedUnit(stock.unit)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    // Show unit type badge
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(ChartCyan.copy(alpha = 0.1f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    ) {
+                                        Text(
+                                            text = getLocalizedUnit(stock.baseUnit),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ChartCyan,
+                                        )
+                                    }
                                 }
                             },
                             onClick = {
@@ -2358,29 +2394,40 @@ private fun RecipeIngredientFormCard(
                 }
             }
 
-            // Quantity and Unit row
-            Row(
+            // Quantity field
+            OutlinedTextField(
+                value = form.quantity,
+                onValueChange = onUpdateQuantity,
+                label = { Text(stringResource(Res.string.quantity)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedTextField(
-                    value = form.quantity,
-                    onValueChange = onUpdateQuantity,
-                    label = { Text(stringResource(Res.string.quantity)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(12.dp),
+            )
+
+            // Compatible unit selector
+            if (form.stockId.isNotBlank()) {
+                val compatibleUnits = getCompatibleUnits(form.baseUnit)
+                Text(
+                    text = stringResource(Res.string.unit),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(
-                    value = getLocalizedUnit(form.unit),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(Res.string.unit)) },
-                    modifier = Modifier.weight(0.6f),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = false,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    compatibleUnits.forEach { unitKey ->
+                        FilterChip(
+                            selected = form.unit.uppercase() == unitKey,
+                            onClick = { onUpdateUnit(unitKey) },
+                            label = { Text(getLocalizedUnit(unitKey)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ChartCyan,
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
             }
         }
     }

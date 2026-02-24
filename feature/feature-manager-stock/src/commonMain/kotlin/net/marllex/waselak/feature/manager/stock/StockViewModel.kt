@@ -24,6 +24,7 @@ data class RecipeIngredientForm(
     val stockName: String = "",
     val quantity: String = "",
     val unit: String = "PIECE",
+    val baseUnit: String = "PIECE",
 )
 
 class StockViewModel constructor(
@@ -427,8 +428,9 @@ class StockViewModel constructor(
     }
 
     fun showEditRecipeSheet(recipe: Recipe) {
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            val stockMap = state.stockItems.associateBy { it.id }
+            state.copy(
                 showRecipeSheet = true,
                 editingRecipe = recipe,
                 recipeSelectedItemId = recipe.itemId,
@@ -438,11 +440,13 @@ class StockViewModel constructor(
                 recipeYieldQuantity = recipe.yieldQuantity.toString(),
                 recipeYieldUnit = recipe.yieldUnit,
                 recipeIngredients = recipe.ingredients.map { ing ->
+                    val stock = stockMap[ing.stockId]
                     RecipeIngredientForm(
                         stockId = ing.stockId,
                         stockName = ing.stockItemName,
                         quantity = ing.quantity.toString(),
                         unit = ing.unit,
+                        baseUnit = stock?.baseUnit ?: ing.unit,
                     )
                 }.ifEmpty { listOf(RecipeIngredientForm()) },
                 recipeSaving = false,
@@ -504,6 +508,7 @@ class StockViewModel constructor(
                     stockId = stock.id,
                     stockName = stock.itemName,
                     unit = stock.unit,
+                    baseUnit = stock.baseUnit,
                 )
             }
             it.copy(recipeIngredients = updated)
