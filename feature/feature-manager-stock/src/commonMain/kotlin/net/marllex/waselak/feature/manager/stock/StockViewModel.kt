@@ -19,6 +19,13 @@ import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
 
+data class RecipeIngredientForm(
+    val stockId: String = "",
+    val stockName: String = "",
+    val quantity: String = "",
+    val unit: String = "PIECE",
+)
+
 class StockViewModel constructor(
     private val stockRepository: StockRepository,
     private val itemRepository: ItemRepository,
@@ -73,6 +80,18 @@ class StockViewModel constructor(
         // Recipes
         val recipes: List<Recipe> = emptyList(),
         val recipesLoading: Boolean = false,
+
+        // Recipe Form (Create/Edit)
+        val showRecipeSheet: Boolean = false,
+        val editingRecipe: Recipe? = null,
+        val recipeSelectedItemId: String = "",
+        val recipeSelectedItemName: String = "",
+        val recipeName: String = "",
+        val recipeDescription: String = "",
+        val recipeYieldQuantity: String = "1",
+        val recipeYieldUnit: String = "PIECE",
+        val recipeIngredients: List<RecipeIngredientForm> = emptyList(),
+        val recipeSaving: Boolean = false,
     ) {
         val filteredStockItems: List<Stock>
             get() = if (searchQuery.isBlank()) stockItems
@@ -375,6 +394,161 @@ class StockViewModel constructor(
                 loadRecipes()
             }.onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    // ─── Recipe Form (Create/Edit) ──────────────────────────────────
+
+    fun showAddRecipeSheet() {
+        _uiState.update {
+            it.copy(
+                showRecipeSheet = true,
+                editingRecipe = null,
+                recipeSelectedItemId = "",
+                recipeSelectedItemName = "",
+                recipeName = "",
+                recipeDescription = "",
+                recipeYieldQuantity = "1",
+                recipeYieldUnit = "PIECE",
+                recipeIngredients = listOf(RecipeIngredientForm()),
+                recipeSaving = false,
+            )
+        }
+    }
+
+    fun showEditRecipeSheet(recipe: Recipe) {
+        _uiState.update {
+            it.copy(
+                showRecipeSheet = true,
+                editingRecipe = recipe,
+                recipeSelectedItemId = recipe.itemId,
+                recipeSelectedItemName = recipe.itemName,
+                recipeName = recipe.name,
+                recipeDescription = recipe.description ?: "",
+                recipeYieldQuantity = recipe.yieldQuantity.toString(),
+                recipeYieldUnit = recipe.yieldUnit,
+                recipeIngredients = recipe.ingredients.map { ing ->
+                    RecipeIngredientForm(
+                        stockId = ing.stockId,
+                        stockName = ing.stockItemName,
+                        quantity = ing.quantity.toString(),
+                        unit = ing.unit,
+                    )
+                }.ifEmpty { listOf(RecipeIngredientForm()) },
+                recipeSaving = false,
+            )
+        }
+    }
+
+    fun dismissRecipeSheet() {
+        _uiState.update { it.copy(showRecipeSheet = false) }
+    }
+
+    fun updateRecipeName(v: String) { _uiState.update { it.copy(recipeName = v) } }
+    fun updateRecipeDescription(v: String) { _uiState.update { it.copy(recipeDescription = v) } }
+    fun updateRecipeYieldQuantity(v: String) { _uiState.update { it.copy(recipeYieldQuantity = v) } }
+    fun updateRecipeYieldUnit(v: String) { _uiState.update { it.copy(recipeYieldUnit = v) } }
+
+    fun selectRecipeItem(item: Item) {
+        _uiState.update {
+            it.copy(
+                recipeSelectedItemId = item.id,
+                recipeSelectedItemName = item.name,
+                recipeName = it.recipeName.ifBlank { item.name },
+            )
+        }
+    }
+
+    fun addRecipeIngredient() {
+        _uiState.update {
+            it.copy(recipeIngredients = it.recipeIngredients + RecipeIngredientForm())
+        }
+    }
+
+    fun removeRecipeIngredient(index: Int) {
+        _uiState.update {
+            it.copy(
+                recipeIngredients = it.recipeIngredients.toMutableList().apply {
+                    if (size > 1) removeAt(index)
+                }
+            )
+        }
+    }
+
+    fun updateRecipeIngredient(index: Int, form: RecipeIngredientForm) {
+        _uiState.update {
+            it.copy(
+                recipeIngredients = it.recipeIngredients.toMutableList().apply {
+                    if (index in indices) set(index, form)
+                }
+            )
+        }
+    }
+
+    fun selectIngredientStock(index: Int, stock: Stock) {
+        _uiState.update {
+            val updated = it.recipeIngredients.toMutableList()
+            if (index in updated.indices) {
+                updated[index] = updated[index].copy(
+                    stockId = stock.id,
+                    stockName = stock.itemName,
+                    unit = stock.unit,
+                )
+            }
+            it.copy(recipeIngredients = updated)
+        }
+    }
+
+    fun saveRecipe() {
+        val s = _uiState.value
+
+        // Validation
+        if (s.recipeSelectedItemId.isBlank()) return
+        if (s.recipeName.isBlank()) return
+        val yieldQty = s.recipeYieldQuantity.toDoubleOrNull() ?: return
+        if (yieldQty <= 0) return
+
+        val ingredients = s.recipeIngredients.mapIndexedNotNull { idx, form ->
+            val qty = form.quantity.toDoubleOrNull() ?: return@mapIndexedNotNull null
+            if (qty <= 0 || form.stockId.isBlank()) return@mapIndexedNotNull null
+            IngredientInput(
+                stockId = form.stockId,
+                quantity = qty,
+                unit = form.unit,
+                displayOrder = idx,
+            )
+        }
+        if (ingredients.isEmpty()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(recipeSaving = true) }
+
+            val result = if (s.editingRecipe != null) {
+                recipeRepository.updateRecipe(
+                    id = s.editingRecipe.id,
+                    name = s.recipeName,
+                    description = s.recipeDescription.ifBlank { null },
+                    yieldQuantity = yieldQty,
+                    yieldUnit = s.recipeYieldUnit,
+                    ingredients = ingredients,
+                )
+            } else {
+                recipeRepository.createRecipe(
+                    itemId = s.recipeSelectedItemId,
+                    name = s.recipeName,
+                    description = s.recipeDescription.ifBlank { null },
+                    yieldQuantity = yieldQty,
+                    yieldUnit = s.recipeYieldUnit,
+                    ingredients = ingredients,
+                )
+            }
+
+            result.onSuccess {
+                _uiState.update { it.copy(recipeSaving = false, showRecipeSheet = false) }
+                loadRecipes()
+            }.onFailure { e ->
+                _uiState.update { it.copy(recipeSaving = false, error = e.message) }
             }
         }
     }

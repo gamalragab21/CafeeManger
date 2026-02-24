@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -63,8 +64,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -73,11 +77,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -162,11 +168,17 @@ fun StockScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = viewModel::showAddDialog,
-                containerColor = MaterialTheme.colorScheme.primary,
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Stock")
+            if (uiState.selectedTab != 3) { // No FAB on transactions tab
+                FloatingActionButton(
+                    onClick = {
+                        if (uiState.selectedTab == 4) viewModel.showAddRecipeSheet()
+                        else viewModel.showAddDialog()
+                    },
+                    containerColor = if (uiState.selectedTab == 4) ChartCyan
+                    else MaterialTheme.colorScheme.primary,
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add")
+                }
             }
         },
     ) { padding ->
@@ -196,6 +208,9 @@ fun StockScreen(
                 onConfirm = viewModel::confirmDelete,
                 onDismiss = viewModel::dismissDeleteDialog,
             )
+        }
+        if (uiState.showRecipeSheet) {
+            AddEditRecipeBottomSheet(uiState = uiState, viewModel = viewModel)
         }
     }
 }
@@ -1639,6 +1654,15 @@ private fun RecipesTab(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = viewModel::showAddRecipeSheet,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(Res.string.add_recipe))
+                }
             }
         }
     } else {
@@ -1649,6 +1673,7 @@ private fun RecipesTab(
             items(uiState.recipes, key = { it.id }) { recipe ->
                 RecipeCard(
                     recipe = recipe,
+                    onEdit = { viewModel.showEditRecipeSheet(recipe) },
                     onDelete = { viewModel.deleteRecipe(recipe.id) },
                 )
             }
@@ -1659,6 +1684,7 @@ private fun RecipesTab(
 @Composable
 private fun RecipeCard(
     recipe: net.marllex.waselak.core.model.Recipe,
+    onEdit: () -> Unit = {},
     onDelete: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1781,11 +1807,18 @@ private fun RecipeCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Delete button
+            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = "Edit Recipe",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Filled.Delete,
@@ -1843,6 +1876,487 @@ private fun RecipeIngredientRow(ingredient: net.marllex.waselak.core.model.Recip
                 style = MaterialTheme.typography.labelSmall,
                 color = if (hasEnough) StockHealthy else StockOut,
             )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Add/Edit Recipe BottomSheet
+// ═══════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun AddEditRecipeBottomSheet(
+    uiState: StockViewModel.UiState,
+    viewModel: StockViewModel,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isEditing = uiState.editingRecipe != null
+
+    val isFormValid = uiState.recipeSelectedItemId.isNotBlank() &&
+        uiState.recipeName.isNotBlank() &&
+        (uiState.recipeYieldQuantity.toDoubleOrNull() ?: 0.0) > 0 &&
+        uiState.recipeIngredients.any {
+            it.stockId.isNotBlank() && (it.quantity.toDoubleOrNull() ?: 0.0) > 0
+        }
+
+    ModalBottomSheet(
+        onDismissRequest = viewModel::dismissRecipeSheet,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(ChartCyan.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Receipt,
+                        contentDescription = null,
+                        tint = ChartCyan,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (isEditing) stringResource(Res.string.edit_recipe)
+                    else stringResource(Res.string.add_recipe),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Scrollable content
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // Menu Item selector
+                item {
+                    RecipeMenuItemSelector(uiState, viewModel, isEditing)
+                }
+
+                // Recipe name
+                item {
+                    OutlinedTextField(
+                        value = uiState.recipeName,
+                        onValueChange = viewModel::updateRecipeName,
+                        label = { Text(stringResource(Res.string.recipe_name)) },
+                        placeholder = { Text(stringResource(Res.string.recipe_name_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+
+                // Description
+                item {
+                    OutlinedTextField(
+                        value = uiState.recipeDescription,
+                        onValueChange = viewModel::updateRecipeDescription,
+                        label = { Text(stringResource(Res.string.recipe_description)) },
+                        placeholder = { Text(stringResource(Res.string.recipe_description_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        maxLines = 3,
+                    )
+                }
+
+                // Yield section
+                item {
+                    RecipeYieldSection(uiState, viewModel)
+                }
+
+                // Ingredients header
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.recipe_ingredients),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        TextButton(onClick = viewModel::addRecipeIngredient) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(Res.string.add_ingredient))
+                        }
+                    }
+                }
+
+                // Ingredient forms
+                itemsIndexed(uiState.recipeIngredients) { index, ingredient ->
+                    RecipeIngredientFormCard(
+                        index = index,
+                        form = ingredient,
+                        stockItems = uiState.stockItems,
+                        canRemove = uiState.recipeIngredients.size > 1,
+                        onSelectStock = { stock -> viewModel.selectIngredientStock(index, stock) },
+                        onUpdateQuantity = { qty ->
+                            viewModel.updateRecipeIngredient(index, ingredient.copy(quantity = qty))
+                        },
+                        onUpdateUnit = { unit ->
+                            viewModel.updateRecipeIngredient(index, ingredient.copy(unit = unit))
+                        },
+                        onRemove = { viewModel.removeRecipeIngredient(index) },
+                    )
+                }
+
+                // Bottom spacer
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
+            }
+
+            // Sticky bottom action bar
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::dismissRecipeSheet,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                    Button(
+                        onClick = viewModel::saveRecipe,
+                        enabled = !uiState.recipeSaving && isFormValid,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(
+                            if (uiState.recipeSaving) stringResource(Res.string.saving)
+                            else stringResource(Res.string.save)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecipeMenuItemSelector(
+    uiState: StockViewModel.UiState,
+    viewModel: StockViewModel,
+    isEditing: Boolean,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(Res.string.recipe_menu_item),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        if (isEditing) {
+            // Read-only in edit mode
+            OutlinedTextField(
+                value = uiState.recipeSelectedItemName,
+                onValueChange = {},
+                readOnly = true,
+                enabled = false,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                label = { Text(stringResource(Res.string.select_item)) },
+            )
+        } else {
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
+            ) {
+                OutlinedTextField(
+                    value = uiState.recipeSelectedItemName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(Res.string.select_item)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    uiState.availableItems.forEach { item ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(item.name, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        CurrencyFormatter.formatDecimal(item.price),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
+                            onClick = {
+                                viewModel.selectRecipeItem(item)
+                                expanded = false
+                            },
+                        )
+                    }
+                    if (uiState.availableItems.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.no_menu_items)) },
+                            onClick = { expanded = false },
+                            enabled = false,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecipeYieldSection(
+    uiState: StockViewModel.UiState,
+    viewModel: StockViewModel,
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.recipe_yield_section),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = uiState.recipeYieldQuantity,
+                    onValueChange = viewModel::updateRecipeYieldQuantity,
+                    label = { Text(stringResource(Res.string.quantity)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            Text(
+                text = stringResource(Res.string.unit),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "DOZEN", "BOX", "BAG", "BOTTLE", "CAN", "PACK")
+                unitKeys.forEach { unitKey ->
+                    FilterChip(
+                        selected = uiState.recipeYieldUnit == unitKey,
+                        onClick = { viewModel.updateRecipeYieldUnit(unitKey) },
+                        label = { Text(getLocalizedUnit(unitKey)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ChartCyan,
+                            selectedLabelColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecipeIngredientFormCard(
+    index: Int,
+    form: RecipeIngredientForm,
+    stockItems: List<Stock>,
+    canRemove: Boolean,
+    onSelectStock: (Stock) -> Unit,
+    onUpdateQuantity: (String) -> Unit,
+    onUpdateUnit: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var stockDropdownExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Header row with number and remove button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(ChartCyan.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "${index + 1}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ChartCyan,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(Res.string.ingredient_label),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (canRemove) {
+                    IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Remove",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+
+            // Stock item selector
+            ExposedDropdownMenuBox(
+                expanded = stockDropdownExpanded,
+                onExpandedChange = { stockDropdownExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = form.stockName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(Res.string.select_stock_item)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = stockDropdownExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+                ExposedDropdownMenu(
+                    expanded = stockDropdownExpanded,
+                    onDismissRequest = { stockDropdownExpanded = false },
+                ) {
+                    stockItems.forEach { stock ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(stock.itemName, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        "${stock.quantity} ${getLocalizedUnit(stock.unit)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onSelectStock(stock)
+                                stockDropdownExpanded = false
+                            },
+                        )
+                    }
+                    if (stockItems.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.no_stock_items_hint)) },
+                            onClick = { stockDropdownExpanded = false },
+                            enabled = false,
+                        )
+                    }
+                }
+            }
+
+            // Quantity and Unit row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = form.quantity,
+                    onValueChange = onUpdateQuantity,
+                    label = { Text(stringResource(Res.string.quantity)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                )
+                OutlinedTextField(
+                    value = getLocalizedUnit(form.unit),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(Res.string.unit)) },
+                    modifier = Modifier.weight(0.6f),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = false,
+                )
+            }
         }
     }
 }

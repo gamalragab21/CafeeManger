@@ -86,4 +86,19 @@
     <string name="recipe_ingredients_count">Ingredients</string>
     <string name="recipe_cost">Cost</string>
     <string name="recipe_ingredients">Ingredients</string>
+
+    <!-- Recipe Form -->
+    <string name="add_recipe">Add Recipe</string>
+    <string name="edit_recipe">Edit Recipe</string>
+    <string name="recipe_name">Recipe Name</string>
+    <string name="recipe_name_hint">e.g. Cappuccino Recipe</string>
+    <string name="recipe_description">Description (Optional)</string>
+    <string name="recipe_description_hint">How to prepare this item…</string>
+    <string name="recipe_yield_section">Yield Per Serving</string>
+    <string name="recipe_menu_item">Menu Item</string>
+    <string name="add_ingredient">Add</string>
+    <string name="ingredient_label">Ingredient</string>
+    <string name="select_stock_item">Select Stock Item</string>
+    <string name="no_menu_items">No menu items available</string>
+    <string name="no_stock_items_hint">Add stock items first</string>
 </resources>
