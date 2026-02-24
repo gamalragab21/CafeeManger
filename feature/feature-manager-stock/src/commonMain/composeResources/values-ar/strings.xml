@@ -86,4 +86,19 @@
     <string name="recipe_ingredients_count">المكونات</string>
     <string name="recipe_cost">التكلفة</string>
     <string name="recipe_ingredients">المكونات</string>
+
+    <!-- Recipe Form -->
+    <string name="add_recipe">إضافة وصفة</string>
+    <string name="edit_recipe">تعديل الوصفة</string>
+    <string name="recipe_name">اسم الوصفة</string>
+    <string name="recipe_name_hint">مثال: وصفة الكابتشينو</string>
+    <string name="recipe_description">الوصف (اختياري)</string>
+    <string name="recipe_description_hint">كيفية تحضير هذا الصنف…</string>
+    <string name="recipe_yield_section">الناتج لكل حصة</string>
+    <string name="recipe_menu_item">صنف القائمة</string>
+    <string name="add_ingredient">إضافة</string>
+    <string name="ingredient_label">مكون</string>
+    <string name="select_stock_item">اختر صنف المخزون</string>
+    <string name="no_menu_items">لا توجد أصناف قائمة</string>
+    <string name="no_stock_items_hint">أضف أصناف المخزون أولاً</string>
 </resources>
