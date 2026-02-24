@@ -101,4 +101,5 @@
     <string name="select_stock_item">Select Stock Item</string>
     <string name="no_menu_items">No menu items available</string>
     <string name="no_stock_items_hint">Add stock items first</string>
+    <string name="all_items_have_recipes">All menu items already have recipes</string>
 </resources>

@@ -92,6 +92,7 @@ class StockViewModel constructor(
         val recipeYieldUnit: String = "PIECE",
         val recipeIngredients: List<RecipeIngredientForm> = emptyList(),
         val recipeSaving: Boolean = false,
+        val recipeError: String? = null,
     ) {
         val filteredStockItems: List<Stock>
             get() = if (searchQuery.isBlank()) stockItems
@@ -119,6 +120,13 @@ class StockViewModel constructor(
         // Stats for independent vs menu items
         val menuItemsCount: Int get() = stockItems.count { it.isMenuItem }
         val independentItemsCount: Int get() = stockItems.count { !it.isMenuItem }
+
+        // Items that don't have a recipe yet (for recipe creation dropdown)
+        val itemsWithoutRecipe: List<Item>
+            get() {
+                val itemIdsWithRecipe = recipes.map { it.itemId }.toSet()
+                return availableItems.filter { it.id !in itemIdsWithRecipe }
+            }
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -413,6 +421,7 @@ class StockViewModel constructor(
                 recipeYieldUnit = "PIECE",
                 recipeIngredients = listOf(RecipeIngredientForm()),
                 recipeSaving = false,
+                recipeError = null,
             )
         }
     }
@@ -437,6 +446,7 @@ class StockViewModel constructor(
                     )
                 }.ifEmpty { listOf(RecipeIngredientForm()) },
                 recipeSaving = false,
+                recipeError = null,
             )
         }
     }
@@ -545,10 +555,10 @@ class StockViewModel constructor(
             }
 
             result.onSuccess {
-                _uiState.update { it.copy(recipeSaving = false, showRecipeSheet = false) }
+                _uiState.update { it.copy(recipeSaving = false, showRecipeSheet = false, recipeError = null) }
                 loadRecipes()
             }.onFailure { e ->
-                _uiState.update { it.copy(recipeSaving = false, error = e.message) }
+                _uiState.update { it.copy(recipeSaving = false, recipeError = e.message) }
             }
         }
     }

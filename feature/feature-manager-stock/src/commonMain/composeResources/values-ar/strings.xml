@@ -101,4 +101,5 @@
     <string name="select_stock_item">اختر صنف المخزون</string>
     <string name="no_menu_items">لا توجد أصناف قائمة</string>
     <string name="no_stock_items_hint">أضف أصناف المخزون أولاً</string>
+    <string name="all_items_have_recipes">جميع الأصناف لديها وصفات بالفعل</string>
 </resources>
