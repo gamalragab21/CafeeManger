@@ -27,6 +27,22 @@ data class RecipeIngredientForm(
     val baseUnit: String = "PIECE",
 )
 
+/**
+ * Smart baseUnit inference: derives the category's base unit from any unit in that category.
+ * - Weight: GRAM, KILOGRAM → GRAM
+ * - Volume: MILLILITER, LITER → MILLILITER
+ * - Count: PIECE, DOZEN → PIECE
+ * - Package: BOX, BAG, BOTTLE, CAN, PACK → itself (each is its own base)
+ */
+private fun inferBaseUnit(unit: String): String {
+    return when (unit.uppercase()) {
+        "GRAM", "KILOGRAM" -> "GRAM"
+        "MILLILITER", "LITER" -> "MILLILITER"
+        "PIECE", "DOZEN" -> "PIECE"
+        else -> unit.uppercase()
+    }
+}
+
 class StockViewModel constructor(
     private val stockRepository: StockRepository,
     private val itemRepository: ItemRepository,
@@ -260,6 +276,8 @@ class StockViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
 
+            val smartBaseUnit = inferBaseUnit(s.dialogUnit)
+
             val result = if (s.editingStock != null) {
                 stockRepository.updateStockItem(
                     id = s.editingStock.id,
@@ -268,6 +286,7 @@ class StockViewModel constructor(
                     minQuantity = minQuantity,
                     costPrice = costPrice,
                     unit = s.dialogUnit,
+                    baseUnit = smartBaseUnit,
                     alertEnabled = s.dialogAlertEnabled,
                 )
             } else {
@@ -278,6 +297,7 @@ class StockViewModel constructor(
                     minQuantity = minQuantity,
                     costPrice = costPrice,
                     unit = s.dialogUnit,
+                    baseUnit = smartBaseUnit,
                     alertEnabled = s.dialogAlertEnabled,
                 )
             }

@@ -1247,20 +1247,84 @@ private fun AddEditStockDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                // Unit selector
+                // Unit selector — grouped by category for clarity
                 Text(stringResource(Res.string.unit), style = MaterialTheme.typography.labelMedium)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "DOZEN", "BOX", "BAG", "BOTTLE", "CAN", "PACK")
-                    unitKeys.forEach { unitKey ->
+
+                // Weight units
+                Text(
+                    text = "⚖ ${stringResource(Res.string.unit_category_weight)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("GRAM", "KILOGRAM").forEach { unitKey ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
                             onClick = { viewModel.updateDialogUnit(unitKey) },
                             label = { Text(getLocalizedUnit(unitKey)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+
+                // Volume units
+                Text(
+                    text = "💧 ${stringResource(Res.string.unit_category_volume)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("MILLILITER", "LITER").forEach { unitKey ->
+                        FilterChip(
+                            selected = uiState.dialogUnit == unitKey,
+                            onClick = { viewModel.updateDialogUnit(unitKey) },
+                            label = { Text(getLocalizedUnit(unitKey)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+
+                // Count units
+                Text(
+                    text = "🔢 ${stringResource(Res.string.unit_category_count)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("PIECE", "DOZEN").forEach { unitKey ->
+                        FilterChip(
+                            selected = uiState.dialogUnit == unitKey,
+                            onClick = { viewModel.updateDialogUnit(unitKey) },
+                            label = { Text(getLocalizedUnit(unitKey)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                    }
+                }
+
+                // Package units
+                Text(
+                    text = "📦 ${stringResource(Res.string.unit_category_package)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("BOX", "BAG", "BOTTLE", "CAN", "PACK").forEach { unitKey ->
+                        FilterChip(
+                            selected = uiState.dialogUnit == unitKey,
+                            onClick = { viewModel.updateDialogUnit(unitKey) },
+                            label = { Text(getLocalizedUnit(unitKey)) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
                             ),
                         )
                     }

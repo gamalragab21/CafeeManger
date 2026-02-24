@@ -194,6 +194,11 @@ fun Route.stockRoutes() {
                 val vendorUUID = UUID.fromString(principal.vendorId)
                 val now = Clock.System.now()
 
+                // Smart baseUnit inference: derive from the selected unit's category base
+                val parsedUnit = StockUnit.fromString(request.unit)
+                val inferredBaseUnit = parsedUnit?.resolvedBaseUnit?.name ?: request.base_unit
+                val inferredConversionRate = parsedUnit?.toBaseRate ?: request.conversion_rate
+
                 val isMenuLinked = request.item_id != null
                 val itemUUID = request.item_id?.let { UUID.fromString(it) }
                 val finalItemName: String
@@ -245,8 +250,8 @@ fun Route.stockRoutes() {
                     it[minQuantity] = BigDecimal.valueOf(request.min_quantity)
                     it[costPrice] = BigDecimal.valueOf(request.cost_price)
                     it[unit] = request.unit
-                    it[baseUnit] = request.base_unit
-                    it[conversionRate] = BigDecimal.valueOf(request.conversion_rate)
+                    it[baseUnit] = inferredBaseUnit
+                    it[conversionRate] = BigDecimal.valueOf(inferredConversionRate)
                     it[isMenuItem] = isMenuLinked
                     it[alertEnabled] = request.alert_enabled
                     it[createdAt] = now
@@ -293,6 +298,14 @@ fun Route.stockRoutes() {
                     throw IllegalStateException("Cannot rename menu-linked stock items")
                 }
 
+                // Smart baseUnit inference: when unit changes, auto-update baseUnit
+                val effectiveBaseUnit = request.unit?.let { newUnit ->
+                    StockUnit.fromString(newUnit)?.resolvedBaseUnit?.name
+                } ?: request.base_unit
+                val effectiveConversionRate = request.unit?.let { newUnit ->
+                    StockUnit.fromString(newUnit)?.toBaseRate
+                } ?: request.conversion_rate
+
                 StockTable.update({
                     (StockTable.id eq stockUUID) and
                     (StockTable.vendorId eq vendorUUID)
@@ -302,8 +315,8 @@ fun Route.stockRoutes() {
                     request.min_quantity?.let { stmt[minQuantity] = BigDecimal.valueOf(it) }
                     request.cost_price?.let { stmt[costPrice] = BigDecimal.valueOf(it) }
                     request.unit?.let { stmt[unit] = it }
-                    request.base_unit?.let { stmt[baseUnit] = it }
-                    request.conversion_rate?.let { stmt[conversionRate] = BigDecimal.valueOf(it) }
+                    effectiveBaseUnit?.let { stmt[baseUnit] = it }
+                    effectiveConversionRate?.let { stmt[conversionRate] = BigDecimal.valueOf(it) }
                     request.alert_enabled?.let { stmt[alertEnabled] = it }
                     stmt[updatedAt] = now
                 }

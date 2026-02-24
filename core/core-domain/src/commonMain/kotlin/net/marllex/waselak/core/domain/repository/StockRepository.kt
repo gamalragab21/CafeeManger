@@ -35,6 +35,7 @@ interface StockRepository {
         minQuantity: Double? = null,
         costPrice: Double? = null,
         unit: String? = null,
+        baseUnit: String? = null,
         alertEnabled: Boolean? = null,
     ): Result<Stock>
 

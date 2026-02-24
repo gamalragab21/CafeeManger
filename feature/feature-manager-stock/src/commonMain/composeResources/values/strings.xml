@@ -56,6 +56,12 @@
     <string name="unit_can">can</string>
     <string name="unit_packs">packs</string>
 
+    <!-- Unit Categories -->
+    <string name="unit_category_weight">Weight</string>
+    <string name="unit_category_volume">Volume</string>
+    <string name="unit_category_count">Count</string>
+    <string name="unit_category_package">Package</string>
+
     <!-- Independent Stock Items -->
     <string name="item_type">Item Type</string>
     <string name="menu_item">Menu Item</string>
@@ -75,6 +81,8 @@
     <string name="stock_sale_direct">Sale (Direct)</string>
     <string name="stock_sale_recipe">Sale (Recipe)</string>
     <string name="stock_returned">Returned</string>
+    <string name="stock_waste">Waste</string>
+    <string name="stock_transfer">Transfer</string>
 
     <!-- Recipes Tab -->
     <string name="recipes">Recipes</string>
