@@ -17,10 +17,14 @@ enum class StockUnit(
     // Volume (base: MILLILITER)
     MILLILITER(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.VOLUME),
     LITER(baseUnit = MILLILITER, toBaseRate = 1000.0, category = UnitCategory.VOLUME),
+    CUP(baseUnit = MILLILITER, toBaseRate = 240.0, category = UnitCategory.VOLUME),
+    TABLESPOON(baseUnit = MILLILITER, toBaseRate = 15.0, category = UnitCategory.VOLUME),
+    TEASPOON(baseUnit = MILLILITER, toBaseRate = 5.0, category = UnitCategory.VOLUME),
 
     // Count (base: PIECE)
     PIECE(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.COUNT),
     DOZEN(baseUnit = PIECE, toBaseRate = 12.0, category = UnitCategory.COUNT),
+    PLATE(baseUnit = PIECE, toBaseRate = 1.0, category = UnitCategory.COUNT),
 
     // Package (each is its own base — no cross-conversion)
     BOX(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
@@ -28,6 +32,11 @@ enum class StockUnit(
     BOTTLE(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
     CAN(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
     PACK(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
+    CARTON(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
+    SACK(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
+    TRAY(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
+    BUCKET(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
+    ROLL(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE),
     ;
 
     val isBaseUnit: Boolean get() = baseUnit == null

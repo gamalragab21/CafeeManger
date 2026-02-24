@@ -136,6 +136,34 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             available_quantity REAL NOT NULL DEFAULT 0.0,
             FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
         )""",
+        // v10: Recipe status field (active → status) — drop & recreate since column type changed
+        "DROP TABLE IF EXISTS recipe_ingredients",
+        "DROP TABLE IF EXISTS recipes",
+        """CREATE TABLE IF NOT EXISTS recipes (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            yield_quantity REAL NOT NULL DEFAULT 1.0,
+            yield_unit TEXT NOT NULL DEFAULT 'PIECE',
+            status TEXT NOT NULL DEFAULT 'ACTIVE',
+            total_cost REAL NOT NULL DEFAULT 0.0,
+            created_at INTEGER,
+            updated_at INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS recipe_ingredients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipe_id TEXT NOT NULL,
+            stock_id TEXT NOT NULL,
+            stock_item_name TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            unit TEXT NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            available_quantity REAL NOT NULL DEFAULT 0.0,
+            FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+        )""",
     )
     migrations.forEach { sql ->
         try {

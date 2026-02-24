@@ -18,10 +18,14 @@ enum class StockUnit(
     // Volume (base: MILLILITER)
     MILLILITER(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.VOLUME, displayName = "ml", displayNameAr = "مل"),
     LITER(baseUnit = MILLILITER, toBaseRate = 1000.0, category = UnitCategory.VOLUME, displayName = "L", displayNameAr = "لتر"),
+    CUP(baseUnit = MILLILITER, toBaseRate = 240.0, category = UnitCategory.VOLUME, displayName = "cup", displayNameAr = "كوب"),
+    TABLESPOON(baseUnit = MILLILITER, toBaseRate = 15.0, category = UnitCategory.VOLUME, displayName = "tbsp", displayNameAr = "م.ك"),
+    TEASPOON(baseUnit = MILLILITER, toBaseRate = 5.0, category = UnitCategory.VOLUME, displayName = "tsp", displayNameAr = "م.ص"),
 
     // Count (base: PIECE)
     PIECE(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.COUNT, displayName = "pcs", displayNameAr = "قطعة"),
     DOZEN(baseUnit = PIECE, toBaseRate = 12.0, category = UnitCategory.COUNT, displayName = "dozen", displayNameAr = "دزينة"),
+    PLATE(baseUnit = PIECE, toBaseRate = 1.0, category = UnitCategory.COUNT, displayName = "plate", displayNameAr = "طبق"),
 
     // Package (each is its own base)
     BOX(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "box", displayNameAr = "صندوق"),
@@ -29,6 +33,11 @@ enum class StockUnit(
     BOTTLE(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "bottle", displayNameAr = "زجاجة"),
     CAN(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "can", displayNameAr = "علبة"),
     PACK(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "pack", displayNameAr = "عبوة"),
+    CARTON(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "carton", displayNameAr = "كرتونة"),
+    SACK(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "sack", displayNameAr = "شوال"),
+    TRAY(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "tray", displayNameAr = "صينية"),
+    BUCKET(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "bucket", displayNameAr = "جردل"),
+    ROLL(baseUnit = null, toBaseRate = 1.0, category = UnitCategory.PACKAGE, displayName = "roll", displayNameAr = "رول"),
     ;
 
     val isBaseUnit: Boolean get() = baseUnit == null
