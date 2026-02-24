@@ -2049,30 +2049,55 @@ private fun AddEditRecipeBottomSheet(
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp,
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .navigationBarsPadding(),
                 ) {
-                    OutlinedButton(
-                        onClick = viewModel::dismissRecipeSheet,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text(stringResource(Res.string.cancel))
+                    // Error message
+                    uiState.recipeError?.let { errorMsg ->
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = errorMsg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(12.dp),
+                            )
+                        }
                     }
-                    Button(
-                        onClick = viewModel::saveRecipe,
-                        enabled = !uiState.recipeSaving && isFormValid,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(
-                            if (uiState.recipeSaving) stringResource(Res.string.saving)
-                            else stringResource(Res.string.save)
-                        )
+                        OutlinedButton(
+                            onClick = viewModel::dismissRecipeSheet,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                        Button(
+                            onClick = viewModel::saveRecipe,
+                            enabled = !uiState.recipeSaving && isFormValid,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(
+                                if (uiState.recipeSaving) stringResource(Res.string.saving)
+                                else stringResource(Res.string.save)
+                            )
+                        }
                     }
                 }
             }
@@ -2128,7 +2153,7 @@ private fun RecipeMenuItemSelector(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
                 ) {
-                    uiState.availableItems.forEach { item ->
+                    uiState.itemsWithoutRecipe.forEach { item ->
                         DropdownMenuItem(
                             text = {
                                 Column {
@@ -2146,9 +2171,9 @@ private fun RecipeMenuItemSelector(
                             },
                         )
                     }
-                    if (uiState.availableItems.isEmpty()) {
+                    if (uiState.itemsWithoutRecipe.isEmpty()) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.no_menu_items)) },
+                            text = { Text(stringResource(Res.string.all_items_have_recipes)) },
                             onClick = { expanded = false },
                             enabled = false,
                         )
