@@ -171,7 +171,7 @@ object RecipesTable : UUIDTable("recipes") {
     val description = text("description").nullable()
     val yieldQuantity = decimal("yield_quantity", 10, 3).default(java.math.BigDecimal.ONE) // Servings per recipe
     val yieldUnit = varchar("yield_unit", 50).default("PIECE")
-    val active = bool("active").default(true)
+    val status = varchar("status", 20).default("ACTIVE") // DRAFT, ACTIVE, ARCHIVED
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 

@@ -94,7 +94,7 @@ class RecipeRepositoryImpl(
         description: String?,
         yieldQuantity: Double?,
         yieldUnit: String?,
-        active: Boolean?,
+        status: String?,
         ingredients: List<IngredientInput>?,
     ): Result<Recipe> = runCatching {
         val response = api.updateRecipe(
@@ -104,7 +104,7 @@ class RecipeRepositoryImpl(
                 description = description,
                 yieldQuantity = yieldQuantity,
                 yieldUnit = yieldUnit,
-                active = active,
+                status = status,
                 ingredients = ingredients?.map {
                     CreateRecipeIngredientRequest(
                         stockId = it.stockId,

@@ -12,12 +12,16 @@ data class Recipe(
     val description: String? = null,
     val yieldQuantity: Double = 1.0,
     val yieldUnit: String = "PIECE",
-    val active: Boolean = true,
+    val status: String = "ACTIVE", // DRAFT, ACTIVE, ARCHIVED
     val ingredients: List<RecipeIngredient> = emptyList(),
     val totalCost: Double = 0.0,
     val createdAt: Long? = null,
     val updatedAt: Long? = null,
-)
+) {
+    val isActive: Boolean get() = status == "ACTIVE"
+    val isDraft: Boolean get() = status == "DRAFT"
+    val isArchived: Boolean get() = status == "ARCHIVED"
+}
 
 @Serializable
 data class RecipeIngredient(

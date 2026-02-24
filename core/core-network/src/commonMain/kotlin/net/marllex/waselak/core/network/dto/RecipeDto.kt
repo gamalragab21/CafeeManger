@@ -13,7 +13,7 @@ data class RecipeResponse(
     val description: String? = null,
     @SerialName("yield_quantity") val yieldQuantity: Double = 1.0,
     @SerialName("yield_unit") val yieldUnit: String = "PIECE",
-    val active: Boolean = true,
+    val status: String = "ACTIVE",
     val ingredients: List<RecipeIngredientResponse> = emptyList(),
     @SerialName("total_cost") val totalCost: Double = 0.0,
     @SerialName("created_at") val createdAt: Long? = null,
@@ -54,7 +54,7 @@ data class UpdateRecipeRequest(
     val description: String? = null,
     @SerialName("yield_quantity") val yieldQuantity: Double? = null,
     @SerialName("yield_unit") val yieldUnit: String? = null,
-    val active: Boolean? = null,
+    val status: String? = null,
     val ingredients: List<CreateRecipeIngredientRequest>? = null,
 )
 

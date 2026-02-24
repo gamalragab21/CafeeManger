@@ -38,16 +38,16 @@ data class StockTransaction(
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
     val newQuantity: Double get() = when (type) {
-        StockTransactionType.ADD, StockTransactionType.PURCHASE -> previousQuantity + quantity
-        StockTransactionType.DEDUCT, StockTransactionType.SALE_DIRECT, StockTransactionType.SALE_RECIPE -> (previousQuantity - quantity).coerceAtLeast(0.0)
+        StockTransactionType.ADD, StockTransactionType.PURCHASE, StockTransactionType.RETURN -> previousQuantity + quantity
+        StockTransactionType.DEDUCT, StockTransactionType.SALE_DIRECT, StockTransactionType.SALE_RECIPE,
+        StockTransactionType.WASTE, StockTransactionType.TRANSFER -> (previousQuantity - quantity).coerceAtLeast(0.0)
         StockTransactionType.ADJUST -> quantity
-        StockTransactionType.RETURN -> previousQuantity + quantity
     }
 }
 
 @Serializable
 enum class StockTransactionType {
-    ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
+    ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, WASTE, TRANSFER
 }
 
 data class StockSummary(
