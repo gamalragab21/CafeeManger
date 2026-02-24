@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Storefront
@@ -42,7 +41,7 @@ import org.koin.compose.viewmodel.koinViewModel
 // ══════════════════════════════════════════════════════════════════════
 
 @Composable
-fun BrandedTopBar(uiState: HomeDashboardUiState, onOpenDrawer: () -> Unit = {}) {
+fun BrandedTopBar(uiState: HomeDashboardUiState) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -51,21 +50,10 @@ fun BrandedTopBar(uiState: HomeDashboardUiState, onOpenDrawer: () -> Unit = {}) 
         Row(
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Drawer Menu
-            IconButton(onClick = onOpenDrawer) {
-                Icon(
-                    Icons.Filled.Menu,
-                    contentDescription = "Menu",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
             // Logo
             val logoUrl = uiState.vendor?.logoUrl
             Box(
@@ -130,7 +118,6 @@ fun BrandedTopBar(uiState: HomeDashboardUiState, onOpenDrawer: () -> Unit = {}) 
 fun ModernDashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     onNavigateToChatbot: () -> Unit = {},
-    onOpenDrawer: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -143,7 +130,7 @@ fun ModernDashboardScreen(
     }
 
     Scaffold(
-        topBar = { BrandedTopBar(uiState, onOpenDrawer) },
+        topBar = { BrandedTopBar(uiState) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
