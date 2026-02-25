@@ -206,7 +206,7 @@ fun StockScreen(
 
         // Dialogs
         if (uiState.showAddDialog) {
-            AddEditStockDialog(uiState = uiState, viewModel = viewModel)
+            AddEditStockBottomSheet(uiState = uiState, viewModel = viewModel)
         }
         if (uiState.showQuantityDialog) {
             QuantityDialog(uiState = uiState, viewModel = viewModel)
@@ -1064,14 +1064,14 @@ private fun AlertItemCard(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun AddEditStockDialog(
+private fun AddEditStockBottomSheet(
     uiState: StockViewModel.UiState,
     viewModel: StockViewModel,
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isEditing = uiState.editingStock != null
     var itemDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Check if form is valid
     val isFormValid = if (uiState.dialogIsIndependent) {
         uiState.dialogCustomItemName.isNotBlank() &&
         uiState.dialogQuantity.isNotBlank() &&
@@ -1082,250 +1082,350 @@ private fun AddEditStockDialog(
         uiState.dialogCostPrice.isNotBlank()
     }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = viewModel::dismissAddDialog,
-        title = {
-            Text(
-                if (isEditing) stringResource(Res.string.edit_stock)
-                else stringResource(Res.string.add_stock)
-            )
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Inventory,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (isEditing) stringResource(Res.string.edit_stock)
+                    else stringResource(Res.string.add_stock),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Scrollable content
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 // Mode selector (only for new items)
                 if (!isEditing) {
-                    Text(
-                        text = stringResource(Res.string.item_type),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = !uiState.dialogIsIndependent,
-                            onClick = { viewModel.toggleDialogMode(false) },
-                            label = { Text(stringResource(Res.string.menu_item)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface
-                            ),
-                            modifier = Modifier.weight(1f),
+                    item {
+                        Text(
+                            text = stringResource(Res.string.item_type),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        FilterChip(
-                            selected = uiState.dialogIsIndependent,
-                            onClick = { viewModel.toggleDialogMode(true) },
-                            label = { Text(stringResource(Res.string.independent_item)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface
-                            ),
-                            modifier = Modifier.weight(1f),
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = !uiState.dialogIsIndependent,
+                                onClick = { viewModel.toggleDialogMode(false) },
+                                label = { Text(stringResource(Res.string.menu_item)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
+                            FilterChip(
+                                selected = uiState.dialogIsIndependent,
+                                onClick = { viewModel.toggleDialogMode(true) },
+                                label = { Text(stringResource(Res.string.independent_item)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                // Item selector or Text input based on mode
-                if (!isEditing) {
-                    if (uiState.dialogIsIndependent) {
-                        // Text input for independent items
-                        OutlinedTextField(
-                            value = uiState.dialogCustomItemName,
-                            onValueChange = viewModel::updateDialogCustomItemName,
-                            label = { Text(stringResource(Res.string.item_name)) },
-                            placeholder = { Text(stringResource(Res.string.enter_item_name)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                // Item selector or Text input
+                item {
+                    if (!isEditing) {
+                        if (uiState.dialogIsIndependent) {
+                            OutlinedTextField(
+                                value = uiState.dialogCustomItemName,
+                                onValueChange = viewModel::updateDialogCustomItemName,
+                                label = { Text(stringResource(Res.string.item_name)) },
+                                placeholder = { Text(stringResource(Res.string.enter_item_name)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                        } else {
+                            ExposedDropdownMenuBox(
+                                expanded = itemDropdownExpanded,
+                                onExpandedChange = { itemDropdownExpanded = it },
+                            ) {
+                                OutlinedTextField(
+                                    value = uiState.dialogSelectedItemName,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(stringResource(Res.string.select_item)) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemDropdownExpanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = itemDropdownExpanded,
+                                    onDismissRequest = { itemDropdownExpanded = false },
+                                ) {
+                                    uiState.unTrackedItems.forEach { item ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(item.name, fontWeight = FontWeight.Medium)
+                                                    Text(
+                                                        "Price: ${CurrencyFormatter.formatDecimal(item.price)}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                viewModel.selectItem(item)
+                                                itemDropdownExpanded = false
+                                            },
+                                        )
+                                    }
+                                    if (uiState.unTrackedItems.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.all_items_tracked)) },
+                                            onClick = { itemDropdownExpanded = false },
+                                            enabled = false,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     } else {
-                        // Dropdown for menu items
-                        ExposedDropdownMenuBox(
-                            expanded = itemDropdownExpanded,
-                            onExpandedChange = { itemDropdownExpanded = it },
-                        ) {
+                        if (uiState.editingStock?.isMenuItem == false) {
+                            OutlinedTextField(
+                                value = uiState.dialogCustomItemName,
+                                onValueChange = viewModel::updateDialogCustomItemName,
+                                label = { Text(stringResource(Res.string.item_name)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                        } else {
                             OutlinedTextField(
                                 value = uiState.dialogSelectedItemName,
                                 onValueChange = {},
                                 readOnly = true,
                                 label = { Text(stringResource(Res.string.select_item)) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemDropdownExpanded) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(),
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = false,
+                                shape = RoundedCornerShape(12.dp),
                             )
-                            ExposedDropdownMenu(
-                                expanded = itemDropdownExpanded,
-                                onDismissRequest = { itemDropdownExpanded = false },
-                            ) {
-                                uiState.unTrackedItems.forEach { item ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(item.name, fontWeight = FontWeight.Medium)
-                                                Text(
-                                                    "Price: ${CurrencyFormatter.formatDecimal(item.price)}",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.selectItem(item)
-                                            itemDropdownExpanded = false
-                                        },
-                                    )
-                                }
-                                if (uiState.unTrackedItems.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.all_items_tracked)) },
-                                        onClick = { itemDropdownExpanded = false },
-                                        enabled = false,
-                                    )
-                                }
-                            }
                         }
                     }
-                } else {
-                    // Editing - show name (editable for independent, readonly for menu)
-                    if (uiState.editingStock?.isMenuItem == false) {
+                }
+
+                // Quantity + Min Quantity side by side
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         OutlinedTextField(
-                            value = uiState.dialogCustomItemName,
-                            onValueChange = viewModel::updateDialogCustomItemName,
-                            label = { Text(stringResource(Res.string.item_name)) },
+                            value = uiState.dialogQuantity,
+                            onValueChange = viewModel::updateDialogQuantity,
+                            label = { Text(stringResource(Res.string.quantity)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
                         )
-                    } else {
                         OutlinedTextField(
-                            value = uiState.dialogSelectedItemName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(Res.string.select_item)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = false,
+                            value = uiState.dialogMinQuantity,
+                            onValueChange = viewModel::updateDialogMinQuantity,
+                            label = { Text(stringResource(Res.string.min_quantity)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
                         )
                     }
                 }
 
-                // Quantity
-                OutlinedTextField(
-                    value = uiState.dialogQuantity,
-                    onValueChange = viewModel::updateDialogQuantity,
-                    label = { Text(stringResource(Res.string.quantity)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                // Min Quantity
-                OutlinedTextField(
-                    value = uiState.dialogMinQuantity,
-                    onValueChange = viewModel::updateDialogMinQuantity,
-                    label = { Text(stringResource(Res.string.min_quantity)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
                 // Cost Price
-                OutlinedTextField(
-                    value = uiState.dialogCostPrice,
-                    onValueChange = viewModel::updateDialogCostPrice,
-                    label = { Text(stringResource(Res.string.cost_price)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                item {
+                    OutlinedTextField(
+                        value = uiState.dialogCostPrice,
+                        onValueChange = viewModel::updateDialogCostPrice,
+                        label = { Text(stringResource(Res.string.cost_price)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
 
-                // Unit selector — grouped by category for clarity
-                Text(stringResource(Res.string.unit), style = MaterialTheme.typography.labelMedium)
-
-                // Unit selector — 4 purchase units
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "KILOGRAM" to "⚖",
-                        "LITER" to "💧",
-                        "PIECE" to "🔢",
-                        "PACK" to "📦",
-                    ).forEach { (unitKey, icon) ->
-                        FilterChip(
-                            selected = uiState.dialogUnit == unitKey,
-                            onClick = { viewModel.updateDialogUnit(unitKey) },
-                            label = { Text("$icon ${getLocalizedUnit(unitKey)}") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface,
-                            ),
-                        )
+                // Unit selector
+                item {
+                    Text(
+                        text = stringResource(Res.string.unit),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            "KILOGRAM" to "⚖",
+                            "LITER" to "💧",
+                            "PIECE" to "🔢",
+                            "PACK" to "📦",
+                        ).forEach { (unitKey, icon) ->
+                            FilterChip(
+                                selected = uiState.dialogUnit == unitKey,
+                                onClick = { viewModel.updateDialogUnit(unitKey) },
+                                label = { Text("$icon ${getLocalizedUnit(unitKey)}") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
+                                ),
+                            )
+                        }
                     }
                 }
 
                 // Alert toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(Res.string.low_stock_alert),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    androidx.compose.material3.Switch(
-                        checked = uiState.dialogAlertEnabled,
-                        onCheckedChange = viewModel::updateDialogAlertEnabled,
-                    )
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.low_stock_alert),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        androidx.compose.material3.Switch(
+                            checked = uiState.dialogAlertEnabled,
+                            onCheckedChange = viewModel::updateDialogAlertEnabled,
+                        )
+                    }
                 }
 
                 // Total value preview
-                val qty = uiState.dialogQuantity.toDoubleOrNull() ?: 0.0
-                val price = uiState.dialogCostPrice.toDoubleOrNull() ?: 0.0
-                if (qty > 0 && price > 0) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = StockHealthy.copy(alpha = 0.1f),
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                item {
+                    val qty = uiState.dialogQuantity.toDoubleOrNull() ?: 0.0
+                    val price = uiState.dialogCostPrice.toDoubleOrNull() ?: 0.0
+                    if (qty > 0 && price > 0) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = StockHealthy.copy(alpha = 0.1f),
+                            ),
+                            shape = RoundedCornerShape(12.dp),
                         ) {
-                            Text(
-                                text = stringResource(Res.string.total_value),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text = CurrencyFormatter.formatDecimal(qty * price),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = StockHealthy,
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.total_value),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Text(
+                                    text = CurrencyFormatter.formatDecimal(qty * price),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StockHealthy,
+                                )
+                            }
                         }
                     }
                 }
+
+                // Bottom spacer
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = viewModel::saveStockItem,
-                enabled = !uiState.isSaving && isFormValid,
+
+            // Sticky bottom action bar
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
             ) {
-                Text(
-                    if (uiState.isSaving) stringResource(Res.string.saving)
-                    else stringResource(Res.string.save)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::dismissAddDialog,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                    Button(
+                        onClick = viewModel::saveStockItem,
+                        enabled = !uiState.isSaving && isFormValid,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(
+                            if (uiState.isSaving) stringResource(Res.string.saving)
+                            else stringResource(Res.string.save)
+                        )
+                    }
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissAddDialog) {
-                Text(stringResource(Res.string.cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable
