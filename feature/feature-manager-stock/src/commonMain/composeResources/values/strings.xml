@@ -43,33 +43,13 @@
     <string name="top_value_items">Top Value Items</string>
     <string name="search_stock">Search stock…</string>
 
-    <!-- Units -->
+    <!-- Units (6-unit system) -->
     <string name="unit_pcs">pcs</string>
     <string name="unit_kg">kg</string>
     <string name="unit_gram">g</string>
-    <string name="unit_liters">liters</string>
+    <string name="unit_liters">L</string>
     <string name="unit_ml">ml</string>
-    <string name="unit_dozen">dozen</string>
-    <string name="unit_boxes">boxes</string>
-    <string name="unit_bag">bag</string>
-    <string name="unit_bottle">bottle</string>
-    <string name="unit_can">can</string>
-    <string name="unit_packs">packs</string>
-    <string name="unit_cup">cup</string>
-    <string name="unit_tablespoon">tbsp</string>
-    <string name="unit_teaspoon">tsp</string>
-    <string name="unit_plate">plate</string>
-    <string name="unit_carton">carton</string>
-    <string name="unit_sack">sack</string>
-    <string name="unit_tray">tray</string>
-    <string name="unit_bucket">bucket</string>
-    <string name="unit_roll">roll</string>
-
-    <!-- Unit Categories -->
-    <string name="unit_category_weight">Weight</string>
-    <string name="unit_category_volume">Volume</string>
-    <string name="unit_category_count">Count</string>
-    <string name="unit_category_package">Package</string>
+    <string name="unit_packs">pack</string>
 
     <!-- Independent Stock Items -->
     <string name="item_type">Item Type</string>
