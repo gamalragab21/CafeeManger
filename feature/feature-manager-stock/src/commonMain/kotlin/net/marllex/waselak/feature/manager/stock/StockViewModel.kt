@@ -76,7 +76,7 @@ class StockViewModel constructor(
         val dialogQuantity: String = "",
         val dialogMinQuantity: String = "5",
         val dialogCostPrice: String = "",
-        val dialogUnit: String = "pcs",
+        val dialogUnit: String = "PIECE",
         val dialogAlertEnabled: Boolean = true,
         val isSaving: Boolean = false,
 
