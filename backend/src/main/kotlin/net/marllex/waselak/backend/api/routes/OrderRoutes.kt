@@ -468,13 +468,13 @@ fun Route.orderRoutes() {
                                             StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                                         }.firstOrNull() ?: continue
                                         val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
-                                        val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                        val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
                                         if (stockRow[StockTable.quantity] < BigDecimal.valueOf(convertedRequired)) {
                                             if (vendorStockMode == "ENFORCE") {
                                                 throw IllegalStateException(
                                                     "Insufficient ingredient '${stockRow[StockTable.itemName]}' for '${item[ItemsTable.name]}': " +
-                                                    "available=${stockRow[StockTable.quantity].toPlainString()} ${stockRow[StockTable.baseUnit]}, " +
-                                                    "required=${BigDecimal.valueOf(convertedRequired).toPlainString()} ${stockRow[StockTable.baseUnit]}"
+                                                    "available=${stockRow[StockTable.quantity].toPlainString()} ${stockRow[StockTable.unit]}, " +
+                                                    "required=${BigDecimal.valueOf(convertedRequired).toPlainString()} ${stockRow[StockTable.unit]}"
                                                 )
                                             }
                                             // WARN: allow order to proceed — stock will go negative during deduction
@@ -642,7 +642,7 @@ fun Route.orderRoutes() {
                                     StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                                 }.firstOrNull() ?: continue
                                 val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
-                                val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
                                 val convertedRequiredDecimal = BigDecimal.valueOf(convertedRequired)
                                 val oldQty = stockRow[StockTable.quantity]
                                 val newQty = if (allowNegativeStock) oldQty - convertedRequiredDecimal
@@ -840,7 +840,7 @@ fun Route.orderRoutes() {
                                             StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                                         }.firstOrNull() ?: continue
                                         val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
-                                        val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.baseUnit])
+                                        val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
                                         val sOldQty = stockRow[StockTable.quantity]
                                         val sNewQty = (sOldQty - BigDecimal.valueOf(convertedRequired)).coerceAtLeast(BigDecimal.ZERO)
                                         StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
@@ -1246,7 +1246,7 @@ private fun restoreStockForOrderItems(
                         val convertedRestore = convertUnits(
                             restoreQty,
                             ingredient[RecipeIngredientsTable.unit],
-                            stockRow[StockTable.baseUnit]
+                            stockRow[StockTable.unit]
                         )
                         val currentQty = stockRow[StockTable.quantity]
                         val newQty = currentQty + BigDecimal.valueOf(convertedRestore)

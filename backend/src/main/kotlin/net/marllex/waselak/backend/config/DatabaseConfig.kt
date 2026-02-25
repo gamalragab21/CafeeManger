@@ -84,6 +84,23 @@ object DatabaseConfig {
             // Normalize unit values from legacy "pcs" to "PIECE"
             exec("UPDATE stock SET unit = 'PIECE' WHERE unit = 'pcs'")
             exec("UPDATE stock SET base_unit = 'PIECE' WHERE base_unit IS NULL OR base_unit = ''")
+
+            // ─── Unit Simplification Migration (20 → 6 units) ───────────
+            // Recipe ingredients FIRST (need quantity conversion before unit rename)
+            exec("UPDATE recipe_ingredients SET quantity = quantity * 240, unit = 'MILLILITER' WHERE unit = 'CUP'")
+            exec("UPDATE recipe_ingredients SET quantity = quantity * 15, unit = 'MILLILITER' WHERE unit = 'TABLESPOON'")
+            exec("UPDATE recipe_ingredients SET quantity = quantity * 5, unit = 'MILLILITER' WHERE unit = 'TEASPOON'")
+            exec("UPDATE recipe_ingredients SET quantity = quantity * 12, unit = 'PIECE' WHERE unit = 'DOZEN'")
+            exec("UPDATE recipe_ingredients SET unit = 'PIECE' WHERE unit = 'PLATE'")
+            exec("UPDATE recipe_ingredients SET unit = 'PACK' WHERE unit IN ('BOX','BAG','BOTTLE','CAN','CARTON','SACK','TRAY','BUCKET','ROLL')")
+
+            // Stock table
+            exec("UPDATE stock SET quantity = quantity * 240, min_quantity = min_quantity * 240, unit = 'MILLILITER', base_unit = 'MILLILITER', conversion_rate = 1.0 WHERE unit = 'CUP'")
+            exec("UPDATE stock SET quantity = quantity * 15, min_quantity = min_quantity * 15, unit = 'MILLILITER', base_unit = 'MILLILITER', conversion_rate = 1.0 WHERE unit = 'TABLESPOON'")
+            exec("UPDATE stock SET quantity = quantity * 5, min_quantity = min_quantity * 5, unit = 'MILLILITER', base_unit = 'MILLILITER', conversion_rate = 1.0 WHERE unit = 'TEASPOON'")
+            exec("UPDATE stock SET quantity = quantity * 12, min_quantity = min_quantity * 12, unit = 'PIECE', base_unit = 'PIECE', conversion_rate = 1.0 WHERE unit = 'DOZEN'")
+            exec("UPDATE stock SET unit = 'PIECE', base_unit = 'PIECE', conversion_rate = 1.0 WHERE unit = 'PLATE'")
+            exec("UPDATE stock SET unit = 'PACK', base_unit = 'PACK', conversion_rate = 1.0 WHERE unit IN ('BOX','BAG','BOTTLE','CAN','CARTON','SACK','TRAY','BUCKET','ROLL')")
         }
 
         // Auto-seed demo data if database is empty

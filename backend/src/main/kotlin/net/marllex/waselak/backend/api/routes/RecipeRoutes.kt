@@ -428,10 +428,10 @@ fun Route.recipeRoutes() {
 
                     val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier
                     val ingredientUnit = ingredient[RecipeIngredientsTable.unit]
-                    val stockBaseUnit = stockRow[StockTable.baseUnit]
+                    val stockUnit = stockRow[StockTable.unit]
 
-                    // Convert required qty to stock's base unit
-                    val convertedRequired = convertUnits(requiredQty, ingredientUnit, stockBaseUnit)
+                    // Convert required qty to stock's display unit
+                    val convertedRequired = convertUnits(requiredQty, ingredientUnit, stockUnit)
                     val availableQty = stockRow[StockTable.quantity].toDouble()
 
                     if (availableQty < convertedRequired) {
@@ -439,13 +439,13 @@ fun Route.recipeRoutes() {
                             stock_item_name = stockRow[StockTable.itemName],
                             available = availableQty,
                             required = convertedRequired,
-                            unit = stockBaseUnit,
+                            unit = stockUnit,
                         ))
                     }
 
                     // Calculate max servings based on this ingredient
                     val perServing = ingredient[RecipeIngredientsTable.quantity].toDouble() / yieldQty
-                    val convertedPerServing = convertUnits(perServing, ingredientUnit, stockBaseUnit)
+                    val convertedPerServing = convertUnits(perServing, ingredientUnit, stockUnit)
                     if (convertedPerServing > 0) {
                         val servingsFromThis = (availableQty / convertedPerServing).toInt()
                         maxServings = minOf(maxServings, servingsFromThis)
@@ -498,11 +498,11 @@ private fun mapRecipeRow(row: ResultRow, vendorUUID: UUID): RecipeDto {
 
         // Calculate ingredient cost
         val ingredientUnit = ingRow[RecipeIngredientsTable.unit]
-        val stockBaseUnit = stockRow?.get(StockTable.baseUnit) ?: ingredientUnit
+        val stockDisplayUnit = stockRow?.get(StockTable.unit) ?: ingredientUnit
         val convertedQty = convertUnits(
             ingRow[RecipeIngredientsTable.quantity].toDouble(),
             ingredientUnit,
-            stockBaseUnit
+            stockDisplayUnit
         )
         totalCost += convertedQty * costPerBaseUnit
 

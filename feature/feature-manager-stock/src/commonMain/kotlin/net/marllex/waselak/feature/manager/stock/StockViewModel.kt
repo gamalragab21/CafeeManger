@@ -32,14 +32,15 @@ data class RecipeIngredientForm(
  * - Weight: GRAM, KILOGRAM → GRAM
  * - Volume: MILLILITER, LITER → MILLILITER
  * - Count: PIECE, DOZEN → PIECE
- * - Package: BOX, BAG, BOTTLE, CAN, PACK → itself (each is its own base)
+ * - Package: PACK → itself
  */
 private fun inferBaseUnit(unit: String): String {
     return when (unit.uppercase()) {
         "GRAM", "KILOGRAM" -> "GRAM"
-        "MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON" -> "MILLILITER"
-        "PIECE", "DOZEN", "PLATE" -> "PIECE"
-        else -> unit.uppercase() // Package units: each is its own base
+        "MILLILITER", "LITER" -> "MILLILITER"
+        "PIECE" -> "PIECE"
+        "PACK" -> "PACK"
+        else -> unit.uppercase()
     }
 }
 
@@ -524,10 +525,16 @@ class StockViewModel constructor(
         _uiState.update {
             val updated = it.recipeIngredients.toMutableList()
             if (index in updated.indices) {
+                // Smart default: pick the smaller/base unit for recipe ingredients
+                val smartDefault = when (stock.baseUnit.uppercase()) {
+                    "GRAM" -> "GRAM"           // KG stock → default to GRAM for recipes
+                    "MILLILITER" -> "MILLILITER" // L stock → default to ML for recipes
+                    else -> stock.unit           // PIECE, PACK → stay as-is
+                }
                 updated[index] = updated[index].copy(
                     stockId = stock.id,
                     stockName = stock.itemName,
-                    unit = stock.unit,
+                    unit = smartDefault,
                     baseUnit = stock.baseUnit,
                 )
             }

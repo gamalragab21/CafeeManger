@@ -122,21 +122,7 @@ private fun getLocalizedUnit(unitKey: String): String {
             "GRAM" -> Res.string.unit_gram
             "LITERS", "LITER" -> Res.string.unit_liters
             "MILLILITER" -> Res.string.unit_ml
-            "DOZEN" -> Res.string.unit_dozen
-            "BOXES", "BOX" -> Res.string.unit_boxes
-            "BAG" -> Res.string.unit_bag
-            "BOTTLE" -> Res.string.unit_bottle
-            "CAN" -> Res.string.unit_can
             "PACKS", "PACK" -> Res.string.unit_packs
-            "CUP" -> Res.string.unit_cup
-            "TABLESPOON", "TBSP" -> Res.string.unit_tablespoon
-            "TEASPOON", "TSP" -> Res.string.unit_teaspoon
-            "PLATE" -> Res.string.unit_plate
-            "CARTON" -> Res.string.unit_carton
-            "SACK" -> Res.string.unit_sack
-            "TRAY" -> Res.string.unit_tray
-            "BUCKET" -> Res.string.unit_bucket
-            "ROLL" -> Res.string.unit_roll
             else -> Res.string.unit_pcs
         }
     )
@@ -144,18 +130,15 @@ private fun getLocalizedUnit(unitKey: String): String {
 
 /**
  * Returns the list of compatible unit keys based on a stock item's base unit.
- * Matches backend StockUnit compatibility rules:
- * - WEIGHT: GRAM, KILOGRAM  (base: GRAM)
- * - VOLUME: MILLILITER, LITER, CUP, TABLESPOON, TEASPOON  (base: MILLILITER)
- * - COUNT: PIECE, DOZEN, PLATE  (base: PIECE)
- * - PACKAGE: each only compatible with itself
+ * Simplified 6-unit system: GRAM↔KILOGRAM, MILLILITER↔LITER, PIECE, PACK
  */
 private fun getCompatibleUnits(baseUnit: String): List<String> {
     return when (baseUnit.uppercase()) {
         "GRAM", "KILOGRAM" -> listOf("GRAM", "KILOGRAM")
-        "MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON" -> listOf("MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON")
-        "PIECE", "DOZEN", "PLATE" -> listOf("PIECE", "DOZEN", "PLATE")
-        else -> listOf(baseUnit.uppercase()) // Package units: only itself
+        "MILLILITER", "LITER" -> listOf("MILLILITER", "LITER")
+        "PIECE" -> listOf("PIECE")
+        "PACK" -> listOf("PACK")
+        else -> listOf(baseUnit.uppercase())
     }
 }
 
@@ -1259,80 +1242,20 @@ private fun AddEditStockDialog(
                 // Unit selector — grouped by category for clarity
                 Text(stringResource(Res.string.unit), style = MaterialTheme.typography.labelMedium)
 
-                // Weight units
-                Text(
-                    text = "⚖ ${stringResource(Res.string.unit_category_weight)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // Unit selector — 4 purchase units
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("GRAM", "KILOGRAM").forEach { unitKey ->
+                    listOf(
+                        "KILOGRAM" to "⚖",
+                        "LITER" to "💧",
+                        "PIECE" to "🔢",
+                        "PACK" to "📦",
+                    ).forEach { (unitKey, icon) ->
                         FilterChip(
                             selected = uiState.dialogUnit == unitKey,
                             onClick = { viewModel.updateDialogUnit(unitKey) },
-                            label = { Text(getLocalizedUnit(unitKey)) },
+                            label = { Text("$icon ${getLocalizedUnit(unitKey)}") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface,
-                            ),
-                        )
-                    }
-                }
-
-                // Volume units
-                Text(
-                    text = "💧 ${stringResource(Res.string.unit_category_volume)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("MILLILITER", "LITER", "CUP", "TABLESPOON", "TEASPOON").forEach { unitKey ->
-                        FilterChip(
-                            selected = uiState.dialogUnit == unitKey,
-                            onClick = { viewModel.updateDialogUnit(unitKey) },
-                            label = { Text(getLocalizedUnit(unitKey)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface,
-                            ),
-                        )
-                    }
-                }
-
-                // Count units
-                Text(
-                    text = "🔢 ${stringResource(Res.string.unit_category_count)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("PIECE", "DOZEN", "PLATE").forEach { unitKey ->
-                        FilterChip(
-                            selected = uiState.dialogUnit == unitKey,
-                            onClick = { viewModel.updateDialogUnit(unitKey) },
-                            label = { Text(getLocalizedUnit(unitKey)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface,
-                            ),
-                        )
-                    }
-                }
-
-                // Package units
-                Text(
-                    text = "📦 ${stringResource(Res.string.unit_category_package)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("BOX", "BAG", "BOTTLE", "CAN", "PACK", "CARTON", "SACK", "TRAY", "BUCKET", "ROLL").forEach { unitKey ->
-                        FilterChip(
-                            selected = uiState.dialogUnit == unitKey,
-                            onClick = { viewModel.updateDialogUnit(unitKey) },
-                            label = { Text(getLocalizedUnit(unitKey)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.tertiary,
                                 selectedLabelColor = MaterialTheme.colorScheme.surface,
                             ),
                         )
@@ -2338,7 +2261,7 @@ private fun RecipeYieldSection(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "CUP", "TABLESPOON", "TEASPOON", "DOZEN", "PLATE", "BOX", "BAG", "BOTTLE", "CAN", "PACK", "CARTON", "SACK", "TRAY", "BUCKET", "ROLL")
+                val unitKeys = listOf("PIECE", "KILOGRAM", "GRAM", "LITER", "MILLILITER", "PACK")
                 unitKeys.forEach { unitKey ->
                     FilterChip(
                         selected = uiState.recipeYieldUnit == unitKey,

@@ -548,11 +548,11 @@ fun Route.stockRoutes() {
                     }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
 
                 val oldQty = current[StockTable.quantity]
-                val stockBaseUnit = current[StockTable.baseUnit]
+                val stockDisplayUnit = current[StockTable.unit]
                 val now = Clock.System.now()
 
-                // Convert purchase quantity to base unit
-                val convertedQty = convertUnits(request.quantity, request.unit, stockBaseUnit)
+                // Convert purchase quantity to stock's display unit
+                val convertedQty = convertUnits(request.quantity, request.unit, stockDisplayUnit)
                 val newQty = oldQty + BigDecimal.valueOf(convertedQty)
 
                 StockTable.update({
@@ -569,7 +569,7 @@ fun Route.stockRoutes() {
                     it[type] = "PURCHASE"
                     it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedQty)
                     it[previousQuantity] = oldQty
-                    it[note] = request.note ?: "Purchase: ${request.quantity} ${request.unit} → ${"%.3f".format(convertedQty)} $stockBaseUnit"
+                    it[note] = request.note ?: "Purchase: ${request.quantity} ${request.unit} → ${"%.3f".format(convertedQty)} $stockDisplayUnit"
                     it[createdAt] = now
                 }
 
