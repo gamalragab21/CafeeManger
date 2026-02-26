@@ -20,6 +20,7 @@ data class WorkerResponse(
     @SerialName("user_id") val userId: String? = null,
     @SerialName("is_login_enabled") val isLoginEnabled: Boolean = false,
     @SerialName("has_pin") val hasPin: Boolean = false,
+    @SerialName("pin_sha256") val pinSha256: String? = null,
     @SerialName("qr_code_version") val qrCodeVersion: Int = 1,
     @SerialName("pin_updated_at") val pinUpdatedAt: Long? = null,
     @SerialName("created_at") val createdAt: Long? = null,
@@ -169,5 +170,31 @@ data class MarkPaidRequest(
 @Serializable
 data class BatchPayRequest(
     @SerialName("payment_ids") val paymentIds: List<String>,
+    val note: String? = null,
+)
+
+// ─── Overtime DTOs ──────────────────────────────────────────────
+
+@Serializable
+data class OvertimeResponse(
+    val id: String,
+    @SerialName("vendor_id") val vendorId: String,
+    @SerialName("worker_id") val workerId: String,
+    @SerialName("worker_name") val workerName: String? = null,
+    val date: String,
+    val hours: Double,
+    @SerialName("rate_per_hour") val ratePerHour: Double,
+    val amount: Double,
+    val note: String? = null,
+    @SerialName("created_by") val createdBy: String,
+    @SerialName("created_at") val createdAt: Long,
+)
+
+@Serializable
+data class CreateOvertimeRequest(
+    @SerialName("worker_id") val workerId: String,
+    val date: String,
+    val hours: Double,
+    @SerialName("rate_per_hour") val ratePerHour: Double,
     val note: String? = null,
 )

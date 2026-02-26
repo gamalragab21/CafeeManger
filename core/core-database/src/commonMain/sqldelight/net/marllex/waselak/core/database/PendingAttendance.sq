@@ -1,0 +1,36 @@
+CREATE TABLE IF NOT EXISTS pending_attendance (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    worker_id TEXT NOT NULL,
+    worker_name TEXT,
+    worker_role TEXT,
+    action TEXT NOT NULL,
+    date TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    linked_attendance_id TEXT,
+    note TEXT,
+    retry_count INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+getAllPending:
+SELECT * FROM pending_attendance ORDER BY created_at ASC;
+
+getPendingByVendor:
+SELECT * FROM pending_attendance WHERE vendor_id = ? ORDER BY created_at ASC;
+
+getPendingCount:
+SELECT COUNT(*) FROM pending_attendance WHERE vendor_id = ?;
+
+insertPending:
+INSERT OR REPLACE INTO pending_attendance(id, vendor_id, worker_id, worker_name, worker_role, action, date, timestamp, linked_attendance_id, note, retry_count, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deletePending:
+DELETE FROM pending_attendance WHERE id = ?;
+
+deleteAllPending:
+DELETE FROM pending_attendance WHERE vendor_id = ?;
+
+incrementRetryCount:
+UPDATE pending_attendance SET retry_count = retry_count + 1 WHERE id = ?;

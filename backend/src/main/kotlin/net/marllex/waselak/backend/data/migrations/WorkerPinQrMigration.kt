@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import net.marllex.waselak.backend.data.database.WorkersTable
 import net.marllex.waselak.backend.domain.service.PinService
 import net.marllex.waselak.backend.domain.service.QrCodeService
+import java.security.MessageDigest
 import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -22,6 +23,11 @@ import org.jetbrains.exposed.sql.update
  * - Default PINs will be generated (last 4 digits of phone or random)
  * - Managers should be notified to update worker PINs
  */
+private fun sha256Hex(input: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
+}
+
 object WorkerPinQrMigration {
     
     data class MigrationResult(
@@ -79,6 +85,7 @@ object WorkerPinQrMigration {
                     WorkersTable.update({ WorkersTable.id eq worker[WorkersTable.id] }) {
                         if (needsPin && defaultPin != null) {
                             it[WorkersTable.pinHash] = pinService.hashPin(defaultPin)
+                            it[WorkersTable.pinSha256] = sha256Hex(defaultPin)
                             it[WorkersTable.pinUpdatedAt] = now
                         }
                         if (needsQr && qrDataJson != null) {

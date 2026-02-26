@@ -170,6 +170,7 @@ object WorkersTable : UUIDTable("workers") {
     val salaryAmount = decimal("salary_amount", 10, 2).default(java.math.BigDecimal.ZERO)
     val active = bool("active").default(true)
     val pinHash = varchar("pin_hash", 255).nullable() // bcrypt hash of worker PIN
+    val pinSha256 = varchar("pin_sha256", 64).nullable() // SHA-256 hex for offline client verification
     val qrCodeData = text("qr_code_data").nullable() // JSON string with worker info
     val qrCodeVersion = integer("qr_code_version").default(1) // Increment on regeneration
     val pinUpdatedAt = timestamp("pin_updated_at").nullable()
@@ -240,6 +241,19 @@ object SalaryPaymentsTable : UUIDTable("salary_payments") {
     val note = text("note").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Overtime Entries ────────────────────────────────────────────
+object OvertimeTable : UUIDTable("overtime_entries") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val workerId = reference("worker_id", WorkersTable)
+    val date = varchar("date", 10) // YYYY-MM-DD
+    val hours = decimal("hours", 5, 2)
+    val ratePerHour = decimal("rate_per_hour", 10, 2)
+    val amount = decimal("amount", 10, 2) // hours * ratePerHour
+    val note = text("note").nullable()
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
 // ─── Announcements ──────────────────────────────────────────────

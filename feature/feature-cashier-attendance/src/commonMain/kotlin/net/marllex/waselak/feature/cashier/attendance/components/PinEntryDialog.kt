@@ -179,7 +179,7 @@ private fun NumericKeypad(
             ) {
                 Icon(
                     Icons.Filled.Backspace,
-                    contentDescription = "Backspace",
+                    contentDescription = stringResource(Res.string.backspace),
                 )
             }
         }

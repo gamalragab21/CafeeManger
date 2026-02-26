@@ -16,6 +16,7 @@ import net.marllex.waselak.core.database.Attendance as AttendanceDb
 import net.marllex.waselak.core.database.Salary_payments
 import net.marllex.waselak.core.database.Customers
 import net.marllex.waselak.core.database.Customer_addresses
+import net.marllex.waselak.core.database.Overtime_entries
 
 // ─── Vendor Mappers ──────────────────────────────────────────────
 fun Vendors.toDomain() = Vendor(
@@ -178,7 +179,7 @@ fun Workers.toDomain() = Worker(
     role = role, salaryType = SalaryType.valueOf(salary_type),
     salaryAmount = salary_amount, active = active,
     userId = user_id, isLoginEnabled = is_login_enabled,
-    hasPin = has_pin, qrCodeVersion = qr_code_version, pinUpdatedAt = pin_updated_at,
+    hasPin = has_pin, pinSha256 = pin_sha256, qrCodeVersion = qr_code_version, pinUpdatedAt = pin_updated_at,
     createdAt = created_at, updatedAt = updated_at
 )
 
@@ -188,7 +189,7 @@ fun Worker.toDbEntity() = Workers(
     role = role, salary_type = salaryType.name,
     salary_amount = salaryAmount, active = active,
     user_id = userId, is_login_enabled = isLoginEnabled,
-    has_pin = hasPin, qr_code_version = qrCodeVersion, pin_updated_at = pinUpdatedAt,
+    has_pin = hasPin, pin_sha256 = pinSha256, qr_code_version = qrCodeVersion, pin_updated_at = pinUpdatedAt,
     created_at = createdAt, updated_at = updatedAt
 )
 
@@ -237,6 +238,21 @@ fun SalaryPayment.toDbEntity() = Salary_payments(
     worked_days = workedDays, worked_hours = workedHours,
     amount = amount, paid = paid, paid_at = paidAt,
     paid_by = paidBy, note = note, created_at = createdAt
+)
+
+// ─── Overtime Mappers ────────────────────────────────────────────
+fun Overtime_entries.toDomain() = Overtime(
+    id = id, vendorId = vendor_id, workerId = worker_id,
+    workerName = worker_name, date = date, hours = hours,
+    ratePerHour = rate_per_hour, amount = amount, note = note,
+    createdBy = created_by, createdAt = created_at
+)
+
+fun Overtime.toDbEntity() = Overtime_entries(
+    id = id, vendor_id = vendorId, worker_id = workerId,
+    worker_name = workerName, date = date, hours = hours,
+    rate_per_hour = ratePerHour, amount = amount, note = note,
+    created_by = createdBy, created_at = createdAt
 )
 
 // ─── Customer Mappers ───────────────────────────────────────────

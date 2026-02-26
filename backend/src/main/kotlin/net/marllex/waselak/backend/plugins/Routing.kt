@@ -44,6 +44,7 @@ fun Application.configureRouting() {
             workerRoutes()
             attendanceRoutes()
             announcementRoutes()
+            overtimeRoutes()
             chatbotRoutes()
             exportRoutes() // Export data as PDF/Excel (MANAGER only)
         }

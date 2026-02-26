@@ -6,6 +6,7 @@ import net.marllex.waselak.core.common.di.dispatchersModule
 import net.marllex.waselak.core.data.di.dataModule
 import net.marllex.waselak.core.database.di.DatabaseDriverFactory
 import net.marllex.waselak.core.database.di.databaseModule
+import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.network.di.networkModule
 import net.marllex.waselak.feature.auth.LoginViewModel
 import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
@@ -41,6 +42,7 @@ fun managerDesktopKoinModules() = listOf(
 
 private val desktopPlatformModule = module {
     single { DatabaseDriverFactory() }
+    single { NetworkMonitor() }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
     single(named("appName")) { "manager" }
     single(named("hmacSecret")) { BuildConfig.HMAC_SECRET }

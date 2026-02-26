@@ -1,6 +1,7 @@
 package net.marllex.waselak.core.data.di
 
 import net.marllex.waselak.core.data.repository.*
+import net.marllex.waselak.core.data.sync.AttendanceSyncManager
 import net.marllex.waselak.core.domain.repository.*
 import org.koin.dsl.module
 
@@ -14,6 +15,7 @@ val dataModule = module {
     single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
     single<TaxPlaceRepository> { TaxPlaceRepositoryImpl(get()) }
     single<StockRepository> { StockRepositoryImpl(get(), get(), get()) }
-    single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get()) }
+    single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
+    single { AttendanceSyncManager(get(), get(), get(), get()) }
 }

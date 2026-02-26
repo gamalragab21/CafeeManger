@@ -117,12 +117,10 @@ fun Route.userManagementRoutes() {
             }
 
             val user = transaction {
-                // Check for duplicate phone within vendor
+                // Check for duplicate phone globally (login queries by phone across all vendors)
                 val existing = UsersTable.selectAll()
-                    .where {
-                        (UsersTable.vendorId eq UUID.fromString(principal.vendorId)) and
-                        (UsersTable.phone eq request.phone)
-                    }.firstOrNull()
+                    .where { UsersTable.phone eq request.phone }
+                    .firstOrNull()
                 if (existing != null) throw IllegalStateException("A user with this phone already exists")
 
                 val passwordHash = BCrypt.hashpw(request.password, BCrypt.gensalt())
