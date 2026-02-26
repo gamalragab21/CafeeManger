@@ -1,45 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="my_deliveries">عمليّات التوصيل الخاصة بي</string>
+    <string name="my_deliveries">توصيلاتي</string>
     <string name="my_orders">طلباتي (%1$d)</string>
     <string name="available">متاح (%1$d)</string>
     <string name="all">الكل</string>
-    <string name="no_deliveries_yet">لا توجد عمليات توصيل بعد</string>
-    <string name="no_available_orders">لا توجد طلبات متاحة</string>
-    <string name="start_delivery">بدء التوصيل</string>
-    <string name="mark_delivered">تحديد كـ تم التوصيل</string>
-    <string name="report_failed">إبلاغ فشل</string>
-    <string name="return_to_store">إرجاع للمتجر</string>
-    <string name="retry_delivery">إعادة التوصيل</string>
-    <string name="pick_up_order">استلام الطلب</string>
-    <string name="complete">إتمام</string>
-    <string name="view_receipt">عرض الإيصال</string>
-    <string name="items_count">%d عناصر</string>
-    <string name="order_items">عناصر الطلب</string>
+    <string name="no_deliveries_yet">مفيش توصيلات لسه</string>
+    <string name="no_available_orders">مفيش طلبات متاحة</string>
+    <string name="start_delivery">ابدأ التوصيل</string>
+    <string name="mark_delivered">اتوصّل</string>
+    <string name="report_failed">بلّغ فشل</string>
+    <string name="return_to_store">رجّع للمحل</string>
+    <string name="retry_delivery">وصّل تاني</string>
+    <string name="pick_up_order">استلم الطلب</string>
+    <string name="complete">تمام</string>
+    <string name="view_receipt">شوف الفاتورة</string>
+    <string name="items_count">%d أصناف</string>
+    <string name="order_items">أصناف الطلب</string>
     <!-- Receipt -->
-    <string name="receipt">الإيصال</string>
+    <string name="receipt">الفاتورة</string>
     <string name="total">الإجمالي</string>
-    <string name="thank_you_for_your_visit">شكرًا لزيارتك!</string>
-    <string name="done">تم</string>
-    <string name="subtotal">المجموع الجزئي</string>
-    <string name="share_receipt">مشاركة الإيصال</string>
+    <string name="thank_you_for_your_visit">نوّرتنا!</string>
+    <string name="done">تمام</string>
+    <string name="subtotal">المجموع الفرعي</string>
+    <string name="share_receipt">شارك الفاتورة</string>
     <string name="back">رجوع</string>
-    <string name="restaurant_fallback">المتجر</string>
+    <string name="restaurant_fallback">المحل</string>
     <string name="order_number_receipt">رقم الطلب</string>
     <string name="date">التاريخ</string>
     <string name="channel">القناة</string>
     <string name="payment">الدفع</string>
     <string name="cashier">الكاشير</string>
     <string name="client_name">العميل</string>
-    <string name="client_phone">الهاتف</string>
+    <string name="client_phone">التليفون</string>
     <string name="client_address">العنوان</string>
     <string name="receipt_item">الصنف</string>
     <string name="receipt_qty">الكمية</string>
     <string name="receipt_price">السعر</string>
     <string name="receipt_notes">ملاحظات</string>
     <string name="receipt_tax">الضريبة</string>
-    <string name="receipt_delivery_fee">رسوم التوصيل</string>
-    <string name="receipt_scan_qr">امسح لعرض الإيصال الرقمي</string>
+    <string name="receipt_delivery_fee">مصاريف التوصيل</string>
+    <string name="receipt_scan_qr">امسح عشان تشوف الفاتورة الرقمية</string>
     <string name="receipt_currency">ج.م</string>
     <string name="receipt_amount_format">%1$.2f %2$s</string>
     <string name="qr">رمز QR</string>
@@ -47,12 +47,12 @@
     <!-- Channel names -->
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
-    <string name="channel_takeaway">سفري</string>
-    <string name="channel_in_store">شراء مباشر</string>
-    <string name="channel_pickup_later">استلام لاحق</string>
+    <string name="channel_takeaway">تيك أواي</string>
+    <string name="channel_in_store">شراء من المحل</string>
+    <string name="channel_pickup_later">استلام بعدين</string>
     <!-- Payment method names -->
-    <string name="payment_cash">نقدي</string>
+    <string name="payment_cash">كاش</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
-    <string name="confirm_payment">تأكيد الدفع</string>
+    <string name="confirm_payment">أكّد الدفع</string>
 </resources>

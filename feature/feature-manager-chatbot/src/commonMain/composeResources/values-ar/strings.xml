@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ai_assistant">المساعد الذكي</string>
-    <string name="ai_assistant_description">اسأل أي شيء عن عملك</string>
+    <string name="ai_assistant_description">اسأل أي حاجة عن شغلك</string>
     <string name="back">رجوع</string>
-    <string name="clear_chat">مسح المحادثة</string>
-    <string name="try_asking">جرّب أن تسأل…</string>
-    <string name="welcome_to_ai_assistant">مرحبًا بك في المساعد الذكي</string>
-    <string name="ask_question">اطرح سؤالاً…</string>
-    <string name="send">إرسال</string>
+    <string name="clear_chat">امسح المحادثة</string>
+    <string name="try_asking">جرّب تسأل…</string>
+    <string name="welcome_to_ai_assistant">أهلاً بيك في المساعد الذكي</string>
+    <string name="ask_question">اسأل سؤال…</string>
+    <string name="send">ابعت</string>
 </resources>
