@@ -95,7 +95,10 @@ data class UpdateOrderDto(
 data class UpdateStatusDto(val status: String)
 
 @Serializable
-data class UpdatePaymentStatusDto(val payment_status: String)
+data class UpdatePaymentStatusDto(
+    val payment_status: String,
+    val payment_method: String? = null,
+)
 
 @Serializable
 data class AssignDeliveryDto(val delivery_user_id: String)
@@ -626,7 +629,9 @@ fun Route.orderRoutes() {
                                 val stockRow = StockTable.selectAll().where {
                                     StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                                 }.firstOrNull() ?: continue
-                                val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                val isFixed = ingredient[RecipeIngredientsTable.fixedQuantity]
+                                val effectiveMultiplier = if (isFixed) BigDecimal.ONE else multiplier
+                                val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * effectiveMultiplier.toDouble()
                                 val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
                                 val convertedRequiredDecimal = BigDecimal.valueOf(convertedRequired)
                                 val oldQty = stockRow[StockTable.quantity]
@@ -824,7 +829,9 @@ fun Route.orderRoutes() {
                                         val stockRow = StockTable.selectAll().where {
                                             StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                                         }.firstOrNull() ?: continue
-                                        val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                                        val isFixed = ingredient[RecipeIngredientsTable.fixedQuantity]
+                                        val effectiveMultiplier = if (isFixed) BigDecimal.ONE else multiplier
+                                        val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * effectiveMultiplier.toDouble()
                                         val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
                                         val sOldQty = stockRow[StockTable.quantity]
                                         val sNewQty = (sOldQty - BigDecimal.valueOf(convertedRequired)).coerceAtLeast(BigDecimal.ZERO)
@@ -931,6 +938,14 @@ fun Route.orderRoutes() {
                 )
                 if (!valid) throw IllegalStateException("Invalid status transition")
 
+                // Block completion without payment
+                if (targetStatus == "COMPLETED") {
+                    val paymentStatus = current[OrdersTable.paymentStatus]
+                    if (paymentStatus != "PAID") {
+                        throw IllegalStateException("Order must be fully paid before completing. Current payment status: $paymentStatus")
+                    }
+                }
+
                 OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
                     it[status] = targetStatus
                     it[updatedAt] = Clock.System.now()
@@ -1003,6 +1018,12 @@ fun Route.orderRoutes() {
             require(request.payment_status in validStatuses) {
                 "Invalid payment status. Must be one of: ${validStatuses.joinToString()}"
             }
+            request.payment_method?.let { method ->
+                val validMethods = listOf("CASH", "WALLET", "CARD")
+                require(method in validMethods) {
+                    "Invalid payment method. Must be one of: ${validMethods.joinToString()}"
+                }
+            }
 
             val order = transaction {
                 val current = OrdersTable.selectAll().where {
@@ -1012,6 +1033,7 @@ fun Route.orderRoutes() {
 
                 OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
                     it[paymentStatus] = request.payment_status
+                    request.payment_method?.let { method -> it[paymentMethod] = method }
                     it[updatedAt] = Clock.System.now()
                     if (request.payment_status == "PAID") {
                         it[paymentConfirmedAt] = Clock.System.now()
@@ -1189,7 +1211,9 @@ private fun restoreStockForOrderItems(
                         val stockRow = StockTable.selectAll().where {
                             StockTable.id eq ingredient[RecipeIngredientsTable.stockId]
                         }.firstOrNull() ?: continue
-                        val restoreQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier.toDouble()
+                        val isFixed = ingredient[RecipeIngredientsTable.fixedQuantity]
+                        val effectiveMultiplier = if (isFixed) BigDecimal.ONE else multiplier
+                        val restoreQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * effectiveMultiplier.toDouble()
                         val convertedRestore = convertUnits(
                             restoreQty,
                             ingredient[RecipeIngredientsTable.unit],

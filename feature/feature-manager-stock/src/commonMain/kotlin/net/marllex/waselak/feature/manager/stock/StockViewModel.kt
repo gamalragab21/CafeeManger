@@ -25,6 +25,7 @@ data class RecipeIngredientForm(
     val quantity: String = "",
     val unit: String = "PIECE",
     val baseUnit: String = "PIECE",
+    val fixedQuantity: Boolean = false,
 )
 
 /**
@@ -468,6 +469,7 @@ class StockViewModel constructor(
                         quantity = ing.quantity.toString(),
                         unit = ing.unit,
                         baseUnit = stock?.baseUnit ?: ing.unit,
+                        fixedQuantity = ing.fixedQuantity,
                     )
                 }.ifEmpty { listOf(RecipeIngredientForm()) },
                 recipeSaving = false,
@@ -558,6 +560,7 @@ class StockViewModel constructor(
                 stockId = form.stockId,
                 quantity = qty,
                 unit = form.unit,
+                fixedQuantity = form.fixedQuantity,
                 displayOrder = idx,
             )
         }

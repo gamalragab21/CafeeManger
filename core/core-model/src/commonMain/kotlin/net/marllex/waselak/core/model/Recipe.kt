@@ -29,6 +29,7 @@ data class RecipeIngredient(
     val stockItemName: String,
     val quantity: Double,
     val unit: String,
+    val fixedQuantity: Boolean = false,
     val displayOrder: Int = 0,
     val availableQuantity: Double = 0.0,
 )

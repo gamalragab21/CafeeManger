@@ -68,6 +68,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -2166,6 +2167,9 @@ private fun AddEditRecipeBottomSheet(
                         onUpdateUnit = { unit ->
                             viewModel.updateRecipeIngredient(index, ingredient.copy(unit = unit))
                         },
+                        onUpdateFixedQuantity = { fixed ->
+                            viewModel.updateRecipeIngredient(index, ingredient.copy(fixedQuantity = fixed))
+                        },
                         onRemove = { viewModel.removeRecipeIngredient(index) },
                     )
                 }
@@ -2388,6 +2392,7 @@ private fun RecipeIngredientFormCard(
     onSelectStock: (Stock) -> Unit,
     onUpdateQuantity: (String) -> Unit,
     onUpdateUnit: (String) -> Unit,
+    onUpdateFixedQuantity: (Boolean) -> Unit,
     onRemove: () -> Unit,
 ) {
     var stockDropdownExpanded by remember { mutableStateOf(false) }
@@ -2543,6 +2548,23 @@ private fun RecipeIngredientFormCard(
                             ),
                         )
                     }
+                }
+
+                // Fixed quantity toggle (no yield division)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Switch(
+                        checked = form.fixedQuantity,
+                        onCheckedChange = onUpdateFixedQuantity,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(Res.string.fixed_quantity_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

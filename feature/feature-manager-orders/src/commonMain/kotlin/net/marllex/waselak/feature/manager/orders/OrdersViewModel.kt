@@ -14,6 +14,8 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 
@@ -46,6 +48,11 @@ class OrdersViewModel constructor(
         val editClientAddress: String = "",
         val editNotes: String = "",
         val isEditSaving: Boolean = false,
+        // Payment dialog
+        val showPaymentDialog: Boolean = false,
+        val payingOrder: Order? = null,
+        val selectedPaymentMethod: PaymentMethod = PaymentMethod.CASH,
+        val isPaymentProcessing: Boolean = false,
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
@@ -275,6 +282,49 @@ class OrdersViewModel constructor(
                 loadOrders()
             }.onFailure { e ->
                 _uiState.update { it.copy(isEditSaving = false, error = e.message) }
+            }
+        }
+    }
+
+    // ─── Payment Dialog ──────────────────────────────────────────────
+    fun showPaymentDialog(order: Order) {
+        _uiState.update {
+            it.copy(
+                showPaymentDialog = true,
+                payingOrder = order,
+                selectedPaymentMethod = order.paymentMethod,
+            )
+        }
+    }
+
+    fun dismissPaymentDialog() {
+        _uiState.update { it.copy(showPaymentDialog = false, payingOrder = null) }
+    }
+
+    fun selectPaymentMethod(method: PaymentMethod) {
+        _uiState.update { it.copy(selectedPaymentMethod = method) }
+    }
+
+    fun confirmPayment() {
+        val s = _uiState.value
+        val order = s.payingOrder ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPaymentProcessing = true) }
+            orderRepository.updatePaymentStatus(
+                id = order.id,
+                status = PaymentStatus.PAID,
+                paymentMethod = s.selectedPaymentMethod,
+            ).onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isPaymentProcessing = false,
+                        showPaymentDialog = false,
+                        payingOrder = null,
+                    )
+                }
+                loadOrders()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isPaymentProcessing = false, error = e.message) }
             }
         }
     }

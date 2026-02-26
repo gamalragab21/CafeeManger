@@ -36,5 +36,6 @@ data class IngredientInput(
     val stockId: String,
     val quantity: Double,
     val unit: String,
+    val fixedQuantity: Boolean = false,
     val displayOrder: Int = 0,
 )

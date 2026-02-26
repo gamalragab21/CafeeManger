@@ -101,7 +101,8 @@ data class UpdateOrderStatusRequest(
 
 @Serializable
 data class UpdatePaymentStatusRequest(
-    @SerialName("payment_status") val paymentStatus: String
+    @SerialName("payment_status") val paymentStatus: String,
+    @SerialName("payment_method") val paymentMethod: String? = null,
 )
 
 @Serializable

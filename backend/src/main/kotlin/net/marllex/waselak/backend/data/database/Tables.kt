@@ -186,6 +186,7 @@ object RecipeIngredientsTable : UUIDTable("recipe_ingredients") {
     val stockId = reference("stock_id", StockTable) // The ingredient (stock item)
     val quantity = decimal("quantity", 10, 3) // Amount of this ingredient needed per yield
     val unit = varchar("unit", 50) // Unit of measurement for this ingredient line
+    val fixedQuantity = bool("fixed_quantity").default(false) // If true, quantity is NOT divided by yield
     val displayOrder = integer("display_order").default(0)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }

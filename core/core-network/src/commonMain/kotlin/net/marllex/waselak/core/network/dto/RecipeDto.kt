@@ -26,6 +26,7 @@ data class RecipeIngredientResponse(
     @SerialName("stock_item_name") val stockItemName: String,
     val quantity: Double,
     val unit: String,
+    @SerialName("fixed_quantity") val fixedQuantity: Boolean = false,
     @SerialName("display_order") val displayOrder: Int = 0,
     @SerialName("available_quantity") val availableQuantity: Double = 0.0,
 )
@@ -45,6 +46,7 @@ data class CreateRecipeIngredientRequest(
     @SerialName("stock_id") val stockId: String,
     val quantity: Double,
     val unit: String,
+    @SerialName("fixed_quantity") val fixedQuantity: Boolean = false,
     @SerialName("display_order") val displayOrder: Int = 0,
 )
 
