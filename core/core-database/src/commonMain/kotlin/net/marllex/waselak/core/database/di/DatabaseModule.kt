@@ -187,6 +187,20 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         "ALTER TABLE orders ADD COLUMN refunded_at INTEGER",
         "ALTER TABLE orders ADD COLUMN refunded_by TEXT",
         "ALTER TABLE orders ADD COLUMN refund_reason TEXT",
+        // v13: offline mode + biometric config flags on vendors
+        "ALTER TABLE vendors ADD COLUMN offline_mode_enabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN biometric_required INTEGER NOT NULL DEFAULT 0",
+        // v13: sync_status on orders and attendance + pending_sync table
+        "ALTER TABLE orders ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'SYNCED'",
+        "ALTER TABLE attendance ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'SYNCED'",
+        """CREATE TABLE IF NOT EXISTS pending_sync (
+            id TEXT NOT NULL PRIMARY KEY,
+            type TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT
+        )""",
     )
     migrations.forEach { sql ->
         try {
@@ -229,6 +243,9 @@ val databaseModule = module {
             customersAdapter = Customers.Adapter(
                 order_countAdapter = intAdapter,
             ),
+            pending_syncAdapter = Pending_sync.Adapter(
+                retry_countAdapter = intAdapter,
+            ),
         )
     }
 
@@ -242,4 +259,5 @@ val databaseModule = module {
     single { RecipeDao(get()) }
     single { WorkerDao(get()) }
     single { CustomerDao(get()) }
+    single { PendingSyncDao(get()) }
 }

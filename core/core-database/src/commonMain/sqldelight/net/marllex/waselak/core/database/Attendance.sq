@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     recorded_by TEXT NOT NULL,
     auth_method TEXT NOT NULL DEFAULT 'MANUAL',
     note TEXT,
-    created_at INTEGER
+    created_at INTEGER,
+    sync_status TEXT NOT NULL DEFAULT 'SYNCED'
 );
 
 getAttendance:
@@ -27,8 +28,11 @@ getAttendanceByWorkerAndDateRange:
 SELECT * FROM attendance WHERE worker_id = ? AND date BETWEEN ? AND ? ORDER BY date DESC;
 
 insertAttendance:
-INSERT OR REPLACE INTO attendance(id, vendor_id, worker_id, worker_name, worker_role, date, check_in, check_out, worked_minutes, recorded_by, auth_method, note, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO attendance(id, vendor_id, worker_id, worker_name, worker_role, date, check_in, check_out, worked_minutes, recorded_by, auth_method, note, created_at, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateAttendanceSyncStatus:
+UPDATE attendance SET sync_status = ? WHERE id = ?;
 
 deleteAllAttendance:
 DELETE FROM attendance WHERE vendor_id = ?;

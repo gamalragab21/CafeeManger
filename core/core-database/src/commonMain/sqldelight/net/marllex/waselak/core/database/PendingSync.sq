@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS pending_sync (
+    id TEXT NOT NULL PRIMARY KEY,
+    type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    retry_count INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    last_error TEXT
+);
+
+getAllPending:
+SELECT * FROM pending_sync ORDER BY created_at ASC;
+
+getPendingCount:
+SELECT count(*) FROM pending_sync;
+
+getPendingByType:
+SELECT * FROM pending_sync WHERE type = ? ORDER BY created_at ASC;
+
+insertPending:
+INSERT OR REPLACE INTO pending_sync(id, type, payload, created_at, retry_count, last_error)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deletePending:
+DELETE FROM pending_sync WHERE id = ?;
+
+updateRetry:
+UPDATE pending_sync SET retry_count = ?, last_error = ? WHERE id = ?;
+
+deleteAll:
+DELETE FROM pending_sync;

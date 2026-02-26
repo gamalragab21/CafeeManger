@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at INTEGER,
     refunded_at INTEGER,
     refunded_by TEXT,
-    refund_reason TEXT
+    refund_reason TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'SYNCED'
 );
 
 getOrders:
@@ -51,8 +52,14 @@ getOrderById:
 SELECT * FROM orders WHERE id = ?;
 
 insertOrder:
-INSERT OR REPLACE INTO orders(id, vendor_id, channel, status, table_id, table_number, cashier_id, cashier_name, delivery_user_id, delivery_user_name, client_name, client_phone, client_address, customer_id, geo_lat, geo_lng, payment_method, payment_status, payment_timing, payment_confirmed_at, payment_confirmed_by, subtotal, delivery_fee, discount, discount_type, tax, tax_percent, total, notes, created_at, updated_at, refunded_at, refunded_by, refund_reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO orders(id, vendor_id, channel, status, table_id, table_number, cashier_id, cashier_name, delivery_user_id, delivery_user_name, client_name, client_phone, client_address, customer_id, geo_lat, geo_lng, payment_method, payment_status, payment_timing, payment_confirmed_at, payment_confirmed_by, subtotal, delivery_fee, discount, discount_type, tax, tax_percent, total, notes, created_at, updated_at, refunded_at, refunded_by, refund_reason, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getPendingSyncOrders:
+SELECT * FROM orders WHERE sync_status = 'PENDING_SYNC' ORDER BY created_at ASC;
+
+updateSyncStatus:
+UPDATE orders SET sync_status = ? WHERE id = ?;
 
 updateOrderStatus:
 UPDATE orders SET status = ?, updated_at = ? WHERE id = ?;

@@ -35,6 +35,7 @@ class VendorRepositoryImpl constructor(
         contactPhone: String?, walletPhone: String?,
         enableTables: Boolean?, enableDineIn: Boolean?,
         enableDelivery: Boolean?,
+        offlineModeEnabled: Boolean?, biometricRequired: Boolean?,
     ): Result<Vendor> = runCatching {
         val response = api.updateMyVendor(
             UpdateVendorRequest(
@@ -42,6 +43,8 @@ class VendorRepositoryImpl constructor(
                 contactPhone = contactPhone, walletPhone = walletPhone,
                 enableTables = enableTables, enableDineIn = enableDineIn,
                 enableDelivery = enableDelivery,
+                offlineModeEnabled = offlineModeEnabled,
+                biometricRequired = biometricRequired,
             )
         )
         val vendor = response.toDomain()

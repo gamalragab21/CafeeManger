@@ -39,6 +39,7 @@ data class Order(
     val refundedAt: Long? = null,
     val refundedBy: String? = null,
     val refundReason: String? = null,
+    val syncStatus: String = "SYNCED",
 )
 
 @Serializable

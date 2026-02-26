@@ -28,6 +28,7 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Table
+import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 
@@ -39,6 +40,7 @@ class PosViewModel constructor(
     private val taxPlaceRepository: TaxPlaceRepository,
     private val vendorRepository: VendorRepository,
     private val customerRepository: CustomerRepository,
+    private val offlineModeManager: OfflineModeManager,
 ) : ViewModel() {
 
     data class UiState(
@@ -77,6 +79,8 @@ class PosViewModel constructor(
         // Phone autocomplete dropdown
         val phoneSearchResults: List<Customer> = emptyList(),
         val showPhoneDropdown: Boolean = false,
+        // Offline mode
+        val isOffline: Boolean = false,
     ) {
         /** Whether the Place Order button should be enabled */
         val canSubmit: Boolean get() {
@@ -96,7 +100,14 @@ class PosViewModel constructor(
 
     private var phoneLookupJob: Job? = null
 
-    init { loadMenu() }
+    init {
+        loadMenu()
+        viewModelScope.launch {
+            offlineModeManager.isOfflineActive.collect { offline ->
+                _uiState.update { it.copy(isOffline = offline) }
+            }
+        }
+    }
 
     fun loadMenu() {
         viewModelScope.launch {

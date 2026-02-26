@@ -1,6 +1,9 @@
 package net.marllex.waselak.cashier.navigation
 
 import androidx.compose.foundation.border
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +28,7 @@ import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Store
@@ -79,6 +84,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.UserRole
@@ -611,10 +617,44 @@ private fun ProfileInfoRow(label: String, value: String) {
 @Composable
 private fun formatRoleLabel(role: UserRole?): String = localizedRoleLabel(role)
 
+
+// ─── Offline Banner ──────────────────────────────────────────────
+@Composable
+private fun OfflineBanner(pendingCount: Long) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.CloudOff,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(CoreRes.string.offline_mode),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        if (pendingCount > 0) {
+            Text(
+                text = "$pendingCount",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
+}
 // ─── Main Nav Host ───────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepository) {
+fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepository, offlineModeManager: OfflineModeManager) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -623,6 +663,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val biometricAuth = rememberBiometricAuthenticator()
+    val isOffline by offlineModeManager.isOfflineActive.collectAsState()
+    val pendingCount by offlineModeManager.pendingCount.collectAsState()
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
@@ -764,6 +806,13 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 ),
                             )
                         }
+                        AnimatedVisibility(
+                            visible = isOffline,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            OfflineBanner(pendingCount = pendingCount)
+                        }
                         NavHost(
                             navController = navController,
                             startDestination = AUTH_ROUTE,
@@ -818,12 +867,21 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         if (showNav) CashierBottomBar(navController, currentDestination)
                     },
                 ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = AUTH_ROUTE,
-                        modifier = Modifier.padding(innerPadding),
-                        builder = navGraphBuilder,
-                    )
+                    Column(modifier = Modifier.padding(innerPadding)) {
+                        AnimatedVisibility(
+                            visible = isOffline,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            OfflineBanner(pendingCount = pendingCount)
+                        }
+                        NavHost(
+                            navController = navController,
+                            startDestination = AUTH_ROUTE,
+                            modifier = Modifier.weight(1f),
+                            builder = navGraphBuilder,
+                        )
+                    }
                 }
             }
         }

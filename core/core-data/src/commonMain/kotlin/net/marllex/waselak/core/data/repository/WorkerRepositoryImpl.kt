@@ -2,6 +2,16 @@ package net.marllex.waselak.core.data.repository
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import net.marllex.waselak.core.data.offline.OfflineModeManager
+import net.marllex.waselak.core.data.sync.CheckInPayload
+import net.marllex.waselak.core.data.sync.CheckOutPayload
+import net.marllex.waselak.core.database.Pending_sync
+import net.marllex.waselak.core.database.dao.PendingSyncDao
 import net.marllex.waselak.core.database.dao.WorkerDao
 import net.marllex.waselak.core.database.mapper.*
 import net.marllex.waselak.core.domain.repository.AuthRepository
@@ -17,7 +27,11 @@ class WorkerRepositoryImpl constructor(
     private val workerDao: WorkerDao,
     private val authRepository: AuthRepository,
     private val workerNetworkDataSource: WorkerNetworkDataSource,
+    private val offlineModeManager: OfflineModeManager,
+    private val pendingSyncDao: PendingSyncDao,
 ) : WorkerRepository {
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
 
@@ -133,31 +147,90 @@ class WorkerRepositoryImpl constructor(
     }
 
     override suspend fun checkIn(workerId: String, note: String?): Result<Attendance> = runCatching {
-        val response = api.checkIn(CheckInRequest(workerId, note))
-        val attendance = response.toDomain()
-        workerDao.insertAttendance(attendance.toDbEntity())
-        attendance
+        if (offlineModeManager.isOfflineActive.value) {
+            createOfflineCheckIn(workerId, null)
+        } else {
+            val response = api.checkIn(CheckInRequest(workerId, note))
+            val attendance = response.toDomain()
+            workerDao.insertAttendance(attendance.toDbEntity())
+            attendance
+        }
     }
 
     override suspend fun checkOut(attendanceId: String, note: String?): Result<Attendance> = runCatching {
-        val response = api.checkOut(attendanceId, CheckOutRequest(note))
-        val attendance = response.toDomain()
-        workerDao.insertAttendance(attendance.toDbEntity())
-        attendance
+        if (offlineModeManager.isOfflineActive.value) {
+            createOfflineCheckOut(attendanceId, null)
+        } else {
+            val response = api.checkOut(attendanceId, CheckOutRequest(note))
+            val attendance = response.toDomain()
+            workerDao.insertAttendance(attendance.toDbEntity())
+            attendance
+        }
     }
 
     override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> = runCatching {
-        val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
-        val attendance = response.toDomain()
-        workerDao.insertAttendance(attendance.toDbEntity())
-        attendance
+        if (offlineModeManager.isOfflineActive.value) {
+            createOfflineCheckIn(workerId, pin)
+        } else {
+            val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
+            val attendance = response.toDomain()
+            workerDao.insertAttendance(attendance.toDbEntity())
+            attendance
+        }
     }
 
     override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> = runCatching {
-        val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
-        val attendance = response.toDomain()
+        if (offlineModeManager.isOfflineActive.value) {
+            createOfflineCheckOut(attendanceId, pin)
+        } else {
+            val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
+            val attendance = response.toDomain()
+            workerDao.insertAttendance(attendance.toDbEntity())
+            attendance
+        }
+    }
+
+    private suspend fun createOfflineCheckIn(workerId: String, pin: String?): Attendance {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val localId = "offline-checkin-$now"
+        val today = Clock.System.now()
+            .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+        val attendance = Attendance(
+            id = localId, vendorId = vendorId, workerId = workerId,
+            date = today, checkIn = now,
+            recordedBy = authRepository.getCurrentUserId() ?: "",
+            authMethod = if (pin != null) "PIN" else "MANUAL",
+            createdAt = now, syncStatus = "PENDING_SYNC",
+        )
         workerDao.insertAttendance(attendance.toDbEntity())
-        attendance
+        pendingSyncDao.insertPending(Pending_sync(
+            id = localId, type = "CHECK_IN",
+            payload = json.encodeToString(CheckInPayload(workerId, pin)),
+            created_at = now, retry_count = 0, last_error = null,
+        ))
+        return attendance
+    }
+
+    private suspend fun createOfflineCheckOut(attendanceId: String, pin: String?): Attendance {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val localId = "offline-checkout-$now"
+        // We need workerId from the existing attendance record — use attendanceId prefix
+        val attendance = Attendance(
+            id = localId, vendorId = vendorId, workerId = "",
+            date = Clock.System.now()
+                .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString(),
+            checkIn = now, checkOut = now,
+            recordedBy = authRepository.getCurrentUserId() ?: "",
+            authMethod = if (pin != null) "PIN" else "MANUAL",
+            createdAt = now, syncStatus = "PENDING_SYNC",
+        )
+        workerDao.insertAttendance(attendance.toDbEntity())
+        pendingSyncDao.insertPending(Pending_sync(
+            id = localId, type = "CHECK_OUT",
+            payload = json.encodeToString(CheckOutPayload(attendanceId, "", pin)),
+            created_at = now, retry_count = 0, last_error = null,
+        ))
+        return attendance
     }
 
     override suspend fun checkInWithQr(qrData: String): Result<Attendance> = runCatching {

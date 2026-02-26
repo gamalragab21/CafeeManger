@@ -154,4 +154,19 @@
     <string name="app_cashier">وصّل - الكاشير</string>
     <string name="app_delivery">وصّل - التوصيل</string>
     <string name="app_manager">وصّل - المدير</string>
+
+    <!-- Offline Mode -->
+    <string name="offline_mode">وضع بدون إنترنت</string>
+    <string name="sync_now">مزامنة دلوقتي</string>
+    <string name="items_pending_sync">%d حاجات مستنية المزامنة</string>
+    <string name="order_saved_locally">الطلب اتحفظ محلي</string>
+    <string name="qr_not_available_offline">الـ QR مش متاح من غير إنترنت</string>
+    <string name="store_configuration">إعدادات المحل</string>
+    <string name="offline_mode_enabled">وضع بدون إنترنت</string>
+    <string name="offline_mode_description">سيب الكاشير يشتغل من غير إنترنت</string>
+    <string name="biometric_required">البصمة مطلوبة</string>
+    <string name="biometric_required_description">خلّي البصمة مطلوبة للحضور</string>
+    <string name="syncing">بيتزامن...</string>
+    <string name="sync_complete">المزامنة خلصت</string>
+    <string name="saved_locally">اتحفظ محلي</string>
 </resources>

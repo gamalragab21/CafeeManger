@@ -23,6 +23,8 @@ data class VendorResponse(
     @SerialName("tax_enabled") val taxEnabled: Boolean = false,
     @SerialName("default_tax_percent") val defaultTaxPercent: Double = 0.0,
     @SerialName("stock_mode") val stockMode: String = "NONE",
+    @SerialName("offline_mode_enabled") val offlineModeEnabled: Boolean = false,
+    @SerialName("biometric_required") val biometricRequired: Boolean = false,
     @SerialName("digital_menu_url") val digitalMenuUrl: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
@@ -47,4 +49,6 @@ data class UpdateVendorRequest(
     @SerialName("tax_enabled") val taxEnabled: Boolean? = null,
     @SerialName("default_tax_percent") val defaultTaxPercent: Double? = null,
     @SerialName("stock_mode") val stockMode: String? = null,
+    @SerialName("offline_mode_enabled") val offlineModeEnabled: Boolean? = null,
+    @SerialName("biometric_required") val biometricRequired: Boolean? = null,
 )
