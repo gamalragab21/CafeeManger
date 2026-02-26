@@ -24,6 +24,7 @@ data class Vendor(
     val stockMode: String = "NONE",
     val offlineModeEnabled: Boolean = false,
     val biometricRequired: Boolean = false,
+    val enableOfflineMode: Boolean = false,
     val digitalMenuUrl: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null

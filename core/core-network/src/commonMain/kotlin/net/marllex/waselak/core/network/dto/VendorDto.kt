@@ -25,6 +25,7 @@ data class VendorResponse(
     @SerialName("stock_mode") val stockMode: String = "NONE",
     @SerialName("offline_mode_enabled") val offlineModeEnabled: Boolean = false,
     @SerialName("biometric_required") val biometricRequired: Boolean = false,
+    @SerialName("enable_offline_mode") val enableOfflineMode: Boolean = false,
     @SerialName("digital_menu_url") val digitalMenuUrl: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
@@ -51,4 +52,5 @@ data class UpdateVendorRequest(
     @SerialName("stock_mode") val stockMode: String? = null,
     @SerialName("offline_mode_enabled") val offlineModeEnabled: Boolean? = null,
     @SerialName("biometric_required") val biometricRequired: Boolean? = null,
+    @SerialName("enable_offline_mode") val enableOfflineMode: Boolean? = null
 )

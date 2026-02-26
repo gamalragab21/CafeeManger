@@ -34,3 +34,6 @@ DELETE FROM pending_attendance WHERE vendor_id = ?;
 
 incrementRetryCount:
 UPDATE pending_attendance SET retry_count = retry_count + 1 WHERE id = ?;
+
+getFailedPending:
+SELECT * FROM pending_attendance WHERE vendor_id = ? AND retry_count >= 3 ORDER BY created_at ASC;

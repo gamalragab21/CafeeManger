@@ -26,6 +26,7 @@ fun VendorResponse.toDomain() = Vendor(
     stockMode = stockMode,
     offlineModeEnabled = offlineModeEnabled,
     biometricRequired = biometricRequired,
+    enableOfflineMode = enableOfflineMode,
     digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt,
     updatedAt = updatedAt

@@ -74,6 +74,9 @@ object DatabaseConfig {
                 CustomersTable, CustomerAddressesTable,
             )
 
+            // Add enable_offline_mode to vendors
+            try { exec("ALTER TABLE vendors ADD COLUMN enable_offline_mode BOOLEAN DEFAULT FALSE") } catch (_: Exception) {}
+
             // Migrate ON_TABLE → SERVED (status rename)
             exec("UPDATE orders SET status = 'SERVED' WHERE status = 'ON_TABLE'")
 

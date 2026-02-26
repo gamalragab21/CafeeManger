@@ -36,6 +36,7 @@ fun Vendors.toDomain() = Vendor(
     stockMode = stock_mode,
     offlineModeEnabled = offline_mode_enabled,
     biometricRequired = biometric_required,
+    enableOfflineMode = enable_offline_mode,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -55,6 +56,7 @@ fun Vendor.toDbEntity() = Vendors(
     stock_mode = stockMode,
     offline_mode_enabled = offlineModeEnabled,
     biometric_required = biometricRequired,
+    enable_offline_mode = enableOfflineMode,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )

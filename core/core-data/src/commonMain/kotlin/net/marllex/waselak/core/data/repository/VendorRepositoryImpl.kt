@@ -36,6 +36,7 @@ class VendorRepositoryImpl constructor(
         enableTables: Boolean?, enableDineIn: Boolean?,
         enableDelivery: Boolean?,
         offlineModeEnabled: Boolean?, biometricRequired: Boolean?,
+        enableOfflineMode: Boolean?,
     ): Result<Vendor> = runCatching {
         val response = api.updateMyVendor(
             UpdateVendorRequest(
@@ -45,6 +46,7 @@ class VendorRepositoryImpl constructor(
                 enableDelivery = enableDelivery,
                 offlineModeEnabled = offlineModeEnabled,
                 biometricRequired = biometricRequired,
+                enableOfflineMode = enableOfflineMode,
             )
         )
         val vendor = response.toDomain()

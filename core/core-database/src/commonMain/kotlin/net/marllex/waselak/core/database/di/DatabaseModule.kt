@@ -218,7 +218,9 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             retry_count INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL
         )""",
-        // v16: create overtime_entries table
+        // v16: add enable_offline_mode to vendors
+        "ALTER TABLE vendors ADD COLUMN enable_offline_mode INTEGER NOT NULL DEFAULT 0",
+        // v17: create overtime_entries table
         """CREATE TABLE IF NOT EXISTS overtime_entries (
             id TEXT NOT NULL PRIMARY KEY,
             vendor_id TEXT NOT NULL,

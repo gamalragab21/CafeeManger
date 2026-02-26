@@ -12,5 +12,6 @@ interface VendorRepository {
         enableTables: Boolean? = null, enableDineIn: Boolean? = null,
         enableDelivery: Boolean? = null,
         offlineModeEnabled: Boolean? = null, biometricRequired: Boolean? = null,
+        enableOfflineMode: Boolean? = null,
     ): Result<Vendor>
 }

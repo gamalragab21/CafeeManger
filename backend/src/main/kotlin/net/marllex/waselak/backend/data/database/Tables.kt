@@ -28,6 +28,7 @@ object VendorsTable : UUIDTable("vendors") {
     val biometricRequired = bool("biometric_required").default(false)
     val isSuspended = bool("is_suspended").default(false)
     val suspensionReason = text("suspension_reason").nullable()
+    val enableOfflineMode = bool("enable_offline_mode").default(false)
     val digitalMenuUrl = text("digital_menu_url").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())

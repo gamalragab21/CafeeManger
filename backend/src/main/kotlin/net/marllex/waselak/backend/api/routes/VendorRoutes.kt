@@ -39,6 +39,7 @@ data class VendorResponse(
     val stock_mode: String = "NONE",
     val offline_mode_enabled: Boolean = false,
     val biometric_required: Boolean = false,
+    val enable_offline_mode: Boolean = false,
     val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
@@ -65,6 +66,7 @@ data class UpdateVendorRequest(
     val stock_mode: String? = null,
     val offline_mode_enabled: Boolean? = null,
     val biometric_required: Boolean? = null,
+    val enable_offline_mode: Boolean? = null,
     val digital_menu_url: String? = null
 )
 
@@ -99,6 +101,7 @@ fun Route.vendorRoutes() {
                 stock_mode = vendor[VendorsTable.stockMode],
                 offline_mode_enabled = vendor[VendorsTable.offlineModeEnabled],
                 biometric_required = vendor[VendorsTable.biometricRequired],
+                enable_offline_mode = vendor[VendorsTable.enableOfflineMode],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
@@ -142,6 +145,7 @@ fun Route.vendorRoutes() {
                     request.stock_mode?.let { stmt[stockMode] = it }
                     request.offline_mode_enabled?.let { stmt[offlineModeEnabled] = it }
                     request.biometric_required?.let { stmt[biometricRequired] = it }
+                    request.enable_offline_mode?.let { stmt[enableOfflineMode] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -172,6 +176,7 @@ fun Route.vendorRoutes() {
                 stock_mode = updated[VendorsTable.stockMode],
                 offline_mode_enabled = updated[VendorsTable.offlineModeEnabled],
                 biometric_required = updated[VendorsTable.biometricRequired],
+                enable_offline_mode = updated[VendorsTable.enableOfflineMode],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
