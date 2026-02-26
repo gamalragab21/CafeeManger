@@ -11,6 +11,11 @@ private val intAdapter = object : ColumnAdapter<Int, Long> {
     override fun encode(value: Int): Long = value.toLong()
 }
 
+private val booleanAdapter = object : ColumnAdapter<Boolean, Long> {
+    override fun decode(databaseValue: Long): Boolean = databaseValue != 0L
+    override fun encode(value: Boolean): Long = if (value) 1L else 0L
+}
+
 /**
  * Run safe ALTER TABLE migrations for schema changes.
  * Each statement is wrapped in try-catch so it's idempotent
@@ -164,6 +169,12 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             available_quantity REAL NOT NULL DEFAULT 0.0,
             FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
         )""",
+        // v11: fixed_quantity on recipe_ingredients
+        "ALTER TABLE recipe_ingredients ADD COLUMN fixed_quantity INTEGER NOT NULL DEFAULT 0",
+        // v12: refund columns on orders
+        "ALTER TABLE orders ADD COLUMN refunded_at INTEGER",
+        "ALTER TABLE orders ADD COLUMN refunded_by TEXT",
+        "ALTER TABLE orders ADD COLUMN refund_reason TEXT",
     )
     migrations.forEach { sql ->
         try {
