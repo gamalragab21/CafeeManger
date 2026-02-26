@@ -202,6 +202,7 @@ fun RecipeIngredientResponse.toDomain() = RecipeIngredient(
     stockItemName = stockItemName,
     quantity = quantity,
     unit = unit,
+    fixedQuantity = fixedQuantity,
     displayOrder = displayOrder,
     availableQuantity = availableQuantity,
 )

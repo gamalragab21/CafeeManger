@@ -42,6 +42,7 @@ data class RecipeIngredientDto(
     val stock_item_name: String,
     val quantity: Double,
     val unit: String,
+    val fixed_quantity: Boolean = false,
     val available_quantity: Double = 0.0,
     val display_order: Int = 0,
 )
@@ -61,6 +62,7 @@ data class CreateRecipeIngredientDto(
     val stock_id: String,
     val quantity: Double,
     val unit: String,
+    val fixed_quantity: Boolean = false,
     val display_order: Int = 0,
 )
 
@@ -221,6 +223,7 @@ fun Route.recipeRoutes() {
                             it[stockId] = UUID.fromString(ingredient.stock_id)
                             it[quantity] = BigDecimal.valueOf(ingredient.quantity)
                             it[unit] = ingredient.unit
+                            it[fixedQuantity] = ingredient.fixed_quantity
                             it[displayOrder] = ingredient.display_order
                             it[createdAt] = now
                         }
@@ -246,6 +249,7 @@ fun Route.recipeRoutes() {
                             it[stockId] = UUID.fromString(ingredient.stock_id)
                             it[quantity] = BigDecimal.valueOf(ingredient.quantity)
                             it[unit] = ingredient.unit
+                            it[fixedQuantity] = ingredient.fixed_quantity
                             it[displayOrder] = ingredient.display_order
                             it[createdAt] = now
                         }
@@ -345,6 +349,7 @@ fun Route.recipeRoutes() {
                             it[stockId] = UUID.fromString(ingredient.stock_id)
                             it[quantity] = BigDecimal.valueOf(ingredient.quantity)
                             it[unit] = ingredient.unit
+                            it[fixedQuantity] = ingredient.fixed_quantity
                             it[displayOrder] = ingredient.display_order
                             it[createdAt] = now
                         }
@@ -426,7 +431,9 @@ fun Route.recipeRoutes() {
                         .where { StockTable.id eq ingredient[RecipeIngredientsTable.stockId] }
                         .firstOrNull() ?: continue
 
-                    val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * multiplier
+                    val isFixed = ingredient[RecipeIngredientsTable.fixedQuantity]
+                    val effectiveMultiplier = if (isFixed) 1.0 else multiplier
+                    val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * effectiveMultiplier
                     val ingredientUnit = ingredient[RecipeIngredientsTable.unit]
                     val stockUnit = stockRow[StockTable.unit]
 
@@ -444,7 +451,8 @@ fun Route.recipeRoutes() {
                     }
 
                     // Calculate max servings based on this ingredient
-                    val perServing = ingredient[RecipeIngredientsTable.quantity].toDouble() / yieldQty
+                    // Fixed ingredients don't scale with servings, so they don't limit max servings
+                    val perServing = if (isFixed) 0.0 else ingredient[RecipeIngredientsTable.quantity].toDouble() / yieldQty
                     val convertedPerServing = convertUnits(perServing, ingredientUnit, stockUnit)
                     if (convertedPerServing > 0) {
                         val servingsFromThis = (availableQty / convertedPerServing).toInt()
@@ -512,6 +520,7 @@ private fun mapRecipeRow(row: ResultRow, vendorUUID: UUID): RecipeDto {
             stock_item_name = stockName,
             quantity = ingRow[RecipeIngredientsTable.quantity].toDouble(),
             unit = ingredientUnit,
+            fixed_quantity = ingRow[RecipeIngredientsTable.fixedQuantity],
             available_quantity = availableQty,
             display_order = ingRow[RecipeIngredientsTable.displayOrder],
         )

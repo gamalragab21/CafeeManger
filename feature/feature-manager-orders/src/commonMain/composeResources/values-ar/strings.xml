@@ -41,4 +41,7 @@
     <string name="status">الحالة</string>
     <string name="channel">القناة</string>
     <string name="tap_to_filter">اضغط للتصفية</string>
+    <string name="confirm_payment">تأكيد الدفع</string>
+    <string name="select_payment_method">طريقة الدفع</string>
+    <string name="payment_required">يجب الدفع لإكمال الطلب</string>
 </resources>

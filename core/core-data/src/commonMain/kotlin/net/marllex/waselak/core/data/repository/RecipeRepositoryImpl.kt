@@ -78,6 +78,7 @@ class RecipeRepositoryImpl(
                         stockId = it.stockId,
                         quantity = it.quantity,
                         unit = it.unit,
+                        fixedQuantity = it.fixedQuantity,
                         displayOrder = it.displayOrder,
                     )
                 }
@@ -110,6 +111,7 @@ class RecipeRepositoryImpl(
                         stockId = it.stockId,
                         quantity = it.quantity,
                         unit = it.unit,
+                        fixedQuantity = it.fixedQuantity,
                         displayOrder = it.displayOrder,
                     )
                 }

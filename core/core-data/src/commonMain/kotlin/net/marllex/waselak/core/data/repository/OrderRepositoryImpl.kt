@@ -190,9 +190,9 @@ class OrderRepositoryImpl constructor(
             order
         }
 
-    override suspend fun updatePaymentStatus(id: String, status: PaymentStatus): Result<Order> =
+    override suspend fun updatePaymentStatus(id: String, status: PaymentStatus, paymentMethod: PaymentMethod?): Result<Order> =
         runCatching {
-            val response = api.updatePaymentStatus(id, UpdatePaymentStatusRequest(status.name))
+            val response = api.updatePaymentStatus(id, UpdatePaymentStatusRequest(status.name, paymentMethod?.name))
             val order = response.toDomain()
             orderDao.insertOrder(order.toDbEntity())
             orderDao.deleteOrderItems(order.id)
