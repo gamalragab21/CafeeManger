@@ -1016,7 +1016,7 @@ fun Route.orderRoutes() {
 
         // Refund a completed order (restore stock, update customer stats)
         post("/{id}/refund") {
-            val principal = requireRole("MANAGER")
+            val principal = requireRole("MANAGER", "CASHIER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<RefundOrderDto>()
             require(request.reason.isNotBlank()) { "Refund reason is required" }
