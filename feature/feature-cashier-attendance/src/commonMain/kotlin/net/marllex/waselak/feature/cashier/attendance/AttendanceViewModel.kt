@@ -12,9 +12,11 @@ import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.Attendance
 import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.Worker
+import net.marllex.waselak.core.data.offline.OfflineModeManager
 
 class AttendanceViewModel constructor(
     private val workerRepository: WorkerRepository,
+    private val offlineModeManager: OfflineModeManager,
 ) : ViewModel() {
 
     data class UiState(
@@ -36,6 +38,9 @@ class AttendanceViewModel constructor(
         val selectedWorker: Worker? = null,
         val selectedAttendanceId: String? = null,
         val authAction: AuthAction? = null,
+        // Offline mode
+        val isOffline: Boolean = false,
+        val isQrDisabled: Boolean = false,
     )
 
     sealed class AuthAction {
@@ -48,13 +53,20 @@ class AttendanceViewModel constructor(
 
     init {
         loadData()
+        viewModelScope.launch {
+            offlineModeManager.isOfflineActive.collect { offline ->
+                _uiState.update { it.copy(isOffline = offline, isQrDisabled = offline) }
+            }
+        }
     }
 
     fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                workerRepository.refreshWorkers()
+                if (!_uiState.value.isOffline) {
+                    workerRepository.refreshWorkers()
+                }
                 workerRepository.getTodayAttendance().onSuccess { summary ->
                     _uiState.update { it.copy(todaySummary = summary) }
                 }

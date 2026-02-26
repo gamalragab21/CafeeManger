@@ -74,6 +74,7 @@ class OrderDao(private val db: WaselakDatabase) {
             refunded_at = order.refunded_at,
             refunded_by = order.refunded_by,
             refund_reason = order.refund_reason,
+            sync_status = order.sync_status,
         )
     }
 
@@ -91,6 +92,13 @@ class OrderDao(private val db: WaselakDatabase) {
 
     fun getOrdersByCustomerId(customerId: String, limit: Long): Flow<List<Orders>> =
         orderQueries.getOrdersByCustomerId(customerId, limit).asFlow().mapToList(Dispatchers.Default)
+
+    suspend fun updateSyncStatus(orderId: String, syncStatus: String) {
+        orderQueries.updateSyncStatus(syncStatus, orderId)
+    }
+
+    suspend fun getPendingSyncOrders(): List<Orders> =
+        orderQueries.getPendingSyncOrders().executeAsList()
 
     // ─── Order Items ─────────────────────────────────────────────
     fun getOrderItems(orderId: String): Flow<List<Order_items>> =

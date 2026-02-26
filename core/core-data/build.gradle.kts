@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.waselak.kmp.library)
     alias(libs.plugins.waselak.koin)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -17,6 +18,7 @@ kotlin {
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.ktor.client.core)
         }
     }

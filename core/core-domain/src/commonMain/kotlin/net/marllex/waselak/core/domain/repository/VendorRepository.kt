@@ -11,5 +11,6 @@ interface VendorRepository {
         contactPhone: String? = null, walletPhone: String? = null,
         enableTables: Boolean? = null, enableDineIn: Boolean? = null,
         enableDelivery: Boolean? = null,
+        offlineModeEnabled: Boolean? = null, biometricRequired: Boolean? = null,
     ): Result<Vendor>
 }

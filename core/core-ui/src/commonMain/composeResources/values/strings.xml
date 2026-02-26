@@ -154,4 +154,19 @@
     <string name="app_cashier">Wasel POS - Cashier</string>
     <string name="app_delivery">Wasel POS - Delivery</string>
     <string name="app_manager">Wasel POS - Manager</string>
+
+    <!-- Offline Mode -->
+    <string name="offline_mode">Offline Mode</string>
+    <string name="sync_now">Sync Now</string>
+    <string name="items_pending_sync">%d items pending sync</string>
+    <string name="order_saved_locally">Order saved locally</string>
+    <string name="qr_not_available_offline">QR not available offline</string>
+    <string name="store_configuration">Store Configuration</string>
+    <string name="offline_mode_enabled">Offline Mode</string>
+    <string name="offline_mode_description">Allow cashier to work without internet</string>
+    <string name="biometric_required">Biometric Required</string>
+    <string name="biometric_required_description">Require biometric for attendance</string>
+    <string name="syncing">Syncing...</string>
+    <string name="sync_complete">Sync complete</string>
+    <string name="saved_locally">Saved locally</string>
 </resources>

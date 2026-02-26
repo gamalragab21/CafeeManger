@@ -37,6 +37,8 @@ data class VendorResponse(
     val tax_enabled: Boolean = false,
     val default_tax_percent: Double = 0.0,
     val stock_mode: String = "NONE",
+    val offline_mode_enabled: Boolean = false,
+    val biometric_required: Boolean = false,
     val digital_menu_url: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
@@ -61,6 +63,8 @@ data class UpdateVendorRequest(
     val tax_enabled: Boolean? = null,
     val default_tax_percent: Double? = null,
     val stock_mode: String? = null,
+    val offline_mode_enabled: Boolean? = null,
+    val biometric_required: Boolean? = null,
     val digital_menu_url: String? = null
 )
 
@@ -93,6 +97,8 @@ fun Route.vendorRoutes() {
                 tax_enabled = vendor[VendorsTable.taxEnabled],
                 default_tax_percent = vendor[VendorsTable.defaultTaxPercent].toDouble(),
                 stock_mode = vendor[VendorsTable.stockMode],
+                offline_mode_enabled = vendor[VendorsTable.offlineModeEnabled],
+                biometric_required = vendor[VendorsTable.biometricRequired],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
@@ -134,6 +140,8 @@ fun Route.vendorRoutes() {
                     request.tax_enabled?.let { stmt[taxEnabled] = it }
                     request.default_tax_percent?.let { stmt[defaultTaxPercent] = java.math.BigDecimal.valueOf(it) }
                     request.stock_mode?.let { stmt[stockMode] = it }
+                    request.offline_mode_enabled?.let { stmt[offlineModeEnabled] = it }
+                    request.biometric_required?.let { stmt[biometricRequired] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
@@ -162,6 +170,8 @@ fun Route.vendorRoutes() {
                 tax_enabled = updated[VendorsTable.taxEnabled],
                 default_tax_percent = updated[VendorsTable.defaultTaxPercent].toDouble(),
                 stock_mode = updated[VendorsTable.stockMode],
+                offline_mode_enabled = updated[VendorsTable.offlineModeEnabled],
+                biometric_required = updated[VendorsTable.biometricRequired],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()

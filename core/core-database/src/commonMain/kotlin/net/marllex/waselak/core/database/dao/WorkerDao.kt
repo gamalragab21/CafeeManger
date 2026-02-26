@@ -145,7 +145,8 @@ class WorkerDao(private val db: WaselakDatabase) {
             recorded_by = record.recorded_by,
             auth_method = record.auth_method,
             note = record.note,
-            created_at = record.created_at
+            created_at = record.created_at,
+            sync_status = record.sync_status
         )
     }
 
@@ -155,6 +156,10 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     suspend fun deleteAttendance(id: String) {
         attendanceQueries.deleteAttendance(id)
+    }
+
+    suspend fun updateAttendanceSyncStatus(id: String, syncStatus: String) {
+        attendanceQueries.updateAttendanceSyncStatus(syncStatus, id)
     }
 
     // ─── Salary Payments ─────────────────────────────────────────

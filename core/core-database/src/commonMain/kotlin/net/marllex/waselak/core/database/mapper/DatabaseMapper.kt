@@ -33,6 +33,8 @@ fun Vendors.toDomain() = Vendor(
     taxEnabled = tax_enabled,
     defaultTaxPercent = default_tax_percent,
     stockMode = stock_mode,
+    offlineModeEnabled = offline_mode_enabled,
+    biometricRequired = biometric_required,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -50,6 +52,8 @@ fun Vendor.toDbEntity() = Vendors(
     tax_enabled = taxEnabled,
     default_tax_percent = defaultTaxPercent,
     stock_mode = stockMode,
+    offline_mode_enabled = offlineModeEnabled,
+    biometric_required = biometricRequired,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )
@@ -127,6 +131,7 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     notes = notes, items = items,
     createdAt = created_at, updatedAt = updated_at,
     refundedAt = refunded_at, refundedBy = refunded_by, refundReason = refund_reason,
+    syncStatus = sync_status,
 )
 
 fun Order.toDbEntity() = Orders(
@@ -148,6 +153,7 @@ fun Order.toDbEntity() = Orders(
     tax = tax, tax_percent = taxPercent, total = total,
     notes = notes, created_at = createdAt, updated_at = updatedAt,
     refunded_at = refundedAt, refunded_by = refundedBy, refund_reason = refundReason,
+    sync_status = syncStatus,
 )
 
 fun Order_items.toDomain() = OrderItem(
@@ -235,7 +241,8 @@ fun AttendanceDb.toDomain() = net.marllex.waselak.core.model.Attendance(
     workerName = worker_name, workerRole = worker_role,
     date = date, checkIn = check_in, checkOut = check_out,
     workedMinutes = worked_minutes, recordedBy = recorded_by,
-    authMethod = auth_method, note = note, createdAt = created_at
+    authMethod = auth_method, note = note, createdAt = created_at,
+    syncStatus = sync_status,
 )
 
 fun net.marllex.waselak.core.model.Attendance.toDbEntity() = AttendanceDb(
@@ -243,7 +250,8 @@ fun net.marllex.waselak.core.model.Attendance.toDbEntity() = AttendanceDb(
     worker_name = workerName, worker_role = workerRole,
     date = date, check_in = checkIn, check_out = checkOut,
     worked_minutes = workedMinutes, recorded_by = recordedBy,
-    auth_method = authMethod, note = note, created_at = createdAt
+    auth_method = authMethod, note = note, created_at = createdAt,
+    sync_status = syncStatus,
 )
 
 // ─── Salary Payment Mappers ──────────────────────────────────────

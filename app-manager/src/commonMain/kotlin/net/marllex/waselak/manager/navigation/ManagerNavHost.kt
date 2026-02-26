@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableBar
@@ -50,6 +51,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -792,6 +794,19 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 )
             }
 
+            "store_configuration" -> {
+                TopAppBar(
+                    title = { Text(stringResource(CoreRes.string.store_configuration)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                StoreConfigurationScreen()
+            }
+
             else -> {
                 TabRow(
                     selectedTabIndex = selectedTab,
@@ -836,6 +851,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                             onNavigateToTables = { activeSubScreen = "tables" },
                             onNavigateToUsers = { activeSubScreen = "users" },
                             onNavigateToTaxPlaces = { activeSubScreen = "tax_places" },
+                            onNavigateToConfiguration = { activeSubScreen = "store_configuration" },
                         )
                     }
                 }
@@ -851,6 +867,7 @@ private fun SettingsContent(
     onNavigateToTables: () -> Unit,
     onNavigateToUsers: () -> Unit,
     onNavigateToTaxPlaces: () -> Unit,
+    onNavigateToConfiguration: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isTablet = maxWidth >= 600.dp
@@ -886,6 +903,12 @@ private fun SettingsContent(
                 icon = Icons.Filled.LocalShipping,
                 title = stringResource(CoreRes.string.tax_places),
                 onClick = onNavigateToTaxPlaces,
+            )
+
+            SettingsNavigationCard(
+                icon = Icons.Filled.Settings,
+                title = stringResource(CoreRes.string.store_configuration),
+                onClick = onNavigateToConfiguration,
             )
 
             Spacer(Modifier.height(8.dp))
@@ -941,6 +964,80 @@ private fun SettingsNavigationCard(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun StoreConfigurationScreen() {
+    val viewModel: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val state by viewModel.uiState.collectAsState()
+    val vendor = state.vendor
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(CoreRes.string.offline_mode_enabled),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = stringResource(CoreRes.string.offline_mode_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = vendor?.offlineModeEnabled == true,
+                        onCheckedChange = { newValue ->
+                            viewModel.updateStoreConfiguration(offlineModeEnabled = newValue)
+                        },
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(CoreRes.string.biometric_required),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = stringResource(CoreRes.string.biometric_required_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = vendor?.biometricRequired == true,
+                        onCheckedChange = { newValue ->
+                            viewModel.updateStoreConfiguration(biometricRequired = newValue)
+                        },
+                    )
+                }
+            }
         }
     }
 }

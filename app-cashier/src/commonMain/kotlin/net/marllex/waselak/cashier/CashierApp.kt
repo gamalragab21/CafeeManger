@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import net.marllex.waselak.cashier.navigation.CashierNavHost
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
+import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.ui.theme.WaselakTheme
 import org.koin.compose.koinInject
 
@@ -11,10 +12,12 @@ import org.koin.compose.koinInject
 fun CashierApp() {
     val authRepository: AuthRepository = koinInject()
     val vendorRepository: VendorRepository = koinInject()
+    val offlineModeManager: OfflineModeManager = koinInject()
     WaselakTheme {
         CashierNavHost(
             authRepository = authRepository,
             vendorRepository = vendorRepository,
+            offlineModeManager = offlineModeManager,
         )
     }
 }

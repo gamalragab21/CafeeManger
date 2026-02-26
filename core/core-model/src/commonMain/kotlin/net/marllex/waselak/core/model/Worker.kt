@@ -54,6 +54,7 @@ data class Attendance(
     val authMethod: String = "MANUAL",
     val note: String? = null,
     val createdAt: Long? = null,
+    val syncStatus: String = "SYNCED",
 ) {
     val isCheckedOut: Boolean get() = checkOut != null
     val workedHoursFormatted: String get() {

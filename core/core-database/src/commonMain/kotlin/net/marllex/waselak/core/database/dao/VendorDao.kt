@@ -33,6 +33,8 @@ class VendorDao(private val db: WaselakDatabase) {
             tax_enabled = vendor.tax_enabled,
             default_tax_percent = vendor.default_tax_percent,
             stock_mode = vendor.stock_mode,
+            offline_mode_enabled = vendor.offline_mode_enabled,
+            biometric_required = vendor.biometric_required,
             digital_menu_url = vendor.digital_menu_url,
             created_at = vendor.created_at,
             updated_at = vendor.updated_at
@@ -58,6 +60,8 @@ class VendorDao(private val db: WaselakDatabase) {
             tax_enabled = vendor.tax_enabled,
             default_tax_percent = vendor.default_tax_percent,
             stock_mode = vendor.stock_mode,
+            offline_mode_enabled = vendor.offline_mode_enabled,
+            biometric_required = vendor.biometric_required,
             digital_menu_url = vendor.digital_menu_url,
             updated_at = vendor.updated_at,
             id = vendor.id

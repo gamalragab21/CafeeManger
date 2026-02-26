@@ -22,6 +22,8 @@ data class Vendor(
     val taxEnabled: Boolean = false,
     val defaultTaxPercent: Double = 0.0,
     val stockMode: String = "NONE",
+    val offlineModeEnabled: Boolean = false,
+    val biometricRequired: Boolean = false,
     val digitalMenuUrl: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null
