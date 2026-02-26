@@ -131,6 +131,16 @@
     <string name="no_digital_menu">No digital menu available</string>
     <string name="link_copied">Link copied</string>
     <string name="export_data">Export Data</string>
+    <string name="offline_mode_settings">Offline Mode</string>
+    <string name="enable_offline_mode">Enable Offline Mode</string>
+    <string name="enable_offline_mode_desc">Allow cashiers to work without internet</string>
+    <string name="sync_dashboard">Sync Dashboard</string>
+    <string name="pending_records">Pending Records</string>
+    <string name="failed_records">Failed Records</string>
+    <string name="retry_sync">Retry</string>
+    <string name="delete_failed">Delete</string>
+    <string name="no_pending_records">No pending records</string>
+    <string name="offline_mode_disabled">Offline mode is disabled</string>
     <string name="language">Language</string>
     <string name="app_settings">App Settings</string>
     <string name="version_info">Version 1.0.0</string>

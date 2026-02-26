@@ -24,6 +24,7 @@ import net.marllex.waselak.feature.manager.stock.StockViewModel
 import net.marllex.waselak.feature.manager.tables.TablesViewModel
 import net.marllex.waselak.feature.manager.users.UsersViewModel
 import net.marllex.waselak.manager.navigation.RestaurantProfileViewModel
+import net.marllex.waselak.manager.offline.OfflineSettingsViewModel
 import net.marllex.waselak.manager.taxplaces.TaxPlacesViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
@@ -65,4 +66,5 @@ private val managerAppModule = module {
     viewModelOf(::TaxPlacesViewModel)
     viewModelOf(::ReceiptViewModel)
     viewModelOf(::CustomersViewModel)
+    viewModelOf(::OfflineSettingsViewModel)
 }

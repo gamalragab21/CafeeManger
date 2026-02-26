@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.LocalShipping
@@ -114,6 +115,7 @@ import net.marllex.waselak.feature.manager.staff.WorkerQrCodeScreen
 import net.marllex.waselak.feature.manager.stock.StockScreen
 import net.marllex.waselak.feature.manager.tables.TablesScreen
 import net.marllex.waselak.feature.manager.users.UsersScreen
+import net.marllex.waselak.manager.offline.OfflineSettingsScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.qualifier.named
@@ -792,6 +794,19 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                 )
             }
 
+            "offline_mode" -> {
+                TopAppBar(
+                    title = { Text(stringResource(CoreRes.string.offline_mode_settings)) },
+                    navigationIcon = {
+                        IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                OfflineSettingsScreen()
+            }
+
             else -> {
                 TabRow(
                     selectedTabIndex = selectedTab,
@@ -836,6 +851,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                             onNavigateToTables = { activeSubScreen = "tables" },
                             onNavigateToUsers = { activeSubScreen = "users" },
                             onNavigateToTaxPlaces = { activeSubScreen = "tax_places" },
+                            onNavigateToOfflineSettings = { activeSubScreen = "offline_mode" },
                         )
                     }
                 }
@@ -851,6 +867,7 @@ private fun SettingsContent(
     onNavigateToTables: () -> Unit,
     onNavigateToUsers: () -> Unit,
     onNavigateToTaxPlaces: () -> Unit,
+    onNavigateToOfflineSettings: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isTablet = maxWidth >= 600.dp
@@ -886,6 +903,12 @@ private fun SettingsContent(
                 icon = Icons.Filled.LocalShipping,
                 title = stringResource(CoreRes.string.tax_places),
                 onClick = onNavigateToTaxPlaces,
+            )
+
+            SettingsNavigationCard(
+                icon = Icons.Filled.CloudOff,
+                title = stringResource(CoreRes.string.offline_mode_settings),
+                onClick = onNavigateToOfflineSettings,
             )
 
             Spacer(Modifier.height(8.dp))

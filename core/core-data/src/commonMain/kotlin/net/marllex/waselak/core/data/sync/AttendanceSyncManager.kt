@@ -6,7 +6,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.database.dao.WorkerDao
 import net.marllex.waselak.core.domain.repository.AuthRepository
@@ -38,7 +37,6 @@ class AttendanceSyncManager(
     fun startObserving() {
         scope.launch {
             networkMonitor.isOnline
-                .distinctUntilChanged()
                 .collect { online ->
                     if (online) {
                         syncPendingRecords()

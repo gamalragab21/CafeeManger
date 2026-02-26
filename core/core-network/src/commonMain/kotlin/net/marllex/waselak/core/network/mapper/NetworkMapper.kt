@@ -18,6 +18,7 @@ fun VendorResponse.toDomain() = Vendor(
     enableDineIn = enableDineIn,
     enableDelivery = enableDelivery,
     enableTakeaway = enableTakeaway,
+    enableOfflineMode = enableOfflineMode,
     digitalMenuUrl = digitalMenuUrl,
     createdAt = createdAt,
     updatedAt = updatedAt

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS vendors (
     enable_dine_in INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     enable_delivery INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     enable_takeaway INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_offline_mode INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     digital_menu_url TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER
@@ -20,11 +21,11 @@ getVendorById:
 SELECT * FROM vendors WHERE id = ?;
 
 insertVendor:
-INSERT OR REPLACE INTO vendors(id, name, logo_url, address, contact_phone, wallet_phone, default_delivery_fee, store_type, enable_tables, enable_dine_in, enable_delivery, enable_takeaway, digital_menu_url, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO vendors(id, name, logo_url, address, contact_phone, wallet_phone, default_delivery_fee, store_type, enable_tables, enable_dine_in, enable_delivery, enable_takeaway, enable_offline_mode, digital_menu_url, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateVendor:
-UPDATE vendors SET name = ?, logo_url = ?, address = ?, contact_phone = ?, wallet_phone = ?, default_delivery_fee = ?, store_type = ?, enable_tables = ?, enable_dine_in = ?, enable_delivery = ?, enable_takeaway = ?, digital_menu_url = ?, updated_at = ?
+UPDATE vendors SET name = ?, logo_url = ?, address = ?, contact_phone = ?, wallet_phone = ?, default_delivery_fee = ?, store_type = ?, enable_tables = ?, enable_dine_in = ?, enable_delivery = ?, enable_takeaway = ?, enable_offline_mode = ?, digital_menu_url = ?, updated_at = ?
 WHERE id = ?;
 
 deleteVendor:

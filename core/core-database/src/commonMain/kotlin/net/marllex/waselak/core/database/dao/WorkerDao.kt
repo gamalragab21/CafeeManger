@@ -298,4 +298,7 @@ class WorkerDao(private val db: WaselakDatabase) {
     suspend fun incrementPendingRetryCount(id: String) {
         pendingAttendanceQueries.incrementRetryCount(id)
     }
+
+    fun getFailedPendingAttendance(vendorId: String): Flow<List<Pending_attendance>> =
+        pendingAttendanceQueries.getFailedPending(vendorId).asFlow().mapToList(Dispatchers.Default)
 }

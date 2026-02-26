@@ -18,6 +18,7 @@ object VendorsTable : UUIDTable("vendors") {
     val enableDineIn = bool("enable_dine_in").default(true)
     val enableDelivery = bool("enable_delivery").default(true)
     val enableTakeaway = bool("enable_takeaway").default(true)
+    val enableOfflineMode = bool("enable_offline_mode").default(false)
     val digitalMenuUrl = text("digital_menu_url").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())

@@ -26,6 +26,7 @@ fun Vendors.toDomain() = Vendor(
     storeType = store_type, enableTables = enable_tables,
     enableDineIn = enable_dine_in, enableDelivery = enable_delivery,
     enableTakeaway = enable_takeaway,
+    enableOfflineMode = enable_offline_mode,
     digitalMenuUrl = digital_menu_url,
     createdAt = created_at, updatedAt = updated_at
 )
@@ -37,6 +38,7 @@ fun Vendor.toDbEntity() = Vendors(
     store_type = storeType, enable_tables = enableTables,
     enable_dine_in = enableDineIn, enable_delivery = enableDelivery,
     enable_takeaway = enableTakeaway,
+    enable_offline_mode = enableOfflineMode,
     digital_menu_url = digitalMenuUrl,
     created_at = createdAt, updated_at = updatedAt
 )

@@ -131,6 +131,16 @@
     <string name="no_digital_menu">لا توجد قائمة رقمية متاحة</string>
     <string name="link_copied">تم نسخ الرابط</string>
     <string name="export_data">تصدير البيانات</string>
+    <string name="offline_mode_settings">وضع عدم الاتصال</string>
+    <string name="enable_offline_mode">تفعيل وضع عدم الاتصال</string>
+    <string name="enable_offline_mode_desc">السماح للكاشير بالعمل بدون إنترنت</string>
+    <string name="sync_dashboard">لوحة المزامنة</string>
+    <string name="pending_records">سجلات معلقة</string>
+    <string name="failed_records">سجلات فاشلة</string>
+    <string name="retry_sync">إعادة المحاولة</string>
+    <string name="delete_failed">حذف</string>
+    <string name="no_pending_records">لا توجد سجلات معلقة</string>
+    <string name="offline_mode_disabled">وضع عدم الاتصال معطل</string>
     <string name="language">اللغة</string>
     <string name="app_settings">إعدادات التطبيق</string>
     <string name="version_info">الإصدار 1.0.0</string>

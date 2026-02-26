@@ -7,6 +7,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import net.marllex.waselak.core.database.Pending_attendance
+import net.marllex.waselak.core.database.dao.VendorDao
 import net.marllex.waselak.core.database.dao.WorkerDao
 import net.marllex.waselak.core.database.mapper.*
 import net.marllex.waselak.core.domain.repository.AuthRepository
@@ -27,6 +28,7 @@ class WorkerRepositoryImpl constructor(
     private val authRepository: AuthRepository,
     private val workerNetworkDataSource: WorkerNetworkDataSource,
     private val networkMonitor: NetworkMonitor,
+    private val vendorDao: VendorDao,
 ) : WorkerRepository {
 
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
@@ -170,6 +172,11 @@ class WorkerRepositoryImpl constructor(
 
         // Offline check-in with local PIN verification
         return runCatching {
+            val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
+            if (vendor?.enableOfflineMode != true) {
+                throw IllegalStateException("Offline mode is disabled")
+            }
+
             val worker = workerDao.getWorkerById(workerId).firstOrNull()?.toDomain()
                 ?: throw IllegalStateException("Worker not found locally")
 
@@ -235,6 +242,11 @@ class WorkerRepositoryImpl constructor(
 
         // Offline check-out: find the local attendance record and update it
         return runCatching {
+            val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
+            if (vendor?.enableOfflineMode != true) {
+                throw IllegalStateException("Offline mode is disabled")
+            }
+
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
             val todayRecords = workerDao.getAttendanceByDate(vendorId, today).firstOrNull() ?: emptyList()
             val existingRecord = todayRecords.find { it.id == attendanceId }?.toDomain()

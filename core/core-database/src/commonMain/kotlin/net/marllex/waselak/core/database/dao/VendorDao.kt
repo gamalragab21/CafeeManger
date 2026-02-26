@@ -27,6 +27,7 @@ class VendorDao(private val db: WaselakDatabase) {
             enable_dine_in = vendor.enable_dine_in,
             enable_delivery = vendor.enable_delivery,
             enable_takeaway = vendor.enable_takeaway,
+            enable_offline_mode = vendor.enable_offline_mode,
             digital_menu_url = vendor.digital_menu_url,
             created_at = vendor.created_at,
             updated_at = vendor.updated_at
@@ -46,6 +47,7 @@ class VendorDao(private val db: WaselakDatabase) {
             enable_dine_in = vendor.enable_dine_in,
             enable_delivery = vendor.enable_delivery,
             enable_takeaway = vendor.enable_takeaway,
+            enable_offline_mode = vendor.enable_offline_mode,
             digital_menu_url = vendor.digital_menu_url,
             updated_at = vendor.updated_at,
             id = vendor.id
