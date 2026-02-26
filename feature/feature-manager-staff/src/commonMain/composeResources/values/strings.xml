@@ -193,4 +193,19 @@
     <string name="salary_payment_section">Salary &amp; Payment</string>
     <string name="worker_summary">Worker Summary</string>
     <string name="step_of">Step %1$d of %2$d</string>
+
+    <!-- Overtime -->
+    <string name="overtime">Overtime</string>
+    <string name="add_overtime">Add Overtime</string>
+    <string name="overtime_hours">Hours</string>
+    <string name="rate_per_hour">Rate per Hour (EGP)</string>
+    <string name="overtime_note">Note (optional)</string>
+    <string name="overtime_date">Date</string>
+    <string name="overtime_added">Overtime added successfully</string>
+    <string name="overtime_deleted">Overtime deleted</string>
+    <string name="no_overtime_records">No overtime records</string>
+    <string name="total_overtime">Total: %s EGP</string>
+    <string name="overtime_amount">%s EGP</string>
+    <string name="hours_format">%s hrs</string>
+    <string name="delete_overtime_confirm">Delete this overtime entry?</string>
 </resources>

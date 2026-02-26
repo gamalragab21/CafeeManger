@@ -21,6 +21,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
+import java.security.MessageDigest
 import java.util.UUID
 import kotlin.getValue
 
@@ -41,6 +42,7 @@ data class WorkerDto(
     val active: Boolean = true,
     val is_login_enabled: Boolean = false,
     val has_pin: Boolean = false,
+    val pin_sha256: String? = null,
     val qr_code_version: Int = 1,
     val pin_updated_at: Long? = null,
     val created_at: Long? = null,
@@ -295,6 +297,7 @@ fun Route.workerRoutes() {
                 } else {
                     null
                 }
+                val pinSha = if (!request.pin.isNullOrBlank()) sha256Hex(request.pin) else null
 
                 // If login enabled, create a User record first
                 var linkedUserId: UUID? = null
@@ -327,6 +330,7 @@ fun Route.workerRoutes() {
                     it[active] = true
                     if (pinHash != null) {
                         it[WorkersTable.pinHash] = pinHash
+                        it[WorkersTable.pinSha256] = pinSha
                         it[WorkersTable.pinUpdatedAt] = now
                     }
                     it[WorkersTable.qrCodeVersion] = 1
@@ -396,6 +400,7 @@ fun Route.workerRoutes() {
                         request.active?.let { stmt[active] = it }
                         request.pin?.let { pin ->
                             stmt[WorkersTable.pinHash] = pinService.hashPin(pin)
+                            stmt[WorkersTable.pinSha256] = sha256Hex(pin)
                             stmt[WorkersTable.pinUpdatedAt] = now
                         }
                         stmt[updatedAt] = now
@@ -489,6 +494,7 @@ fun Route.workerRoutes() {
                     (WorkersTable.vendorId eq vendorUUID)
                 }) {
                     it[WorkersTable.pinHash] = pinService.hashPin(request.pin)
+                    it[WorkersTable.pinSha256] = sha256Hex(request.pin)
                     it[WorkersTable.pinUpdatedAt] = now
                     it[updatedAt] = now
                 }
@@ -722,6 +728,13 @@ fun Route.workerRoutes() {
     }
 }
 
+// ─── Helpers ────────────────────────────────────────────────────
+
+private fun sha256Hex(input: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
+}
+
 // ─── Mappers ─────────────────────────────────────────────────────
 
 private fun ResultRow.toWorkerDto() = WorkerDto(
@@ -738,6 +751,7 @@ private fun ResultRow.toWorkerDto() = WorkerDto(
     active = this[WorkersTable.active],
     is_login_enabled = this[WorkersTable.userId] != null,
     has_pin = this[WorkersTable.pinHash] != null,
+    pin_sha256 = this[WorkersTable.pinSha256],
     qr_code_version = this[WorkersTable.qrCodeVersion],
     pin_updated_at = this[WorkersTable.pinUpdatedAt]?.toEpochMilliseconds(),
     created_at = this[WorkersTable.createdAt].toEpochMilliseconds(),

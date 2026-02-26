@@ -41,4 +41,20 @@
     <string name="enter_pin">اكتب رمز الـ PIN</string>
     <string name="pin_length_hint">الـ PIN لازم يكون من 4-6 أرقام</string>
     <string name="confirm">تأكيد</string>
+    <string name="check_in_time_label">دخول: %s</string>
+    <string name="check_out_time_label">خروج: %s</string>
+    <string name="backspace">مسح</string>
+    <string name="clear_pin">مسح الكل</string>
+    <string name="unknown_error">حدث خطأ غير معروف</string>
+    <string name="offline_mode">وضع عدم الاتصال</string>
+    <string name="offline_mode_desc">سيتم مزامنة الحضور عند الاتصال</string>
+    <string name="pending_sync">%d في انتظار المزامنة</string>
+    <string name="sync_in_progress">جاري مزامنة الحضور…</string>
+    <string name="sync_complete">تمت مزامنة الحضور بنجاح</string>
+    <string name="sync_failed">فشلت مزامنة بعض السجلات</string>
+    <string name="offline_check_in_recorded">تم تسجيل الحضور بدون اتصال</string>
+    <string name="offline_check_out_recorded">تم تسجيل الانصراف بدون اتصال</string>
+    <string name="qr_requires_internet">مسح QR يتطلب اتصال بالإنترنت</string>
+    <string name="pin_verification_failed_offline">فشل التحقق من رمز PIN</string>
+    <string name="worker_pin_not_cached">رمز PIN غير متوفر بدون اتصال. يرجى الاتصال بالإنترنت أولاً.</string>
 </resources>

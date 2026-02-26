@@ -17,6 +17,7 @@ data class Worker(
     val userId: String? = null,
     val isLoginEnabled: Boolean = false,
     val hasPin: Boolean = false,
+    val pinSha256: String? = null,
     val qrCodeVersion: Int = 1,
     val pinUpdatedAt: Long? = null,
     val createdAt: Long? = null,
@@ -77,6 +78,21 @@ data class AttendanceSummary(
 ) {
     val totalWorkedHours: Double get() = totalWorkedMinutes / 60.0
 }
+
+@Serializable
+data class Overtime(
+    val id: String,
+    val vendorId: String,
+    val workerId: String,
+    val workerName: String? = null,
+    val date: String,
+    val hours: Double,
+    val ratePerHour: Double,
+    val amount: Double,
+    val note: String? = null,
+    val createdBy: String,
+    val createdAt: Long,
+)
 
 @Serializable
 data class SalaryPayment(

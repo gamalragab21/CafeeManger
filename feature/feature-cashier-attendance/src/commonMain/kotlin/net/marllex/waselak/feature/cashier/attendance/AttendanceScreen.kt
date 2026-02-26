@@ -135,6 +135,83 @@ fun AttendanceScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    // Offline mode banner
+                    if (uiState.isOffline) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.CloudOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(Res.string.offline_mode),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.offline_mode_desc),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Pending sync / syncing indicator
+                    if (uiState.pendingCount > 0 || uiState.isSyncing) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (uiState.isSyncing)
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (uiState.isSyncing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.sync_in_progress),
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Filled.Sync,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.pending_sync, uiState.pendingCount),
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Today's summary card
                     item {
                         val presentCount = uiState.todaySummary.count { it.presentToday }
@@ -214,6 +291,7 @@ fun AttendanceScreen(
                                 onClick = viewModel::showQrScannerForCheckIn,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
+                                enabled = !uiState.isOffline,
                             ) {
                                 Icon(Icons.Filled.QrCodeScanner, null, Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
@@ -223,6 +301,7 @@ fun AttendanceScreen(
                                 onClick = viewModel::showQrScannerForCheckOut,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
+                                enabled = !uiState.isOffline,
                             ) {
                                 Icon(Icons.Filled.QrCodeScanner, null, Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
@@ -404,13 +483,13 @@ private fun WorkerAttendanceCard(
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        text = "In: ${checkInTime.formatEpochMs("hh:mm a")}",
+                        text = stringResource(Res.string.check_in_time_label, checkInTime.formatEpochMs("hh:mm a")),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     if (checkOutTime != null) {
                         Text(
-                            text = "Out: ${checkOutTime.formatEpochMs("hh:mm a")}",
+                            text = stringResource(Res.string.check_out_time_label, checkOutTime.formatEpochMs("hh:mm a")),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary,
                         )

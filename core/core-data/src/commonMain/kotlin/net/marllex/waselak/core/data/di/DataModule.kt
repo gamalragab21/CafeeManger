@@ -1,14 +1,8 @@
 package net.marllex.waselak.core.data.di
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.HttpClientEngineFactory
-import net.marllex.waselak.core.data.offline.ConnectivityChecker
-import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.data.repository.*
-import net.marllex.waselak.core.data.sync.SyncScheduler
-import net.marllex.waselak.core.data.sync.SyncService
+import net.marllex.waselak.core.data.sync.AttendanceSyncManager
 import net.marllex.waselak.core.domain.repository.*
-import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val dataModule = module {
@@ -22,16 +16,7 @@ val dataModule = module {
     single<TaxPlaceRepository> { TaxPlaceRepositoryImpl(get()) }
     single<StockRepository> { StockRepositoryImpl(get(), get(), get()) }
     single<RecipeRepository> { RecipeRepositoryImpl(get(), get(), get()) }
-    single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get(), get()) }
+    single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
-
-    // Offline infrastructure
-    single {
-        val baseUrl = get<String>(qualifier = named("baseUrl"))
-        val pingClient = HttpClient(get<HttpClientEngineFactory<*>>())
-        ConnectivityChecker(baseUrl, pingClient)
-    }
-    single { OfflineModeManager(get(), get(), get()) }
-    single { SyncService(get(), get(), get()) }
-    single { SyncScheduler(get(), get(), get()) }
+    single { AttendanceSyncManager(get(), get(), get(), get()) }
 }

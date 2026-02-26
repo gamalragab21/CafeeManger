@@ -8,15 +8,17 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import net.marllex.waselak.core.common.extensions.toLocalDateTimeKt
 import net.marllex.waselak.core.common.extensions.formatAsDate
+import net.marllex.waselak.core.data.sync.AttendanceSyncManager
 import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.Attendance
 import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.Worker
-import net.marllex.waselak.core.data.offline.OfflineModeManager
+import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 
 class AttendanceViewModel constructor(
     private val workerRepository: WorkerRepository,
-    private val offlineModeManager: OfflineModeManager,
+    private val networkMonitor: NetworkMonitor,
+    private val syncManager: AttendanceSyncManager,
 ) : ViewModel() {
 
     data class UiState(
@@ -27,7 +29,10 @@ class AttendanceViewModel constructor(
         val error: String? = null,
         val successMessage: String? = null,
         val searchQuery: String = "",
-        
+        val isOffline: Boolean = false,
+        val pendingCount: Long = 0,
+        val isSyncing: Boolean = false,
+
         // Authentication dialogs
         val showPinDialog: Boolean = false,
         val showQrScanner: Boolean = false,
@@ -38,8 +43,6 @@ class AttendanceViewModel constructor(
         val selectedWorker: Worker? = null,
         val selectedAttendanceId: String? = null,
         val authAction: AuthAction? = null,
-        // Offline mode
-        val isOffline: Boolean = false,
         val isQrDisabled: Boolean = false,
     )
 
@@ -52,10 +55,37 @@ class AttendanceViewModel constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
+        syncManager.startObserving()
+        observeNetworkState()
+        observePendingCount()
+        observeSyncState()
         loadData()
+    }
+
+    private fun observeNetworkState() {
         viewModelScope.launch {
-            offlineModeManager.isOfflineActive.collect { offline ->
-                _uiState.update { it.copy(isOffline = offline, isQrDisabled = offline) }
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOffline = !online, isQrDisabled = !online) }
+                if (online) {
+                    // Refresh data when coming back online
+                    loadData()
+                }
+            }
+        }
+    }
+
+    private fun observePendingCount() {
+        viewModelScope.launch {
+            workerRepository.getPendingAttendanceCount().collect { count ->
+                _uiState.update { it.copy(pendingCount = count) }
+            }
+        }
+    }
+
+    private fun observeSyncState() {
+        viewModelScope.launch {
+            syncManager.isSyncing.collect { syncing ->
+                _uiState.update { it.copy(isSyncing = syncing) }
             }
         }
     }
@@ -64,16 +94,22 @@ class AttendanceViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                if (!_uiState.value.isOffline) {
+                if (networkMonitor.isOnline.value) {
                     workerRepository.refreshWorkers()
-                }
-                workerRepository.getTodayAttendance().onSuccess { summary ->
-                    _uiState.update { it.copy(todaySummary = summary) }
-                }
-                workerRepository.refreshAttendance(
-                    date = Clock.System.now().toLocalDateTimeKt(TimeZone.currentSystemDefault()).formatAsDate()
-                ).onSuccess { records ->
-                    _uiState.update { it.copy(todayRecords = records) }
+                    workerRepository.getTodayAttendance().onSuccess { summary ->
+                        _uiState.update { it.copy(todaySummary = summary) }
+                    }
+                    workerRepository.refreshAttendance(
+                        date = Clock.System.now().toLocalDateTimeKt(TimeZone.currentSystemDefault()).formatAsDate()
+                    ).onSuccess { records ->
+                        _uiState.update { it.copy(todayRecords = records) }
+                    }
+                } else {
+                    // Offline: load from local database only
+                    val today = Clock.System.now().toLocalDateTimeKt(TimeZone.currentSystemDefault()).formatAsDate()
+                    workerRepository.getAttendanceByDate(today).first().let { records ->
+                        _uiState.update { it.copy(todayRecords = records) }
+                    }
                 }
 
                 workerRepository.getActiveWorkers().first().let { workers ->
@@ -201,7 +237,7 @@ class AttendanceViewModel constructor(
                 .onSuccess {
                     _uiState.update {
                         it.copy(
-                            successMessage = "check_in_success",
+                            successMessage = if (networkMonitor.isOnline.value) "check_in_success" else "offline_check_in_recorded",
                             selectedWorker = null,
                             authAction = null,
                             isLoading = false
@@ -232,7 +268,7 @@ class AttendanceViewModel constructor(
                 .onSuccess {
                     _uiState.update {
                         it.copy(
-                            successMessage = "check_out_success",
+                            successMessage = if (networkMonitor.isOnline.value) "check_out_success" else "offline_check_out_recorded",
                             selectedWorker = null,
                             selectedAttendanceId = null,
                             authAction = null,

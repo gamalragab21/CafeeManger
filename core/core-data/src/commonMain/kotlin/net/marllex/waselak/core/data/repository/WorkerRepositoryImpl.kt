@@ -1,39 +1,36 @@
 package net.marllex.waselak.core.data.repository
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import net.marllex.waselak.core.data.offline.OfflineModeManager
-import net.marllex.waselak.core.data.sync.CheckInPayload
-import net.marllex.waselak.core.data.sync.CheckOutPayload
-import net.marllex.waselak.core.database.Pending_sync
-import net.marllex.waselak.core.database.dao.PendingSyncDao
+import kotlinx.datetime.todayIn
+import net.marllex.waselak.core.database.Pending_attendance
 import net.marllex.waselak.core.database.dao.WorkerDao
 import net.marllex.waselak.core.database.mapper.*
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.network.datasource.WorkerNetworkDataSource
 import net.marllex.waselak.core.network.dto.*
 import net.marllex.waselak.core.network.mapper.toDomain
+import net.marllex.waselak.core.network.security.HmacSigner
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class WorkerRepositoryImpl constructor(
     private val api: WaselakApiClient,
     private val workerDao: WorkerDao,
     private val authRepository: AuthRepository,
     private val workerNetworkDataSource: WorkerNetworkDataSource,
-    private val offlineModeManager: OfflineModeManager,
-    private val pendingSyncDao: PendingSyncDao,
+    private val networkMonitor: NetworkMonitor,
 ) : WorkerRepository {
 
-    private val json = Json { ignoreUnknownKeys = true }
-
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
+    private val userId: String get() = authRepository.getCurrentUserId() ?: ""
 
     // ─── Workers ─────────────────────────────────────────────────
 
@@ -147,90 +144,141 @@ class WorkerRepositoryImpl constructor(
     }
 
     override suspend fun checkIn(workerId: String, note: String?): Result<Attendance> = runCatching {
-        if (offlineModeManager.isOfflineActive.value) {
-            createOfflineCheckIn(workerId, null)
-        } else {
-            val response = api.checkIn(CheckInRequest(workerId, note))
-            val attendance = response.toDomain()
-            workerDao.insertAttendance(attendance.toDbEntity())
-            attendance
-        }
+        val response = api.checkIn(CheckInRequest(workerId, note))
+        val attendance = response.toDomain()
+        workerDao.insertAttendance(attendance.toDbEntity())
+        attendance
     }
 
     override suspend fun checkOut(attendanceId: String, note: String?): Result<Attendance> = runCatching {
-        if (offlineModeManager.isOfflineActive.value) {
-            createOfflineCheckOut(attendanceId, null)
-        } else {
-            val response = api.checkOut(attendanceId, CheckOutRequest(note))
-            val attendance = response.toDomain()
-            workerDao.insertAttendance(attendance.toDbEntity())
-            attendance
-        }
-    }
-
-    override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> = runCatching {
-        if (offlineModeManager.isOfflineActive.value) {
-            createOfflineCheckIn(workerId, pin)
-        } else {
-            val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
-            val attendance = response.toDomain()
-            workerDao.insertAttendance(attendance.toDbEntity())
-            attendance
-        }
-    }
-
-    override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> = runCatching {
-        if (offlineModeManager.isOfflineActive.value) {
-            createOfflineCheckOut(attendanceId, pin)
-        } else {
-            val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
-            val attendance = response.toDomain()
-            workerDao.insertAttendance(attendance.toDbEntity())
-            attendance
-        }
-    }
-
-    private suspend fun createOfflineCheckIn(workerId: String, pin: String?): Attendance {
-        val now = Clock.System.now().toEpochMilliseconds()
-        val localId = "offline-checkin-$now"
-        val today = Clock.System.now()
-            .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
-        val attendance = Attendance(
-            id = localId, vendorId = vendorId, workerId = workerId,
-            date = today, checkIn = now,
-            recordedBy = authRepository.getCurrentUserId() ?: "",
-            authMethod = if (pin != null) "PIN" else "MANUAL",
-            createdAt = now, syncStatus = "PENDING_SYNC",
-        )
+        val response = api.checkOut(attendanceId, CheckOutRequest(note))
+        val attendance = response.toDomain()
         workerDao.insertAttendance(attendance.toDbEntity())
-        pendingSyncDao.insertPending(Pending_sync(
-            id = localId, type = "CHECK_IN",
-            payload = json.encodeToString(CheckInPayload(workerId, pin)),
-            created_at = now, retry_count = 0, last_error = null,
-        ))
-        return attendance
+        attendance
     }
 
-    private suspend fun createOfflineCheckOut(attendanceId: String, pin: String?): Attendance {
-        val now = Clock.System.now().toEpochMilliseconds()
-        val localId = "offline-checkout-$now"
-        // We need workerId from the existing attendance record — use attendanceId prefix
-        val attendance = Attendance(
-            id = localId, vendorId = vendorId, workerId = "",
-            date = Clock.System.now()
-                .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString(),
-            checkIn = now, checkOut = now,
-            recordedBy = authRepository.getCurrentUserId() ?: "",
-            authMethod = if (pin != null) "PIN" else "MANUAL",
-            createdAt = now, syncStatus = "PENDING_SYNC",
-        )
-        workerDao.insertAttendance(attendance.toDbEntity())
-        pendingSyncDao.insertPending(Pending_sync(
-            id = localId, type = "CHECK_OUT",
-            payload = json.encodeToString(CheckOutPayload(attendanceId, "", pin)),
-            created_at = now, retry_count = 0, last_error = null,
-        ))
-        return attendance
+    @OptIn(ExperimentalUuidApi::class)
+    override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> {
+        if (networkMonitor.isOnline.value) {
+            return runCatching {
+                val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
+                val attendance = response.toDomain()
+                workerDao.insertAttendance(attendance.toDbEntity())
+                attendance
+            }
+        }
+
+        // Offline check-in with local PIN verification
+        return runCatching {
+            val worker = workerDao.getWorkerById(workerId).firstOrNull()?.toDomain()
+                ?: throw IllegalStateException("Worker not found locally")
+
+            val storedHash = worker.pinSha256
+                ?: throw IllegalStateException("Worker PIN not available offline")
+
+            val inputHash = HmacSigner.sha256(pin)
+            if (inputHash != storedHash) {
+                throw IllegalStateException("Incorrect PIN")
+            }
+
+            val now = Clock.System.now().toEpochMilliseconds()
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+            val localId = Uuid.random().toString()
+
+            val attendance = Attendance(
+                id = localId,
+                vendorId = vendorId,
+                workerId = workerId,
+                workerName = worker.fullName,
+                workerRole = worker.role,
+                date = today,
+                checkIn = now,
+                checkOut = null,
+                workedMinutes = null,
+                recordedBy = userId,
+                note = null,
+                createdAt = now,
+            )
+            workerDao.insertAttendance(attendance.toDbEntity())
+
+            workerDao.insertPendingAttendance(
+                Pending_attendance(
+                    id = Uuid.random().toString(),
+                    vendor_id = vendorId,
+                    worker_id = workerId,
+                    worker_name = worker.fullName,
+                    worker_role = worker.role,
+                    action = "CHECK_IN",
+                    date = today,
+                    timestamp = now,
+                    linked_attendance_id = localId,
+                    note = null,
+                    retry_count = 0,
+                    created_at = now,
+                )
+            )
+
+            attendance
+        }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> {
+        if (networkMonitor.isOnline.value) {
+            return runCatching {
+                val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
+                val attendance = response.toDomain()
+                workerDao.insertAttendance(attendance.toDbEntity())
+                attendance
+            }
+        }
+
+        // Offline check-out: find the local attendance record and update it
+        return runCatching {
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+            val todayRecords = workerDao.getAttendanceByDate(vendorId, today).firstOrNull() ?: emptyList()
+            val existingRecord = todayRecords.find { it.id == attendanceId }?.toDomain()
+                ?: throw IllegalStateException("Attendance record not found")
+
+            val worker = workerDao.getWorkerById(existingRecord.workerId).firstOrNull()?.toDomain()
+                ?: throw IllegalStateException("Worker not found locally")
+
+            val storedHash = worker.pinSha256
+                ?: throw IllegalStateException("Worker PIN not available offline")
+
+            val inputHash = HmacSigner.sha256(pin)
+            if (inputHash != storedHash) {
+                throw IllegalStateException("Incorrect PIN")
+            }
+
+            val now = Clock.System.now().toEpochMilliseconds()
+            val workedMinutes = ((now - existingRecord.checkIn) / 60_000).toInt()
+
+            val updatedAttendance = existingRecord.copy(
+                checkOut = now,
+                workedMinutes = workedMinutes,
+            )
+            workerDao.insertAttendance(updatedAttendance.toDbEntity())
+
+            workerDao.insertPendingAttendance(
+                Pending_attendance(
+                    id = Uuid.random().toString(),
+                    vendor_id = vendorId,
+                    worker_id = existingRecord.workerId,
+                    worker_name = worker.fullName,
+                    worker_role = worker.role,
+                    action = "CHECK_OUT",
+                    date = today,
+                    timestamp = now,
+                    linked_attendance_id = attendanceId,
+                    note = null,
+                    retry_count = 0,
+                    created_at = now,
+                )
+            )
+
+            updatedAttendance
+        }
     }
 
     override suspend fun checkInWithQr(qrData: String): Result<Attendance> = runCatching {
@@ -251,6 +299,9 @@ class WorkerRepositoryImpl constructor(
         api.deleteAttendance(id)
         workerDao.deleteAttendance(id)
     }
+
+    override fun getPendingAttendanceCount(): Flow<Long> =
+        workerDao.getPendingAttendanceCount(vendorId)
 
     // ─── Salary Payments ─────────────────────────────────────────
 
@@ -311,5 +362,39 @@ class WorkerRepositoryImpl constructor(
         // Refresh worker to get updated qrCodeVersion
         val response = api.getWorker(workerId)
         workerDao.insertWorker(response.toDomain().toDbEntity())
+    }
+
+    // ─── Overtime ──────────────────────────────────────────────────
+
+    override fun getOvertimeByWorker(workerId: String): Flow<List<Overtime>> =
+        workerDao.getOvertimeByWorker(workerId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun refreshOvertime(
+        workerId: String?, fromDate: String?, toDate: String?
+    ): Result<List<Overtime>> = runCatching {
+        val response = api.getOvertime(workerId, fromDate, toDate)
+        val entries = response.map { it.toDomain() }
+        workerDao.deleteAllOvertime(vendorId)
+        workerDao.insertOvertimeEntries(entries.map { it.toDbEntity() })
+        entries
+    }
+
+    override suspend fun createOvertime(
+        workerId: String, date: String, hours: Double, ratePerHour: Double, note: String?
+    ): Result<Overtime> = runCatching {
+        val response = api.createOvertime(
+            CreateOvertimeRequest(
+                workerId = workerId, date = date,
+                hours = hours, ratePerHour = ratePerHour, note = note
+            )
+        )
+        val entry = response.toDomain()
+        workerDao.insertOvertime(entry.toDbEntity())
+        entry
+    }
+
+    override suspend fun deleteOvertime(id: String): Result<Unit> = runCatching {
+        api.deleteOvertime(id)
+        workerDao.deleteOvertime(id)
     }
 }

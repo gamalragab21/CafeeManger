@@ -471,7 +471,7 @@ fun WorkerResponse.toDomain() = Worker(
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
     userId = userId, isLoginEnabled = isLoginEnabled,
-    hasPin = hasPin, qrCodeVersion = qrCodeVersion, pinUpdatedAt = pinUpdatedAt,
+    hasPin = hasPin, pinSha256 = pinSha256, qrCodeVersion = qrCodeVersion, pinUpdatedAt = pinUpdatedAt,
     createdAt = createdAt, updatedAt = updatedAt
 )
 
@@ -505,6 +505,14 @@ fun SalaryPaymentResponse.toDomain() = SalaryPayment(
     workedDays = workedDays, workedHours = workedHours,
     amount = amount, paid = paid, paidAt = paidAt,
     paidBy = paidBy, note = note, createdAt = createdAt
+)
+
+// ─── Overtime Mappers ────────────────────────────────────────────
+fun OvertimeResponse.toDomain() = Overtime(
+    id = id, vendorId = vendorId, workerId = workerId,
+    workerName = workerName, date = date, hours = hours,
+    ratePerHour = ratePerHour, amount = amount, note = note,
+    createdBy = createdBy, createdAt = createdAt
 )
 
 // ─── Customer Mappers ──────────────────────────────────────────

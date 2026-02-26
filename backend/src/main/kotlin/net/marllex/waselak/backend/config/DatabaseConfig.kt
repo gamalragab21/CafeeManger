@@ -61,6 +61,7 @@ object DatabaseConfig {
                 RefreshTokensTable,
                 AnnouncementsTable,
                 AnnouncementReadsTable,
+                OvertimeTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
@@ -69,6 +70,7 @@ object DatabaseConfig {
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable,
                 AnnouncementsTable, AnnouncementReadsTable,
+                OvertimeTable,
                 CustomersTable, CustomerAddressesTable,
             )
 

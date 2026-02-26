@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS workers (
     user_id TEXT,
     is_login_enabled INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     has_pin INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    pin_sha256 TEXT,
     qr_code_version INTEGER AS kotlin.Int NOT NULL DEFAULT 1,
     pin_updated_at INTEGER,
     created_at INTEGER,
@@ -28,8 +29,8 @@ getWorkerById:
 SELECT * FROM workers WHERE id = ?;
 
 insertWorker:
-INSERT OR REPLACE INTO workers(id, vendor_id, worker_id, full_name, phone, description, role, salary_type, salary_amount, active, user_id, is_login_enabled, has_pin, qr_code_version, pin_updated_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO workers(id, vendor_id, worker_id, full_name, phone, description, role, salary_type, salary_amount, active, user_id, is_login_enabled, has_pin, pin_sha256, qr_code_version, pin_updated_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteWorker:
 DELETE FROM workers WHERE id = ?;

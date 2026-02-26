@@ -5,17 +5,22 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import net.marllex.waselak.core.database.WaselakDatabase
 import net.marllex.waselak.core.database.Workers
 import net.marllex.waselak.core.database.Worker_roles
 import net.marllex.waselak.core.database.Attendance
 import net.marllex.waselak.core.database.Salary_payments
+import net.marllex.waselak.core.database.Overtime_entries
+import net.marllex.waselak.core.database.Pending_attendance
 
 class WorkerDao(private val db: WaselakDatabase) {
     private val workerQueries get() = db.workerQueries
     private val roleQueries get() = db.workerRoleQueries
     private val attendanceQueries get() = db.attendanceQueries
     private val salaryQueries get() = db.salaryPaymentQueries
+    private val overtimeQueries get() = db.overtimeQueries
+    private val pendingAttendanceQueries get() = db.pendingAttendanceQueries
 
     // ─── Workers ─────────────────────────────────────────────────
     fun getWorkers(vendorId: String): Flow<List<Workers>> =
@@ -52,6 +57,7 @@ class WorkerDao(private val db: WaselakDatabase) {
             user_id = worker.user_id,
             is_login_enabled = worker.is_login_enabled,
             has_pin = worker.has_pin,
+            pin_sha256 = worker.pin_sha256,
             qr_code_version = worker.qr_code_version,
             pin_updated_at = worker.pin_updated_at,
             created_at = worker.created_at,
@@ -215,5 +221,87 @@ class WorkerDao(private val db: WaselakDatabase) {
 
     suspend fun deleteAllSalaryPayments(vendorId: String) {
         salaryQueries.deleteAllSalaryPayments(vendorId)
+    }
+
+    // ─── Overtime ──────────────────────────────────────────────────
+    fun getOvertimeByVendor(vendorId: String): Flow<List<Overtime_entries>> =
+        overtimeQueries.getOvertimeByVendor(vendorId).asFlow().mapToList(Dispatchers.Default)
+
+    fun getOvertimeByWorker(workerId: String): Flow<List<Overtime_entries>> =
+        overtimeQueries.getOvertimeByWorker(workerId).asFlow().mapToList(Dispatchers.Default)
+
+    suspend fun insertOvertimeEntries(entries: List<Overtime_entries>) {
+        db.transaction {
+            entries.forEach { entry ->
+                overtimeQueries.insertOvertime(
+                    id = entry.id, vendor_id = entry.vendor_id,
+                    worker_id = entry.worker_id, worker_name = entry.worker_name,
+                    date = entry.date, hours = entry.hours,
+                    rate_per_hour = entry.rate_per_hour, amount = entry.amount,
+                    note = entry.note, created_by = entry.created_by,
+                    created_at = entry.created_at
+                )
+            }
+        }
+    }
+
+    suspend fun insertOvertime(entry: Overtime_entries) {
+        overtimeQueries.insertOvertime(
+            id = entry.id, vendor_id = entry.vendor_id,
+            worker_id = entry.worker_id, worker_name = entry.worker_name,
+            date = entry.date, hours = entry.hours,
+            rate_per_hour = entry.rate_per_hour, amount = entry.amount,
+            note = entry.note, created_by = entry.created_by,
+            created_at = entry.created_at
+        )
+    }
+
+    suspend fun deleteOvertime(id: String) {
+        overtimeQueries.deleteOvertime(id)
+    }
+
+    suspend fun deleteAllOvertime(vendorId: String) {
+        overtimeQueries.deleteAllOvertime(vendorId)
+    }
+
+    // ─── Pending Attendance (Offline Sync) ────────────────────────
+    fun getPendingAttendance(vendorId: String): Flow<List<Pending_attendance>> =
+        pendingAttendanceQueries.getPendingByVendor(vendorId).asFlow().mapToList(Dispatchers.Default)
+
+    fun getPendingAttendanceCount(vendorId: String): Flow<Long> =
+        pendingAttendanceQueries.getPendingCount(vendorId).asFlow()
+            .mapToOneOrNull(Dispatchers.Default)
+            .map { it ?: 0L }
+
+    suspend fun getAllPendingAttendance(): List<Pending_attendance> =
+        pendingAttendanceQueries.getAllPending().executeAsList()
+
+    suspend fun insertPendingAttendance(record: Pending_attendance) {
+        pendingAttendanceQueries.insertPending(
+            id = record.id,
+            vendor_id = record.vendor_id,
+            worker_id = record.worker_id,
+            worker_name = record.worker_name,
+            worker_role = record.worker_role,
+            action = record.action,
+            date = record.date,
+            timestamp = record.timestamp,
+            linked_attendance_id = record.linked_attendance_id,
+            note = record.note,
+            retry_count = record.retry_count,
+            created_at = record.created_at,
+        )
+    }
+
+    suspend fun deletePendingAttendance(id: String) {
+        pendingAttendanceQueries.deletePending(id)
+    }
+
+    suspend fun deleteAllPendingAttendance(vendorId: String) {
+        pendingAttendanceQueries.deleteAllPending(vendorId)
+    }
+
+    suspend fun incrementPendingRetryCount(id: String) {
+        pendingAttendanceQueries.incrementRetryCount(id)
     }
 }

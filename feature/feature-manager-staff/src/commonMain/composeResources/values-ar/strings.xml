@@ -179,10 +179,10 @@
     <string name="confirm_regenerate">أنت متأكد إنك عايز تعمل رمز QR جديد؟ الرمز القديم مش هيشتغل بعد كده.</string>
 
     <!-- PIN -->
-    <string name="confirm_pin">أكّد رمز الـ PIN</string>
-    <string name="pin_length_hint">الـ PIN لازم يكون من 4-6 أرقام</string>
-    <string name="pin_must_match">لازم رمز الـ PIN يتطابق</string>
-    <string name="pin_required">رمز الـ PIN مطلوب</string>
+    <string name="confirm_pin">تأكيد رمز PIN</string>
+    <string name="pin_length_hint">يجب أن يكون PIN من 4-6 أرقام</string>
+    <string name="pin_must_match">يجب أن يتطابق رمز PIN</string>
+    <string name="pin_required">رمز PIN مطلوب</string>
 
     <!-- Worker Bottom Sheet -->
     <string name="salary_required">مبلغ المرتب مطلوب</string>
@@ -192,4 +192,19 @@
     <string name="salary_payment_section">المرتب والدفع</string>
     <string name="worker_summary">ملخص العامل</string>
     <string name="step_of">الخطوة %1$d من %2$d</string>
+
+    <!-- Overtime -->
+    <string name="overtime">الأوفرتايم</string>
+    <string name="add_overtime">إضافة أوفرتايم</string>
+    <string name="overtime_hours">الساعات</string>
+    <string name="rate_per_hour">سعر الساعة (ج.م)</string>
+    <string name="overtime_note">ملاحظة (اختياري)</string>
+    <string name="overtime_date">التاريخ</string>
+    <string name="overtime_added">الأوفرتايم اتضاف بنجاح</string>
+    <string name="overtime_deleted">الأوفرتايم اتحذف</string>
+    <string name="no_overtime_records">مفيش سجلات أوفرتايم</string>
+    <string name="total_overtime">الإجمالي: %s ج.م</string>
+    <string name="overtime_amount">%s ج.م</string>
+    <string name="hours_format">%s ساعة</string>
+    <string name="delete_overtime_confirm">حذف سجل الأوفرتايم ده؟</string>
 </resources>

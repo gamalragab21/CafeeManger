@@ -201,6 +201,37 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             retry_count INTEGER NOT NULL DEFAULT 0,
             last_error TEXT
         )""",
+        // v14: add pin_sha256 to workers for offline PIN verification
+        "ALTER TABLE workers ADD COLUMN pin_sha256 TEXT",
+        // v15: create pending_attendance table for offline sync
+        """CREATE TABLE IF NOT EXISTS pending_attendance (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            worker_id TEXT NOT NULL,
+            worker_name TEXT,
+            worker_role TEXT,
+            action TEXT NOT NULL,
+            date TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            linked_attendance_id TEXT,
+            note TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )""",
+        // v16: create overtime_entries table
+        """CREATE TABLE IF NOT EXISTS overtime_entries (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            worker_id TEXT NOT NULL,
+            worker_name TEXT,
+            date TEXT NOT NULL,
+            hours REAL NOT NULL,
+            rate_per_hour REAL NOT NULL,
+            amount REAL NOT NULL,
+            note TEXT,
+            created_by TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )""",
     )
     migrations.forEach { sql ->
         try {
@@ -244,6 +275,9 @@ val databaseModule = module {
                 order_countAdapter = intAdapter,
             ),
             pending_syncAdapter = Pending_sync.Adapter(
+                retry_countAdapter = intAdapter,
+            ),
+            pending_attendanceAdapter = Pending_attendance.Adapter(
                 retry_countAdapter = intAdapter,
             ),
         )

@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS overtime_entries (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    worker_id TEXT NOT NULL,
+    worker_name TEXT,
+    date TEXT NOT NULL,
+    hours REAL NOT NULL,
+    rate_per_hour REAL NOT NULL,
+    amount REAL NOT NULL,
+    note TEXT,
+    created_by TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+getOvertimeByVendor:
+SELECT * FROM overtime_entries WHERE vendor_id = ? ORDER BY date DESC;
+
+getOvertimeByWorker:
+SELECT * FROM overtime_entries WHERE worker_id = ? ORDER BY date DESC;
+
+insertOvertime:
+INSERT OR REPLACE INTO overtime_entries (
+    id, vendor_id, worker_id, worker_name, date,
+    hours, rate_per_hour, amount, note, created_by, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteOvertime:
+DELETE FROM overtime_entries WHERE id = ?;
+
+deleteAllOvertime:
+DELETE FROM overtime_entries WHERE vendor_id = ?;

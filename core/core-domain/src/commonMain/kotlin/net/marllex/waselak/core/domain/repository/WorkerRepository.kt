@@ -50,6 +50,7 @@ interface WorkerRepository {
     suspend fun checkInWithQr(qrData: String): Result<Attendance>
     suspend fun checkOutWithQr(qrData: String): Result<Attendance>
     suspend fun deleteAttendance(id: String): Result<Unit>
+    fun getPendingAttendanceCount(): Flow<Long>
 
     // Salary Payments
     fun getSalaryPayments(): Flow<List<SalaryPayment>>
@@ -60,4 +61,14 @@ interface WorkerRepository {
     suspend fun markPaid(id: String, note: String? = null): Result<SalaryPayment>
     suspend fun markUnpaid(id: String): Result<SalaryPayment>
     suspend fun batchPaySalaries(paymentIds: List<String>, note: String? = null): Result<List<SalaryPayment>>
+
+    // Overtime
+    fun getOvertimeByWorker(workerId: String): Flow<List<Overtime>>
+    suspend fun refreshOvertime(
+        workerId: String? = null, fromDate: String? = null, toDate: String? = null
+    ): Result<List<Overtime>>
+    suspend fun createOvertime(
+        workerId: String, date: String, hours: Double, ratePerHour: Double, note: String? = null
+    ): Result<Overtime>
+    suspend fun deleteOvertime(id: String): Result<Unit>
 }

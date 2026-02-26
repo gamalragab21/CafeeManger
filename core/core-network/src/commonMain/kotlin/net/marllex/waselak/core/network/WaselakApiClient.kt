@@ -631,6 +631,27 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun markSalaryUnpaid(id: String): SalaryPaymentResponse =
         client.patch("api/v1/salary-payments/$id/unpay").body()
 
+    // ─── Overtime ─────────────────────────────────────────────────────
+
+    suspend fun getOvertime(
+        workerId: String? = null,
+        fromDate: String? = null,
+        toDate: String? = null
+    ): List<OvertimeResponse> =
+        client.get("api/v1/overtime") {
+            parameter("worker_id", workerId)
+            parameter("from_date", fromDate)
+            parameter("to_date", toDate)
+        }.body()
+
+    suspend fun createOvertime(request: CreateOvertimeRequest): OvertimeResponse =
+        client.post("api/v1/overtime") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteOvertime(id: String): ApiSuccessResponse =
+        client.delete("api/v1/overtime/$id").body()
+
     // ─── Tax Places ──────────────────────────────────────────────────
 
     suspend fun getTaxPlaces(): List<TaxPlaceResponse> =
