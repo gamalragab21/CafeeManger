@@ -169,8 +169,20 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             available_quantity REAL NOT NULL DEFAULT 0.0,
             FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
         )""",
-        // v11: fixed_quantity on recipe_ingredients
-        "ALTER TABLE recipe_ingredients ADD COLUMN fixed_quantity INTEGER NOT NULL DEFAULT 0",
+        // v11: fixed_quantity on recipe_ingredients — drop & recreate (it's a cache)
+        "DROP TABLE IF EXISTS recipe_ingredients",
+        """CREATE TABLE IF NOT EXISTS recipe_ingredients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipe_id TEXT NOT NULL,
+            stock_id TEXT NOT NULL,
+            stock_item_name TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            unit TEXT NOT NULL,
+            fixed_quantity INTEGER NOT NULL DEFAULT 0,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            available_quantity REAL NOT NULL DEFAULT 0.0,
+            FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+        )""",
         // v12: refund columns on orders
         "ALTER TABLE orders ADD COLUMN refunded_at INTEGER",
         "ALTER TABLE orders ADD COLUMN refunded_by TEXT",
