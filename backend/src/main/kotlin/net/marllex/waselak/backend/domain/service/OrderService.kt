@@ -10,7 +10,7 @@ class OrderService {
         DELIVERY_FAILED,     // delivery failed to reach customer
         RETURNED,            // order returned to store after failed delivery
         PICKED_UP,           // takeaway: customer picked up order
-        COMPLETED, CANCELED
+        COMPLETED, CANCELED, REFUNDED
     }
 
     fun validateStatusTransition(
@@ -41,8 +41,9 @@ class OrderService {
             OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
             OrderStatus.READY -> next in listOf(OrderStatus.PICKED_UP, OrderStatus.CANCELED)
             OrderStatus.PICKED_UP -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
-            OrderStatus.COMPLETED -> false
+            OrderStatus.COMPLETED -> next == OrderStatus.REFUNDED
             OrderStatus.CANCELED -> false
+            OrderStatus.REFUNDED -> false
             else -> false
         }
     }
@@ -53,8 +54,9 @@ class OrderService {
             OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
             OrderStatus.READY -> next in listOf(OrderStatus.SERVED, OrderStatus.CANCELED)
             OrderStatus.SERVED -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
-            OrderStatus.COMPLETED -> false
+            OrderStatus.COMPLETED -> next == OrderStatus.REFUNDED
             OrderStatus.CANCELED -> false
+            OrderStatus.REFUNDED -> false
             else -> false
         }
     }
@@ -62,8 +64,9 @@ class OrderService {
     private fun validateInStore(current: OrderStatus, next: OrderStatus): Boolean {
         return when (current) {
             OrderStatus.CREATED -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
-            OrderStatus.COMPLETED -> false
+            OrderStatus.COMPLETED -> next == OrderStatus.REFUNDED
             OrderStatus.CANCELED -> false
+            OrderStatus.REFUNDED -> false
             else -> false
         }
     }
@@ -74,8 +77,9 @@ class OrderService {
             OrderStatus.IN_PREPARATION -> next in listOf(OrderStatus.READY, OrderStatus.CANCELED)
             OrderStatus.READY -> next in listOf(OrderStatus.PICKED_UP, OrderStatus.CANCELED)
             OrderStatus.PICKED_UP -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
-            OrderStatus.COMPLETED -> false
+            OrderStatus.COMPLETED -> next == OrderStatus.REFUNDED
             OrderStatus.CANCELED -> false
+            OrderStatus.REFUNDED -> false
             else -> false
         }
     }
@@ -90,8 +94,9 @@ class OrderService {
             OrderStatus.DELIVERY_FAILED -> next in listOf(OrderStatus.RETURNED, OrderStatus.ASSIGNED, OrderStatus.CANCELED)
             OrderStatus.DELIVERED -> next in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)
             OrderStatus.RETURNED -> false // terminal
-            OrderStatus.COMPLETED -> false
+            OrderStatus.COMPLETED -> next == OrderStatus.REFUNDED
             OrderStatus.CANCELED -> false
+            OrderStatus.REFUNDED -> false
             else -> false
         }
     }

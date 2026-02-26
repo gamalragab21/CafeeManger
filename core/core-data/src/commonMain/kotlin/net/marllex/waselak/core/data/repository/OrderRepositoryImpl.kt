@@ -211,6 +211,16 @@ class OrderRepositoryImpl constructor(
             order
         }
 
+    override suspend fun refundOrder(id: String, reason: String): Result<Order> =
+        runCatching {
+            val response = api.refundOrder(id, RefundOrderRequest(reason))
+            val order = response.toDomain()
+            orderDao.insertOrder(order.toDbEntity())
+            orderDao.deleteOrderItems(order.id)
+            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+            order
+        }
+
     override suspend fun shareReceipt(id: String): Result<ReceiptShareLink> =
         runCatching {
             val response = api.shareReceipt(id)

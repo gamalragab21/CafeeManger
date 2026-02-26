@@ -280,14 +280,14 @@ fun Route.analyticsDashboardRoutes() {
             val prevTo = from
 
             val result = transaction {
-                val cancelledStatuses = listOf("CANCELED", "CANCELLED")
+                val excludedStatuses = listOf("CANCELED", "CANCELLED", "REFUNDED")
 
                 fun metricsForPeriod(start: Instant, end: Instant): PeriodMetricsDto {
                     val orders = OrdersTable.selectAll().where {
                         (OrdersTable.vendorId eq vendorUUID) and
                                 (OrdersTable.createdAt greaterEq start) and
                                 (OrdersTable.createdAt lessEq end) and
-                                (OrdersTable.status notInList cancelledStatuses)
+                                (OrdersTable.status notInList excludedStatuses)
                     }.toList()
                     // Revenue only from PAID orders
                     val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
@@ -324,7 +324,7 @@ fun Route.analyticsDashboardRoutes() {
 
                 val activeOrders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
-                            (OrdersTable.status notInList listOf("COMPLETED", "CANCELED", "CANCELLED"))
+                            (OrdersTable.status notInList listOf("COMPLETED", "CANCELED", "CANCELLED", "REFUNDED"))
                 }.count().toInt()
 
                 val todayStr = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
@@ -353,12 +353,12 @@ fun Route.analyticsDashboardRoutes() {
             val (from, to) = parseDateRange(call)
 
             val result = transaction {
-                val cancelledStatuses = listOf("CANCELED", "CANCELLED")
+                val excludedFromRevenue = listOf("CANCELED", "CANCELLED", "REFUNDED")
                 val orders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to) and
-                            (OrdersTable.status notInList cancelledStatuses)
+                            (OrdersTable.status notInList excludedFromRevenue)
                 }.toList()
 
                 // Revenue only from PAID orders
@@ -417,7 +417,7 @@ fun Route.analyticsDashboardRoutes() {
                 val total = orders.size
                 val completed = orders.count { it[OrdersTable.status] == "COMPLETED" }
                 val cancelled = orders.count { it[OrdersTable.status] in listOf("CANCELED", "CANCELLED") }
-                val refunded = 0 // No REFUNDED status in DB
+                val refunded = orders.count { it[OrdersTable.status] == "REFUNDED" }
 
                 val ordersByChannel = orders.groupBy { it[OrdersTable.channel] }.mapValues { it.value.size }
 
@@ -542,9 +542,10 @@ fun Route.analyticsDashboardRoutes() {
                 cashiers.values.map { userRow ->
                     val userId = userRow[UsersTable.id]
                     val orderRows = groupedByCashier[userId].orEmpty()
-                    val totalRevenue = orderRows.sumOf { it[OrdersTable.total].toDouble() }
+                    val revenueRows = orderRows.filter { it[OrdersTable.status] !in listOf("CANCELED", "CANCELLED", "REFUNDED") }
+                    val totalRevenue = revenueRows.sumOf { it[OrdersTable.total].toDouble() }
                     val totalOrders = orderRows.size
-                    val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
+                    val aov = if (revenueRows.isNotEmpty()) totalRevenue / revenueRows.size else 0.0
                     val cancelledOrders = orderRows.count { it[OrdersTable.status] in listOf("CANCELED", "CANCELLED") }
                     val cancelRate = if (totalOrders > 0) (cancelledOrders.toDouble() / totalOrders) * 100.0 else 0.0
 
@@ -848,6 +849,24 @@ fun Route.analyticsDashboardRoutes() {
                                 message = "Cancellation rate is ${String.format("%.1f", cancelRate)}% ($cancelledOrders/$totalOrders orders)",
                                 value = cancelRate,
                                 threshold = 20.0,
+                            )
+                        )
+                    }
+                }
+
+                // High refund rate
+                val refundedOrders = orders.count { it[OrdersTable.status] == "REFUNDED" }
+                if (totalOrders > 5) {
+                    val refundRate = (refundedOrders.toDouble() / totalOrders) * 100.0
+                    if (refundRate > 10.0) {
+                        alerts.add(
+                            AlertDto(
+                                type = "HIGH_REFUND_RATE",
+                                severity = "WARNING",
+                                title = "High Refund Rate",
+                                message = "Refund rate is ${String.format("%.1f", refundRate)}% ($refundedOrders/$totalOrders orders)",
+                                value = refundRate,
+                                threshold = 10.0,
                             )
                         )
                     }

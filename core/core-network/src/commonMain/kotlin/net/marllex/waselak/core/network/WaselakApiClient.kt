@@ -195,6 +195,11 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    suspend fun refundOrder(id: String, request: RefundOrderRequest): OrderResponse =
+        client.post("api/v1/orders/$id/refund") {
+            setBody(request)
+        }.body()
+
     suspend fun assignDeliveryUser(id: String, request: AssignDeliveryRequest): OrderResponse =
         client.patch("api/v1/orders/$id/assign") {
             setBody(request)

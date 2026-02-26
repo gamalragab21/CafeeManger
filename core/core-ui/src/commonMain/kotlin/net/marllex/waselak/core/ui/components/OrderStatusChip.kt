@@ -146,6 +146,7 @@ fun getStatusColor(status: OrderStatus): Color {
         OrderStatus.PICKED_UP -> StatusPickedUp
         OrderStatus.COMPLETED -> StatusCompleted
         OrderStatus.CANCELED -> StatusCanceled
+        OrderStatus.REFUNDED -> StatusRefunded
     }
 }
 
@@ -168,5 +169,6 @@ fun formatStatusLabel(status: OrderStatus): String {
         OrderStatus.PICKED_UP -> stringResource(Res.string.status_picked_up)
         OrderStatus.COMPLETED -> stringResource(Res.string.status_completed)
         OrderStatus.CANCELED -> stringResource(Res.string.status_canceled)
+        OrderStatus.REFUNDED -> stringResource(Res.string.status_refunded)
     }
 }

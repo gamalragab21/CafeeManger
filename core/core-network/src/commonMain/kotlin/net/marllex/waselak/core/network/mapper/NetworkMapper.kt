@@ -113,7 +113,10 @@ fun OrderResponse.toDomain() = Order(
     notes = notes,
     items = items.map { it.toDomain() },
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    refundedAt = refundedAt,
+    refundedBy = refundedBy,
+    refundReason = refundReason,
 )
 
 fun OrderItemResponse.toDomain() = OrderItem(

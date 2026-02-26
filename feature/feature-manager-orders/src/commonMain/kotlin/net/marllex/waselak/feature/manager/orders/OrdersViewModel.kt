@@ -53,6 +53,11 @@ class OrdersViewModel constructor(
         val payingOrder: Order? = null,
         val selectedPaymentMethod: PaymentMethod = PaymentMethod.CASH,
         val isPaymentProcessing: Boolean = false,
+        // Refund dialog
+        val showRefundDialog: Boolean = false,
+        val refundingOrder: Order? = null,
+        val refundReason: String = "",
+        val isRefundProcessing: Boolean = false,
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
@@ -325,6 +330,43 @@ class OrdersViewModel constructor(
                 loadOrders()
             }.onFailure { e ->
                 _uiState.update { it.copy(isPaymentProcessing = false, error = e.message) }
+            }
+        }
+    }
+
+    // ─── Refund ──────────────────────────────────────────────────────
+
+    fun showRefundDialog(order: Order) {
+        _uiState.update { it.copy(showRefundDialog = true, refundingOrder = order, refundReason = "") }
+    }
+
+    fun dismissRefundDialog() {
+        _uiState.update { it.copy(showRefundDialog = false, refundingOrder = null, refundReason = "") }
+    }
+
+    fun updateRefundReason(reason: String) {
+        _uiState.update { it.copy(refundReason = reason) }
+    }
+
+    fun confirmRefund() {
+        val order = _uiState.value.refundingOrder ?: return
+        val reason = _uiState.value.refundReason
+        if (reason.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefundProcessing = true) }
+            orderRepository.refundOrder(order.id, reason).onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isRefundProcessing = false,
+                        showRefundDialog = false,
+                        refundingOrder = null,
+                        refundReason = "",
+                    )
+                }
+                loadOrders()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isRefundProcessing = false, error = e.message) }
             }
         }
     }

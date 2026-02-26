@@ -70,7 +70,10 @@ class OrderDao(private val db: WaselakDatabase) {
             total = order.total,
             notes = order.notes,
             created_at = order.created_at,
-            updated_at = order.updated_at
+            updated_at = order.updated_at,
+            refunded_at = order.refunded_at,
+            refunded_by = order.refunded_by,
+            refund_reason = order.refund_reason,
         )
     }
 

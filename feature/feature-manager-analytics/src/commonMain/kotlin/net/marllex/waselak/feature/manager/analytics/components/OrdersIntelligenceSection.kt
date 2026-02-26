@@ -32,6 +32,7 @@ fun OrdersIntelligenceSection(
             KpiCard(label = stringResource(Res.string.total), value = formatNumber(data.totalOrders), modifier = Modifier.weight(1f))
             KpiCard(label = stringResource(Res.string.completed), value = formatNumber(data.completedOrders), modifier = Modifier.weight(1f))
             KpiCard(label = stringResource(Res.string.cancelled), value = formatNumber(data.cancelledOrders), modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.refunded), value = formatNumber(data.refundedOrders), modifier = Modifier.weight(1f))
         }
 
         if (data.channelBreakdown.isNotEmpty()) {

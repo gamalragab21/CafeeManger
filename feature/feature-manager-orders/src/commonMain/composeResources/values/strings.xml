@@ -44,4 +44,10 @@
     <string name="confirm_payment">Confirm Payment</string>
     <string name="select_payment_method">Payment Method</string>
     <string name="payment_required">Payment required to complete order</string>
+    <string name="refund_order">Refund Order</string>
+    <string name="refund_reason">Refund Reason</string>
+    <string name="refund_reason_hint">Enter the reason for this refund</string>
+    <string name="confirm_refund">Confirm Refund</string>
+    <string name="refund_confirm_message">Are you sure you want to refund this order? Stock will be restored and customer records updated.</string>
+    <string name="processing_refund">Processing refund…</string>
 </resources>

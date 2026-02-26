@@ -90,8 +90,10 @@ private fun buildOrderQuery(
 
 private fun buildSummaryFromOrders(orders: List<ResultRow>, vendorUUID: UUID): AnalyticsSummaryDto {
     val totalOrders = orders.size
-    val totalRevenue = orders.sumOf { it[OrdersTable.total].toDouble() }
-    val averageOrderValue = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
+    val excludedStatuses = setOf("CANCELED", "REFUNDED")
+    val revenueOrders = orders.filter { it[OrdersTable.status] !in excludedStatuses }
+    val totalRevenue = revenueOrders.sumOf { it[OrdersTable.total].toDouble() }
+    val averageOrderValue = if (revenueOrders.isNotEmpty()) totalRevenue / revenueOrders.size else 0.0
 
     val ordersByChannel = orders.groupBy { it[OrdersTable.channel] }.mapValues { it.value.size }
     val ordersByStatus = orders.groupBy { it[OrdersTable.status] }.mapValues { it.value.size }

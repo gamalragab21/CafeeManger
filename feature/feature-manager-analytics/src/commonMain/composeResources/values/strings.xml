@@ -168,6 +168,7 @@
     <!-- Orders Intelligence -->
     <string name="total">Total</string>
     <string name="cancelled">Cancelled</string>
+    <string name="refunded">Refunded</string>
     <string name="channel_breakdown">Channel Breakdown</string>
     <string name="daily_order_trend">Daily Order Trend</string>
 

@@ -36,7 +36,10 @@ data class OrderResponse(
     val notes: String? = null,
     val items: List<OrderItemResponse> = emptyList(),
     @SerialName("created_at") val createdAt: Long,
-    @SerialName("updated_at") val updatedAt: Long? = null
+    @SerialName("updated_at") val updatedAt: Long? = null,
+    @SerialName("refunded_at") val refundedAt: Long? = null,
+    @SerialName("refunded_by") val refundedBy: String? = null,
+    @SerialName("refund_reason") val refundReason: String? = null,
 )
 
 @Serializable
@@ -104,6 +107,9 @@ data class UpdatePaymentStatusRequest(
     @SerialName("payment_status") val paymentStatus: String,
     @SerialName("payment_method") val paymentMethod: String? = null,
 )
+
+@Serializable
+data class RefundOrderRequest(val reason: String)
 
 @Serializable
 data class AssignDeliveryRequest(

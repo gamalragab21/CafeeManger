@@ -61,6 +61,7 @@ class RecipeDao(private val db: WaselakDatabase) {
                     stock_item_name = ingredient.stockItemName,
                     quantity = ingredient.quantity,
                     unit = ingredient.unit,
+                    fixed_quantity = ingredient.fixedQuantity,
                     display_order = ingredient.displayOrder,
                     available_quantity = ingredient.availableQuantity,
                 )
@@ -94,6 +95,7 @@ class RecipeDao(private val db: WaselakDatabase) {
                         stock_item_name = ingredient.stockItemName,
                         quantity = ingredient.quantity,
                         unit = ingredient.unit,
+                        fixed_quantity = ingredient.fixedQuantity,
                         display_order = ingredient.displayOrder,
                         available_quantity = ingredient.availableQuantity,
                     )
