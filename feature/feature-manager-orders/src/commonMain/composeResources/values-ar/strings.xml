@@ -44,4 +44,10 @@
     <string name="confirm_payment">تأكيد الدفع</string>
     <string name="select_payment_method">طريقة الدفع</string>
     <string name="payment_required">يجب الدفع لإكمال الطلب</string>
+    <string name="refund_order">استرداد الطلب</string>
+    <string name="refund_reason">سبب الاسترداد</string>
+    <string name="refund_reason_hint">أدخل سبب الاسترداد</string>
+    <string name="confirm_refund">تأكيد الاسترداد</string>
+    <string name="refund_confirm_message">هل أنت متأكد من استرداد هذا الطلب؟ سيتم استعادة المخزون وتحديث سجلات العملاء.</string>
+    <string name="processing_refund">جارٍ معالجة الاسترداد…</string>
 </resources>

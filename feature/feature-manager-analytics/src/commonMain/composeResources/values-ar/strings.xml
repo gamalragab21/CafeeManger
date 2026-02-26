@@ -168,6 +168,7 @@
     <!-- Orders Intelligence -->
     <string name="total">الإجمالي</string>
     <string name="cancelled">ملغي</string>
+    <string name="refunded">مُسترد</string>
     <string name="channel_breakdown">توزيع القنوات</string>
     <string name="daily_order_trend">اتجاه الطلبات اليومي</string>
 

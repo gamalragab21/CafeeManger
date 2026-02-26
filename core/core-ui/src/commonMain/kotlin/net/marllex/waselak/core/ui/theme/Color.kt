@@ -78,6 +78,7 @@ val StatusReturned = Color(0xFF78716C)      // Stone 500
 val StatusPickedUp = Color(0xFF0891B2)      // Cyan 600
 val StatusCompleted = Color(0xFF059669)     // Emerald 600
 val StatusCanceled = Color(0xFFEF4444)      // Red 500
+val StatusRefunded = Color(0xFF8B5CF6)      // Violet 500
 
 // ─── Payment status colors ──────────────────────────────────────────
 val PaymentPending = Color(0xFFF59E0B)        // Amber 500

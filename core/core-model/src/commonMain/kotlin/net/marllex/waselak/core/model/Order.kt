@@ -35,7 +35,10 @@ data class Order(
     val notes: String? = null,
     val items: List<OrderItem> = emptyList(),
     val createdAt: Long,
-    val updatedAt: Long? = null
+    val updatedAt: Long? = null,
+    val refundedAt: Long? = null,
+    val refundedBy: String? = null,
+    val refundReason: String? = null,
 )
 
 @Serializable
@@ -60,7 +63,8 @@ enum class OrderStatus {
     RETURNED,            // delivery: order returned to store
     PICKED_UP,           // takeaway: customer picked up order
     COMPLETED,           // final settlement done
-    CANCELED;
+    CANCELED,
+    REFUNDED;            // completed order was refunded
 
     fun canTransitionTo(newStatus: OrderStatus, channel: OrderChannel): Boolean {
         return when (channel) {
@@ -78,8 +82,9 @@ enum class OrderStatus {
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
             READY -> newStatus in listOf(SERVED, CANCELED)
             SERVED -> newStatus in listOf(COMPLETED, CANCELED)
-            COMPLETED -> false
+            COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
+            REFUNDED -> false
             else -> false
         }
     }
@@ -94,8 +99,9 @@ enum class OrderStatus {
             DELIVERY_FAILED -> newStatus in listOf(RETURNED, ASSIGNED, CANCELED)
             DELIVERED -> newStatus in listOf(COMPLETED, CANCELED)
             RETURNED -> false // terminal
-            COMPLETED -> false
+            COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
+            REFUNDED -> false
             else -> false
         }
     }
@@ -106,8 +112,9 @@ enum class OrderStatus {
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
             READY -> newStatus in listOf(PICKED_UP, CANCELED)
             PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
-            COMPLETED -> false
+            COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
+            REFUNDED -> false
             else -> false
         }
     }
@@ -115,8 +122,9 @@ enum class OrderStatus {
     private fun canTransitionInStore(newStatus: OrderStatus): Boolean {
         return when (this) {
             CREATED -> newStatus in listOf(COMPLETED, CANCELED)
-            COMPLETED -> false
+            COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
+            REFUNDED -> false
             else -> false
         }
     }
@@ -127,8 +135,9 @@ enum class OrderStatus {
             IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
             READY -> newStatus in listOf(PICKED_UP, CANCELED)
             PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
-            COMPLETED -> false
+            COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
+            REFUNDED -> false
             else -> false
         }
     }
@@ -136,11 +145,11 @@ enum class OrderStatus {
     companion object {
         fun getAvailableStatuses(channel: OrderChannel): List<OrderStatus> {
             return when (channel) {
-                OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, SERVED, COMPLETED, CANCELED)
-                OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNED, COMPLETED, CANCELED)
-                OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
-                OrderChannel.IN_STORE -> listOf(CREATED, COMPLETED, CANCELED)
-                OrderChannel.PICKUP_LATER -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED)
+                OrderChannel.DINE_IN -> listOf(CREATED, IN_PREPARATION, READY, SERVED, COMPLETED, CANCELED, REFUNDED)
+                OrderChannel.DELIVERY -> listOf(CREATED, IN_PREPARATION, READY, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNED, COMPLETED, CANCELED, REFUNDED)
+                OrderChannel.TAKEAWAY -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED, REFUNDED)
+                OrderChannel.IN_STORE -> listOf(CREATED, COMPLETED, CANCELED, REFUNDED)
+                OrderChannel.PICKUP_LATER -> listOf(CREATED, IN_PREPARATION, READY, PICKED_UP, COMPLETED, CANCELED, REFUNDED)
             }
         }
 

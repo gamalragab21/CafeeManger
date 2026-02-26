@@ -133,6 +133,9 @@ object OrdersTable : UUIDTable("orders") {
     val notes = text("notes").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
+    val refundedAt = timestamp("refunded_at").nullable()
+    val refundedBy = reference("refunded_by", UsersTable).nullable()
+    val refundReason = text("refund_reason").nullable()
 }
 
 // ─── Order Items ─────────────────────────────────────────────────

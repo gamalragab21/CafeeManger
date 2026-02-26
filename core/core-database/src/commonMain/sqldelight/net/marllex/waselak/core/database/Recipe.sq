@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     stock_item_name TEXT NOT NULL,
     quantity REAL NOT NULL,
     unit TEXT NOT NULL,
+    fixed_quantity INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     display_order INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
     available_quantity REAL NOT NULL DEFAULT 0.0,
     FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
@@ -42,8 +43,8 @@ INSERT OR REPLACE INTO recipes(id, vendor_id, item_id, item_name, name, descript
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertIngredient:
-INSERT INTO recipe_ingredients(recipe_id, stock_id, stock_item_name, quantity, unit, display_order, available_quantity)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO recipe_ingredients(recipe_id, stock_id, stock_item_name, quantity, unit, fixed_quantity, display_order, available_quantity)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteIngredientsByRecipeId:
 DELETE FROM recipe_ingredients WHERE recipe_id = ?;

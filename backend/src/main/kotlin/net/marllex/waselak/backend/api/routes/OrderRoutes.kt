@@ -104,6 +104,9 @@ data class UpdatePaymentStatusDto(
 data class AssignDeliveryDto(val delivery_user_id: String)
 
 @Serializable
+data class RefundOrderDto(val reason: String)
+
+@Serializable
 data class ShareReceiptResponseDto(
     val url: String, val token: String, val expires_at: Long
 )
@@ -141,7 +144,10 @@ data class OrderDto(
     val notes: String? = null,
     val items: List<OrderItemDto> = emptyList(),
     val created_at: Long,
-    val updated_at: Long? = null
+    val updated_at: Long? = null,
+    val refunded_at: Long? = null,
+    val refunded_by: String? = null,
+    val refund_reason: String? = null,
 )
 
 @Serializable
@@ -743,7 +749,7 @@ fun Route.orderRoutes() {
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
                 val currentStatus = current[OrdersTable.status]
-                if (currentStatus in listOf("COMPLETED", "CANCELED")) {
+                if (currentStatus in listOf("COMPLETED", "CANCELED", "REFUNDED")) {
                     throw IllegalStateException("Cannot edit a $currentStatus order")
                 }
 
@@ -995,6 +1001,95 @@ fun Route.orderRoutes() {
                 val userIds =
                     listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId]).filterNotNull()
                         .distinct()
+                val usersMap = if (userIds.isEmpty()) emptyMap() else {
+                    UsersTable.selectAll().where { UsersTable.id inList userIds }
+                        .associate { it[UsersTable.id].value to it[UsersTable.name] }
+                }
+                val tablesMap = updatedRow[OrdersTable.tableId]?.let { tid ->
+                    TablesTable.selectAll().where { TablesTable.id eq tid }
+                        .associate { it[TablesTable.id].value to it[TablesTable.number] }
+                } ?: emptyMap()
+                updatedRow.toOrderDto(items, usersMap, tablesMap)
+            }
+            call.respond(HttpStatusCode.OK, order)
+        }
+
+        // Refund a completed order (restore stock, update customer stats)
+        post("/{id}/refund") {
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val request = call.receive<RefundOrderDto>()
+            require(request.reason.isNotBlank()) { "Refund reason is required" }
+
+            val order = transaction {
+                val current = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq UUID.fromString(id)) and
+                    (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+
+                val currentStatus = current[OrdersTable.status]
+                val currentPayment = current[OrdersTable.paymentStatus]
+                if (currentStatus != "COMPLETED" || currentPayment != "PAID") {
+                    throw IllegalStateException("Only completed and paid orders can be refunded. Current: status=$currentStatus, payment=$currentPayment")
+                }
+
+                val now = Clock.System.now()
+
+                // Update order: status → REFUNDED, paymentStatus → REFUNDED
+                OrdersTable.update({ OrdersTable.id eq UUID.fromString(id) }) {
+                    it[status] = "REFUNDED"
+                    it[paymentStatus] = "REFUNDED"
+                    it[refundedAt] = now
+                    it[refundedBy] = UUID.fromString(principal.userId)
+                    it[refundReason] = request.reason
+                    it[updatedAt] = now
+                }
+
+                // Restore stock for all order items
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val orderItems = OrderItemsTable.selectAll()
+                    .where { OrderItemsTable.orderId eq UUID.fromString(id) }.toList()
+                restoreStockForOrderItems(vendorUUID, UUID.fromString(id), orderItems)
+
+                // Decrement customer stats
+                val customerId = current[OrdersTable.customerId]
+                if (customerId != null) {
+                    val orderTotal = current[OrdersTable.total]
+                    CustomersTable.update({ CustomersTable.id eq customerId }) { stmt ->
+                        with(SqlExpressionBuilder) {
+                            stmt[orderCount] = orderCount - 1
+                            stmt[totalSpent] = totalSpent - orderTotal
+                        }
+                        stmt[updatedAt] = now
+                    }
+                }
+
+                // Free table if dine-in
+                if (current[OrdersTable.channel] == "DINE_IN") {
+                    val tableUUID = current[OrdersTable.tableId]
+                    if (tableUUID != null) {
+                        TablesTable.update({ TablesTable.id eq tableUUID }) {
+                            it[TablesTable.status] = "AVAILABLE"
+                            it[TablesTable.updatedAt] = now
+                        }
+                    }
+                }
+
+                // Log activity
+                ActivityLogsTable.insert {
+                    it[orderId] = UUID.fromString(id)
+                    it[userId] = UUID.fromString(principal.userId)
+                    it[action] = "ORDER_REFUNDED"
+                    it[payload] = """{"reason":"${request.reason.replace("\"", "\\\"")}"}"""
+                    it[createdAt] = now
+                }
+
+                // Return updated order DTO
+                val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
+                    .map { it.toOrderItemDto() }
+                val updatedRow = OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(id) }.first()
+                val userIds = listOf(updatedRow[OrdersTable.cashierId], updatedRow[OrdersTable.deliveryUserId])
+                    .filterNotNull().distinct()
                 val usersMap = if (userIds.isEmpty()) emptyMap() else {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
@@ -1280,7 +1375,10 @@ private fun ResultRow.toOrderDto(
     notes = this[OrdersTable.notes],
     items = items,
     created_at = this[OrdersTable.createdAt].toEpochMilliseconds(),
-    updated_at = this[OrdersTable.updatedAt].toEpochMilliseconds()
+    updated_at = this[OrdersTable.updatedAt].toEpochMilliseconds(),
+    refunded_at = this[OrdersTable.refundedAt]?.toEpochMilliseconds(),
+    refunded_by = this[OrdersTable.refundedBy]?.toString(),
+    refund_reason = this[OrdersTable.refundReason],
 )
 
 private fun ResultRow.toOrderItemDto() = OrderItemDto(

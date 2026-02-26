@@ -198,11 +198,14 @@ fun OrdersScreen(
                             order = order,
                             onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
                             onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
-                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
+                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED && order.status != OrderStatus.REFUNDED) {
                                 { viewModel.showEditOrder(order) }
                             } else null,
-                            onPay = if (order.paymentStatus != net.marllex.waselak.core.model.PaymentStatus.PAID) {
+                            onPay = if (order.paymentStatus != net.marllex.waselak.core.model.PaymentStatus.PAID && order.status != OrderStatus.REFUNDED) {
                                 { viewModel.showPaymentDialog(order) }
+                            } else null,
+                            onRefund = if (order.status == OrderStatus.COMPLETED && order.paymentStatus == net.marllex.waselak.core.model.PaymentStatus.PAID) {
+                                { viewModel.showRefundDialog(order) }
                             } else null,
                         )
                     }
@@ -287,6 +290,18 @@ fun OrdersScreen(
             onSelectMethod = viewModel::selectPaymentMethod,
             onConfirm = viewModel::confirmPayment,
             onDismiss = viewModel::dismissPaymentDialog,
+        )
+    }
+
+    // Refund confirmation dialog
+    if (uiState.showRefundDialog && uiState.refundingOrder != null) {
+        RefundConfirmationDialog(
+            order = uiState.refundingOrder!!,
+            reason = uiState.refundReason,
+            isProcessing = uiState.isRefundProcessing,
+            onReasonChange = viewModel::updateRefundReason,
+            onConfirm = viewModel::confirmRefund,
+            onDismiss = viewModel::dismissRefundDialog,
         )
     }
 }
@@ -400,6 +415,7 @@ private fun OrderCard(
     onViewReceipt: () -> Unit,
     onEdit: (() -> Unit)? = null,
     onPay: (() -> Unit)? = null,
+    onRefund: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -546,6 +562,34 @@ private fun OrderCard(
                             }
                         }
                     }
+
+                    // Refund info (shown for refunded orders)
+                    if (order.status == OrderStatus.REFUNDED && order.refundReason != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                                    MaterialTheme.shapes.small
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "${stringResource(Res.string.refund_reason)}: ${order.refundReason}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            order.refundedAt?.let { ts ->
+                                Text(
+                                    text = ts.formatEpochMs("MMM dd, yyyy HH:mm"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -586,6 +630,27 @@ private fun OrderCard(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = "${stringResource(Res.string.confirm_payment)} ${CurrencyFormatter.formatDecimal(order.total)}",
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            // Refund button for completed + paid orders
+            if (onRefund != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onRefund,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.refund_order),
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -670,7 +735,8 @@ private fun OrderItemRow(item: OrderItem) {
 }
 
 private fun getNextStatuses(order: Order): List<OrderStatus> {
-    return OrderStatus.entries.filter { order.status.canTransitionTo(it, order.channel) }
+    // Exclude REFUNDED — refund has its own dedicated flow with reason input
+    return OrderStatus.entries.filter { it != OrderStatus.REFUNDED && order.status.canTransitionTo(it, order.channel) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -932,4 +998,97 @@ private fun PaymentBottomSheet(
             }
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Refund Confirmation Dialog
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun RefundConfirmationDialog(
+    order: Order,
+    reason: String,
+    isProcessing: Boolean,
+    onReasonChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        title = {
+            Text(
+                text = stringResource(Res.string.refund_order),
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Order ID and total
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "#${order.id.takeLast(6).uppercase()}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = CurrencyFormatter.formatDecimal(order.total),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                // Warning message
+                Text(
+                    text = stringResource(Res.string.refund_confirm_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                // Reason input
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = onReasonChange,
+                    label = { Text(stringResource(Res.string.refund_reason)) },
+                    placeholder = { Text(stringResource(Res.string.refund_reason_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    minLines = 2,
+                    enabled = !isProcessing,
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isProcessing && reason.isNotBlank(),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onError,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.processing_refund))
+                } else {
+                    Text(stringResource(Res.string.confirm_refund))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing,
+            ) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
+    )
 }

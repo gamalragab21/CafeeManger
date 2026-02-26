@@ -125,7 +125,8 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     discount = discount, discountType = discount_type,
     tax = tax, taxPercent = tax_percent, total = total,
     notes = notes, items = items,
-    createdAt = created_at, updatedAt = updated_at
+    createdAt = created_at, updatedAt = updated_at,
+    refundedAt = refunded_at, refundedBy = refunded_by, refundReason = refund_reason,
 )
 
 fun Order.toDbEntity() = Orders(
@@ -145,7 +146,8 @@ fun Order.toDbEntity() = Orders(
     subtotal = subtotal, delivery_fee = deliveryFee,
     discount = discount, discount_type = discountType,
     tax = tax, tax_percent = taxPercent, total = total,
-    notes = notes, created_at = createdAt, updated_at = updatedAt
+    notes = notes, created_at = createdAt, updated_at = updatedAt,
+    refunded_at = refundedAt, refunded_by = refundedBy, refund_reason = refundReason,
 )
 
 fun Order_items.toDomain() = OrderItem(
@@ -306,5 +308,6 @@ fun Recipes.toDomain(ingredients: List<RecipeIngredient> = emptyList()) = Recipe
 fun Recipe_ingredients.toDomain() = RecipeIngredient(
     stockId = stock_id, stockItemName = stock_item_name,
     quantity = quantity, unit = unit,
+    fixedQuantity = fixed_quantity,
     displayOrder = display_order, availableQuantity = available_quantity
 )

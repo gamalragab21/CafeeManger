@@ -25,6 +25,7 @@
     <string name="status_picked_up">تم الاستلام</string>
     <string name="status_completed">مكتمل</string>
     <string name="status_canceled">ملغي</string>
+    <string name="status_refunded">مُسترد</string>
 
     <!-- Payment Status -->
     <string name="payment_status_pending">معلّق</string>
