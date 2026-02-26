@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="menu_items">عناصر القائمة</string>
+    <string name="menu_items">أصناف المنيو</string>
     <string name="all">الكل</string>
-    <string name="edit_item">تعديل العنصر</string>
-    <string name="add_item">إضافة عنصر</string>
-    <string name="category">الفئة</string>
+    <string name="edit_item">تعديل الصنف</string>
+    <string name="add_item">إضافة صنف</string>
+    <string name="category">القسم</string>
     <string name="price">السعر</string>
     <string name="description">الوصف</string>
     <string name="name">الاسم</string>
-    <string name="saving">جارٍ الحفظ...</string>
+    <string name="saving">بيحفظ...</string>
     <string name="cancel">إلغاء</string>
     <string name="save">حفظ</string>
-    <string name="categories">الفئات</string>
-    <string name="unavailable">غير متوفر</string>
-    <string name="items_label">عناصر</string>
+    <string name="categories">الأقسام</string>
+    <string name="unavailable">مش متوفر</string>
+    <string name="items_label">أصناف</string>
 </resources>

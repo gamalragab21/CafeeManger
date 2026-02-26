@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="categories">الفئات</string>
-    <string name="add_category">إضافة فئة</string>
-    <string name="edit_category">تعديل الفئة</string>
+    <string name="categories">الأقسام</string>
+    <string name="add_category">إضافة قسم</string>
+    <string name="edit_category">تعديل القسم</string>
     <string name="name">الاسم</string>
     <string name="display_order">ترتيب العرض</string>
-    <string name="saving">جاري الحفظ...</string>
+    <string name="saving">بيحفظ...</string>
     <string name="save">حفظ</string>
     <string name="cancel">إلغاء</string>
 </resources>

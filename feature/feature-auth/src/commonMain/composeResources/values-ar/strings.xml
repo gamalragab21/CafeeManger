@@ -2,30 +2,30 @@
 <resources>
     <string name="app_name">واصل</string>
 
-    <string name="sign_in">تسجيل الدخول</string>
-    <string name="login_continue">سجل الدخول للمتابعة</string>
+    <string name="sign_in">تسجيل دخول</string>
+    <string name="login_continue">سجّل دخولك عشان تكمّل</string>
 
-    <string name="phone_number">رقم الهاتف</string>
-    <string name="phone_hint">أدخل رقم هاتفك</string>
+    <string name="phone_number">رقم التليفون</string>
+    <string name="phone_hint">اكتب رقم تليفونك</string>
 
-    <string name="password">كلمة المرور</string>
-    <string name="password_hint">أدخل كلمة المرور</string>
+    <string name="password">كلمة السر</string>
+    <string name="password_hint">اكتب كلمة السر</string>
 
     <string name="manager_panel">لوحة المدير</string>
-    <string name="manager_subtitle">سجل الدخول لإدارة المتجر</string>
+    <string name="manager_subtitle">سجّل دخولك عشان تدير المحل</string>
 
     <string name="cashier_panel">نقطة البيع</string>
-    <string name="cashier_subtitle">سجل الدخول لبدء الطلبات</string>
+    <string name="cashier_subtitle">سجّل دخولك عشان تبدأ الطلبات</string>
 
     <string name="delivery_panel">تطبيق التوصيل</string>
-    <string name="delivery_subtitle">سجل الدخول لبدء التوصيل</string>
+    <string name="delivery_subtitle">سجّل دخولك عشان تبدأ التوصيل</string>
 
     <string name="verify_identity">تحقق من هويتك</string>
-    <string name="biometric_subtitle">استخدم بصمة الإصبع أو التعرف على الوجه للمتابعة</string>
-    <string name="tap_to_retry">اضغط للمصادقة</string>
-    <string name="biometric_cancelled">تم إلغاء المصادقة. اضغط للمحاولة مرة أخرى.</string>
-    <string name="biometric_error">فشلت المصادقة. يرجى المحاولة مرة أخرى.</string>
+    <string name="biometric_subtitle">استخدم البصمة أو التعرف على الوش عشان تكمّل</string>
+    <string name="tap_to_retry">دوس عشان تتحقق</string>
+    <string name="biometric_cancelled">التحقق اتلغى. دوس عشان تجرّب تاني.</string>
+    <string name="biometric_error">التحقق فشل. جرّب تاني.</string>
 
-    <string name="desktop_verify_subtitle">أدخل كلمة المرور للتحقق من هويتك</string>
+    <string name="desktop_verify_subtitle">اكتب كلمة السر عشان تتحقق من هويتك</string>
     <string name="verify_button">تحقق</string>
 </resources>

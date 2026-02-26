@@ -5,26 +5,26 @@
     <string name="cashier_new_order">طلب جديد</string>
     <string name="cashier_orders">الطلبات</string>
     <string name="cashier_attendance">الحضور</string>
-    <string name="cashier_tables">الطاولات</string>
+    <string name="cashier_tables">الترابيزات</string>
     <string name="cashier_settings">الإعدادات</string>
     <string name="cashier_delivery">التوصيل</string>
     <string name="cashier_announcements">الإعلانات</string>
     <string name="cashier_profile">الملف</string>
     <!-- Profile Screen -->
-    <string name="my_profile">ملفي الشخصي</string>
+    <string name="my_profile">ملفي</string>
     <string name="your_name">الاسم</string>
-    <string name="your_phone">الهاتف</string>
-    <string name="your_email">البريد الإلكتروني</string>
+    <string name="your_phone">التليفون</string>
+    <string name="your_email">الإيميل</string>
     <string name="your_role">الدور</string>
     <string name="account_info">معلومات الحساب</string>
     <string name="app_settings">إعدادات التطبيق</string>
     <string name="language">اللغة</string>
-    <string name="not_available">غير متوفر</string>
+    <string name="not_available">مش متوفر</string>
     <!-- Store Info -->
-    <string name="store_info">معلومات المتجر</string>
-    <string name="store_name">اسم المتجر</string>
+    <string name="store_info">معلومات المحل</string>
+    <string name="store_name">اسم المحل</string>
     <string name="store_address">العنوان</string>
-    <string name="store_phone">هاتف التواصل</string>
-    <string name="wallet_phone">هاتف المحفظة</string>
+    <string name="store_phone">تليفون التواصل</string>
+    <string name="wallet_phone">تليفون المحفظة</string>
     <string name="app_version">الإصدار 1.0.0</string>
 </resources>

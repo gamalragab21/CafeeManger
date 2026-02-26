@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tables">الطاولات</string>
-    <string name="table">طاولة %1$s</string>
-    <string name="edit_table">تعديل الطاولة</string>
-    <string name="add_table">إضافة طاولة</string>
-    <string name="table_number">رقم الطاولة</string>
+    <string name="tables">الترابيزات</string>
+    <string name="table">ترابيزة %1$s</string>
+    <string name="edit_table">تعديل الترابيزة</string>
+    <string name="add_table">إضافة ترابيزة</string>
+    <string name="table_number">رقم الترابيزة</string>
     <string name="capacity">السعة</string>
-    <string name="saving">جارٍ الحفظ...</string>
+    <string name="saving">بيحفظ...</string>
     <string name="save">حفظ</string>
     <string name="cancel">إلغاء</string>
 </resources>

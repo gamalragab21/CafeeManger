@@ -3,38 +3,38 @@
     <!-- Channel labels -->
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
-    <string name="channel_takeaway">سفري</string>
-    <string name="channel_in_store">شراء مباشر</string>
-    <string name="channel_pickup_later">استلام لاحق</string>
+    <string name="channel_takeaway">تيك أواي</string>
+    <string name="channel_in_store">شراء من المحل</string>
+    <string name="channel_pickup_later">استلام بعدين</string>
 
     <!-- Payment labels -->
-    <string name="payment_cash">نقدي</string>
+    <string name="payment_cash">كاش</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
 
     <!-- Order Status -->
     <string name="status_created">جديد</string>
-    <string name="status_in_preparation">قيد التحضير</string>
+    <string name="status_in_preparation">بيتحضّر</string>
     <string name="status_ready">جاهز</string>
-    <string name="status_served">تم التقديم</string>
-    <string name="status_assigned">تم التعيين</string>
+    <string name="status_served">اتقدّم</string>
+    <string name="status_assigned">اتعيّن</string>
     <string name="status_out_for_delivery">في الطريق</string>
-    <string name="status_delivered">تم التوصيل</string>
-    <string name="status_delivery_failed">فشل التوصيل</string>
-    <string name="status_returned">مُرتجع</string>
-    <string name="status_picked_up">تم الاستلام</string>
+    <string name="status_delivered">اتوصّل</string>
+    <string name="status_delivery_failed">التوصيل فشل</string>
+    <string name="status_returned">مرتجع</string>
+    <string name="status_picked_up">اتسلّم</string>
     <string name="status_completed">مكتمل</string>
     <string name="status_canceled">ملغي</string>
-    <string name="status_refunded">مُسترد</string>
+    <string name="status_refunded">مسترد</string>
 
     <!-- Payment Status -->
-    <string name="payment_status_pending">معلّق</string>
+    <string name="payment_status_pending">مستني</string>
     <string name="payment_status_paid">مدفوع</string>
-    <string name="payment_status_partially_paid">مدفوع جزئيًا</string>
-    <string name="payment_status_refunded">مُسترد</string>
-    <string name="payment_status_failed">فشل الدفع</string>
-    <string name="pay_now">دفع الآن</string>
-    <string name="pay_later">دفع لاحقًا</string>
+    <string name="payment_status_partially_paid">مدفوع جزء</string>
+    <string name="payment_status_refunded">مسترد</string>
+    <string name="payment_status_failed">الدفع فشل</string>
+    <string name="pay_now">ادفع دلوقتي</string>
+    <string name="pay_later">ادفع بعدين</string>
 
     <!-- User Roles -->
     <string name="role_manager">مدير</string>
@@ -58,48 +58,48 @@
     <string name="salary_monthly">شهري</string>
 
     <!-- Table Status -->
-    <string name="table_available">متاح</string>
-    <string name="table_occupied">مشغول</string>
-    <string name="table_reserved">محجوز</string>
+    <string name="table_available">فاضية</string>
+    <string name="table_occupied">مشغولة</string>
+    <string name="table_reserved">محجوزة</string>
 
     <!-- Common -->
-    <string name="loading">جاري التحميل…</string>
-    <string name="error">خطأ</string>
-    <string name="retry">إعادة المحاولة</string>
+    <string name="loading">بيحمّل…</string>
+    <string name="error">في مشكلة</string>
+    <string name="retry">جرّب تاني</string>
     <string name="save">حفظ</string>
     <string name="cancel">إلغاء</string>
-    <string name="delete">حذف</string>
+    <string name="delete">مسح</string>
     <string name="edit">تعديل</string>
     <string name="add">إضافة</string>
     <string name="confirm">تأكيد</string>
-    <string name="yes">نعم</string>
-    <string name="no">لا</string>
+    <string name="yes">أيوه</string>
+    <string name="no">لأ</string>
     <string name="all">الكل</string>
-    <string name="none">لا شيء</string>
+    <string name="none">مفيش</string>
     <string name="search">بحث</string>
-    <string name="filter">تصفية</string>
+    <string name="filter">فلتر</string>
     <string name="clear">مسح</string>
-    <string name="ok">موافق</string>
-    <string name="done">تم</string>
-    <string name="close">إغلاق</string>
+    <string name="ok">تمام</string>
+    <string name="done">تمام</string>
+    <string name="close">قفل</string>
     <string name="settings">الإعدادات</string>
-    <string name="logout">تسجيل الخروج</string>
-    <string name="signout">تسجيل الخروج</string>
-    <string name="signout_confirm">هل أنت متأكد من تسجيل الخروج؟</string>
-    <string name="welcome_message">مرحبًا، %1$s</string>
+    <string name="logout">تسجيل خروج</string>
+    <string name="signout">تسجيل خروج</string>
+    <string name="signout_confirm">أنت متأكد إنك عايز تسجّل خروج؟</string>
+    <string name="welcome_message">أهلاً، %1$s</string>
 
     <!-- Navigation - Manager -->
     <string name="nav_home">الرئيسية</string>
     <string name="nav_orders">الطلبات</string>
-    <string name="nav_menu">القائمة</string>
+    <string name="nav_menu">المنيو</string>
     <string name="nav_staff">الموظفين</string>
-    <string name="nav_profile">الملف الشخصي</string>
+    <string name="nav_profile">الملف</string>
 
     <string name="nav_customers">العملاء</string>
 
     <!-- Navigation - Cashier -->
     <string name="nav_new_order">طلب جديد</string>
-    <string name="nav_tables">الطاولات</string>
+    <string name="nav_tables">الترابيزات</string>
 
     <!-- Navigation - Delivery -->
     <string name="nav_my_orders">طلباتي</string>
@@ -111,44 +111,44 @@
     <string name="nav_attendance">الحضور</string>
 
     <!-- Menu Sub-Tabs -->
-    <string name="tab_categories">التصنيفات</string>
+    <string name="tab_categories">الأقسام</string>
     <string name="tab_items">الأصناف</string>
     <string name="tab_stock">المخزون</string>
-    <string name="tab_digital_menu">القائمة الرقمية</string>
+    <string name="tab_digital_menu">المنيو الرقمي</string>
 
     <!-- Profile Sub-Tabs -->
-    <string name="tab_store">المتجر</string>
+    <string name="tab_store">المحل</string>
     <string name="tab_analytics">التحليلات</string>
     <string name="tab_settings">الإعدادات</string>
 
     <!-- Settings -->
-    <string name="store_features">مميزات المتجر</string>
-    <string name="tables">الطاولات</string>
+    <string name="store_features">مميزات المحل</string>
+    <string name="tables">الترابيزات</string>
     <string name="roles_permissions">الأدوار والصلاحيات</string>
     <string name="tax_places">مناطق التوصيل</string>
-    <string name="copy_link">نسخ الرابط</string>
-    <string name="share_with_customers">مشاركة مع العملاء</string>
-    <string name="digital_menu">القائمة الرقمية</string>
-    <string name="scan_to_view_menu">امسح لعرض القائمة</string>
-    <string name="digital_menu_link">رابط القائمة الرقمية</string>
-    <string name="no_digital_menu">لا توجد قائمة رقمية متاحة</string>
-    <string name="link_copied">تم نسخ الرابط</string>
+    <string name="copy_link">انسخ اللينك</string>
+    <string name="share_with_customers">شارك مع العملاء</string>
+    <string name="digital_menu">المنيو الرقمي</string>
+    <string name="scan_to_view_menu">امسح عشان تشوف المنيو</string>
+    <string name="digital_menu_link">لينك المنيو الرقمي</string>
+    <string name="no_digital_menu">مفيش منيو رقمي متاح</string>
+    <string name="link_copied">اللينك اتنسخ</string>
     <string name="export_data">تصدير البيانات</string>
     <string name="language">اللغة</string>
     <string name="app_settings">إعدادات التطبيق</string>
     <string name="version_info">الإصدار 1.0.0</string>
 
     <!-- Profile Info -->
-    <string name="store_information">معلومات المتجر</string>
+    <string name="store_information">معلومات المحل</string>
     <string name="account_information">معلومات الحساب</string>
-    <string name="store_name">اسم المتجر</string>
+    <string name="store_name">اسم المحل</string>
     <string name="address">العنوان</string>
-    <string name="contact_phone">هاتف التواصل</string>
-    <string name="wallet_phone">هاتف المحفظة</string>
+    <string name="contact_phone">تليفون التواصل</string>
+    <string name="wallet_phone">تليفون المحفظة</string>
     <string name="name">الاسم</string>
-    <string name="email">البريد الإلكتروني</string>
+    <string name="email">الإيميل</string>
     <string name="role">الدور</string>
-    <string name="welcome_name">مرحبًا، %1$s</string>
+    <string name="welcome_name">أهلاً، %1$s</string>
 
     <!-- App Names -->
     <string name="app_cashier">وصّل - الكاشير</string>

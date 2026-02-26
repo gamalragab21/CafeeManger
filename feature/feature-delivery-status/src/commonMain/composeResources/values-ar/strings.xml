@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="order_details">تفاصيل الطلب</string>
-    <string name="client_information">معلومات العميل</string>
-    <string name="order_items">عناصر الطلب</string>
+    <string name="client_information">بيانات العميل</string>
+    <string name="order_items">أصناف الطلب</string>
     <string name="total">الإجمالي</string>
-    <string name="updating">جارٍ التحديث...</string>
-    <string name="start_delivery">بدء التوصيل</string>
-    <string name="mark_as_delivered">تحديد كـ تم التوصيل</string>
+    <string name="updating">بيتحدّث...</string>
+    <string name="start_delivery">ابدأ التوصيل</string>
+    <string name="mark_as_delivered">اتوصّل</string>
 </resources>

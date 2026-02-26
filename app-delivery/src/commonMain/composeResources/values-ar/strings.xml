@@ -7,19 +7,19 @@
     <string name="settings">الإعدادات</string>
     <string name="announcements_menu">الإعلانات</string>
     <string name="delivery_profile">الملف</string>
-    <string name="my_profile">ملفي الشخصي</string>
+    <string name="my_profile">ملفي</string>
     <string name="your_name">الاسم</string>
-    <string name="your_phone">الهاتف</string>
-    <string name="your_email">البريد الإلكتروني</string>
+    <string name="your_phone">التليفون</string>
+    <string name="your_email">الإيميل</string>
     <string name="your_role">الدور</string>
     <string name="account_info">معلومات الحساب</string>
     <string name="app_settings">إعدادات التطبيق</string>
     <string name="language">اللغة</string>
-    <string name="not_available">غير متوفر</string>
-    <string name="store_info">معلومات المتجر</string>
-    <string name="store_name">اسم المتجر</string>
+    <string name="not_available">مش متوفر</string>
+    <string name="store_info">معلومات المحل</string>
+    <string name="store_name">اسم المحل</string>
     <string name="store_address">العنوان</string>
-    <string name="store_phone">هاتف التواصل</string>
-    <string name="wallet_phone">هاتف المحفظة</string>
+    <string name="store_phone">تليفون التواصل</string>
+    <string name="wallet_phone">تليفون المحفظة</string>
     <string name="app_version">الإصدار 1.0.0</string>
 </resources>
