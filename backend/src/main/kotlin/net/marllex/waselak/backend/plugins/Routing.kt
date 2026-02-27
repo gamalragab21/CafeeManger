@@ -44,6 +44,7 @@ fun Application.configureRouting() {
             customerRoutes()
             workerRoutes()
             attendanceRoutes()
+            overtimeRoutes()
             announcementRoutes()
             overtimeRoutes()
             chatbotRoutes()

@@ -26,6 +26,15 @@ class StaffViewModel constructor(
         // Salary
         val salaryPayments: List<SalaryPayment> = emptyList(),
 
+        // Overtime
+        val overtimeEntries: List<Overtime> = emptyList(),
+        val showAddOvertimeDialog: Boolean = false,
+        val overtimeWorkerId: String? = null,
+        val overtimeDate: String = "",
+        val overtimeHours: String = "",
+        val overtimeRatePerHour: String = "",
+        val overtimeNote: String = "",
+
         // Add Worker Dialog - Multi-Step
         val showAddWorkerDialog: Boolean = false,
         val editingWorker: Worker? = null,
@@ -127,6 +136,7 @@ class StaffViewModel constructor(
                 //workerRepository.refreshAttendance()
                 refreshAttendance()
                 workerRepository.refreshSalaryPayments()
+                workerRepository.refreshOvertime()
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -631,5 +641,72 @@ class StaffViewModel constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    // ─── Overtime ─────────────────────────────────────────────────
+
+    fun showAddOvertimeDialog(workerId: String) {
+        _uiState.update {
+            it.copy(
+                showAddOvertimeDialog = true,
+                overtimeWorkerId = workerId,
+                overtimeDate = Clock.System.now()
+                    .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString(),
+                overtimeHours = "",
+                overtimeRatePerHour = "",
+                overtimeNote = "",
+            )
+        }
+    }
+
+    fun dismissOvertimeDialog() {
+        _uiState.update { it.copy(showAddOvertimeDialog = false) }
+    }
+
+    fun updateOvertimeDate(v: String) = _uiState.update { it.copy(overtimeDate = v) }
+    fun updateOvertimeHours(v: String) = _uiState.update { it.copy(overtimeHours = v) }
+    fun updateOvertimeRatePerHour(v: String) = _uiState.update { it.copy(overtimeRatePerHour = v) }
+    fun updateOvertimeNote(v: String) = _uiState.update { it.copy(overtimeNote = v) }
+
+    fun submitOvertime() {
+        val s = _uiState.value
+        val workerId = s.overtimeWorkerId ?: return
+        val hours = s.overtimeHours.toDoubleOrNull() ?: return
+        val rate = s.overtimeRatePerHour.toDoubleOrNull() ?: return
+        if (hours <= 0 || rate <= 0 || s.overtimeDate.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            workerRepository.createOvertime(
+                workerId = workerId,
+                date = s.overtimeDate,
+                hours = hours,
+                ratePerHour = rate,
+                note = s.overtimeNote.ifBlank { null }
+            ).onSuccess {
+                _uiState.update { it.copy(isSaving = false, showAddOvertimeDialog = false) }
+                refreshOvertimeForWorker(workerId)
+                workerRepository.refreshSalaryPayments()
+            }.onFailure { e ->
+                _uiState.update { it.copy(isSaving = false, error = e.message) }
+            }
+        }
+    }
+
+    fun deleteOvertime(overtimeId: String) {
+        viewModelScope.launch {
+            workerRepository.deleteOvertime(overtimeId).onSuccess {
+                workerRepository.refreshOvertime()
+                workerRepository.refreshSalaryPayments()
+            }
+        }
+    }
+
+    fun refreshOvertimeForWorker(workerId: String) {
+        viewModelScope.launch {
+            workerRepository.refreshOvertime(workerId = workerId).onSuccess { entries ->
+                _uiState.update { it.copy(overtimeEntries = entries) }
+            }
+        }
     }
 }

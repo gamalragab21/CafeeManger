@@ -162,12 +162,17 @@ class WorkerRepositoryImpl constructor(
     @OptIn(ExperimentalUuidApi::class)
     override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> {
         if (networkMonitor.isOnline.value) {
-            return runCatching {
+            val onlineResult = runCatching {
                 val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
                 val attendance = response.toDomain()
                 workerDao.insertAttendance(attendance.toDbEntity())
                 attendance
             }
+            // If API succeeds or fails with a non-network error, return as-is
+            if (onlineResult.isSuccess) return onlineResult
+            // If API fails and offline mode is enabled, fall through to offline path
+            val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
+            if (vendor?.enableOfflineMode != true) return onlineResult
         }
 
         // Offline check-in with local PIN verification
@@ -232,12 +237,15 @@ class WorkerRepositoryImpl constructor(
     @OptIn(ExperimentalUuidApi::class)
     override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> {
         if (networkMonitor.isOnline.value) {
-            return runCatching {
+            val onlineResult = runCatching {
                 val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
                 val attendance = response.toDomain()
                 workerDao.insertAttendance(attendance.toDbEntity())
                 attendance
             }
+            if (onlineResult.isSuccess) return onlineResult
+            val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
+            if (vendor?.enableOfflineMode != true) return onlineResult
         }
 
         // Offline check-out: find the local attendance record and update it

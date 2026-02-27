@@ -287,6 +287,8 @@ object SalaryPaymentsTable : UUIDTable("salary_payments") {
     val workedDays = integer("worked_days")
     val workedHours = integer("worked_hours").nullable()
     val amount = decimal("amount", 10, 2)
+    val overtimeHours = decimal("overtime_hours", 5, 2).default(java.math.BigDecimal.ZERO)
+    val overtimeAmount = decimal("overtime_amount", 10, 2).default(java.math.BigDecimal.ZERO)
     val paid = bool("paid").default(false)
     val paidAt = timestamp("paid_at").nullable()
     val paidBy = reference("paid_by", UsersTable).nullable()

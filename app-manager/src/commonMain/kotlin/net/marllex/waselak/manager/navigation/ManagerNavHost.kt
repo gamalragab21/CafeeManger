@@ -1015,34 +1015,6 @@ private fun StoreConfigurationScreen() {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(CoreRes.string.offline_mode_enabled),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = stringResource(CoreRes.string.offline_mode_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = vendor?.offlineModeEnabled == true,
-                        onCheckedChange = { newValue ->
-                            viewModel.updateStoreConfiguration(offlineModeEnabled = newValue)
-                        },
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
                             text = stringResource(CoreRes.string.biometric_required),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,

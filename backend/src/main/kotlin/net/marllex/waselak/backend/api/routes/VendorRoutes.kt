@@ -64,7 +64,6 @@ data class UpdateVendorRequest(
     val tax_enabled: Boolean? = null,
     val default_tax_percent: Double? = null,
     val stock_mode: String? = null,
-    val offline_mode_enabled: Boolean? = null,
     val biometric_required: Boolean? = null,
     val enable_offline_mode: Boolean? = null,
     val digital_menu_url: String? = null
@@ -143,7 +142,6 @@ fun Route.vendorRoutes() {
                     request.tax_enabled?.let { stmt[taxEnabled] = it }
                     request.default_tax_percent?.let { stmt[defaultTaxPercent] = java.math.BigDecimal.valueOf(it) }
                     request.stock_mode?.let { stmt[stockMode] = it }
-                    request.offline_mode_enabled?.let { stmt[offlineModeEnabled] = it }
                     request.biometric_required?.let { stmt[biometricRequired] = it }
                     request.enable_offline_mode?.let { stmt[enableOfflineMode] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }

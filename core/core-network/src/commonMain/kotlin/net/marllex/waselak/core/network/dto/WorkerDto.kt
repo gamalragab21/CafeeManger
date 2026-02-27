@@ -157,22 +157,13 @@ data class SalaryPaymentResponse(
     @SerialName("worked_days") val workedDays: Int,
     @SerialName("worked_hours") val workedHours: Int? = null,
     val amount: Double,
+    @SerialName("overtime_hours") val overtimeHours: Double = 0.0,
+    @SerialName("overtime_amount") val overtimeAmount: Double = 0.0,
     val paid: Boolean = false,
     @SerialName("paid_at") val paidAt: Long? = null,
     @SerialName("paid_by") val paidBy: String? = null,
     val note: String? = null,
     @SerialName("created_at") val createdAt: Long? = null,
-)
-
-@Serializable
-data class MarkPaidRequest(
-    val note: String? = null,
-)
-
-@Serializable
-data class BatchPayRequest(
-    @SerialName("payment_ids") val paymentIds: List<String>,
-    val note: String? = null,
 )
 
 // ─── Overtime DTOs ──────────────────────────────────────────────
@@ -198,5 +189,16 @@ data class CreateOvertimeRequest(
     val date: String,
     val hours: Double,
     @SerialName("rate_per_hour") val ratePerHour: Double,
+    val note: String? = null,
+)
+
+@Serializable
+data class MarkPaidRequest(
+    val note: String? = null,
+)
+
+@Serializable
+data class BatchPayRequest(
+    @SerialName("payment_ids") val paymentIds: List<String>,
     val note: String? = null,
 )

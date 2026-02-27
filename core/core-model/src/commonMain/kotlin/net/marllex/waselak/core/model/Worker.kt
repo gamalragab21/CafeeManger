@@ -106,10 +106,14 @@ data class SalaryPayment(
     val workedDays: Int,
     val workedHours: Int? = null,
     val amount: Double,
+    val overtimeHours: Double = 0.0,
+    val overtimeAmount: Double = 0.0,
     val paid: Boolean = false,
     val paidAt: Long? = null,
     val paidBy: String? = null,
     val note: String? = null,
     val createdAt: Long? = null,
-)
+) {
+    val totalAmount: Double get() = amount + overtimeAmount
+}
 

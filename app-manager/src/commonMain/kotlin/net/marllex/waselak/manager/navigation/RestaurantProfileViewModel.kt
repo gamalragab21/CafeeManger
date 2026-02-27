@@ -121,12 +121,10 @@ class RestaurantProfileViewModel(
     }
 
     fun updateStoreConfiguration(
-        offlineModeEnabled: Boolean? = null,
         biometricRequired: Boolean? = null,
     ) {
         viewModelScope.launch {
             vendorRepository.updateVendor(
-                offlineModeEnabled = offlineModeEnabled,
                 biometricRequired = biometricRequired,
             ).onSuccess {
                 vendorRepository.refreshVendor()

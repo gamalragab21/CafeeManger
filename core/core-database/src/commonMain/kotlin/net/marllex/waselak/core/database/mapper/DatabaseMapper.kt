@@ -263,7 +263,8 @@ fun Salary_payments.toDomain() = SalaryPayment(
     workerName = worker_name, periodType = period_type,
     periodStart = period_start, periodEnd = period_end,
     workedDays = worked_days, workedHours = worked_hours,
-    amount = amount, paid = paid, paidAt = paid_at,
+    amount = amount, overtimeHours = overtime_hours,
+    overtimeAmount = overtime_amount, paid = paid, paidAt = paid_at,
     paidBy = paid_by, note = note, createdAt = created_at
 )
 
@@ -272,7 +273,8 @@ fun SalaryPayment.toDbEntity() = Salary_payments(
     worker_name = workerName, period_type = periodType,
     period_start = periodStart, period_end = periodEnd,
     worked_days = workedDays, worked_hours = workedHours,
-    amount = amount, paid = paid, paid_at = paidAt,
+    amount = amount, overtime_hours = overtimeHours,
+    overtime_amount = overtimeAmount, paid = paid, paid_at = paidAt,
     paid_by = paidBy, note = note, created_at = createdAt
 )
 

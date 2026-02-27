@@ -57,6 +57,7 @@ object DatabaseConfig {
                 AttendanceTable,
                 AttendanceAuthLogsTable,
                 SalaryPaymentsTable,
+                OvertimeTable,
                 ActivityLogsTable,
                 RefreshTokensTable,
                 AnnouncementsTable,
@@ -68,14 +69,17 @@ object DatabaseConfig {
                 VendorsTable, OrdersTable, ItemsTable, StockTable,
                 RecipesTable, RecipeIngredientsTable, StockTransactionsTable,
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
-                SalaryPaymentsTable,
+                SalaryPaymentsTable, OvertimeTable,
                 AnnouncementsTable, AnnouncementReadsTable,
-                OvertimeTable,
                 CustomersTable, CustomerAddressesTable,
             )
 
             // Add enable_offline_mode to vendors
-            try { exec("ALTER TABLE vendors ADD COLUMN enable_offline_mode BOOLEAN DEFAULT FALSE") } catch (_: Exception) {}
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_offline_mode BOOLEAN DEFAULT FALSE")
+
+            // Add overtime columns to salary_payments
+            exec("ALTER TABLE salary_payments ADD COLUMN IF NOT EXISTS overtime_hours DECIMAL(5,2) DEFAULT 0.0")
+            exec("ALTER TABLE salary_payments ADD COLUMN IF NOT EXISTS overtime_amount DECIMAL(10,2) DEFAULT 0.0")
 
             // Migrate ON_TABLE → SERVED (status rename)
             exec("UPDATE orders SET status = 'SERVED' WHERE status = 'ON_TABLE'")

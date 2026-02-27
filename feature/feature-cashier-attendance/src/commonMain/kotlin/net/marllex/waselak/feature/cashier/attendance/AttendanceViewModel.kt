@@ -55,7 +55,6 @@ class AttendanceViewModel constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
-        syncManager.startObserving()
         observeNetworkState()
         observePendingCount()
         observeSyncState()

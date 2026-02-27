@@ -208,4 +208,8 @@
     <string name="overtime_amount">%s EGP</string>
     <string name="hours_format">%s hrs</string>
     <string name="delete_overtime_confirm">Delete this overtime entry?</string>
+    <string name="overtime_total">Total (with Overtime): %s EGP</string>
+    <string name="no_overtime">No overtime records</string>
+    <string name="delete_overtime">Delete Overtime</string>
+    <string name="overtime_entry">%1$s hrs @ %2$s EGP/hr = %3$s EGP</string>
 </resources>

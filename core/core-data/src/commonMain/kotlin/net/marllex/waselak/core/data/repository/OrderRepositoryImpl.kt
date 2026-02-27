@@ -1,12 +1,14 @@
 package net.marllex.waselak.core.data.repository
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.database.Pending_sync
+import net.marllex.waselak.core.database.dao.ItemDao
 import net.marllex.waselak.core.database.dao.OrderDao
 import net.marllex.waselak.core.database.dao.PendingSyncDao
 import net.marllex.waselak.core.database.mapper.toDomain
@@ -31,6 +33,7 @@ class OrderRepositoryImpl constructor(
     private val authRepository: AuthRepository,
     private val offlineModeManager: OfflineModeManager,
     private val pendingSyncDao: PendingSyncDao,
+    private val itemDao: ItemDao,
 ) : OrderRepository {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -149,49 +152,24 @@ class OrderRepositoryImpl constructor(
         )
 
         if (offlineModeManager.isOfflineActive.value) {
-            // Offline: save locally and queue for sync
-            val localId = "offline-${Clock.System.now().toEpochMilliseconds()}"
-            val now = Clock.System.now().toEpochMilliseconds()
-            val subtotal = 0.0 // Server will calculate the real total on sync
-            val total = 0.0
-
-            val order = Order(
-                id = localId, vendorId = vendorId,
-                channel = channel, status = OrderStatus.CREATED,
-                tableId = tableId, cashierId = authRepository.getCurrentUserId() ?: "",
-                cashierName = null,
-                clientName = clientName, clientPhone = clientPhone,
-                clientAddress = clientAddress, customerId = customerId,
-                geoLat = geoLat, geoLng = geoLng,
-                paymentMethod = paymentMethod, paymentTiming = paymentTiming,
-                subtotal = subtotal, total = total, notes = notes,
-                items = items.mapIndexed { index, item ->
-                    OrderItem(
-                        id = "offline-item-$now-$index",
-                        orderId = localId, itemId = item.itemId,
-                        itemNameSnapshot = item.itemId,
-                        itemPriceSnapshot = 0.0,
-                        quantity = item.quantity, note = item.note,
-                    )
-                },
-                createdAt = now, syncStatus = "PENDING_SYNC",
-            )
-            orderDao.insertOrder(order.toDbEntity())
-            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
-
-            // Queue for sync
-            pendingSyncDao.insertPending(Pending_sync(
-                id = localId, type = "ORDER",
-                payload = json.encodeToString(request),
-                created_at = now, retry_count = 0, last_error = null,
-            ))
-            order
+            saveOrderLocally(request, channel, tableId, clientName, clientPhone,
+                clientAddress, customerId, geoLat, geoLng, paymentMethod, paymentTiming, notes, items)
         } else {
-            val response = api.createOrder(request)
-            val order = response.toDomain()
-            orderDao.insertOrder(order.toDbEntity())
-            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
-            order
+            try {
+                val response = api.createOrder(request)
+                val order = response.toDomain()
+                orderDao.insertOrder(order.toDbEntity())
+                orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+                order
+            } catch (e: Exception) {
+                // If API fails and offline mode is enabled, save locally as fallback
+                if (offlineModeManager.offlineModeEnabled.value) {
+                    saveOrderLocally(request, channel, tableId, clientName, clientPhone,
+                        clientAddress, customerId, geoLat, geoLng, paymentMethod, paymentTiming, notes, items)
+                } else {
+                    throw e
+                }
+            }
         }
     }
 
@@ -216,6 +194,54 @@ class OrderRepositoryImpl constructor(
         orderDao.deleteOrderItems(order.id)
         orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
         order
+    }
+
+    private suspend fun saveOrderLocally(
+        request: CreateOrderRequest,
+        channel: OrderChannel, tableId: String?,
+        clientName: String?, clientPhone: String?,
+        clientAddress: String?, customerId: String?,
+        geoLat: Double?, geoLng: Double?,
+        paymentMethod: PaymentMethod, paymentTiming: PaymentTiming,
+        notes: String?, items: List<CreateOrderItemRequest>,
+    ): Order {
+        val localId = "offline-${Clock.System.now().toEpochMilliseconds()}"
+        val now = Clock.System.now().toEpochMilliseconds()
+
+        val orderItems = items.mapIndexed { index, item ->
+            val dbItem = itemDao.getItemById(item.itemId).firstOrNull()
+            OrderItem(
+                id = "offline-item-$now-$index",
+                orderId = localId, itemId = item.itemId,
+                itemNameSnapshot = dbItem?.name ?: item.itemId,
+                itemPriceSnapshot = dbItem?.price ?: 0.0,
+                quantity = item.quantity, note = item.note,
+            )
+        }
+        val subtotal = orderItems.sumOf { it.itemPriceSnapshot * it.quantity }
+
+        val order = Order(
+            id = localId, vendorId = vendorId,
+            channel = channel, status = OrderStatus.CREATED,
+            tableId = tableId, cashierId = authRepository.getCurrentUserId() ?: "",
+            cashierName = null,
+            clientName = clientName, clientPhone = clientPhone,
+            clientAddress = clientAddress, customerId = customerId,
+            geoLat = geoLat, geoLng = geoLng,
+            paymentMethod = paymentMethod, paymentTiming = paymentTiming,
+            subtotal = subtotal, total = subtotal, notes = notes,
+            items = orderItems,
+            createdAt = now, syncStatus = "PENDING_SYNC",
+        )
+        orderDao.insertOrder(order.toDbEntity())
+        orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+
+        pendingSyncDao.insertPending(Pending_sync(
+            id = localId, type = "ORDER",
+            payload = json.encodeToString(request),
+            created_at = now, retry_count = 0, last_error = null,
+        ))
+        return order
     }
 
     override suspend fun fetchOrder(id: String): Result<Order> =

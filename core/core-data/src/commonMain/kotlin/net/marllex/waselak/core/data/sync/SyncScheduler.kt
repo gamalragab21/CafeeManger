@@ -11,12 +11,12 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import net.marllex.waselak.core.data.offline.ConnectivityChecker
+import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.database.dao.PendingSyncDao
 
 class SyncScheduler(
     private val syncService: SyncService,
-    private val connectivityChecker: ConnectivityChecker,
+    private val networkMonitor: NetworkMonitor,
     private val pendingSyncDao: PendingSyncDao,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -27,7 +27,7 @@ class SyncScheduler(
         // Trigger 1: Auto-sync when connectivity is restored
         scope.launch {
             var wasOffline = false
-            connectivityChecker.isOnline.collect { online ->
+            networkMonitor.isOnline.collect { online ->
                 if (online && wasOffline) {
                     triggerSync("connectivity_restored")
                 }

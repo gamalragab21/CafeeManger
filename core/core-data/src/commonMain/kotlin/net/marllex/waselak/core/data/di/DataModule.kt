@@ -1,8 +1,13 @@
 package net.marllex.waselak.core.data.di
 
+import net.marllex.waselak.core.data.offline.ConnectivityChecker
+import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.data.repository.*
 import net.marllex.waselak.core.data.sync.AttendanceSyncManager
+import net.marllex.waselak.core.data.sync.SyncScheduler
+import net.marllex.waselak.core.data.sync.SyncService
 import net.marllex.waselak.core.domain.repository.*
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val dataModule = module {
@@ -10,7 +15,7 @@ val dataModule = module {
     single<CategoryRepository> { CategoryRepositoryImpl(get(), get(), get()) }
     single<ItemRepository> { ItemRepositoryImpl(get(), get(), get()) }
     single<TableRepository> { TableRepositoryImpl(get(), get(), get()) }
-    single<OrderRepository> { OrderRepositoryImpl(get(), get(), get(), get(), get()) }
+    single<OrderRepository> { OrderRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<UserManagementRepository> { UserManagementRepositoryImpl(get(), get(), get()) }
     single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
     single<TaxPlaceRepository> { TaxPlaceRepositoryImpl(get()) }
@@ -18,5 +23,9 @@ val dataModule = module {
     single<RecipeRepository> { RecipeRepositoryImpl(get(), get(), get()) }
     single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
-    single { AttendanceSyncManager(get(), get(), get(), get()) }
+    single(createdAtStart = true) { AttendanceSyncManager(get(), get(), get(), get()) }
+    single { SyncService(get(), get(), get()) }
+    single(createdAtStart = true) { SyncScheduler(get(), get(), get()) }
+    single { ConnectivityChecker(get(named("baseUrl")), get()) }
+    single { OfflineModeManager(get(), get(), get()) }
 }

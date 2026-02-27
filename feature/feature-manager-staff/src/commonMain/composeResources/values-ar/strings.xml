@@ -207,4 +207,8 @@
     <string name="overtime_amount">%s ج.م</string>
     <string name="hours_format">%s ساعة</string>
     <string name="delete_overtime_confirm">حذف سجل الأوفرتايم ده؟</string>
+    <string name="overtime_total">الإجمالي (مع الأوفرتايم): %s ج.م</string>
+    <string name="no_overtime">مفيش سجلات أوفرتايم</string>
+    <string name="delete_overtime">مسح الأوفرتايم</string>
+    <string name="overtime_entry">%1$s ساعة @ %2$s ج.م/ساعة = %3$s ج.م</string>
 </resources>

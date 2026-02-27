@@ -102,6 +102,8 @@ data class SalaryPaymentDto(
     val worked_days: Int,
     val worked_hours: Int? = null,
     val amount: Double,
+    val overtime_hours: Double = 0.0,
+    val overtime_amount: Double = 0.0,
     val paid: Boolean,
     val paid_at: Long? = null,
     val paid_by: String? = null,
@@ -465,6 +467,7 @@ fun Route.workerRoutes() {
                 // Delete ALL related records first (order matters for FK constraints)
                 AttendanceAuthLogsTable.deleteWhere { AttendanceAuthLogsTable.workerId eq workerUUID }
                 AttendanceTable.deleteWhere { AttendanceTable.workerId eq workerUUID }
+                OvertimeTable.deleteWhere { OvertimeTable.workerId eq workerUUID }
                 SalaryPaymentsTable.deleteWhere { SalaryPaymentsTable.workerId eq workerUUID }
 
                 val deleted = WorkersTable.deleteWhere {
@@ -777,6 +780,8 @@ private fun ResultRow.toSalaryPaymentDto() = SalaryPaymentDto(
     worked_days = this[SalaryPaymentsTable.workedDays],
     worked_hours = this[SalaryPaymentsTable.workedHours],
     amount = this[SalaryPaymentsTable.amount].toDouble(),
+    overtime_hours = this[SalaryPaymentsTable.overtimeHours].toDouble(),
+    overtime_amount = this[SalaryPaymentsTable.overtimeAmount].toDouble(),
     paid = this[SalaryPaymentsTable.paid],
     paid_at = this[SalaryPaymentsTable.paidAt]?.toEpochMilliseconds(),
     paid_by = this[SalaryPaymentsTable.paidBy]?.toString(),

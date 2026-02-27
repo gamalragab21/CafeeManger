@@ -34,7 +34,11 @@ class AttendanceSyncManager(
         private const val MAX_RETRIES = 3
     }
 
-    fun startObserving() {
+    init {
+        startObserving()
+    }
+
+    private fun startObserving() {
         scope.launch {
             networkMonitor.isOnline
                 .collect { online ->

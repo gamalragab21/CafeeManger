@@ -50,7 +50,6 @@ data class UpdateVendorRequest(
     @SerialName("tax_enabled") val taxEnabled: Boolean? = null,
     @SerialName("default_tax_percent") val defaultTaxPercent: Double? = null,
     @SerialName("stock_mode") val stockMode: String? = null,
-    @SerialName("offline_mode_enabled") val offlineModeEnabled: Boolean? = null,
     @SerialName("biometric_required") val biometricRequired: Boolean? = null,
     @SerialName("enable_offline_mode") val enableOfflineMode: Boolean? = null
 )
