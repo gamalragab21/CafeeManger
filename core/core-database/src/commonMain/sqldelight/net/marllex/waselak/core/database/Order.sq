@@ -72,3 +72,6 @@ UPDATE orders SET delivery_user_id = ?, updated_at = ? WHERE id = ?;
 
 getOrdersByCustomerId:
 SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC LIMIT ?;
+
+deleteOrder:
+DELETE FROM orders WHERE id = ?;

@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.database.dao.OrderDao
 import net.marllex.waselak.core.database.dao.PendingSyncDao
@@ -32,6 +33,8 @@ class SyncService(
     suspend fun syncAll(): Int {
         _syncState.value = SyncState.SYNCING
         var syncedCount = 0
+        // Track offline-ID → server-ID mappings for dependent items in this sync run
+        val offlineIdMap = mutableMapOf<String, String>()
         try {
             val pending = pendingSyncDao.getAllPendingList()
             for (item in pending) {
@@ -41,8 +44,24 @@ class SyncService(
                             val request = json.decodeFromString<CreateOrderRequest>(item.payload)
                             val response = api.createOrder(request)
                             val order = response.toDomain()
+
+                            val offlineId = item.id   // e.g. "offline-1772229943841"
+                            val serverId = order.id    // real server UUID
+
+                            // Remove old offline order and its items from local DB
+                            orderDao.deleteOrderItems(offlineId)
+                            orderDao.deleteOrder(offlineId)
+
+                            // Insert the server order with items
                             orderDao.insertOrder(order.toDbEntity().copy(sync_status = "SYNCED"))
-                            orderDao.updateSyncStatus(item.id, "SYNCED")
+                            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+
+                            // Track the mapping for in-memory resolution later in this loop
+                            offlineIdMap[offlineId] = serverId
+
+                            // Update dependent pending items in DB so future sync runs use server ID
+                            remapDependentItems(offlineId, serverId)
+
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
@@ -68,8 +87,16 @@ class SyncService(
                         }
                         "PAYMENT_UPDATE" -> {
                             val params = json.decodeFromString<PaymentUpdatePayload>(item.payload)
+                            // Resolve offline ID → server ID (from this sync run or DB remap)
+                            val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+
+                            // If still an offline ID, the ORDER hasn't synced yet — skip for now
+                            if (resolvedOrderId.startsWith("offline-")) {
+                                continue
+                            }
+
                             val response = api.updatePaymentStatus(
-                                params.orderId,
+                                resolvedOrderId,
                                 UpdatePaymentStatusRequest(params.status, params.paymentMethod),
                             )
                             val order = response.toDomain()
@@ -79,8 +106,16 @@ class SyncService(
                         }
                         "ORDER_STATUS_UPDATE" -> {
                             val params = json.decodeFromString<OrderStatusPayload>(item.payload)
+                            // Resolve offline ID → server ID (from this sync run or DB remap)
+                            val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+
+                            // If still an offline ID, the ORDER hasn't synced yet — skip for now
+                            if (resolvedOrderId.startsWith("offline-")) {
+                                continue
+                            }
+
                             val response = api.updateOrderStatus(
-                                params.orderId,
+                                resolvedOrderId,
                                 UpdateOrderStatusRequest(params.status),
                             )
                             val order = response.toDomain()
@@ -102,6 +137,33 @@ class SyncService(
             _syncState.value = SyncState.ERROR
         }
         return syncedCount
+    }
+
+    /**
+     * After an ORDER sync succeeds, update all dependent pending items
+     * (PAYMENT_UPDATE, ORDER_STATUS_UPDATE) that reference the old offline ID
+     * to use the new server UUID. This ensures future sync runs use the correct ID.
+     */
+    private suspend fun remapDependentItems(offlineId: String, serverId: String) {
+        val allPending = pendingSyncDao.getAllPendingList()
+        for (item in allPending) {
+            when (item.type) {
+                "PAYMENT_UPDATE" -> {
+                    val params = json.decodeFromString<PaymentUpdatePayload>(item.payload)
+                    if (params.orderId == offlineId) {
+                        val updated = params.copy(orderId = serverId)
+                        pendingSyncDao.updatePayload(item.id, json.encodeToString(updated))
+                    }
+                }
+                "ORDER_STATUS_UPDATE" -> {
+                    val params = json.decodeFromString<OrderStatusPayload>(item.payload)
+                    if (params.orderId == offlineId) {
+                        val updated = params.copy(orderId = serverId)
+                        pendingSyncDao.updatePayload(item.id, json.encodeToString(updated))
+                    }
+                }
+            }
+        }
     }
 }
 

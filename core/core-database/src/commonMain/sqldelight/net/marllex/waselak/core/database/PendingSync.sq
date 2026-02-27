@@ -26,5 +26,8 @@ DELETE FROM pending_sync WHERE id = ?;
 updateRetry:
 UPDATE pending_sync SET retry_count = ?, last_error = ? WHERE id = ?;
 
+updatePayload:
+UPDATE pending_sync SET payload = ?, retry_count = 0, last_error = NULL WHERE id = ?;
+
 deleteAll:
 DELETE FROM pending_sync;

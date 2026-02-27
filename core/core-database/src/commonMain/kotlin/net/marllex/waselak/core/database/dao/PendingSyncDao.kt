@@ -43,6 +43,10 @@ class PendingSyncDao(private val db: WaselakDatabase) {
         )
     }
 
+    suspend fun updatePayload(id: String, payload: String) {
+        queries.updatePayload(payload = payload, id = id)
+    }
+
     suspend fun deleteAll() {
         queries.deleteAll()
     }

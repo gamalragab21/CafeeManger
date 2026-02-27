@@ -93,6 +93,10 @@ class OrderDao(private val db: WaselakDatabase) {
     fun getOrdersByCustomerId(customerId: String, limit: Long): Flow<List<Orders>> =
         orderQueries.getOrdersByCustomerId(customerId, limit).asFlow().mapToList(Dispatchers.Default)
 
+    suspend fun deleteOrder(orderId: String) {
+        orderQueries.deleteOrder(orderId)
+    }
+
     suspend fun updateSyncStatus(orderId: String, syncStatus: String) {
         orderQueries.updateSyncStatus(syncStatus, orderId)
     }
