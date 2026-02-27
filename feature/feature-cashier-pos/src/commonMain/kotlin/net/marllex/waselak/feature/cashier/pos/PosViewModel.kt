@@ -110,45 +110,8 @@ class PosViewModel constructor(
     }
 
     fun loadMenu() {
+        // Subscribe to local DB flows immediately (shows cached data even when offline)
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            // Load vendor feature flags
-            vendorRepository.refreshVendor().onSuccess { vendor ->
-                val defaultChannel = when {
-                    vendor.enableDineIn -> OrderChannel.DINE_IN
-                    vendor.enableInStore -> OrderChannel.IN_STORE
-                    vendor.enableDelivery -> OrderChannel.DELIVERY
-                    vendor.enableTakeaway -> OrderChannel.TAKEAWAY
-                    vendor.enablePickupLater -> OrderChannel.PICKUP_LATER
-                    else -> OrderChannel.DINE_IN
-                }
-                _uiState.update { it.copy(
-                    enableTables = vendor.enableTables,
-                    enableDineIn = vendor.enableDineIn,
-                    enableDelivery = vendor.enableDelivery,
-                    enableTakeaway = vendor.enableTakeaway,
-                    enableInStore = vendor.enableInStore,
-                    enablePickupLater = vendor.enablePickupLater,
-                    vendorName = vendor.name,
-                    vendorLogoUrl = vendor.logoUrl,
-                    channel = defaultChannel,
-                ) }
-            }
-            itemRepository.refreshItems()
-            categoryRepository.refreshCategories()
-            tableRepository.refreshTables()
-            // Preload tax places so the cashier can pick fees immediately
-            taxPlaceRepository.getTaxPlaces().onSuccess { places ->
-                _uiState.update { state ->
-                    state.copy(
-                        taxPlaces = places,
-                        selectedTaxPlaceId = state.selectedTaxPlaceId
-                            ?: places.firstOrNull { it.isDefault }?.id
-                            ?: places.firstOrNull()?.id
-                    )
-                }
-            }
-
             combine(
                 itemRepository.getAvailableItems(),
                 categoryRepository.getCategories(),
@@ -161,6 +124,49 @@ class PosViewModel constructor(
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }.collect { state ->
                 _uiState.value = state
+            }
+        }
+        // Load vendor feature flags from local DB
+        viewModelScope.launch {
+            vendorRepository.getMyVendor().collect { vendor ->
+                if (vendor != null) {
+                    val defaultChannel = when {
+                        vendor.enableDineIn -> OrderChannel.DINE_IN
+                        vendor.enableInStore -> OrderChannel.IN_STORE
+                        vendor.enableDelivery -> OrderChannel.DELIVERY
+                        vendor.enableTakeaway -> OrderChannel.TAKEAWAY
+                        vendor.enablePickupLater -> OrderChannel.PICKUP_LATER
+                        else -> OrderChannel.DINE_IN
+                    }
+                    _uiState.update { it.copy(
+                        enableTables = vendor.enableTables,
+                        enableDineIn = vendor.enableDineIn,
+                        enableDelivery = vendor.enableDelivery,
+                        enableTakeaway = vendor.enableTakeaway,
+                        enableInStore = vendor.enableInStore,
+                        enablePickupLater = vendor.enablePickupLater,
+                        vendorName = vendor.name,
+                        vendorLogoUrl = vendor.logoUrl,
+                        channel = if (_uiState.value.cart.isEmpty()) defaultChannel else _uiState.value.channel,
+                    ) }
+                }
+            }
+        }
+        // Refresh from API in background (non-blocking — failures are silent when offline)
+        viewModelScope.launch {
+            vendorRepository.refreshVendor()
+            itemRepository.refreshItems()
+            categoryRepository.refreshCategories()
+            tableRepository.refreshTables()
+            taxPlaceRepository.getTaxPlaces().onSuccess { places ->
+                _uiState.update { state ->
+                    state.copy(
+                        taxPlaces = places,
+                        selectedTaxPlaceId = state.selectedTaxPlaceId
+                            ?: places.firstOrNull { it.isDefault }?.id
+                            ?: places.firstOrNull()?.id
+                    )
+                }
             }
         }
     }
