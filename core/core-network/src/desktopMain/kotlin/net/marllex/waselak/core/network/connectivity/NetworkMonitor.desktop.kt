@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
 
 actual class NetworkMonitor {
     private val _isOnline = MutableStateFlow(true)
@@ -16,13 +17,22 @@ actual class NetworkMonitor {
     init {
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                _isOnline.value = try {
-                    InetAddress.getByName("8.8.8.8").isReachable(3000)
-                } catch (_: Exception) {
-                    false
-                }
+                _isOnline.value = checkConnectivity()
                 delay(10_000) // Check every 10 seconds
             }
+        }
+    }
+
+    private fun checkConnectivity(): Boolean {
+        // Use TCP socket to DNS port — InetAddress.isReachable() uses ICMP
+        // which requires root privileges on macOS and often returns false.
+        return try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress("8.8.8.8", 53), 3000)
+                true
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 }

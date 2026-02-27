@@ -179,4 +179,7 @@
     <string name="syncing">بيتزامن...</string>
     <string name="sync_complete">المزامنة خلصت</string>
     <string name="saved_locally">اتحفظ محلي</string>
+    <string name="no_connection_title">مفيش إنترنت</string>
+    <string name="no_connection_message">مش هنقدر نكمل من غير إنترنت. اتأكد من الاتصال أو اطلب من المدير يفعّل وضع بدون إنترنت.</string>
+    <string name="retry_connection">إعادة المحاولة</string>
 </resources>

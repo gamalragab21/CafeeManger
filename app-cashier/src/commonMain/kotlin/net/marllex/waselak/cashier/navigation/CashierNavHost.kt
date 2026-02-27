@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TableBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -663,8 +665,12 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val biometricAuth = rememberBiometricAuthenticator()
+    val isOnline by offlineModeManager.isOnline.collectAsState()
+    val offlineModeEnabled by offlineModeManager.offlineModeEnabled.collectAsState()
     val isOffline by offlineModeManager.isOfflineActive.collectAsState()
     val pendingCount by offlineModeManager.pendingCount.collectAsState()
+    // Show blocking dialog when offline and offline mode is NOT enabled
+    val showNoConnectionDialog = !isOnline && !offlineModeEnabled
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
@@ -753,6 +759,28 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
         receiptScreen(
             onBack = { navController.navigateToPos() },
+        )
+    }
+
+    // Blocking dialog: offline and offline mode not enabled by manager
+    if (showNoConnectionDialog) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissible */ },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CloudOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text(stringResource(CoreRes.string.no_connection_title)) },
+            text = { Text(stringResource(CoreRes.string.no_connection_message)) },
+            confirmButton = {
+                Button(onClick = { /* connectivity auto-updates via NetworkMonitor */ }) {
+                    Text(stringResource(CoreRes.string.retry_connection))
+                }
+            },
         )
     }
 

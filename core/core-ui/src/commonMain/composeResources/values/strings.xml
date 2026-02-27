@@ -179,4 +179,7 @@
     <string name="syncing">Syncing...</string>
     <string name="sync_complete">Sync complete</string>
     <string name="saved_locally">Saved locally</string>
+    <string name="no_connection_title">No Internet Connection</string>
+    <string name="no_connection_message">Cannot continue without internet. Please check your connection or ask your manager to enable offline mode.</string>
+    <string name="retry_connection">Retry</string>
 </resources>
