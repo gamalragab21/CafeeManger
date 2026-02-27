@@ -24,17 +24,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -87,8 +94,14 @@ import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.data.offline.OfflineModeManager
+import net.marllex.waselak.core.data.sync.SyncScheduler
+import net.marllex.waselak.core.data.sync.SyncService
+import net.marllex.waselak.core.data.sync.SyncState
+import net.marllex.waselak.core.database.Pending_sync
+import net.marllex.waselak.core.database.dao.PendingSyncDao
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
+import org.koin.compose.koinInject
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Vendor
@@ -359,6 +372,12 @@ private fun CashierProfileScreen(
     userRole: String?,
     vendor: Vendor?,
     onSignOut: () -> Unit,
+    pendingSyncItems: List<Pending_sync> = emptyList(),
+    isSyncing: Boolean = false,
+    lastSyncResult: String? = null,
+    onSyncNow: () -> Unit = {},
+    onRetrySyncItem: (String) -> Unit = {},
+    onDeleteSyncItem: (String) -> Unit = {},
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isTablet = maxWidth >= 600.dp
@@ -554,6 +573,150 @@ private fun CashierProfileScreen(
                 }
             }
 
+            // Sync & Offline section
+            item {
+                Text(
+                    text = stringResource(CoreRes.string.sync_and_offline),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Pending count
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Sync,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = stringResource(CoreRes.string.pending_items),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            Badge(
+                                containerColor = if (pendingSyncItems.isNotEmpty())
+                                    MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Text("${pendingSyncItems.size}")
+                            }
+                        }
+
+                        // Last sync result
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = stringResource(CoreRes.string.last_sync),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = lastSyncResult
+                                    ?: stringResource(CoreRes.string.no_sync_yet),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        // Sync Now button
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onSyncNow,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isSyncing,
+                        ) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(CoreRes.string.syncing))
+                            } else {
+                                Icon(
+                                    Icons.Filled.Sync,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(CoreRes.string.sync_now))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Failed sync items
+            val failedItems = pendingSyncItems.filter { (it.retry_count ?: 0) >= 3 }
+            if (failedItems.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(CoreRes.string.failed_items),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                failedItems.forEach { item ->
+                    item(key = "failed-${item.id}") {
+                        SyncItemCard(
+                            syncItem = item,
+                            isFailed = true,
+                            onRetry = { onRetrySyncItem(item.id) },
+                            onDelete = { onDeleteSyncItem(item.id) },
+                        )
+                    }
+                }
+            }
+
+            // Active pending sync items
+            val activeItems = pendingSyncItems.filter { (it.retry_count ?: 0) < 3 }
+            if (activeItems.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(CoreRes.string.pending_records),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                activeItems.forEach { item ->
+                    item(key = "pending-${item.id}") {
+                        SyncItemCard(
+                            syncItem = item,
+                            isFailed = false,
+                            onRetry = null,
+                            onDelete = null,
+                        )
+                    }
+                }
+            }
+
             // Sign Out
             item {
                 Spacer(Modifier.height(8.dp))
@@ -653,6 +816,88 @@ private fun OfflineBanner(pendingCount: Long) {
         }
     }
 }
+
+// ─── Sync Item Card ─────────────────────────────────────────────
+@Composable
+private fun SyncItemCard(
+    syncItem: Pending_sync,
+    isFailed: Boolean,
+    onRetry: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+) {
+    val typeLabel = when (syncItem.type) {
+        "ORDER" -> stringResource(CoreRes.string.order_sync)
+        "PAYMENT_UPDATE" -> stringResource(CoreRes.string.payment_update_sync)
+        "ORDER_STATUS_UPDATE" -> stringResource(CoreRes.string.order_status_sync)
+        "CHECK_IN" -> stringResource(CoreRes.string.check_in_sync)
+        "CHECK_OUT" -> stringResource(CoreRes.string.check_out_sync)
+        else -> syncItem.type
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFailed)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (isFailed) Icons.Filled.Error else Icons.Filled.Sync,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isFailed) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.primary,
+            )
+            Column(
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+            ) {
+                Text(
+                    text = typeLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                if (isFailed && syncItem.last_error != null) {
+                    Text(
+                        text = syncItem.last_error ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 2,
+                    )
+                }
+                Text(
+                    text = "Retry: ${syncItem.retry_count ?: 0}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (onRetry != null) {
+                IconButton(onClick = onRetry) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = stringResource(CoreRes.string.retry_sync),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = stringResource(CoreRes.string.delete_failed),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ─── Main Nav Host ───────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -671,6 +916,15 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val pendingCount by offlineModeManager.pendingCount.collectAsState()
     // Show blocking dialog when offline and offline mode is NOT enabled
     val showNoConnectionDialog = !isOnline && !offlineModeEnabled
+
+    // Sync state
+    val syncScheduler: SyncScheduler = koinInject()
+    val syncService: SyncService = koinInject()
+    val pendingSyncDao: PendingSyncDao = koinInject()
+    val pendingSyncItems by pendingSyncDao.getAllPending().collectAsState(initial = emptyList())
+    val syncState by syncService.syncState.collectAsState()
+    val lastSyncResult by syncScheduler.lastSyncResult.collectAsState()
+    val isSyncing = syncState == SyncState.SYNCING
 
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
@@ -749,6 +1003,18 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 userRole = roleLabel,
                 vendor = vendor,
                 onSignOut = onSignOut,
+                pendingSyncItems = pendingSyncItems,
+                isSyncing = isSyncing,
+                lastSyncResult = lastSyncResult,
+                onSyncNow = {
+                    scope.launch { syncScheduler.triggerManualSync() }
+                },
+                onRetrySyncItem = { id ->
+                    scope.launch { pendingSyncDao.updateRetry(id, 0, null) }
+                },
+                onDeleteSyncItem = { id ->
+                    scope.launch { pendingSyncDao.deletePending(id) }
+                },
             )
         }
         paymentScreen(

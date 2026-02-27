@@ -16,6 +16,7 @@ import net.marllex.waselak.core.database.dao.PendingSyncDao
 
 class SyncScheduler(
     private val syncService: SyncService,
+    private val attendanceSyncManager: AttendanceSyncManager,
     private val networkMonitor: NetworkMonitor,
     private val pendingSyncDao: PendingSyncDao,
 ) {
@@ -45,6 +46,24 @@ class SyncScheduler(
                 triggerSync("midnight")
             }
         }
+
+        // Trigger 3: Startup — sync pending items if already online
+        scope.launch {
+            delay(5_000) // let app fully initialize
+            if (networkMonitor.isOnline.value) {
+                triggerSync("startup")
+            }
+        }
+
+        // Trigger 4: Periodic retry every 3 minutes
+        scope.launch {
+            while (true) {
+                delay(3 * 60_000L)
+                if (networkMonitor.isOnline.value) {
+                    triggerSync("periodic")
+                }
+            }
+        }
     }
 
     suspend fun triggerManualSync(): Int {
@@ -54,6 +73,12 @@ class SyncScheduler(
     private suspend fun triggerSync(reason: String): Int {
         return try {
             val count = syncService.syncAll()
+            // Also sync pending attendance records
+            try {
+                attendanceSyncManager.syncPendingRecords()
+            } catch (_: Exception) {
+                // Non-critical: attendance sync failure shouldn't block
+            }
             _lastSyncResult.value = "Synced $count items ($reason)"
             count
         } catch (e: Exception) {

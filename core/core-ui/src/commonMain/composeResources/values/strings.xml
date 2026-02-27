@@ -182,4 +182,18 @@
     <string name="no_connection_title">No Internet Connection</string>
     <string name="no_connection_message">Cannot continue without internet. Please check your connection or ask your manager to enable offline mode.</string>
     <string name="retry_connection">Retry</string>
+
+    <!-- Sync Section -->
+    <string name="sync_and_offline">Sync &amp; Offline</string>
+    <string name="pending_items">Pending Items</string>
+    <string name="last_sync">Last Sync</string>
+    <string name="no_sync_yet">No sync yet</string>
+    <string name="order_sync">Order</string>
+    <string name="payment_update_sync">Payment Update</string>
+    <string name="order_status_sync">Status Update</string>
+    <string name="check_in_sync">Check In</string>
+    <string name="check_out_sync">Check Out</string>
+    <string name="order_payment_sync">Orders &amp; Payments Sync</string>
+    <string name="sync_all_now">Sync All Now</string>
+    <string name="failed_items">Failed Items</string>
 </resources>

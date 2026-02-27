@@ -182,4 +182,18 @@
     <string name="no_connection_title">مفيش إنترنت</string>
     <string name="no_connection_message">مش هنقدر نكمل من غير إنترنت. اتأكد من الاتصال أو اطلب من المدير يفعّل وضع بدون إنترنت.</string>
     <string name="retry_connection">إعادة المحاولة</string>
+
+    <!-- Sync Section -->
+    <string name="sync_and_offline">المزامنة والاتصال</string>
+    <string name="pending_items">عناصر معلقة</string>
+    <string name="last_sync">آخر مزامنة</string>
+    <string name="no_sync_yet">لم تتم مزامنة بعد</string>
+    <string name="order_sync">طلب</string>
+    <string name="payment_update_sync">تحديث الدفع</string>
+    <string name="order_status_sync">تحديث الحالة</string>
+    <string name="check_in_sync">تسجيل حضور</string>
+    <string name="check_out_sync">تسجيل انصراف</string>
+    <string name="order_payment_sync">مزامنة الطلبات والمدفوعات</string>
+    <string name="sync_all_now">مزامنة الكل دلوقتي</string>
+    <string name="failed_items">عناصر فاشلة</string>
 </resources>

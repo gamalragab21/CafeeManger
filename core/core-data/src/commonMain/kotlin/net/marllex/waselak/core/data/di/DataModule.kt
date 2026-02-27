@@ -25,7 +25,7 @@ val dataModule = module {
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
     single(createdAtStart = true) { AttendanceSyncManager(get(), get(), get(), get()) }
     single { SyncService(get(), get(), get()) }
-    single(createdAtStart = true) { SyncScheduler(get(), get(), get()) }
+    single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get()) }
     single { ConnectivityChecker(get(named("baseUrl")), get()) }
     single { OfflineModeManager(get(), get(), get()) }
 }
