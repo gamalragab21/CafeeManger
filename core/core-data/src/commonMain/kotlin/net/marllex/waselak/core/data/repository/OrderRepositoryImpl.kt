@@ -7,6 +7,8 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.data.offline.OfflineModeManager
+import net.marllex.waselak.core.data.sync.OrderStatusPayload
+import net.marllex.waselak.core.data.sync.PaymentUpdatePayload
 import net.marllex.waselak.core.database.Pending_sync
 import net.marllex.waselak.core.database.dao.ItemDao
 import net.marllex.waselak.core.database.dao.OrderDao
@@ -256,23 +258,52 @@ class OrderRepositoryImpl constructor(
 
     override suspend fun updateOrderStatus(id: String, status: OrderStatus): Result<Order> =
         runCatching {
-            val response = api.updateOrderStatus(id, UpdateOrderStatusRequest(status.name))
-            val order = response.toDomain()
-            // Update local DB with full order from server
-            orderDao.insertOrder(order.toDbEntity())
-            orderDao.deleteOrderItems(order.id)
-            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
-            order
+            try {
+                val response = api.updateOrderStatus(id, UpdateOrderStatusRequest(status.name))
+                val order = response.toDomain()
+                orderDao.insertOrder(order.toDbEntity())
+                orderDao.deleteOrderItems(order.id)
+                orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+                order
+            } catch (e: Exception) {
+                if (offlineModeManager.offlineModeEnabled.value) {
+                    val now = Clock.System.now().toEpochMilliseconds()
+                    orderDao.updateOrderStatus(id, status.name, now)
+                    pendingSyncDao.insertPending(Pending_sync(
+                        id = "status-$id-$now", type = "ORDER_STATUS_UPDATE",
+                        payload = json.encodeToString(OrderStatusPayload(id, status.name)),
+                        created_at = now, retry_count = 0, last_error = null,
+                    ))
+                    val items = orderDao.getOrderItemsList(id).map { it.toDomain() }
+                    orderDao.getOrderById(id).firstOrNull()?.toDomain(items)
+                        ?: throw e
+                } else throw e
+            }
         }
 
     override suspend fun updatePaymentStatus(id: String, status: PaymentStatus, paymentMethod: PaymentMethod?): Result<Order> =
         runCatching {
-            val response = api.updatePaymentStatus(id, UpdatePaymentStatusRequest(status.name, paymentMethod?.name))
-            val order = response.toDomain()
-            orderDao.insertOrder(order.toDbEntity())
-            orderDao.deleteOrderItems(order.id)
-            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
-            order
+            try {
+                val response = api.updatePaymentStatus(id, UpdatePaymentStatusRequest(status.name, paymentMethod?.name))
+                val order = response.toDomain()
+                orderDao.insertOrder(order.toDbEntity())
+                orderDao.deleteOrderItems(order.id)
+                orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+                order
+            } catch (e: Exception) {
+                if (offlineModeManager.offlineModeEnabled.value) {
+                    val now = Clock.System.now().toEpochMilliseconds()
+                    orderDao.updatePaymentStatus(status.name, now, id)
+                    pendingSyncDao.insertPending(Pending_sync(
+                        id = "payment-$id-$now", type = "PAYMENT_UPDATE",
+                        payload = json.encodeToString(PaymentUpdatePayload(id, status.name, paymentMethod?.name)),
+                        created_at = now, retry_count = 0, last_error = null,
+                    ))
+                    val items = orderDao.getOrderItemsList(id).map { it.toDomain() }
+                    orderDao.getOrderById(id).firstOrNull()?.toDomain(items)
+                        ?: throw e
+                } else throw e
+            }
         }
 
     override suspend fun assignDeliveryUser(id: String, deliveryUserId: String): Result<Order> =

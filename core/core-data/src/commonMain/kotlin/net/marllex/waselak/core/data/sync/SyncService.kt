@@ -13,6 +13,8 @@ import net.marllex.waselak.core.network.dto.CheckInWithPinRequest
 import net.marllex.waselak.core.network.dto.CheckOutRequest
 import net.marllex.waselak.core.network.dto.CheckOutWithPinRequest
 import net.marllex.waselak.core.network.dto.CreateOrderRequest
+import net.marllex.waselak.core.network.dto.UpdateOrderStatusRequest
+import net.marllex.waselak.core.network.dto.UpdatePaymentStatusRequest
 import net.marllex.waselak.core.network.mapper.toDomain
 import net.marllex.waselak.core.database.mapper.toDbEntity
 
@@ -64,6 +66,28 @@ class SyncService(
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
+                        "PAYMENT_UPDATE" -> {
+                            val params = json.decodeFromString<PaymentUpdatePayload>(item.payload)
+                            val response = api.updatePaymentStatus(
+                                params.orderId,
+                                UpdatePaymentStatusRequest(params.status, params.paymentMethod),
+                            )
+                            val order = response.toDomain()
+                            orderDao.insertOrder(order.toDbEntity())
+                            pendingSyncDao.deletePending(item.id)
+                            syncedCount++
+                        }
+                        "ORDER_STATUS_UPDATE" -> {
+                            val params = json.decodeFromString<OrderStatusPayload>(item.payload)
+                            val response = api.updateOrderStatus(
+                                params.orderId,
+                                UpdateOrderStatusRequest(params.status),
+                            )
+                            val order = response.toDomain()
+                            orderDao.insertOrder(order.toDbEntity())
+                            pendingSyncDao.deletePending(item.id)
+                            syncedCount++
+                        }
                     }
                 } catch (e: Exception) {
                     pendingSyncDao.updateRetry(
@@ -92,4 +116,17 @@ data class CheckOutPayload(
     val attendanceId: String,
     val workerId: String,
     val pin: String? = null,
+)
+
+@Serializable
+data class PaymentUpdatePayload(
+    val orderId: String,
+    val status: String,
+    val paymentMethod: String? = null,
+)
+
+@Serializable
+data class OrderStatusPayload(
+    val orderId: String,
+    val status: String,
 )
