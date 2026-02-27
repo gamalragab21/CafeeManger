@@ -158,6 +158,7 @@ class PosViewModel constructor(
             itemRepository.refreshItems()
             categoryRepository.refreshCategories()
             tableRepository.refreshTables()
+            customerRepository.refreshCustomers()
             taxPlaceRepository.getTaxPlaces().onSuccess { places ->
                 _uiState.update { state ->
                     state.copy(

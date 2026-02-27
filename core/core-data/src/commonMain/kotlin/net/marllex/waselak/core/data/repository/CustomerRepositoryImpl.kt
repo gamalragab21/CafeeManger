@@ -2,6 +2,7 @@ package net.marllex.waselak.core.data.repository
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -80,14 +81,21 @@ class CustomerRepositoryImpl(
     // ─── Phone lookup ────────────────────────────────────────────
 
     override suspend fun lookupCustomerByPhone(phone: String): Result<Customer?> = runCatching {
-        val response = api.getCustomerByPhone(phone)
-        response?.let { dto ->
-            val customer = dto.toDomain()
-            // Cache locally
-            customerDao.insertCustomer(customer.toDbEntity())
-            customerDao.deleteAddressesByCustomerId(customer.id)
-            customerDao.insertAddresses(customer.addresses.map { it.toDbEntity() })
-            customer
+        try {
+            val response = api.getCustomerByPhone(phone)
+            response?.let { dto ->
+                val customer = dto.toDomain()
+                customerDao.insertCustomer(customer.toDbEntity())
+                customerDao.deleteAddressesByCustomerId(customer.id)
+                customerDao.insertAddresses(customer.addresses.map { it.toDbEntity() })
+                customer
+            }
+        } catch (_: Exception) {
+            // Offline fallback: search local DB
+            customerDao.getCustomerByPhone(vendorId, phone).firstOrNull()?.let { entity ->
+                val addresses = customerDao.getAddressesListByCustomerId(entity.id)
+                entity.toDomain(addresses.map { it.toDomain() })
+            }
         }
     }
 
@@ -130,12 +138,16 @@ class CustomerRepositoryImpl(
 
     override suspend fun getCustomerAddresses(customerId: String): Result<List<CustomerAddress>> =
         runCatching {
-            val response = api.getCustomerAddresses(customerId)
-            val addresses = response.map { it.toDomain() }
-            // Cache locally
-            customerDao.deleteAddressesByCustomerId(customerId)
-            customerDao.insertAddresses(addresses.map { it.toDbEntity() })
-            addresses
+            try {
+                val response = api.getCustomerAddresses(customerId)
+                val addresses = response.map { it.toDomain() }
+                customerDao.deleteAddressesByCustomerId(customerId)
+                customerDao.insertAddresses(addresses.map { it.toDbEntity() })
+                addresses
+            } catch (_: Exception) {
+                // Offline fallback: return cached addresses
+                customerDao.getAddressesListByCustomerId(customerId).map { it.toDomain() }
+            }
         }
 
     override suspend fun addAddress(
