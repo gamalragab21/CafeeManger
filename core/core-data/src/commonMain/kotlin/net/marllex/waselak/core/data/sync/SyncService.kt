@@ -90,8 +90,18 @@ class SyncService(
                             // Resolve offline ID → server ID (from this sync run or DB remap)
                             val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
 
-                            // If still an offline ID, the ORDER hasn't synced yet — skip for now
+                            // If still an offline ID, check if there's a pending ORDER for it
                             if (resolvedOrderId.startsWith("offline-")) {
+                                val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
+                                if (hasPendingOrder) {
+                                    // ORDER will sync first and remap — skip until next run
+                                    continue
+                                }
+                                // No pending ORDER: legacy item — mark as failed so user can delete
+                                pendingSyncDao.updateRetry(
+                                    id = item.id, retryCount = 3,
+                                    lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
+                                )
                                 continue
                             }
 
@@ -109,8 +119,18 @@ class SyncService(
                             // Resolve offline ID → server ID (from this sync run or DB remap)
                             val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
 
-                            // If still an offline ID, the ORDER hasn't synced yet — skip for now
+                            // If still an offline ID, check if there's a pending ORDER for it
                             if (resolvedOrderId.startsWith("offline-")) {
+                                val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
+                                if (hasPendingOrder) {
+                                    // ORDER will sync first and remap — skip until next run
+                                    continue
+                                }
+                                // No pending ORDER: legacy item — mark as failed so user can delete
+                                pendingSyncDao.updateRetry(
+                                    id = item.id, retryCount = 3,
+                                    lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
+                                )
                                 continue
                             }
 
