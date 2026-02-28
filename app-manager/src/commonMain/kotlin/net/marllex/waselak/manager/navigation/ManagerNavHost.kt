@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -740,7 +741,7 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
         stringResource(CoreRes.string.tab_settings),
     )
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (activeSubScreen) {
             "tables" -> {
                 TopAppBar(
@@ -900,6 +901,7 @@ private fun SettingsContent(
                 text = stringResource(CoreRes.string.store_features),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
             )
 
             if (vendor?.enableTables != false) {
@@ -942,6 +944,7 @@ private fun SettingsContent(
                 text = stringResource(CoreRes.string.tab_settings),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
             )
 
             Card(
@@ -980,7 +983,7 @@ private fun SettingsNavigationCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
@@ -1000,6 +1003,7 @@ private fun StoreConfigurationScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1018,6 +1022,7 @@ private fun StoreConfigurationScreen() {
                             text = stringResource(CoreRes.string.biometric_required),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = stringResource(CoreRes.string.biometric_required_description),
