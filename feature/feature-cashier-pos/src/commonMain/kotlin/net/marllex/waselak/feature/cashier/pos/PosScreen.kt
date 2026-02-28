@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +76,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -215,13 +219,15 @@ fun PosScreen(
                     uiState.items.filter { it.categoryId == uiState.selectedCategoryId }
                 } else uiState.items
 
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 150.dp),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontalPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filteredItems, key = { it.id }) { item ->
-                        MenuItemCard(
+                        MenuItemGridCard(
                             item = item,
                             cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
                             onAdd = { viewModel.addToCart(item) },
@@ -258,54 +264,89 @@ fun PosScreen(
 }
 
 @Composable
-private fun MenuItemCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
+private fun MenuItemGridCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onAdd),
         shape = RoundedCornerShape(16.dp),
         colors = if (cartQuantity > 0) CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
         ) else CardDefaults.cardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = item.name, style = MaterialTheme.typography.titleSmall)
-                item.description?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = CurrencyFormatter.formatDecimal(item.price),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
+        Column {
+            // Image placeholder / AsyncImage
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (!item.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                    if (item.variantGroups.isNotEmpty()) {
+                } else {
+                    Icon(
+                        Icons.Filled.Restaurant,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    )
+                }
+
+                // Cart quantity badge
+                if (cartQuantity > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Text(
-                            text = "+${stringResource(Res.string.select_options)}",
+                            text = "$cartQuantity",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
             }
-            if (cartQuantity > 0) {
+
+            // Item info
+            Column(
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Text(
-                    text = "x$cartQuantity",
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = CurrencyFormatter.formatDecimal(item.price),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 8.dp),
+                    fontWeight = FontWeight.Bold,
                 )
-            }
-            IconButton(onClick = onAdd) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(Res.string.add_to_cart))
+                if (item.variantGroups.isNotEmpty()) {
+                    Text(
+                        text = "+${stringResource(Res.string.select_options)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
             }
         }
     }

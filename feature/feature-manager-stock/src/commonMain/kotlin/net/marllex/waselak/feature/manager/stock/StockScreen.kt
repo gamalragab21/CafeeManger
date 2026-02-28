@@ -47,7 +47,6 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.TrendingDown
 import androidx.compose.material.icons.outlined.TrendingUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -210,10 +209,10 @@ fun StockScreen(
             AddEditStockBottomSheet(uiState = uiState, viewModel = viewModel)
         }
         if (uiState.showQuantityDialog) {
-            QuantityDialog(uiState = uiState, viewModel = viewModel)
+            QuantityBottomSheet(uiState = uiState, viewModel = viewModel)
         }
         if (uiState.showDeleteDialog) {
-            DeleteConfirmDialog(
+            DeleteConfirmBottomSheet(
                 stockName = uiState.deletingStock?.itemName ?: "",
                 onConfirm = viewModel::confirmDelete,
                 onDismiss = viewModel::dismissDeleteDialog,
@@ -730,7 +729,7 @@ private fun ItemsTab(
             EmptyStockView()
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(uiState.filteredStockItems, key = { it.id }) { stock ->
@@ -1429,28 +1428,87 @@ private fun AddEditStockBottomSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuantityDialog(
+private fun QuantityBottomSheet(
     uiState: StockViewModel.UiState,
     viewModel: StockViewModel,
 ) {
     val isAdd = uiState.quantityDialogIsAdd
     val stock = uiState.quantityDialogStock ?: return
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = viewModel::dismissQuantityDialog,
-        title = {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Text(
-                if (isAdd) stringResource(Res.string.add_quantity)
-                else stringResource(Res.string.deduct_quantity)
+                text = if (isAdd) stringResource(Res.string.add_quantity)
+                else stringResource(Res.string.deduct_quantity),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
             )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Item info
+
+            // Item info
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                ),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(stock.itemName, fontWeight = FontWeight.Medium)
+                    Text(
+                        "Current: ${stock.quantity} ${getLocalizedUnit(stock.unit)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = uiState.quantityDialogAmount,
+                onValueChange = viewModel::updateQuantityDialogAmount,
+                label = {
+                    Text(
+                        if (isAdd) stringResource(Res.string.quantity_to_add)
+                        else stringResource(Res.string.quantity_to_deduct)
+                    )
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            )
+
+            OutlinedTextField(
+                value = uiState.quantityDialogNote,
+                onValueChange = viewModel::updateQuantityDialogNote,
+                label = { Text(stringResource(Res.string.note_optional)) },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 2,
+                shape = RoundedCornerShape(12.dp),
+            )
+
+            // Preview
+            val amount = uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0
+            if (amount > 0) {
+                val newQty = if (isAdd) stock.quantity + amount
+                else (stock.quantity - amount).coerceAtLeast(0.0)
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        containerColor = if (isAdd) StockHealthy.copy(alpha = 0.1f)
+                        else StockOut.copy(alpha = 0.1f),
                     ),
                     shape = RoundedCornerShape(8.dp),
                 ) {
@@ -1460,110 +1518,97 @@ private fun QuantityDialog(
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(stock.itemName, fontWeight = FontWeight.Medium)
+                        Text("New Quantity", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "Current: ${stock.quantity} ${getLocalizedUnit(stock.unit)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            "$newQty ${getLocalizedUnit(stock.unit)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isAdd) StockHealthy else StockOut,
                         )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = uiState.quantityDialogAmount,
-                    onValueChange = viewModel::updateQuantityDialogAmount,
-                    label = {
-                        Text(
-                            if (isAdd) stringResource(Res.string.quantity_to_add)
-                            else stringResource(Res.string.quantity_to_deduct)
-                        )
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                OutlinedTextField(
-                    value = uiState.quantityDialogNote,
-                    onValueChange = viewModel::updateQuantityDialogNote,
-                    label = { Text(stringResource(Res.string.note_optional)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
-                )
-
-                // Preview
-                val amount = uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0
-                if (amount > 0) {
-                    val newQty = if (isAdd) stock.quantity + amount
-                    else (stock.quantity - amount).coerceAtLeast(0.0)
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isAdd) StockHealthy.copy(alpha = 0.1f)
-                            else StockOut.copy(alpha = 0.1f),
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text("New Quantity", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "$newQty ${getLocalizedUnit(stock.unit)}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isAdd) StockHealthy else StockOut,
-                            )
-                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = viewModel::confirmQuantityChange,
-                enabled = !uiState.isSaving && (uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0) > 0,
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    if (uiState.isSaving) stringResource(Res.string.saving)
-                    else stringResource(Res.string.confirm)
-                )
+                OutlinedButton(
+                    onClick = viewModel::dismissQuantityDialog,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = viewModel::confirmQuantityChange,
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isSaving && (uiState.quantityDialogAmount.toDoubleOrNull() ?: 0.0) > 0,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(
+                        if (uiState.isSaving) stringResource(Res.string.saving)
+                        else stringResource(Res.string.confirm)
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissQuantityDialog) {
-                Text(stringResource(Res.string.cancel))
-            }
-        },
-    )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeleteConfirmDialog(
+private fun DeleteConfirmBottomSheet(
     stockName: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.delete)) },
-        text = { Text(stringResource(Res.string.confirm_delete)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(Res.string.delete),
-                    color = MaterialTheme.colorScheme.error,
-                )
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.delete),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(Res.string.confirm_delete),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(stringResource(Res.string.delete))
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.cancel))
-            }
-        },
-    )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════

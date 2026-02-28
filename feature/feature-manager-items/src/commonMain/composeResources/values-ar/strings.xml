@@ -12,6 +12,7 @@
     <string name="cancel">إلغاء</string>
     <string name="save">حفظ</string>
     <string name="categories">الأقسام</string>
+    <string name="available">متوفر</string>
     <string name="unavailable">مش متوفر</string>
     <string name="items_label">أصناف</string>
     <string name="variants">الخيارات</string>

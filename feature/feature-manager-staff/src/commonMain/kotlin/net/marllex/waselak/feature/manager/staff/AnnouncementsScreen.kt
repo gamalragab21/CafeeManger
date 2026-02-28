@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PriorityHigh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,9 +37,11 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,7 +107,7 @@ fun AnnouncementsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(if (isTablet) Modifier.widthIn(max = 840.dp).align(Alignment.TopCenter) else Modifier),
-                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                    contentPadding = PaddingValues(start = if (isTablet) 24.dp else 16.dp, end = if (isTablet) 24.dp else 16.dp, top = if (isTablet) 24.dp else 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(uiState.announcements, key = { it.id }) { announcement ->
@@ -137,7 +138,7 @@ fun AnnouncementsScreen(
     } // BoxWithConstraints
 
     if (uiState.showCreateDialog && isManager) {
-        CreateAnnouncementDialog(
+        CreateAnnouncementBottomSheet(
             isSending = uiState.isSending,
             onDismiss = viewModel::hideCreateDialog,
             onSend = { title, message, target, priority ->
@@ -274,7 +275,7 @@ private fun AnnouncementCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CreateAnnouncementDialog(
+private fun CreateAnnouncementBottomSheet(
     isSending: Boolean,
     onDismiss: () -> Unit,
     onSend: (title: String, message: String, target: String, priority: String) -> Unit,
@@ -296,98 +297,121 @@ private fun CreateAnnouncementDialog(
         "URGENT" to stringResource(Res.string.priority_urgent),
     )
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.create_announcement)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(Res.string.announcement_title)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.create_announcement),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
 
-                OutlinedTextField(
-                    value = message,
-                    onValueChange = { message = it },
-                    label = { Text(stringResource(Res.string.announcement_message)) },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text(stringResource(Res.string.announcement_title)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            )
 
-                // Target dropdown
-                ExposedDropdownMenuBox(
-                    expanded = targetExpanded,
-                    onExpandedChange = { targetExpanded = it },
-                ) {
-                    OutlinedTextField(
-                        value = targets.find { it.first == targetType }?.second ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(Res.string.announcement_target)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = targetExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = targetExpanded,
-                        onDismissRequest = { targetExpanded = false },
-                    ) {
-                        targets.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    targetType = value
-                                    targetExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                label = { Text(stringResource(Res.string.announcement_message)) },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            )
 
-                // Priority dropdown
-                ExposedDropdownMenuBox(
-                    expanded = priorityExpanded,
-                    onExpandedChange = { priorityExpanded = it },
-                ) {
-                    OutlinedTextField(
-                        value = priorities.find { it.first == priority }?.second ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(Res.string.announcement_priority)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = priorityExpanded,
-                        onDismissRequest = { priorityExpanded = false },
-                    ) {
-                        priorities.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    priority = value
-                                    priorityExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSend(title, message, targetType, priority) },
-                enabled = title.isNotBlank() && message.isNotBlank() && !isSending,
+            // Target dropdown
+            ExposedDropdownMenuBox(
+                expanded = targetExpanded,
+                onExpandedChange = { targetExpanded = it },
             ) {
-                Text(if (isSending) stringResource(Res.string.saving) else stringResource(Res.string.send_announcement))
+                OutlinedTextField(
+                    value = targets.find { it.first == targetType }?.second ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(Res.string.announcement_target)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = targetExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                )
+                ExposedDropdownMenu(
+                    expanded = targetExpanded,
+                    onDismissRequest = { targetExpanded = false },
+                ) {
+                    targets.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                targetType = value
+                                targetExpanded = false
+                            },
+                        )
+                    }
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.cancel))
+
+            // Priority dropdown
+            ExposedDropdownMenuBox(
+                expanded = priorityExpanded,
+                onExpandedChange = { priorityExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = priorities.find { it.first == priority }?.second ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(Res.string.announcement_priority)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                )
+                ExposedDropdownMenu(
+                    expanded = priorityExpanded,
+                    onDismissRequest = { priorityExpanded = false },
+                ) {
+                    priorities.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                priority = value
+                                priorityExpanded = false
+                            },
+                        )
+                    }
+                }
             }
-        },
-    )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = { onSend(title, message, targetType, priority) },
+                    modifier = Modifier.weight(1f),
+                    enabled = title.isNotBlank() && message.isNotBlank() && !isSending,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Text(if (isSending) stringResource(Res.string.saving) else stringResource(Res.string.send_announcement))
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
 }

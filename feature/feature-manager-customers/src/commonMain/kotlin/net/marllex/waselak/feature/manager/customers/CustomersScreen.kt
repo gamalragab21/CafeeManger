@@ -39,11 +39,11 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,6 +54,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -188,9 +189,9 @@ private fun PhoneLayout(
         }
     }
 
-    // Detail dialog (phone mode)
+    // Detail bottom sheet (phone mode)
     if (showDetailDialog && uiState.selectedCustomer != null) {
-        CustomerDetailDialog(
+        CustomerDetailBottomSheet(
             customer = uiState.selectedCustomer!!,
             orders = uiState.selectedCustomerOrders,
             onDismiss = {
@@ -203,9 +204,9 @@ private fun PhoneLayout(
         )
     }
 
-    // Delete confirmation dialog
+    // Delete confirmation bottom sheet
     if (showDeleteDialog && uiState.selectedCustomer != null) {
-        DeleteCustomerDialog(
+        DeleteCustomerBottomSheet(
             onConfirm = {
                 viewModel.deleteCustomer(uiState.selectedCustomer!!.id)
                 showDeleteDialog = false
@@ -313,9 +314,9 @@ private fun TabletLayout(
         }
     }
 
-    // Delete confirmation dialog
+    // Delete confirmation bottom sheet
     if (showDeleteDialog && uiState.selectedCustomer != null) {
-        DeleteCustomerDialog(
+        DeleteCustomerBottomSheet(
             onConfirm = {
                 viewModel.deleteCustomer(uiState.selectedCustomer!!.id)
                 showDeleteDialog = false
@@ -526,42 +527,54 @@ private fun CustomerCard(
 // Customer Detail Dialog (phone mode)
 // ═══════════════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CustomerDetailDialog(
+private fun CustomerDetailBottomSheet(
     customer: Customer,
     orders: List<Order>,
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(Res.string.customer_details),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            CustomerDetailContent(
-                customer = customer,
-                orders = orders,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.close))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDelete) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    stringResource(Res.string.delete_customer),
-                    color = MaterialTheme.colorScheme.error,
+                    text = stringResource(Res.string.customer_details),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                 )
+                TextButton(onClick = onDelete) {
+                    Text(
+                        stringResource(Res.string.delete_customer),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
-        },
-    )
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    CustomerDetailContent(
+                        customer = customer,
+                        orders = orders,
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(24.dp)) }
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -972,29 +985,57 @@ private fun OrderCompactCard(
 // Delete Confirmation Dialog
 // ═══════════════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeleteCustomerDialog(
+private fun DeleteCustomerBottomSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.delete_customer)) },
-        text = { Text(stringResource(Res.string.delete_customer_confirm)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(Res.string.delete_customer),
-                    color = MaterialTheme.colorScheme.error,
-                )
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.delete_customer),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(Res.string.delete_customer_confirm),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.close))
+                }
+                androidx.compose.material3.Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(stringResource(Res.string.delete_customer))
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.close))
-            }
-        },
-    )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════

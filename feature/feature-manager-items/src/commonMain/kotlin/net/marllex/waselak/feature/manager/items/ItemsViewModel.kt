@@ -2,11 +2,13 @@ package net.marllex.waselak.feature.manager.items
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CategoryRepository
@@ -37,6 +39,7 @@ class ItemsViewModel constructor(
 
     data class UiState(
         val items: List<Item> = emptyList(),
+        val allItems: List<Item> = emptyList(),
         val categories: List<Category> = emptyList(),
         val selectedCategoryId: String? = null,
         val isLoading: Boolean = true,
@@ -56,22 +59,40 @@ class ItemsViewModel constructor(
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private val _selectedCategoryId = MutableStateFlow<String?>(null)
+
     init {
+        observeItems()
         loadItems()
     }
 
+    // Network refresh only — does NOT start a new collection
     fun loadItems() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            itemRepository.refreshItems()
-            categoryRepository.refreshCategories()
+            try {
+                itemRepository.refreshItems()
+                categoryRepository.refreshCategories()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
 
+    // Single reactive observer — flatMapLatest cancels old query on filter change
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeItems() {
+        viewModelScope.launch {
             combine(
-                itemRepository.getItems(_uiState.value.selectedCategoryId),
-                categoryRepository.getCategories()
-            ) { items, categories ->
+                _selectedCategoryId.flatMapLatest { categoryId ->
+                    itemRepository.getItems(categoryId)
+                },
+                itemRepository.getItems(null),
+                categoryRepository.getCategories(),
+            ) { filteredItems, allItems, categories ->
                 _uiState.value.copy(
-                    items = items,
+                    items = filteredItems,
+                    allItems = allItems,
                     categories = categories,
                     isLoading = false,
                 )
@@ -85,7 +106,7 @@ class ItemsViewModel constructor(
 
     fun filterByCategory(categoryId: String?) {
         _uiState.update { it.copy(selectedCategoryId = categoryId) }
-        loadItems()
+        _selectedCategoryId.value = categoryId
     }
 
     fun showAddDialog() {
@@ -122,8 +143,21 @@ class ItemsViewModel constructor(
         }
     }
 
-    fun dismissDialog() {
-        _uiState.update { it.copy(showAddDialog = false, editingItem = null) }
+    // Swipe-dismiss — just hide sheet, preserve form data
+    fun hideSheet() {
+        _uiState.update { it.copy(showAddDialog = false) }
+    }
+
+    // Explicit cancel — hide sheet AND clear all form data
+    fun cancelDialog() {
+        _uiState.update {
+            it.copy(
+                showAddDialog = false, editingItem = null,
+                dialogName = "", dialogDescription = "", dialogPrice = "",
+                dialogCategoryId = "", dialogImageUrl = "", dialogAvailable = true,
+                dialogVariantGroups = emptyList(),
+            )
+        }
     }
 
     fun updateDialogName(v: String) { _uiState.update { it.copy(dialogName = v) } }

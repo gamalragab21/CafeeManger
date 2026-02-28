@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,15 +57,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,7 +91,6 @@ import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.model.OrderStatus
-import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.ChannelChip
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
@@ -198,14 +193,8 @@ fun OrdersScreen(
                             order = order,
                             onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
                             onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
-                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED && order.status != OrderStatus.REFUNDED) {
+                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
                                 { viewModel.showEditOrder(order) }
-                            } else null,
-                            onPay = if (order.paymentStatus != net.marllex.waselak.core.model.PaymentStatus.PAID && order.status != OrderStatus.REFUNDED) {
-                                { viewModel.showPaymentDialog(order) }
-                            } else null,
-                            onRefund = if (order.status == OrderStatus.COMPLETED && order.paymentStatus == net.marllex.waselak.core.model.PaymentStatus.PAID) {
-                                { viewModel.showRefundDialog(order) }
                             } else null,
                         )
                     }
@@ -250,9 +239,9 @@ fun OrdersScreen(
         }
     }
 
-    // Delivery person assignment dialog
+    // Delivery person assignment bottom sheet
     if (uiState.showAssignDeliveryDialog) {
-        AssignDeliveryDialog(
+        AssignDeliveryBottomSheet(
             deliveryUsers = uiState.deliveryUsers,
             isLoading = uiState.isLoading,
             onAssign = viewModel::assignDeliveryUser,
@@ -260,9 +249,9 @@ fun OrdersScreen(
         )
     }
 
-    // Edit order dialog
+    // Edit order bottom sheet
     if (uiState.showEditOrderDialog && uiState.editingOrder != null) {
-        EditOrderDialog(
+        EditOrderBottomSheet(
             order = uiState.editingOrder!!,
             editItems = uiState.editItems,
             clientName = uiState.editClientName,
@@ -280,50 +269,42 @@ fun OrdersScreen(
             onDismiss = viewModel::dismissEditOrderDialog,
         )
     }
-
-    // Payment bottom sheet
-    if (uiState.showPaymentDialog && uiState.payingOrder != null) {
-        PaymentBottomSheet(
-            order = uiState.payingOrder!!,
-            selectedMethod = uiState.selectedPaymentMethod,
-            isProcessing = uiState.isPaymentProcessing,
-            onSelectMethod = viewModel::selectPaymentMethod,
-            onConfirm = viewModel::confirmPayment,
-            onDismiss = viewModel::dismissPaymentDialog,
-        )
-    }
-
-    // Refund confirmation dialog
-    if (uiState.showRefundDialog && uiState.refundingOrder != null) {
-        RefundConfirmationDialog(
-            order = uiState.refundingOrder!!,
-            reason = uiState.refundReason,
-            isProcessing = uiState.isRefundProcessing,
-            onReasonChange = viewModel::updateRefundReason,
-            onConfirm = viewModel::confirmRefund,
-            onDismiss = viewModel::dismissRefundDialog,
-        )
-    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AssignDeliveryDialog(
+private fun AssignDeliveryBottomSheet(
     deliveryUsers: List<net.marllex.waselak.core.model.User>,
     isLoading: Boolean,
     onAssign: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    androidx.compose.material3.AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = { if (!isLoading) onDismiss() },
-        icon = {
-            Icon(
-                Icons.Filled.DeliveryDining,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        title = { Text(stringResource(Res.string.assign_delivery_person)) },
-        text = {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Filled.DeliveryDining,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(Res.string.assign_delivery_person),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
             if (deliveryUsers.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.no_delivery_users),
@@ -331,80 +312,77 @@ private fun AssignDeliveryDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(Res.string.select_delivery_person),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    
-                    if (isLoading) {
-                        // Show loading indicator
-                        Box(
+                Text(
+                    text = stringResource(Res.string.select_delivery_person),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            CircularProgressIndicator()
+                            Text(
+                                text = stringResource(Res.string.assigning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                } else {
+                    deliveryUsers.forEach { user ->
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
+                                .clickable { onAssign(user.id) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                CircularProgressIndicator()
-                                Text(
-                                    text = stringResource(Res.string.assigning),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    } else {
-                        // Show delivery users list
-                        deliveryUsers.forEach { user ->
-                            Card(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onAssign(user.id) },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                ),
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = user.name,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                        Text(
-                                            text = user.phone,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = user.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                    Text(
+                                        text = user.phone,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(
+
+            OutlinedButton(
                 onClick = onDismiss,
-                enabled = !isLoading
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(stringResource(Res.string.cancel))
             }
-        },
-    )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -414,8 +392,6 @@ private fun OrderCard(
     onStatusUpdate: (OrderStatus) -> Unit,
     onViewReceipt: () -> Unit,
     onEdit: (() -> Unit)? = null,
-    onPay: (() -> Unit)? = null,
-    onRefund: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -486,7 +462,7 @@ private fun OrderCard(
 
             // --- Info Section ---
             Text(
-                text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.formatDecimal(order.total)),
+                text = "${order.items.size} items • Total: ${CurrencyFormatter.formatDecimal(order.total)}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -562,34 +538,6 @@ private fun OrderCard(
                             }
                         }
                     }
-
-                    // Refund info (shown for refunded orders)
-                    if (order.status == OrderStatus.REFUNDED && order.refundReason != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
-                                    MaterialTheme.shapes.small
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = "${stringResource(Res.string.refund_reason)}: ${order.refundReason}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.Medium,
-                            )
-                            order.refundedAt?.let { ts ->
-                                Text(
-                                    text = ts.formatEpochMs("MMM dd, yyyy HH:mm"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
@@ -616,43 +564,6 @@ private fun OrderCard(
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(Res.string.edit_order))
                     }
-                }
-            }
-            // Pay button for unpaid orders
-            if (onPay != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onPay,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "${stringResource(Res.string.confirm_payment)} ${CurrencyFormatter.formatDecimal(order.total)}",
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-            // Refund button for completed + paid orders
-            if (onRefund != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onRefund,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.refund_order),
-                        fontWeight = FontWeight.Bold,
-                    )
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -719,9 +630,6 @@ private fun OrderItemRow(item: OrderItem) {
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium)
-            net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
-                Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-            }
             item.note?.let {
                 Text(
                     text = it,
@@ -738,13 +646,12 @@ private fun OrderItemRow(item: OrderItem) {
 }
 
 private fun getNextStatuses(order: Order): List<OrderStatus> {
-    // Exclude REFUNDED — refund has its own dedicated flow with reason input
-    return OrderStatus.entries.filter { it != OrderStatus.REFUNDED && order.status.canTransitionTo(it, order.channel) }
+    return OrderStatus.entries.filter { order.status.canTransitionTo(it, order.channel) }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun EditOrderDialog(
+private fun EditOrderBottomSheet(
     order: Order,
     editItems: List<OrderItem>,
     clientName: String,
@@ -761,340 +668,138 @@ private fun EditOrderDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.edit_order)) },
-        text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Items section
-                item {
-                    Text(
-                        stringResource(Res.string.order_items),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                items(editItems, key = { it.id }) { item ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                Text(
+                    text = stringResource(Res.string.edit_order),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            // Items section
+            item {
+                Text(
+                    stringResource(Res.string.order_items),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            items(editItems, key = { it.id }) { item ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
-                                    Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-                                }
-                                Text("${CurrencyFormatter.formatDecimal(item.itemPriceSnapshot)} x ${item.quantity} = ${CurrencyFormatter.formatDecimal(item.totalPrice)}",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text("${CurrencyFormatter.formatDecimal(item.itemPriceSnapshot)} x ${item.quantity} = ${CurrencyFormatter.formatDecimal(item.totalPrice)}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { onQuantityChange(item.id, item.quantity - 1) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { onQuantityChange(item.id, item.quantity - 1) }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
-                                }
-                                Text("${item.quantity}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                IconButton(onClick = { onQuantityChange(item.id, item.quantity + 1) }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                }
-                                IconButton(onClick = { onRemoveItem(item.id) }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                }
+                            Text("${item.quantity}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { onQuantityChange(item.id, item.quantity + 1) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                            IconButton(onClick = { onRemoveItem(item.id) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
                 }
-
-                // New total
-                item {
-                    val newSubtotal = editItems.sumOf { it.totalPrice }
-                    HorizontalDivider()
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(Res.string.subtotal), fontWeight = FontWeight.Bold)
-                        Text(CurrencyFormatter.formatDecimal(newSubtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                // Client info
-                item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
-                item {
-                    OutlinedTextField(
-                        value = clientName, onValueChange = onClientNameChange,
-                        label = { Text(stringResource(Res.string.client)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = clientPhone, onValueChange = onClientPhoneChange,
-                        label = { Text(stringResource(Res.string.phone)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                    )
-                }
-                if (order.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY) {
-                    item {
-                        OutlinedTextField(
-                            value = clientAddress, onValueChange = onClientAddressChange,
-                            label = { Text(stringResource(Res.string.address)) },
-                            singleLine = true, modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                        )
-                    }
-                }
-                item {
-                    OutlinedTextField(
-                        value = notes, onValueChange = onNotesChange,
-                        label = { Text(stringResource(Res.string.notes)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        minLines = 2,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onSave,
-                enabled = !isSaving && editItems.isNotEmpty(),
-            ) {
-                if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text(stringResource(Res.string.save_changes))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
-        },
-    )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Payment Bottom Sheet
-// ═══════════════════════════════════════════════════════════════════
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PaymentBottomSheet(
-    order: Order,
-    selectedMethod: PaymentMethod,
-    isProcessing: Boolean,
-    onSelectMethod: (PaymentMethod) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier
-                        .size(width = 40.dp, height = 4.dp)
-                        .background(
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            RoundedCornerShape(2.dp)
-                        )
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-        ) {
-            // Header
-            Text(
-                text = stringResource(Res.string.confirm_payment),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "#${order.id.takeLast(6).uppercase()}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Total amount
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(Res.string.total),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = CurrencyFormatter.formatDecimal(order.total),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Payment method selector
-            Text(
-                text = stringResource(Res.string.select_payment_method),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val methods = PaymentMethod.entries
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                methods.forEachIndexed { index, method ->
-                    SegmentedButton(
-                        selected = selectedMethod == method,
-                        onClick = { onSelectMethod(method) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = methods.size,
-                        ),
-                    ) {
-                        Text(method.name)
-                    }
+            // New total
+            item {
+                val newSubtotal = editItems.sumOf { it.totalPrice }
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(Res.string.subtotal), fontWeight = FontWeight.Bold)
+                    Text(CurrencyFormatter.formatDecimal(newSubtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Confirm button
-            Button(
-                onClick = onConfirm,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                enabled = !isProcessing,
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                } else {
-                    Text(
-                        text = "${stringResource(Res.string.confirm_payment)} ${CurrencyFormatter.formatDecimal(order.total)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Refund Confirmation Dialog
-// ═══════════════════════════════════════════════════════════════════
-
-@Composable
-private fun RefundConfirmationDialog(
-    order: Order,
-    reason: String,
-    isProcessing: Boolean,
-    onReasonChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = { if (!isProcessing) onDismiss() },
-        title = {
-            Text(
-                text = stringResource(Res.string.refund_order),
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Order ID and total
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "#${order.id.takeLast(6).uppercase()}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = CurrencyFormatter.formatDecimal(order.total),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                // Warning message
-                Text(
-                    text = stringResource(Res.string.refund_confirm_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // Reason input
+            // Client info
+            item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
+            item {
                 OutlinedTextField(
-                    value = reason,
-                    onValueChange = onReasonChange,
-                    label = { Text(stringResource(Res.string.refund_reason)) },
-                    placeholder = { Text(stringResource(Res.string.refund_reason_hint)) },
+                    value = clientName, onValueChange = onClientNameChange,
+                    label = { Text(stringResource(Res.string.client)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = clientPhone, onValueChange = onClientPhoneChange,
+                    label = { Text(stringResource(Res.string.phone)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+            if (order.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY) {
+                item {
+                    OutlinedTextField(
+                        value = clientAddress, onValueChange = onClientAddressChange,
+                        label = { Text(stringResource(Res.string.address)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+            }
+            item {
+                OutlinedTextField(
+                    value = notes, onValueChange = onNotesChange,
+                    label = { Text(stringResource(Res.string.notes)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     minLines = 2,
-                    enabled = !isProcessing,
                 )
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isProcessing && reason.isNotBlank(),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onError,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(Res.string.processing_refund))
-                } else {
-                    Text(stringResource(Res.string.confirm_refund))
+
+            // Action buttons
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving && editItems.isNotEmpty(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(Res.string.save_changes))
+                    }
                 }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isProcessing,
-            ) {
-                Text(stringResource(Res.string.cancel))
-            }
-        },
-    )
+        }
+    }
 }

@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +35,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -44,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -125,13 +128,13 @@ fun ItemsScreen(
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             Text(
-                                text = "${uiState.items.size} ${stringResource(Res.string.items_label)}",
+                                text = "${uiState.allItems.size} ${stringResource(Res.string.items_label)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                             )
                         }
-                        
+
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -140,13 +143,11 @@ fun ItemsScreen(
                                     selected = uiState.selectedCategoryId == null,
                                     onClick = { viewModel.filterByCategory(null) },
                                     label = stringResource(Res.string.all),
-                                    count = uiState.categories.sumOf { cat -> 
-                                        uiState.items.count { it.categoryId == cat.id }
-                                    }
+                                    count = uiState.allItems.size
                                 )
                             }
                             items(uiState.categories) { category ->
-                                val itemCount = uiState.items.count { it.categoryId == category.id }
+                                val itemCount = uiState.allItems.count { it.categoryId == category.id }
                                 ModernFilterChip(
                                     selected = uiState.selectedCategoryId == category.id,
                                     onClick = { viewModel.filterByCategory(category.id) },
@@ -160,7 +161,7 @@ fun ItemsScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(uiState.items, key = { it.id }) { item ->
@@ -176,7 +177,11 @@ fun ItemsScreen(
         }
 
         if (uiState.showAddDialog) {
-            ItemDialog(uiState = uiState, viewModel = viewModel)
+            ItemBottomSheet(
+                uiState = uiState,
+                viewModel = viewModel,
+                onDismiss = viewModel::hideSheet,
+            )
         }
     }
 }
@@ -429,118 +434,176 @@ private fun ItemCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ItemDialog(
+private fun ItemBottomSheet(
     uiState: ItemsViewModel.UiState,
     viewModel: ItemsViewModel,
+    onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = viewModel::dismissDialog,
-        title = { Text(if (uiState.editingItem != null) stringResource(Res.string.edit_item) else stringResource(
-            Res.string.add_item
-        )) },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    OutlinedTextField(
-                        value = uiState.dialogName,
-                        onValueChange = viewModel::updateDialogName,
-                        label = { Text(stringResource(Res.string.name)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = uiState.dialogDescription,
-                        onValueChange = viewModel::updateDialogDescription,
-                        label = { Text(stringResource(Res.string.description)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = uiState.dialogPrice,
-                        onValueChange = viewModel::updateDialogPrice,
-                        label = { Text(stringResource(Res.string.price)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                // Category selector as chips
-                item {
-                    Text(stringResource(Res.string.category), style = MaterialTheme.typography.labelMedium)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(uiState.categories) { cat ->
-                            FilterChip(
-                                selected = uiState.dialogCategoryId == cat.id,
-                                onClick = { viewModel.updateDialogCategoryId(cat.id) },
-                                label = { Text(cat.name) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        }
-                    }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Available", modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = uiState.dialogAvailable,
-                            onCheckedChange = viewModel::updateDialogAvailable,
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Title
+            item {
+                Text(
+                    text = if (uiState.editingItem != null) stringResource(Res.string.edit_item)
+                    else stringResource(Res.string.add_item),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+            }
+
+            // Name
+            item {
+                OutlinedTextField(
+                    value = uiState.dialogName,
+                    onValueChange = viewModel::updateDialogName,
+                    label = { Text(stringResource(Res.string.name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            // Description
+            item {
+                OutlinedTextField(
+                    value = uiState.dialogDescription,
+                    onValueChange = viewModel::updateDialogDescription,
+                    label = { Text(stringResource(Res.string.description)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            // Price
+            item {
+                OutlinedTextField(
+                    value = uiState.dialogPrice,
+                    onValueChange = viewModel::updateDialogPrice,
+                    label = { Text(stringResource(Res.string.price)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            // Category selector
+            item {
+                Text(
+                    stringResource(Res.string.category),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(uiState.categories) { cat ->
+                        FilterChip(
+                            selected = uiState.dialogCategoryId == cat.id,
+                            onClick = { viewModel.updateDialogCategoryId(cat.id) },
+                            label = { Text(cat.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                         )
                     }
                 }
+            }
 
-                // ─── Variants Section ──────────────────────────────
+            // Available toggle
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(Res.string.available),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Switch(
+                        checked = uiState.dialogAvailable,
+                        onCheckedChange = viewModel::updateDialogAvailable,
+                    )
+                }
+            }
+
+            // ─── Variants Section ──────────────────────────────
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        stringResource(Res.string.variants),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    )
+                    TextButton(onClick = viewModel::addVariantGroup) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(Res.string.add_variant_group))
+                    }
+                }
+            }
+
+            if (uiState.dialogVariantGroups.isEmpty()) {
                 item {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                    Text(
+                        stringResource(Res.string.no_variants),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            items(uiState.dialogVariantGroups, key = { it.id }) { group ->
+                VariantGroupCard(group = group, viewModel = viewModel)
+            }
+
+            // ─── Action Buttons ──────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::cancelDialog,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                    Button(
+                        onClick = viewModel::saveItem,
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isSaving
+                                && uiState.dialogName.isNotBlank()
+                                && uiState.dialogPrice.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp),
                     ) {
                         Text(
-                            stringResource(Res.string.variants),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        )
-                        TextButton(onClick = viewModel::addVariantGroup) {
-                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(stringResource(Res.string.add_variant_group))
-                        }
-                    }
-                }
-
-                if (uiState.dialogVariantGroups.isEmpty()) {
-                    item {
-                        Text(
-                            stringResource(Res.string.no_variants),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            if (uiState.isSaving) stringResource(Res.string.saving)
+                            else stringResource(Res.string.save)
                         )
                     }
                 }
-
-                items(uiState.dialogVariantGroups, key = { it.id }) { group ->
-                    VariantGroupCard(group = group, viewModel = viewModel)
-                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = viewModel::saveItem,
-                enabled = !uiState.isSaving && uiState.dialogName.isNotBlank() && uiState.dialogPrice.isNotBlank(),
-            ) {
-                Text(if (uiState.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissDialog) { Text(stringResource(Res.string.cancel)) }
-        },
-    )
+        }
+    }
 }
 
 @Composable

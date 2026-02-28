@@ -12,6 +12,7 @@
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="categories">Categories</string>
+    <string name="available">Available</string>
     <string name="unavailable">Unavailable</string>
     <string name="items_label">items</string>
     <string name="variants">Variants</string>

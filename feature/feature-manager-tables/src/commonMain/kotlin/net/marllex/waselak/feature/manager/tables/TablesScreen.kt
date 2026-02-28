@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -15,7 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -25,13 +27,14 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,7 +98,7 @@ fun TablesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                contentPadding = PaddingValues(start = if (isTablet) 24.dp else 16.dp, end = if (isTablet) 24.dp else 16.dp, top = if (isTablet) 24.dp else 16.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -111,7 +114,7 @@ fun TablesScreen(
         }
 
         if (uiState.showAddDialog) {
-            TableDialog(
+            TableBottomSheet(
                 isEditing = uiState.editingTable != null,
                 number = uiState.dialogNumber,
                 capacity = uiState.dialogCapacity,
@@ -192,8 +195,9 @@ private fun TableCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TableDialog(
+private fun TableBottomSheet(
     isEditing: Boolean,
     number: String,
     capacity: String,
@@ -203,28 +207,54 @@ private fun TableDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEditing) stringResource(Res.string.edit_table) else stringResource(Res.string.add_table)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = number, onValueChange = onNumberChange,
-                    label = { Text(stringResource(Res.string.table_number)) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = capacity, onValueChange = onCapacityChange,
-                    label = { Text(stringResource(Res.string.capacity)) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = if (isEditing) stringResource(Res.string.edit_table) else stringResource(Res.string.add_table),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            )
+            OutlinedTextField(
+                value = number, onValueChange = onNumberChange,
+                label = { Text(stringResource(Res.string.table_number)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            )
+            OutlinedTextField(
+                value = capacity, onValueChange = onCapacityChange,
+                label = { Text(stringResource(Res.string.capacity)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving && number.isNotBlank(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Text(if (isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onSave, enabled = !isSaving && number.isNotBlank()) {
-                Text(if (isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-    )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }

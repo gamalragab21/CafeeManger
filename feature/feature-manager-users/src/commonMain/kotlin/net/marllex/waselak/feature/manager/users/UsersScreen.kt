@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +38,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -49,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -219,7 +221,7 @@ fun UsersScreen(
 
         // Change Role Dialog
         if (uiState.showChangeRoleDialog && uiState.changeRoleUser != null) {
-            ChangeRoleDialog(uiState = uiState, viewModel = viewModel)
+            ChangeRoleBottomSheet(uiState = uiState, viewModel = viewModel)
         }
     }
     } // BoxWithConstraints
@@ -379,33 +381,13 @@ private fun UserPermissionCard(
         }
     }
 
-    // Delete confirmation dialog
+    // Delete confirmation bottom sheet
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            icon = {
-                Icon(
-                    Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            },
-            title = { Text(stringResource(Res.string.delete_user_title)) },
-            text = { Text(stringResource(Res.string.delete_user_confirm)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete()
-                        showDeleteConfirm = false
-                    },
-                ) {
-                    Text(stringResource(Res.string.confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(Res.string.cancel))
-                }
+        DeleteUserBottomSheet(
+            onDismiss = { showDeleteConfirm = false },
+            onConfirm = {
+                onDelete()
+                showDeleteConfirm = false
             },
         )
     }
@@ -413,71 +395,130 @@ private fun UserPermissionCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChangeRoleDialog(uiState: UsersViewModel.UiState, viewModel: UsersViewModel) {
+private fun ChangeRoleBottomSheet(uiState: UsersViewModel.UiState, viewModel: UsersViewModel) {
     val user = uiState.changeRoleUser ?: return
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = viewModel::dismissChangeRoleDialog,
-        icon = {
-            Icon(
-                Icons.Filled.Security,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.change_role),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
             )
-        },
-        title = { Text(stringResource(Res.string.change_role)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "${stringResource(Res.string.change_role_desc)}: ${user.name}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
 
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    UserRole.entries.forEachIndexed { index, role ->
-                        SegmentedButton(
-                            selected = uiState.changeRoleSelected == role,
-                            onClick = { viewModel.updateChangeRoleSelected(role) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = UserRole.entries.size
-                            ),
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                inactiveContainerColor = MaterialTheme.colorScheme.surface,
-                                inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                        ) {
-                            Text(
-                                text = role.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+            Text(
+                text = "${stringResource(Res.string.change_role_desc)}: ${user.name}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                UserRole.entries.forEachIndexed { index, role ->
+                    SegmentedButton(
+                        selected = uiState.changeRoleSelected == role,
+                        onClick = { viewModel.updateChangeRoleSelected(role) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = UserRole.entries.size
+                        ),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                            inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                    ) {
+                        Text(
+                            text = role.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = viewModel::confirmChangeRole,
-                enabled = !uiState.isSaving,
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    if (uiState.isSaving) stringResource(Res.string.saving)
-                    else stringResource(Res.string.confirm)
-                )
+                OutlinedButton(
+                    onClick = viewModel::dismissChangeRoleDialog,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = viewModel::confirmChangeRole,
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isSaving,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(
+                        if (uiState.isSaving) stringResource(Res.string.saving)
+                        else stringResource(Res.string.confirm)
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissChangeRoleDialog) {
-                Text(stringResource(Res.string.cancel))
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeleteUserBottomSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.delete_user_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(Res.string.delete_user_confirm),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.confirm))
+                }
             }
-        },
-    )
+            Spacer(Modifier.height(24.dp))
+        }
+    }
 }
