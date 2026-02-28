@@ -33,4 +33,5 @@
     <string name="confirm_add">Add to Cart - %1$s</string>
     <string name="cancel">Cancel</string>
     <string name="price">Price</string>
+    <string name="no_menu_items">No menu items available</string>
 </resources>

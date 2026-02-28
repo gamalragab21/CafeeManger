@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Table
 import net.marllex.waselak.core.model.TableStatus
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.theme.TableAvailable
@@ -93,6 +94,7 @@ fun TablesScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadTables,
             )
+            uiState.tables.isEmpty() -> EmptyView(stringResource(Res.string.no_tables))
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(gridColumns),
                 modifier = Modifier

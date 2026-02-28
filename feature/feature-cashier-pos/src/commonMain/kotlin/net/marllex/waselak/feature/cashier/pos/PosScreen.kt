@@ -85,6 +85,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.WaslekLogo
@@ -219,19 +220,23 @@ fun PosScreen(
                     uiState.items.filter { it.categoryId == uiState.selectedCategoryId }
                 } else uiState.items
 
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 150.dp),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontalPadding),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(filteredItems, key = { it.id }) { item ->
-                        MenuItemGridCard(
-                            item = item,
-                            cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
-                            onAdd = { viewModel.addToCart(item) },
-                        )
+                if (filteredItems.isEmpty()) {
+                    EmptyView(stringResource(Res.string.no_menu_items))
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 150.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontalPadding),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(filteredItems, key = { it.id }) { item ->
+                            MenuItemGridCard(
+                                item = item,
+                                cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
+                                onAdd = { viewModel.addToCart(item) },
+                            )
+                        }
                     }
                 }
             } }

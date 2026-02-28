@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.model.TaxPlace
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 
@@ -78,6 +79,7 @@ fun TaxPlacesScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::load,
             )
+            uiState.places.isEmpty() -> EmptyView("No delivery zones yet")
             else -> LazyColumn(
                 modifier = Modifier.padding(padding).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -92,6 +92,7 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.ui.components.ChannelChip
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
@@ -171,32 +172,34 @@ fun OrdersScreen(
                     onShowDatePicker = { showDatePicker = true }
                 )
 
-                // Orders count info
-                if (uiState.orders.isNotEmpty()) {
+                if (uiState.orders.isEmpty()) {
+                    EmptyView(stringResource(Res.string.no_orders))
+                } else {
+                    // Orders count info
                     Text(
                         text = "${uiState.orders.size} ${stringResource(Res.string.orders_found)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
-                }
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
-                    contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(uiState.orders, key = { it.id }) { order ->
-                        OrderCard(
-                            order = order,
-                            onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
-                            onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
-                            onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
-                                { viewModel.showEditOrder(order) }
-                            } else null,
-                        )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
+                        contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(uiState.orders, key = { it.id }) { order ->
+                            OrderCard(
+                                order = order,
+                                onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
+                                onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
+                                onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
+                                    { viewModel.showEditOrder(order) }
+                                } else null,
+                            )
+                        }
                     }
                 }
             }

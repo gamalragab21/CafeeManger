@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Item
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
@@ -159,18 +160,22 @@ fun ItemsScreen(
                     }
                 }
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(uiState.items, key = { it.id }) { item ->
-                        ModernItemCard(
-                            item = item,
-                            onEdit = { viewModel.showEditDialog(item) },
-                            onDelete = { viewModel.deleteItem(item.id) },
-                            onToggleAvailability = { viewModel.toggleAvailability(item) },
-                        )
+                if (uiState.items.isEmpty()) {
+                    EmptyView(stringResource(Res.string.no_items))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(uiState.items, key = { it.id }) { item ->
+                            ModernItemCard(
+                                item = item,
+                                onEdit = { viewModel.showEditDialog(item) },
+                                onDelete = { viewModel.deleteItem(item.id) },
+                                onToggleAvailability = { viewModel.toggleAvailability(item) },
+                            )
+                        }
                     }
                 }
             }

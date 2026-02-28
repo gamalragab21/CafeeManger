@@ -43,6 +43,7 @@ import net.marllex.waselak.feature.manager.categories.generated.resources.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Category
+import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import org.koin.compose.viewmodel.koinViewModel
@@ -78,6 +79,7 @@ fun CategoriesScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadCategories,
             )
+            uiState.categories.isEmpty() -> EmptyView(stringResource(Res.string.no_categories))
             else -> LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

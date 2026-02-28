@@ -51,4 +51,5 @@
     <string name="confirm_refund">أكّد الاسترداد</string>
     <string name="refund_confirm_message">أنت متأكد إنك عايز تسترد الطلب ده؟ المخزون هيرجع وسجلات العملاء هتتحدّث.</string>
     <string name="processing_refund">بيتعالج الاسترداد…</string>
+    <string name="no_orders">مفيش طلبات</string>
 </resources>
