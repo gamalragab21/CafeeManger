@@ -79,6 +79,7 @@ import kotlinx.coroutines.flow.drop
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -816,6 +817,38 @@ private fun OfflineBanner(pendingCount: Long) {
     }
 }
 
+@Composable
+private fun SyncingBanner(pendingCount: Long) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFF3CD))   // amber/yellow background
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp,
+            color = Color(0xFF856404),
+        )
+        Text(
+            text = stringResource(CoreRes.string.syncing),
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFF856404),
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        if (pendingCount > 0) {
+            Text(
+                text = "$pendingCount",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF856404),
+            )
+        }
+    }
+}
+
 // ─── Sync Item Card ─────────────────────────────────────────────
 @Composable
 private fun SyncItemCard(
@@ -1106,6 +1139,13 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         ) {
                             OfflineBanner(pendingCount = pendingCount)
                         }
+                        AnimatedVisibility(
+                            visible = isSyncing && !isOffline,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            SyncingBanner(pendingCount = pendingCount)
+                        }
                         NavHost(
                             navController = navController,
                             startDestination = AUTH_ROUTE,
@@ -1167,6 +1207,13 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                             exit = shrinkVertically(),
                         ) {
                             OfflineBanner(pendingCount = pendingCount)
+                        }
+                        AnimatedVisibility(
+                            visible = isSyncing && !isOffline,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            SyncingBanner(pendingCount = pendingCount)
                         }
                         NavHost(
                             navController = navController,
