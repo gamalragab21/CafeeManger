@@ -719,6 +719,9 @@ private fun OrderItemRow(item: OrderItem) {
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium)
+            net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
             item.note?.let {
                 Text(
                     text = it,
@@ -786,6 +789,9 @@ private fun EditOrderDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                                    Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                }
                                 Text("${CurrencyFormatter.formatDecimal(item.itemPriceSnapshot)} x ${item.quantity} = ${CurrencyFormatter.formatDecimal(item.totalPrice)}",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

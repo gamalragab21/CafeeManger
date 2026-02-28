@@ -19,6 +19,8 @@ import net.marllex.waselak.core.database.Salary_payments
 import net.marllex.waselak.core.database.Customers
 import net.marllex.waselak.core.database.Customer_addresses
 import net.marllex.waselak.core.database.Overtime_entries
+import net.marllex.waselak.core.database.Item_variant_groups
+import net.marllex.waselak.core.database.Item_variant_options
 
 // ─── Vendor Mappers ──────────────────────────────────────────────
 fun Vendors.toDomain() = Vendor(
@@ -163,14 +165,27 @@ fun Order_items.toDomain() = OrderItem(
     id = id, orderId = order_id, itemId = item_id,
     itemNameSnapshot = item_name_snapshot,
     itemPriceSnapshot = item_price_snapshot,
-    quantity = quantity, note = note
+    quantity = quantity, note = note,
+    variantOptionsSnapshot = variant_options_snapshot
 )
 
 fun OrderItem.toDbEntity() = Order_items(
     id = id, order_id = orderId, item_id = itemId,
     item_name_snapshot = itemNameSnapshot,
     item_price_snapshot = itemPriceSnapshot,
-    quantity = quantity, note = note
+    quantity = quantity, note = note,
+    variant_options_snapshot = variantOptionsSnapshot
+)
+
+// ─── Variant Mappers ────────────────────────────────────────────
+fun Item_variant_groups.toDomain(options: List<VariantOption> = emptyList()) = VariantGroup(
+    id = id, name = name, required = required,
+    displayOrder = display_order, options = options
+)
+
+fun Item_variant_options.toDomain() = VariantOption(
+    id = id, name = name, priceAdjustment = price_adjustment,
+    isDefault = is_default, displayOrder = display_order
 )
 
 // ─── Stock Mappers ──────────────────────────────────────────────

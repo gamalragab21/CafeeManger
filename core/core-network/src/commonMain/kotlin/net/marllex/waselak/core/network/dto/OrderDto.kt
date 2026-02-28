@@ -50,7 +50,8 @@ data class OrderItemResponse(
     @SerialName("item_name_snapshot") val itemNameSnapshot: String,
     @SerialName("item_price_snapshot") val itemPriceSnapshot: Double,
     val quantity: Int,
-    val note: String? = null
+    val note: String? = null,
+    @SerialName("variant_options_snapshot") val variantOptionsSnapshot: String? = null
 )
 
 @Serializable
@@ -82,7 +83,15 @@ data class CreateOrderRequest(
 data class CreateOrderItemRequest(
     @SerialName("item_id") val itemId: String,
     val quantity: Int,
-    val note: String? = null
+    val note: String? = null,
+    @SerialName("variant_selections") val variantSelections: List<VariantSelectionRequest>? = null
+)
+
+@Serializable
+data class VariantSelectionRequest(
+    @SerialName("group_name") val groupName: String,
+    @SerialName("option_name") val optionName: String,
+    @SerialName("price_adjustment") val priceAdjustment: Double
 )
 
 @Serializable

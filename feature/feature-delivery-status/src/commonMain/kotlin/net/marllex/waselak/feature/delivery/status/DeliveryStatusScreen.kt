@@ -134,7 +134,12 @@ fun DeliveryStatusScreen(
                                         .padding(vertical = 4.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Text("${item.quantity}x ${item.itemNameSnapshot}")
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("${item.quantity}x ${item.itemNameSnapshot}")
+                                        net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                                            Text(text = summary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                        }
+                                    }
                                     Text(CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity))
                                 }
                             }

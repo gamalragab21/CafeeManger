@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -238,6 +239,20 @@ fun PosScreen(
                 onOrderCreated = onOrderCreated,
             )
         }
+
+        // Variant selector dialog
+        val variantItem = uiState.variantSelectorItem
+        if (variantItem != null) {
+            VariantSelectorDialog(
+                item = variantItem,
+                selections = uiState.variantSelections,
+                onSelect = { groupId, groupName, optionName, priceAdj ->
+                    viewModel.selectVariantOption(groupId, groupName, optionName, priceAdj)
+                },
+                onConfirm = viewModel::confirmVariantSelection,
+                onDismiss = viewModel::dismissVariantSelector,
+            )
+        }
     }
     } // BoxWithConstraints
 }
@@ -262,12 +277,24 @@ private fun MenuItemCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
                 item.description?.let {
                     Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(
-                    text = CurrencyFormatter.formatDecimal(item.price),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = CurrencyFormatter.formatDecimal(item.price),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    if (item.variantGroups.isNotEmpty()) {
+                        Text(
+                            text = "+${stringResource(Res.string.select_options)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                }
             }
             if (cartQuantity > 0) {
                 Text(
@@ -312,12 +339,12 @@ private fun CartBottomSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(uiState.cart) { cartItem ->
+            itemsIndexed(uiState.cart) { index, cartItem ->
                 CartItemRow(
                     cartItem = cartItem,
-                    onIncrease = { viewModel.updateCartQuantity(cartItem.item.id, cartItem.quantity + 1) },
-                    onDecrease = { viewModel.updateCartQuantity(cartItem.item.id, cartItem.quantity - 1) },
-                    onRemove = { viewModel.removeFromCart(cartItem.item.id) },
+                    onIncrease = { viewModel.updateCartQuantity(index, cartItem.quantity + 1) },
+                    onDecrease = { viewModel.updateCartQuantity(index, cartItem.quantity - 1) },
+                    onRemove = { viewModel.removeFromCart(index) },
                 )
             }
 
@@ -753,21 +780,26 @@ private fun RecentOrderCard(order: Order) {
 
             // Item list
             order.items.forEach { item ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "${item.quantity}× ${item.itemNameSnapshot}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "${item.quantity}× ${item.itemNameSnapshot}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = CurrencyFormatter.formatDecimal(item.itemPriceSnapshot * item.quantity),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                        Text(text = summary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                    }
                 }
             }
 
@@ -808,8 +840,15 @@ private fun CartItemRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = cartItem.item.name, style = MaterialTheme.typography.bodyMedium)
+            if (cartItem.variantSelections.isNotEmpty()) {
+                Text(
+                    text = cartItem.variantSelections.joinToString(", ") { "${it.groupName}: ${it.optionName}" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
             Text(
-                text = "${CurrencyFormatter.formatDecimal(cartItem.item.price)} each",
+                text = "${CurrencyFormatter.formatDecimal(cartItem.unitPrice)} each",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -823,7 +862,7 @@ private fun CartItemRow(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = CurrencyFormatter.formatDecimal(cartItem.item.price * cartItem.quantity),
+            text = CurrencyFormatter.formatDecimal(cartItem.totalPrice),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
         )
@@ -831,4 +870,84 @@ private fun CartItemRow(
             Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+@Composable
+private fun VariantSelectorDialog(
+    item: Item,
+    selections: Map<String, net.marllex.waselak.core.model.VariantSelection>,
+    onSelect: (groupId: String, groupName: String, optionName: String, priceAdjustment: Double) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val totalPrice = item.price + selections.values.sumOf { it.priceAdjustment }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(item.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item.variantGroups.forEach { group ->
+                    Text(
+                        text = group.name + if (group.required) " *" else "",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(group.options) { option ->
+                            val isSelected = selections[group.id]?.optionName == option.name
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSelect(group.id, group.name, option.name, option.priceAdjustment) },
+                                label = {
+                                    Text(buildString {
+                                        append(option.name)
+                                        if (option.priceAdjustment != 0.0) {
+                                            append(" (+${CurrencyFormatter.formatDecimal(option.priceAdjustment)})")
+                                        }
+                                    })
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(stringResource(Res.string.price), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        CurrencyFormatter.formatDecimal(totalPrice),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            val hasAllRequired = item.variantGroups.filter { it.required }.all { group ->
+                selections.containsKey(group.id)
+            }
+            Button(
+                onClick = onConfirm,
+                enabled = hasAllRequired,
+            ) {
+                Text(stringResource(Res.string.confirm_add, CurrencyFormatter.formatDecimal(totalPrice)))
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
+    )
 }

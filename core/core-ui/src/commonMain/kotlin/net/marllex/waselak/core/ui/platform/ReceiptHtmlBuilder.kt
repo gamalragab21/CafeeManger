@@ -181,8 +181,9 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     append("<tbody>")
     order.items.forEach { item ->
         val lineTotal = item.itemPriceSnapshot * item.quantity
+        val variantHtml = net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummaryHtml(item.variantOptionsSnapshot) ?: ""
         append("<tr>")
-        append("<td class='name'>${item.itemNameSnapshot.htmlEscape()}</td>")
+        append("<td class='name'>${item.itemNameSnapshot.htmlEscape()}$variantHtml</td>")
         append("<td class='qty'>${item.quantity}</td>")
         append("<td class='price'>${formatAmount(lineTotal)}</td>")
         append("</tr>")

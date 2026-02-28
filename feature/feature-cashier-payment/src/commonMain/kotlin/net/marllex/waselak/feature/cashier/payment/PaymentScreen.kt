@@ -105,22 +105,27 @@ fun PaymentScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             order.items.forEach { item ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(
-                                        stringResource(
-                                            Res.string.item_quantity_name,
-                                            item.quantity,
-                                            item.itemNameSnapshot
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                Res.string.item_quantity_name,
+                                                item.quantity,
+                                                item.itemNameSnapshot
+                                            )
                                         )
-                                    )
-                                    Text(
-                                        CurrencyFormatter.formatDecimal(
-                                            item.itemPriceSnapshot * item.quantity
+                                        Text(
+                                            CurrencyFormatter.formatDecimal(
+                                                item.itemPriceSnapshot * item.quantity
+                                            )
                                         )
-                                    )
+                                    }
+                                    net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                                        Text(text = summary, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                    }
                                 }
                             }
 

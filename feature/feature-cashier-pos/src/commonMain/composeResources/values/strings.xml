@@ -29,4 +29,8 @@
     <string name="pay_now">Pay Now</string>
     <string name="pay_later">Pay Later</string>
     <string name="optional_hint">optional</string>
+    <string name="select_options">Options</string>
+    <string name="confirm_add">Add to Cart - %1$s</string>
+    <string name="cancel">Cancel</string>
+    <string name="price">Price</string>
 </resources>

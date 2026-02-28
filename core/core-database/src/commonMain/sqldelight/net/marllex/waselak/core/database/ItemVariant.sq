@@ -1,0 +1,46 @@
+CREATE TABLE IF NOT EXISTS item_variant_groups (
+    id TEXT NOT NULL PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    required INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    display_order INTEGER AS kotlin.Int NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS item_variant_options (
+    id TEXT NOT NULL PRIMARY KEY,
+    group_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price_adjustment REAL NOT NULL DEFAULT 0.0,
+    is_default INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    display_order INTEGER AS kotlin.Int NOT NULL DEFAULT 0
+);
+
+getVariantGroupsByItem:
+SELECT * FROM item_variant_groups WHERE item_id = ? ORDER BY display_order ASC;
+
+getVariantOptionsByGroup:
+SELECT * FROM item_variant_options WHERE group_id = ? ORDER BY display_order ASC;
+
+getVariantOptionsByItem:
+SELECT o.* FROM item_variant_options o
+INNER JOIN item_variant_groups g ON o.group_id = g.id
+WHERE g.item_id = ?
+ORDER BY g.display_order ASC, o.display_order ASC;
+
+insertVariantGroup:
+INSERT OR REPLACE INTO item_variant_groups(id, item_id, name, required, display_order) VALUES (?, ?, ?, ?, ?);
+
+insertVariantOption:
+INSERT OR REPLACE INTO item_variant_options(id, group_id, name, price_adjustment, is_default, display_order) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteVariantGroupsByItem:
+DELETE FROM item_variant_groups WHERE item_id = ?;
+
+deleteVariantOptionsByItem:
+DELETE FROM item_variant_options WHERE group_id IN (SELECT id FROM item_variant_groups WHERE item_id = ?);
+
+deleteAllVariantGroups:
+DELETE FROM item_variant_groups;
+
+deleteAllVariantOptions:
+DELETE FROM item_variant_options;

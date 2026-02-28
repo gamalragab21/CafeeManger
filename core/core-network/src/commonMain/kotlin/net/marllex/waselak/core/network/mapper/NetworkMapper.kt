@@ -68,8 +68,25 @@ fun ItemResponse.toDomain() = Item(
     imageUrl = imageUrl,
     available = available,
     stockBehavior = stockBehavior,
+    variantGroups = variantGroups.map { it.toDomain() },
     createdAt = createdAt,
     updatedAt = updatedAt
+)
+
+fun VariantGroupResponse.toDomain() = VariantGroup(
+    id = id,
+    name = name,
+    required = required,
+    displayOrder = displayOrder,
+    options = options.map { it.toDomain() }
+)
+
+fun VariantOptionResponse.toDomain() = VariantOption(
+    id = id,
+    name = name,
+    priceAdjustment = priceAdjustment,
+    isDefault = isDefault,
+    displayOrder = displayOrder
 )
 
 // ─── Table Mappers ───────────────────────────────────────────────
@@ -129,7 +146,8 @@ fun OrderItemResponse.toDomain() = OrderItem(
     itemNameSnapshot = itemNameSnapshot,
     itemPriceSnapshot = itemPriceSnapshot,
     quantity = quantity,
-    note = note
+    note = note,
+    variantOptionsSnapshot = variantOptionsSnapshot
 )
 
 // ─── Stock Mappers ──────────────────────────────────────────────

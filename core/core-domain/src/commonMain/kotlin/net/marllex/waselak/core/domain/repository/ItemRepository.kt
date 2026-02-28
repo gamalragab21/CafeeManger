@@ -2,6 +2,7 @@ package net.marllex.waselak.core.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 import net.marllex.waselak.core.model.Item
+import net.marllex.waselak.core.model.VariantGroup
 
 interface ItemRepository {
     fun getItems(categoryId: String? = null): Flow<List<Item>>
@@ -18,4 +19,5 @@ interface ItemRepository {
     ): Result<Item>
     suspend fun deleteItem(id: String): Result<Unit>
     suspend fun toggleAvailability(id: String, available: Boolean): Result<Item>
+    suspend fun updateItemVariants(itemId: String, groups: List<VariantGroup>): Result<Item>
 }

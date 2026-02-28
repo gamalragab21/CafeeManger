@@ -13,6 +13,22 @@ import net.marllex.waselak.core.domain.repository.CategoryRepository
 import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.model.Category
 import net.marllex.waselak.core.model.Item
+import net.marllex.waselak.core.model.VariantGroup
+import net.marllex.waselak.core.model.VariantOption
+
+data class EditableVariantGroup(
+    val id: String = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString() + (0..9999).random(),
+    val name: String = "",
+    val required: Boolean = false,
+    val options: List<EditableVariantOption> = emptyList()
+)
+
+data class EditableVariantOption(
+    val id: String = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString() + (0..9999).random(),
+    val name: String = "",
+    val priceAdjustment: Double = 0.0,
+    val isDefault: Boolean = false
+)
 
 class ItemsViewModel constructor(
     private val itemRepository: ItemRepository,
@@ -33,6 +49,7 @@ class ItemsViewModel constructor(
         val dialogCategoryId: String = "",
         val dialogImageUrl: String = "",
         val dialogAvailable: Boolean = true,
+        val dialogVariantGroups: List<EditableVariantGroup> = emptyList(),
         val isSaving: Boolean = false,
     )
 
@@ -78,6 +95,7 @@ class ItemsViewModel constructor(
                 showAddDialog = true, editingItem = null,
                 dialogName = "", dialogDescription = "", dialogPrice = "",
                 dialogCategoryId = firstCategoryId, dialogImageUrl = "", dialogAvailable = true,
+                dialogVariantGroups = emptyList(),
             )
         }
     }
@@ -89,6 +107,17 @@ class ItemsViewModel constructor(
                 dialogName = item.name, dialogDescription = item.description ?: "",
                 dialogPrice = item.price.toString(), dialogCategoryId = item.categoryId,
                 dialogImageUrl = item.imageUrl ?: "", dialogAvailable = item.available,
+                dialogVariantGroups = item.variantGroups.map { group ->
+                    EditableVariantGroup(
+                        id = group.id, name = group.name, required = group.required,
+                        options = group.options.map { option ->
+                            EditableVariantOption(
+                                id = option.id, name = option.name,
+                                priceAdjustment = option.priceAdjustment, isDefault = option.isDefault
+                            )
+                        }
+                    )
+                },
             )
         }
     }
@@ -102,6 +131,67 @@ class ItemsViewModel constructor(
     fun updateDialogPrice(v: String) { _uiState.update { it.copy(dialogPrice = v) } }
     fun updateDialogCategoryId(v: String) { _uiState.update { it.copy(dialogCategoryId = v) } }
     fun updateDialogAvailable(v: Boolean) { _uiState.update { it.copy(dialogAvailable = v) } }
+
+    // ─── Variant Management ──────────────────────────────────────
+    fun addVariantGroup() {
+        _uiState.update { it.copy(dialogVariantGroups = it.dialogVariantGroups + EditableVariantGroup()) }
+    }
+
+    fun removeVariantGroup(groupId: String) {
+        _uiState.update { it.copy(dialogVariantGroups = it.dialogVariantGroups.filter { g -> g.id != groupId }) }
+    }
+
+    fun updateVariantGroupName(groupId: String, name: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(name = name) else g
+            })
+        }
+    }
+
+    fun toggleVariantGroupRequired(groupId: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(required = !g.required) else g
+            })
+        }
+    }
+
+    fun addVariantOption(groupId: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(options = g.options + EditableVariantOption()) else g
+            })
+        }
+    }
+
+    fun removeVariantOption(groupId: String, optionId: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(options = g.options.filter { o -> o.id != optionId }) else g
+            })
+        }
+    }
+
+    fun updateVariantOptionName(groupId: String, optionId: String, name: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(options = g.options.map { o ->
+                    if (o.id == optionId) o.copy(name = name) else o
+                }) else g
+            })
+        }
+    }
+
+    fun updateVariantOptionPrice(groupId: String, optionId: String, price: String) {
+        _uiState.update { state ->
+            state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
+                if (g.id == groupId) g.copy(options = g.options.map { o ->
+                    if (o.id == optionId) o.copy(priceAdjustment = price.toDoubleOrNull() ?: 0.0) else o
+                }) else g
+            })
+        }
+    }
 
     fun saveItem() {
         val s = _uiState.value
@@ -128,7 +218,26 @@ class ItemsViewModel constructor(
                 )
             }
 
-            result.onSuccess {
+            result.onSuccess { savedItem ->
+                // Save variant groups if any (filter out empty groups/options)
+                val validGroups = s.dialogVariantGroups
+                    .filter { it.name.isNotBlank() }
+                    .map { group ->
+                        VariantGroup(
+                            id = group.id, name = group.name, required = group.required,
+                            displayOrder = s.dialogVariantGroups.indexOf(group),
+                            options = group.options.filter { it.name.isNotBlank() }.mapIndexed { idx, opt ->
+                                VariantOption(
+                                    id = opt.id, name = opt.name,
+                                    priceAdjustment = opt.priceAdjustment,
+                                    isDefault = opt.isDefault, displayOrder = idx
+                                )
+                            }
+                        )
+                    }
+                if (validGroups.isNotEmpty() || s.editingItem?.variantGroups?.isNotEmpty() == true) {
+                    itemRepository.updateItemVariants(savedItem.id, validGroups)
+                }
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
                 _uiState.update { it.copy(isSaving = false, error = e.message) }

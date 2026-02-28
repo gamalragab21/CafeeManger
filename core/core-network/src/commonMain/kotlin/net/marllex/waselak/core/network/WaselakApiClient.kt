@@ -96,6 +96,13 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    // ─── Item Variants ────────────────────────────────────────────
+
+    suspend fun updateItemVariants(itemId: String, groups: List<CreateVariantGroupRequest>): ItemResponse =
+        client.put("api/v1/items/$itemId/variants") {
+            setBody(groups)
+        }.body()
+
     // ─── Tables ──────────────────────────────────────────────────
 
     suspend fun getTables(status: String? = null): List<TableResponse> =

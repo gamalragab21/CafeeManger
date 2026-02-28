@@ -17,8 +17,43 @@ data class ItemResponse(
     @SerialName("image_url") val imageUrl: String? = null,
     val available: Boolean = true,
     @SerialName("stock_behavior") val stockBehavior: String = "NONE",
+    @SerialName("variant_groups") val variantGroups: List<VariantGroupResponse> = emptyList(),
     @SerialName("created_at") val createdAt: Long? = null,
     @SerialName("updated_at") val updatedAt: Long? = null
+)
+
+@Serializable
+data class VariantGroupResponse(
+    val id: String,
+    val name: String,
+    val required: Boolean = false,
+    @SerialName("display_order") val displayOrder: Int = 0,
+    val options: List<VariantOptionResponse> = emptyList()
+)
+
+@Serializable
+data class VariantOptionResponse(
+    val id: String,
+    val name: String,
+    @SerialName("price_adjustment") val priceAdjustment: Double = 0.0,
+    @SerialName("is_default") val isDefault: Boolean = false,
+    @SerialName("display_order") val displayOrder: Int = 0
+)
+
+@Serializable
+data class CreateVariantGroupRequest(
+    val name: String,
+    val required: Boolean = false,
+    @SerialName("display_order") val displayOrder: Int = 0,
+    val options: List<CreateVariantOptionRequest> = emptyList()
+)
+
+@Serializable
+data class CreateVariantOptionRequest(
+    val name: String,
+    @SerialName("price_adjustment") val priceAdjustment: Double = 0.0,
+    @SerialName("is_default") val isDefault: Boolean = false,
+    @SerialName("display_order") val displayOrder: Int = 0
 )
 
 @Serializable

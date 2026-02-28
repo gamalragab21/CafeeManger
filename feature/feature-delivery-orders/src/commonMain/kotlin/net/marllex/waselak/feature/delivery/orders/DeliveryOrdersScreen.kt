@@ -539,6 +539,9 @@ private fun DeliveryOrderItemRow(item: OrderItem) {
                 text = item.itemNameSnapshot,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
             item.note?.let {
                 Text(
                     text = it,

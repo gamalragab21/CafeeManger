@@ -14,4 +14,12 @@
     <string name="categories">Categories</string>
     <string name="unavailable">Unavailable</string>
     <string name="items_label">items</string>
+    <string name="variants">Variants</string>
+    <string name="add_variant_group">Add Group</string>
+    <string name="group_name">Group Name</string>
+    <string name="required">Required</string>
+    <string name="add_option">Add Option</string>
+    <string name="option_name">Option Name</string>
+    <string name="price_adjustment">Price Adjustment</string>
+    <string name="no_variants">No variants</string>
 </resources>

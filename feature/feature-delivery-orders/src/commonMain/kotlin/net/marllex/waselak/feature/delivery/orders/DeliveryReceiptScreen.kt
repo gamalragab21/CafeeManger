@@ -265,14 +265,19 @@ fun DeliveryReceiptScreen(
                                 Spacer(Modifier.height(8.dp))
 
                                 order.items.forEach { item ->
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, modifier = Modifier.weight(1f))
-                                        Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                        Text(formatAmount(item.itemPriceSnapshot * item.quantity, currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, modifier = Modifier.weight(1f))
+                                            Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
+                                            Text(formatAmount(item.itemPriceSnapshot * item.quantity, currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                                        }
+                                        net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                                            Text(text = summary, style = MaterialTheme.typography.bodySmall, color = receiptColors.textSecondary)
+                                        }
                                     }
                                 }
 

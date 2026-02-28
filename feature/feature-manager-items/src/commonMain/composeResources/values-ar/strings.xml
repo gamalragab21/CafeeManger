@@ -14,4 +14,12 @@
     <string name="categories">الأقسام</string>
     <string name="unavailable">مش متوفر</string>
     <string name="items_label">أصناف</string>
+    <string name="variants">الخيارات</string>
+    <string name="add_variant_group">إضافة مجموعة</string>
+    <string name="group_name">اسم المجموعة</string>
+    <string name="required">مطلوب</string>
+    <string name="add_option">إضافة خيار</string>
+    <string name="option_name">اسم الخيار</string>
+    <string name="price_adjustment">تعديل السعر</string>
+    <string name="no_variants">مفيش خيارات</string>
 </resources>

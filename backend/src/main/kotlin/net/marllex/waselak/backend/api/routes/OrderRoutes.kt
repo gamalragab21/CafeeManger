@@ -13,6 +13,8 @@ import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
@@ -76,7 +78,17 @@ data class CreateOrderDto(
 
 @Serializable
 data class CreateOrderItemDto(
-    val item_id: String, val quantity: Int, val note: String? = null
+    val item_id: String,
+    val quantity: Int,
+    val note: String? = null,
+    val variant_selections: List<VariantSelectionDto>? = null
+)
+
+@Serializable
+data class VariantSelectionDto(
+    val group_name: String,
+    val option_name: String,
+    val price_adjustment: Double
 )
 
 @Serializable
@@ -158,7 +170,8 @@ data class OrderItemDto(
     val item_name_snapshot: String,
     val item_price_snapshot: Double,
     val quantity: Int,
-    val note: String? = null
+    val note: String? = null,
+    val variant_options_snapshot: String? = null
 )
 
 @Serializable
@@ -492,7 +505,12 @@ fun Route.orderRoutes() {
                         }
                     }
 
-                    val price = item[ItemsTable.price]
+                    val basePrice = item[ItemsTable.price]
+                    val variantAdjustment = orderItem.variant_selections
+                        ?.sumOf { it.price_adjustment }
+                        ?.let { BigDecimal.valueOf(it) }
+                        ?: BigDecimal.ZERO
+                    val price = basePrice + variantAdjustment
                     subtotal += price * BigDecimal(orderItem.quantity)
                     Triple(item, orderItem, price)
                 }
@@ -577,6 +595,10 @@ fun Route.orderRoutes() {
 
                 // Insert order items
                 val orderItems = itemSnapshots.map { (item, orderItem, price) ->
+                    val variantSnapshot = orderItem.variant_selections
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { Json.encodeToString(it) }
+
                     val oiId = OrderItemsTable.insertAndGetId {
                         it[OrderItemsTable.orderId] = orderId
                         it[itemId] = UUID.fromString(orderItem.item_id)
@@ -584,6 +606,7 @@ fun Route.orderRoutes() {
                         it[itemPriceSnapshot] = price
                         it[quantity] = orderItem.quantity
                         it[note] = orderItem.note
+                        it[variantOptionsSnapshot] = variantSnapshot
                         it[createdAt] = Clock.System.now()
                     }
                     OrderItemDto(
@@ -593,7 +616,8 @@ fun Route.orderRoutes() {
                         item_name_snapshot = item[ItemsTable.name],
                         item_price_snapshot = price.toDouble(),
                         quantity = orderItem.quantity,
-                        note = orderItem.note
+                        note = orderItem.note,
+                        variant_options_snapshot = variantSnapshot
                     )
                 }
 
@@ -792,8 +816,17 @@ fun Route.orderRoutes() {
                         val item = ItemsTable.selectAll()
                             .where { ItemsTable.id eq UUID.fromString(orderItem.item_id) }
                             .firstOrNull() ?: throw NoSuchElementException("Item ${orderItem.item_id} not found")
-                        val price = item[ItemsTable.price]
+                        val basePrice = item[ItemsTable.price]
+                        val variantAdj = orderItem.variant_selections
+                            ?.sumOf { it.price_adjustment }
+                            ?.let { BigDecimal.valueOf(it) }
+                            ?: BigDecimal.ZERO
+                        val price = basePrice + variantAdj
                         subtotal += price * BigDecimal(orderItem.quantity)
+
+                        val variantSnapshot = orderItem.variant_selections
+                            ?.takeIf { it.isNotEmpty() }
+                            ?.let { Json.encodeToString(it) }
 
                         val oiId = OrderItemsTable.insertAndGetId {
                             it[OrderItemsTable.orderId] = UUID.fromString(id)
@@ -802,6 +835,7 @@ fun Route.orderRoutes() {
                             it[itemPriceSnapshot] = price
                             it[OrderItemsTable.quantity] = orderItem.quantity
                             it[note] = orderItem.note
+                            it[variantOptionsSnapshot] = variantSnapshot
                             it[createdAt] = Clock.System.now()
                         }
 
@@ -1428,7 +1462,8 @@ private fun ResultRow.toOrderItemDto() = OrderItemDto(
     item_name_snapshot = this[OrderItemsTable.itemNameSnapshot],
     item_price_snapshot = this[OrderItemsTable.itemPriceSnapshot].toDouble(),
     quantity = this[OrderItemsTable.quantity],
-    note = this[OrderItemsTable.note]
+    note = this[OrderItemsTable.note],
+    variant_options_snapshot = this[OrderItemsTable.variantOptionsSnapshot]
 )
 
 // Public, token-guarded receipt view (no auth header required)

@@ -29,4 +29,8 @@
     <string name="pay_now">ادفع دلوقتي</string>
     <string name="pay_later">ادفع بعدين</string>
     <string name="optional_hint">اختياري</string>
+    <string name="select_options">خيارات</string>
+    <string name="confirm_add">أضف للسلة - %1$s</string>
+    <string name="cancel">إلغاء</string>
+    <string name="price">السعر</string>
 </resources>

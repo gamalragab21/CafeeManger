@@ -234,6 +234,24 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             created_by TEXT NOT NULL,
             created_at INTEGER NOT NULL
         )""",
+        // v18: Item Variants - variant groups and options tables
+        """CREATE TABLE IF NOT EXISTS item_variant_groups (
+            id TEXT NOT NULL PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            required INTEGER NOT NULL DEFAULT 0,
+            display_order INTEGER NOT NULL DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS item_variant_options (
+            id TEXT NOT NULL PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            price_adjustment REAL NOT NULL DEFAULT 0.0,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            display_order INTEGER NOT NULL DEFAULT 0
+        )""",
+        // v18: variant_options_snapshot on order_items
+        "ALTER TABLE order_items ADD COLUMN variant_options_snapshot TEXT",
     )
     migrations.forEach { sql ->
         try {
@@ -282,6 +300,12 @@ val databaseModule = module {
             pending_attendanceAdapter = Pending_attendance.Adapter(
                 retry_countAdapter = intAdapter,
             ),
+            item_variant_groupsAdapter = Item_variant_groups.Adapter(
+                display_orderAdapter = intAdapter,
+            ),
+            item_variant_optionsAdapter = Item_variant_options.Adapter(
+                display_orderAdapter = intAdapter,
+            ),
         )
     }
 
@@ -296,4 +320,5 @@ val databaseModule = module {
     single { WorkerDao(get()) }
     single { CustomerDao(get()) }
     single { PendingSyncDao(get()) }
+    single { ItemVariantDao(get()) }
 }

@@ -42,6 +42,8 @@ object DatabaseConfig {
                 UsersTable,
                 CategoriesTable,
                 ItemsTable,
+                ItemVariantGroupsTable,
+                ItemVariantOptionsTable,
                 TablesTable,
                 TaxPlacesTable,
                 CustomersTable,
@@ -66,7 +68,9 @@ object DatabaseConfig {
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
-                VendorsTable, OrdersTable, ItemsTable, StockTable,
+                VendorsTable, OrdersTable, OrderItemsTable, ItemsTable,
+                ItemVariantGroupsTable, ItemVariantOptionsTable,
+                StockTable,
                 RecipesTable, RecipeIngredientsTable, StockTransactionsTable,
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable, OvertimeTable,
@@ -137,6 +141,8 @@ object DatabaseConfig {
                 CustomersTable,
                 TaxPlacesTable,
                 TablesTable,
+                ItemVariantOptionsTable,
+                ItemVariantGroupsTable,
                 ItemsTable,
                 CategoriesTable,
                 UsersTable,

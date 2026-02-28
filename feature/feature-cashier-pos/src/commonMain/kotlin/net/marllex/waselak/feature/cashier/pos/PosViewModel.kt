@@ -28,9 +28,11 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Table
+import net.marllex.waselak.core.model.VariantSelection
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
+import net.marllex.waselak.core.network.dto.VariantSelectionRequest
 
 class PosViewModel constructor(
     private val itemRepository: ItemRepository,
@@ -81,6 +83,9 @@ class PosViewModel constructor(
         val showPhoneDropdown: Boolean = false,
         // Offline mode
         val isOffline: Boolean = false,
+        // Variant selector
+        val variantSelectorItem: Item? = null,
+        val variantSelections: Map<String, VariantSelection> = emptyMap(), // groupId → selection
     ) {
         /** Whether the Place Order button should be enabled */
         val canSubmit: Boolean get() {
@@ -177,22 +182,92 @@ class PosViewModel constructor(
     }
 
     fun addToCart(item: Item) {
+        // If item has variant groups, show variant selector
+        if (item.variantGroups.isNotEmpty()) {
+            // Pre-select defaults
+            val defaultSelections = mutableMapOf<String, VariantSelection>()
+            item.variantGroups.forEach { group ->
+                val defaultOption = group.options.find { it.isDefault }
+                if (defaultOption != null) {
+                    defaultSelections[group.id] = VariantSelection(
+                        groupName = group.name,
+                        optionName = defaultOption.name,
+                        priceAdjustment = defaultOption.priceAdjustment,
+                    )
+                }
+            }
+            _uiState.update { it.copy(variantSelectorItem = item, variantSelections = defaultSelections) }
+            return
+        }
+        // No variants — add directly
+        addToCartDirect(item, emptyList())
+    }
+
+    fun selectVariantOption(groupId: String, groupName: String, optionName: String, priceAdjustment: Double) {
         _uiState.update { state ->
-            val existing = state.cart.find { it.item.id == item.id }
+            state.copy(variantSelections = state.variantSelections + (groupId to VariantSelection(
+                groupName = groupName, optionName = optionName, priceAdjustment = priceAdjustment
+            )))
+        }
+    }
+
+    fun confirmVariantSelection() {
+        val item = _uiState.value.variantSelectorItem ?: return
+        val selections = _uiState.value.variantSelections.values.toList()
+        // Check required groups
+        val missingRequired = item.variantGroups.filter { it.required }.any { group ->
+            !_uiState.value.variantSelections.containsKey(group.id)
+        }
+        if (missingRequired) return
+        addToCartDirect(item, selections)
+        _uiState.update { it.copy(variantSelectorItem = null, variantSelections = emptyMap()) }
+    }
+
+    fun dismissVariantSelector() {
+        _uiState.update { it.copy(variantSelectorItem = null, variantSelections = emptyMap()) }
+    }
+
+    private fun addToCartDirect(item: Item, variantSelections: List<VariantSelection>) {
+        _uiState.update { state ->
+            // For items with variants, each unique selection combo is a separate cart line
+            val cartKey = item.id + variantSelections.sortedBy { it.groupName }.joinToString("|") { "${it.groupName}:${it.optionName}" }
+            val existing = state.cart.find { cartItem ->
+                val existingKey = cartItem.item.id + cartItem.variantSelections.sortedBy { it.groupName }.joinToString("|") { "${it.groupName}:${it.optionName}" }
+                existingKey == cartKey
+            }
             val newCart = if (existing != null) {
-                state.cart.map {
-                    if (it.item.id == item.id) it.copy(quantity = it.quantity + 1) else it
+                state.cart.map { cartItem ->
+                    val existingKey = cartItem.item.id + cartItem.variantSelections.sortedBy { it.groupName }.joinToString("|") { "${it.groupName}:${it.optionName}" }
+                    if (existingKey == cartKey) cartItem.copy(quantity = cartItem.quantity + 1) else cartItem
                 }
             } else {
-                state.cart + CartItem(item = item, quantity = 1)
+                state.cart + CartItem(item = item, quantity = 1, variantSelections = variantSelections)
             }
             state.copy(cart = newCart)
+        }
+    }
+
+    fun removeFromCart(cartIndex: Int) {
+        _uiState.update { state ->
+            state.copy(cart = state.cart.filterIndexed { index, _ -> index != cartIndex })
         }
     }
 
     fun removeFromCart(itemId: String) {
         _uiState.update { state ->
             state.copy(cart = state.cart.filter { it.item.id != itemId })
+        }
+    }
+
+    fun updateCartQuantity(cartIndex: Int, quantity: Int) {
+        if (quantity <= 0) {
+            removeFromCart(cartIndex)
+            return
+        }
+        _uiState.update { state ->
+            state.copy(cart = state.cart.mapIndexed { index, cartItem ->
+                if (index == cartIndex) cartItem.copy(quantity = quantity) else cartItem
+            })
         }
     }
 
@@ -360,7 +435,7 @@ class PosViewModel constructor(
     fun setClientAddress(v: String) { _uiState.update { it.copy(clientAddress = v) } }
     fun setNotes(v: String) { _uiState.update { it.copy(notes = v) } }
 
-    fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.item.price * cartItem.quantity }
+    fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.totalPrice }
 
     // ─── Customer methods ─────────────────────────────────────────
 
@@ -427,6 +502,15 @@ class PosViewModel constructor(
                     itemId = cartItem.item.id,
                     quantity = cartItem.quantity,
                     note = cartItem.note,
+                    variantSelections = if (cartItem.variantSelections.isNotEmpty()) {
+                        cartItem.variantSelections.map { vs ->
+                            VariantSelectionRequest(
+                                groupName = vs.groupName,
+                                optionName = vs.optionName,
+                                priceAdjustment = vs.priceAdjustment,
+                            )
+                        }
+                    } else null,
                 )
             }
 

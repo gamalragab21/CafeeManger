@@ -13,7 +13,7 @@ import org.koin.dsl.module
 val dataModule = module {
     single<VendorRepository> { VendorRepositoryImpl(get(), get(), get()) }
     single<CategoryRepository> { CategoryRepositoryImpl(get(), get(), get()) }
-    single<ItemRepository> { ItemRepositoryImpl(get(), get(), get()) }
+    single<ItemRepository> { ItemRepositoryImpl(get(), get(), get(), get()) }
     single<TableRepository> { TableRepositoryImpl(get(), get(), get()) }
     single<OrderRepository> { OrderRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<UserManagementRepository> { UserManagementRepositoryImpl(get(), get(), get()) }

@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -439,47 +440,92 @@ private fun ItemDialog(
             Res.string.add_item
         )) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = uiState.dialogName,
-                    onValueChange = viewModel::updateDialogName,
-                    label = { Text(stringResource(Res.string.name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = uiState.dialogDescription,
-                    onValueChange = viewModel::updateDialogDescription,
-                    label = { Text(stringResource(Res.string.description)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = uiState.dialogPrice,
-                    onValueChange = viewModel::updateDialogPrice,
-                    label = { Text(stringResource(Res.string.price)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = uiState.dialogName,
+                        onValueChange = viewModel::updateDialogName,
+                        label = { Text(stringResource(Res.string.name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = uiState.dialogDescription,
+                        onValueChange = viewModel::updateDialogDescription,
+                        label = { Text(stringResource(Res.string.description)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = uiState.dialogPrice,
+                        onValueChange = viewModel::updateDialogPrice,
+                        label = { Text(stringResource(Res.string.price)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 // Category selector as chips
-                Text(stringResource(Res.string.category), style = MaterialTheme.typography.labelMedium)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.categories) { cat ->
-                        FilterChip(
-                            selected = uiState.dialogCategoryId == cat.id,
-                            onClick = { viewModel.updateDialogCategoryId(cat.id) },
-                            label = { Text(cat.name) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            ),
+                item {
+                    Text(stringResource(Res.string.category), style = MaterialTheme.typography.labelMedium)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(uiState.categories) { cat ->
+                            FilterChip(
+                                selected = uiState.dialogCategoryId == cat.id,
+                                onClick = { viewModel.updateDialogCategoryId(cat.id) },
+                                label = { Text(cat.name) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Available", modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = uiState.dialogAvailable,
+                            onCheckedChange = viewModel::updateDialogAvailable,
                         )
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Available", modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = uiState.dialogAvailable,
-                        onCheckedChange = viewModel::updateDialogAvailable,
-                    )
+
+                // ─── Variants Section ──────────────────────────────
+                item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            stringResource(Res.string.variants),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        )
+                        TextButton(onClick = viewModel::addVariantGroup) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(Res.string.add_variant_group))
+                        }
+                    }
+                }
+
+                if (uiState.dialogVariantGroups.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(Res.string.no_variants),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                items(uiState.dialogVariantGroups, key = { it.id }) { group ->
+                    VariantGroupCard(group = group, viewModel = viewModel)
                 }
             }
         },
@@ -495,4 +541,82 @@ private fun ItemDialog(
             TextButton(onClick = viewModel::dismissDialog) { Text(stringResource(Res.string.cancel)) }
         },
     )
+}
+
+@Composable
+private fun VariantGroupCard(
+    group: EditableVariantGroup,
+    viewModel: ItemsViewModel,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = group.name,
+                    onValueChange = { viewModel.updateVariantGroupName(group.id, it) },
+                    label = { Text(stringResource(Res.string.group_name)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { viewModel.removeVariantGroup(group.id) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(Res.string.required), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Switch(
+                    checked = group.required,
+                    onCheckedChange = { viewModel.toggleVariantGroupRequired(group.id) },
+                )
+            }
+
+            // Options
+            group.options.forEach { option ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    OutlinedTextField(
+                        value = option.name,
+                        onValueChange = { viewModel.updateVariantOptionName(group.id, option.id, it) },
+                        label = { Text(stringResource(Res.string.option_name)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = if (option.priceAdjustment == 0.0) "" else option.priceAdjustment.toString(),
+                        onValueChange = { viewModel.updateVariantOptionPrice(group.id, option.id, it) },
+                        label = { Text("+/-") },
+                        singleLine = true,
+                        modifier = Modifier.width(80.dp),
+                    )
+                    IconButton(
+                        onClick = { viewModel.removeVariantOption(group.id, option.id) },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            TextButton(onClick = { viewModel.addVariantOption(group.id) }) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(Res.string.add_option), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }

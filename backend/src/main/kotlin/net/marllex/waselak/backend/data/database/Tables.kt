@@ -81,6 +81,25 @@ object ItemsTable : UUIDTable("items") {
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
 
+// ─── Item Variant Groups ────────────────────────────────────────
+object ItemVariantGroupsTable : UUIDTable("item_variant_groups") {
+    val itemId = reference("item_id", ItemsTable, onDelete = ReferenceOption.CASCADE)
+    val name = varchar("name", 255)
+    val required = bool("required").default(false)
+    val displayOrder = integer("display_order").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Item Variant Options ───────────────────────────────────────
+object ItemVariantOptionsTable : UUIDTable("item_variant_options") {
+    val groupId = reference("group_id", ItemVariantGroupsTable, onDelete = ReferenceOption.CASCADE)
+    val name = varchar("name", 255)
+    val priceAdjustment = decimal("price_adjustment", 10, 2).default(java.math.BigDecimal.ZERO)
+    val isDefault = bool("is_default").default(false)
+    val displayOrder = integer("display_order").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
 // ─── Tables (Store Tables) ───────────────────────────────────────
 object TablesTable : UUIDTable("restaurant_tables") {
     val vendorId = reference("vendor_id", VendorsTable)
@@ -149,6 +168,7 @@ object OrderItemsTable : UUIDTable("order_items") {
     val itemPriceSnapshot = decimal("item_price_snapshot", 10, 2)
     val quantity = integer("quantity")
     val note = text("note").nullable()
+    val variantOptionsSnapshot = text("variant_options_snapshot").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 

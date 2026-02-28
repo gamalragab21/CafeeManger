@@ -213,12 +213,17 @@ class OrderRepositoryImpl constructor(
 
         val orderItems = items.mapIndexed { index, item ->
             val dbItem = itemDao.getItemById(item.itemId).firstOrNull()
+            val variantAdjustment = item.variantSelections?.sumOf { it.priceAdjustment } ?: 0.0
+            val variantSnapshot = if (item.variantSelections?.isNotEmpty() == true) {
+                json.encodeToString(item.variantSelections)
+            } else null
             OrderItem(
                 id = "offline-item-$now-$index",
                 orderId = localId, itemId = item.itemId,
                 itemNameSnapshot = dbItem?.name ?: item.itemId,
-                itemPriceSnapshot = dbItem?.price ?: 0.0,
+                itemPriceSnapshot = (dbItem?.price ?: 0.0) + variantAdjustment,
                 quantity = item.quantity, note = item.note,
+                variantOptionsSnapshot = variantSnapshot,
             )
         }
         val subtotal = orderItems.sumOf { it.itemPriceSnapshot * it.quantity }

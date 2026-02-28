@@ -128,7 +128,8 @@ class OrderDao(private val db: WaselakDatabase) {
                     item_name_snapshot = item.item_name_snapshot,
                     item_price_snapshot = item.item_price_snapshot,
                     quantity = item.quantity,
-                    note = item.note
+                    note = item.note,
+                    variant_options_snapshot = item.variant_options_snapshot
                 )
             }
         }
