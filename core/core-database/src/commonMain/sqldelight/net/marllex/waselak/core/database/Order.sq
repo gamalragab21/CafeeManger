@@ -70,6 +70,9 @@ UPDATE orders SET payment_status = ?, updated_at = ? WHERE id = ?;
 assignDeliveryUser:
 UPDATE orders SET delivery_user_id = ?, updated_at = ? WHERE id = ?;
 
+refundOrder:
+UPDATE orders SET status = 'REFUNDED', refund_reason = ?, refunded_at = ?, updated_at = ? WHERE id = ?;
+
 getOrdersByCustomerId:
 SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC LIMIT ?;
 

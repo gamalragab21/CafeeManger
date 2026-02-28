@@ -449,6 +449,7 @@ private fun PendingSyncItemCard(
         "ORDER_STATUS_UPDATE" -> stringResource(CoreRes.string.order_status_sync)
         "CHECK_IN" -> stringResource(CoreRes.string.check_in_sync)
         "CHECK_OUT" -> stringResource(CoreRes.string.check_out_sync)
+        "REFUND" -> stringResource(CoreRes.string.refund_sync)
         else -> syncItem.type
     }
 

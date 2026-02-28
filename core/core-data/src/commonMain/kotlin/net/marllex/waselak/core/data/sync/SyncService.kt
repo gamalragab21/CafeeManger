@@ -14,6 +14,7 @@ import net.marllex.waselak.core.network.dto.CheckInWithPinRequest
 import net.marllex.waselak.core.network.dto.CheckOutRequest
 import net.marllex.waselak.core.network.dto.CheckOutWithPinRequest
 import net.marllex.waselak.core.network.dto.CreateOrderRequest
+import net.marllex.waselak.core.network.dto.RefundOrderRequest
 import net.marllex.waselak.core.network.dto.UpdateOrderStatusRequest
 import net.marllex.waselak.core.network.dto.UpdatePaymentStatusRequest
 import net.marllex.waselak.core.network.mapper.toDomain
@@ -143,6 +144,29 @@ class SyncService(
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
+                        "REFUND" -> {
+                            val params = json.decodeFromString<RefundPayload>(item.payload)
+                            val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+
+                            if (resolvedOrderId.startsWith("offline-")) {
+                                val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
+                                if (hasPendingOrder) continue
+                                pendingSyncDao.updateRetry(
+                                    id = item.id, retryCount = 3,
+                                    lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
+                                )
+                                continue
+                            }
+
+                            val response = api.refundOrder(
+                                resolvedOrderId,
+                                RefundOrderRequest(params.reason),
+                            )
+                            val order = response.toDomain()
+                            orderDao.insertOrder(order.toDbEntity())
+                            pendingSyncDao.deletePending(item.id)
+                            syncedCount++
+                        }
                     }
                 } catch (e: Exception) {
                     pendingSyncDao.updateRetry(
@@ -182,6 +206,13 @@ class SyncService(
                         pendingSyncDao.updatePayload(item.id, json.encodeToString(updated))
                     }
                 }
+                "REFUND" -> {
+                    val params = json.decodeFromString<RefundPayload>(item.payload)
+                    if (params.orderId == offlineId) {
+                        val updated = params.copy(orderId = serverId)
+                        pendingSyncDao.updatePayload(item.id, json.encodeToString(updated))
+                    }
+                }
             }
         }
     }
@@ -211,4 +242,10 @@ data class PaymentUpdatePayload(
 data class OrderStatusPayload(
     val orderId: String,
     val status: String,
+)
+
+@Serializable
+data class RefundPayload(
+    val orderId: String,
+    val reason: String,
 )

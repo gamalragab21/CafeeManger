@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.data.sync.OrderStatusPayload
 import net.marllex.waselak.core.data.sync.PaymentUpdatePayload
+import net.marllex.waselak.core.data.sync.RefundPayload
 import net.marllex.waselak.core.database.Pending_sync
 import net.marllex.waselak.core.database.dao.ItemDao
 import net.marllex.waselak.core.database.dao.OrderDao
@@ -319,12 +320,27 @@ class OrderRepositoryImpl constructor(
 
     override suspend fun refundOrder(id: String, reason: String): Result<Order> =
         runCatching {
-            val response = api.refundOrder(id, RefundOrderRequest(reason))
-            val order = response.toDomain()
-            orderDao.insertOrder(order.toDbEntity())
-            orderDao.deleteOrderItems(order.id)
-            orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
-            order
+            try {
+                val response = api.refundOrder(id, RefundOrderRequest(reason))
+                val order = response.toDomain()
+                orderDao.insertOrder(order.toDbEntity())
+                orderDao.deleteOrderItems(order.id)
+                orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+                order
+            } catch (e: Exception) {
+                if (offlineModeManager.offlineModeEnabled.value) {
+                    val now = Clock.System.now().toEpochMilliseconds()
+                    orderDao.refundOrder(id, reason, now)
+                    pendingSyncDao.insertPending(Pending_sync(
+                        id = "refund-$id-$now", type = "REFUND",
+                        payload = json.encodeToString(RefundPayload(id, reason)),
+                        created_at = now, retry_count = 0, last_error = null,
+                    ))
+                    val items = orderDao.getOrderItemsList(id).map { it.toDomain() }
+                    orderDao.getOrderById(id).firstOrNull()?.toDomain(items)
+                        ?: throw e
+                } else throw e
+            }
         }
 
     override suspend fun shareReceipt(id: String): Result<ReceiptShareLink> =

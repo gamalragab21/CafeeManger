@@ -193,6 +193,7 @@
     <string name="order_status_sync">Status Update</string>
     <string name="check_in_sync">Check In</string>
     <string name="check_out_sync">Check Out</string>
+    <string name="refund_sync">Refund</string>
     <string name="order_payment_sync">Orders &amp; Payments Sync</string>
     <string name="sync_all_now">Sync All Now</string>
     <string name="failed_items">Failed Items</string>

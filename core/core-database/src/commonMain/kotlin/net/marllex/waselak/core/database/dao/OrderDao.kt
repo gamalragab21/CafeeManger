@@ -90,6 +90,10 @@ class OrderDao(private val db: WaselakDatabase) {
         orderQueries.assignDeliveryUser(userId, updatedAt, orderId)
     }
 
+    suspend fun refundOrder(orderId: String, reason: String, refundedAt: Long) {
+        orderQueries.refundOrder(reason, refundedAt, refundedAt, orderId)
+    }
+
     fun getOrdersByCustomerId(customerId: String, limit: Long): Flow<List<Orders>> =
         orderQueries.getOrdersByCustomerId(customerId, limit).asFlow().mapToList(Dispatchers.Default)
 
