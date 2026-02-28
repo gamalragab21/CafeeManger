@@ -323,7 +323,7 @@ private fun DeliveryOrderCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "${order.items.size} ${stringResource(Res.string.order_items)} • ${CurrencyFormatter.format(order.total)}",
+                    text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.ExtraBold,
@@ -489,7 +489,7 @@ private fun AvailableOrderCard(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${order.items.size} ${stringResource(Res.string.order_items)} - ${stringResource(Res.string.total)}: ${CurrencyFormatter.format(order.total)}",
+                text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )

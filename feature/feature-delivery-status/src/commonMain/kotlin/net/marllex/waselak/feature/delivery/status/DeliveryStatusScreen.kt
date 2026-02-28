@@ -116,7 +116,7 @@ fun DeliveryStatusScreen(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Button(onClick = { onNavigateToMap(order.geoLat, order.geoLng) }, shape = RoundedCornerShape(12.dp)) {
                                     Icon(Icons.Filled.LocationOn, contentDescription = null)
-                                    Text(" Open in Maps")
+                                    Text(" ${stringResource(Res.string.open_in_maps)}")
                                 }
                             }
                         }
@@ -152,7 +152,7 @@ fun DeliveryStatusScreen(
                     order.notes?.let {
                         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Notes", style = MaterialTheme.typography.titleSmall)
+                                Text(stringResource(Res.string.notes), style = MaterialTheme.typography.titleSmall)
                                 Text(text = it, style = MaterialTheme.typography.bodyMedium)
                             }
                         }

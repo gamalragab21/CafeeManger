@@ -35,6 +35,9 @@ import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import org.jetbrains.compose.resources.stringResource
+import net.marllex.waselak.feature.delivery.orders.generated.resources.Res
+import net.marllex.waselak.feature.delivery.orders.generated.resources.*
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,7 +51,7 @@ fun DeliveryHistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Completed Orders") },
+                title = { Text(stringResource(Res.string.completed_orders)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         }
@@ -97,7 +100,7 @@ fun DeliveryHistoryScreen(
                                     )
 
                                     Text(
-                                        text = "${order.items.size} items • ${CurrencyFormatter.format(order.total)}",
+                                        text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                     )

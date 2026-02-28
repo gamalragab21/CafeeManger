@@ -15,7 +15,9 @@
     <string name="complete">تمام</string>
     <string name="view_receipt">شوف الفاتورة</string>
     <string name="items_count">%d أصناف</string>
+    <string name="items_count_total">%1$d صنف • %2$s</string>
     <string name="order_items">أصناف الطلب</string>
+    <string name="completed_orders">الطلبات المكتملة</string>
     <!-- Receipt -->
     <string name="receipt">الفاتورة</string>
     <string name="total">الإجمالي</string>

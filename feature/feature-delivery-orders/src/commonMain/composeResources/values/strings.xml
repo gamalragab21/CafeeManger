@@ -15,7 +15,9 @@
     <string name="complete">Complete</string>
     <string name="view_receipt">View Receipt</string>
     <string name="items_count">%d items</string>
+    <string name="items_count_total">%1$d items • %2$s</string>
     <string name="order_items">Order Items</string>
+    <string name="completed_orders">Completed Orders</string>
     <!-- Receipt -->
     <string name="receipt">Receipt</string>
     <string name="total">Total</string>

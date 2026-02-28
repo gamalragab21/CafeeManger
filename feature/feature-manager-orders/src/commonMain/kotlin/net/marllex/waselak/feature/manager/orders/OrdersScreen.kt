@@ -486,7 +486,7 @@ private fun OrderCard(
 
             // --- Info Section ---
             Text(
-                text = "${order.items.size} items • Total: ${CurrencyFormatter.formatDecimal(order.total)}",
+                text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.formatDecimal(order.total)),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )

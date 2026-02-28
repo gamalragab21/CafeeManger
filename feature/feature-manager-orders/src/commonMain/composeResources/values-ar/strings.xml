@@ -16,6 +16,7 @@
     <string name="client">العميل</string>
     <string name="phone">التليفون</string>
     <string name="order_items">أصناف الطلب</string>
+    <string name="items_count_total">%1$d صنف • الإجمالي: %2$s</string>
     <string name="subtotal">المجموع الفرعي</string>
     <string name="delivery_fee">مصاريف التوصيل</string>
     <string name="total">الإجمالي</string>
