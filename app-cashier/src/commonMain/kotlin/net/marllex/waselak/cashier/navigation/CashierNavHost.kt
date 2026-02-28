@@ -1083,7 +1083,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         val isTablet = maxWidth >= 600.dp
 
         if (isTablet) {
