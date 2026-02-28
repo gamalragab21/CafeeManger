@@ -455,7 +455,7 @@ private fun OverviewTab(
     viewModel: StockViewModel,
 ) {
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Summary Cards Row
@@ -953,7 +953,7 @@ private fun AlertsTab(
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Out of stock section
@@ -1646,7 +1646,7 @@ private fun TransactionsTab(uiState: StockViewModel.UiState) {
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(uiState.transactions, key = { it.id }) { transaction ->
@@ -1834,7 +1834,7 @@ private fun RecipesTab(
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(uiState.recipes, key = { it.id }) { recipe ->

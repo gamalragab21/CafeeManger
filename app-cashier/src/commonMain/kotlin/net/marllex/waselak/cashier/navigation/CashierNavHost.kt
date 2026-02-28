@@ -453,6 +453,7 @@ private fun CashierProfileScreen(
                         text = stringResource(CoreRes.string.store_information),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -504,6 +505,7 @@ private fun CashierProfileScreen(
                     text = stringResource(CoreRes.string.account_information),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -552,6 +554,7 @@ private fun CashierProfileScreen(
                     text = stringResource(CoreRes.string.app_settings),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -579,6 +582,7 @@ private fun CashierProfileScreen(
                     text = stringResource(CoreRes.string.sync_and_offline),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -608,6 +612,7 @@ private fun CashierProfileScreen(
                                 Text(
                                     text = stringResource(CoreRes.string.pending_items),
                                     style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                             Badge(
@@ -702,6 +707,7 @@ private fun CashierProfileScreen(
                         text = stringResource(CoreRes.string.pending_records),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -775,6 +781,7 @@ private fun ProfileInfoRow(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

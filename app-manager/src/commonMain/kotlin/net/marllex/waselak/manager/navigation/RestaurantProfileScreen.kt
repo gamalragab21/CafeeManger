@@ -91,7 +91,7 @@ fun RestaurantProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     if (uiState.isEditing) {
-                        item { Text("Edit Store Info", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+                        item { Text("Edit Store Info", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
                         item {
                             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                                 if (uiState.editLogoUrl.isNotBlank()) {
@@ -175,7 +175,7 @@ private fun ProfileInfoRow(icon: ImageVector, label: String, value: String) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(Modifier.size(12.dp))
-            Column { Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge) }
+            Column { Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface) }
         }
     }
 }
