@@ -2,10 +2,16 @@
 <resources>
     <string name="add_to_cart">Add to cart</string>
     <string name="new_order">New Order</string>
+    <string name="new_prescription">New Prescription</string>
+    <string name="new_invoice">New Invoice</string>
     <string name="select_table">Select Table</string>
     <string name="notes_optional">Notes (optional)</string>
     <string name="placing_order">Placing Order...</string>
+    <string name="placing_prescription">Processing Prescription...</string>
+    <string name="placing_invoice">Processing Invoice...</string>
     <string name="place_order">Place Order - %1$s</string>
+    <string name="place_prescription">Submit Prescription - %1$s</string>
+    <string name="place_invoice">Create Invoice - %1$s</string>
     <string name="channel_dine_in">Dine-In</string>
     <string name="channel_delivery">Delivery</string>
     <string name="channel_takeaway">Takeaway</string>
@@ -33,5 +39,43 @@
     <string name="confirm_add">Add to Cart - %1$s</string>
     <string name="cancel">Cancel</string>
     <string name="price">Price</string>
+    <string name="all_categories">All</string>
+    <string name="search_menu">Search menu...</string>
     <string name="no_menu_items">No menu items available</string>
+    <string name="barcode_scanner">Barcode Scanner</string>
+    <string name="offline_confirm_title">No Internet Connection</string>
+    <string name="offline_confirm_message">You are offline. Do you want to continue working in offline mode? Orders will be saved locally and synced when back online.</string>
+    <string name="continue_offline">Continue Offline</string>
+    <!-- Offers Banner -->
+    <string name="offer_discount_fixed">%1$s only</string>
+    <string name="offer_discount_percent">%1$s off</string>
+    <string name="offer_banner_items">%1$d items</string>
+    <string name="offer_applied">Offer applied</string>
+    <string name="discount_label">Discount</string>
+    <string name="total_label">Total</string>
+    <!-- Manual Discount -->
+    <string name="manual_discount">Manual Discount</string>
+    <string name="discount_value">Discount Value</string>
+    <string name="discount_type_fixed">Fixed</string>
+    <string name="discount_type_percent">Percent</string>
+    <string name="discount_reason_hint">Reason (optional)</string>
+    <string name="apply_discount">Apply</string>
+    <string name="clear_discount">Clear</string>
+    <string name="pin_required_title">Manager Approval</string>
+    <string name="pin_required_message">This discount exceeds the allowed limit. Enter a manager PIN to approve.</string>
+    <string name="manager_pin">Manager PIN</string>
+    <string name="verify_pin">Verify</string>
+    <string name="pin_approved">Approved</string>
+    <!-- Loyalty Points -->
+    <string name="loyalty_points_section">Loyalty Points</string>
+    <string name="points_available">%1$d points available</string>
+    <string name="apply_all_points">Apply %1$d pts (-%2$s)</string>
+    <string name="points_applied_label">%1$d points applied</string>
+    <string name="points_discount_value">= %1$s discount</string>
+    <string name="min_points_hint">Need at least %1$d points to redeem</string>
+    <string name="clear_points">Clear</string>
+    <!-- Discount Breakdown -->
+    <string name="offer_discount_row">Offer Discount</string>
+    <string name="manual_discount_row">Manual Discount</string>
+    <string name="points_discount_row">Points Discount</string>
 </resources>

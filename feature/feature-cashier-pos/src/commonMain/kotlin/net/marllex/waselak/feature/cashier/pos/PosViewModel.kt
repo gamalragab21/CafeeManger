@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.cashier.pos
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -9,11 +10,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.CategoryRepository
 import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.domain.repository.ItemRepository
+import net.marllex.waselak.core.domain.repository.OfferRepository
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
@@ -23,6 +27,7 @@ import net.marllex.waselak.core.model.Category
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Item
+import net.marllex.waselak.core.model.Offer
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
@@ -33,8 +38,13 @@ import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 import net.marllex.waselak.core.network.dto.VariantSelectionRequest
+import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.isPlanLimitExceeded
 
 class PosViewModel constructor(
+    savedStateHandle: SavedStateHandle,
     private val itemRepository: ItemRepository,
     private val categoryRepository: CategoryRepository,
     private val tableRepository: TableRepository,
@@ -42,8 +52,16 @@ class PosViewModel constructor(
     private val taxPlaceRepository: TaxPlaceRepository,
     private val vendorRepository: VendorRepository,
     private val customerRepository: CustomerRepository,
+    private val offerRepository: OfferRepository,
     private val offlineModeManager: OfflineModeManager,
+    private val api: WaselakApiClient,
 ) : ViewModel() {
+
+    // Navigation args from reservation flow
+    private val navTableId: String? = savedStateHandle["tableId"]
+    private val navReservationId: String? = savedStateHandle["reservationId"]
+    private val navClientName: String? = savedStateHandle["clientName"]
+    private val navClientPhone: String? = savedStateHandle["clientPhone"]
 
     data class UiState(
         val items: List<Item> = emptyList(),
@@ -51,6 +69,7 @@ class PosViewModel constructor(
         val tables: List<Table> = emptyList(),
         val taxPlaces: List<TaxPlace> = emptyList(),
         val selectedCategoryId: String? = null,
+        val searchQuery: String = "",
         val cart: List<CartItem> = emptyList(),
         val channel: OrderChannel = OrderChannel.DINE_IN,
         val enableTables: Boolean = true,
@@ -61,7 +80,9 @@ class PosViewModel constructor(
         val enablePickupLater: Boolean = false,
         val vendorName: String = "",
         val vendorLogoUrl: String? = null,
+        val businessType: String = "RESTAURANT",
         val selectedTableId: String? = null,
+        val reservationId: String? = null,
         val selectedTaxPlaceId: String? = null,
         val clientName: String = "",
         val clientPhone: String = "",
@@ -86,7 +107,47 @@ class PosViewModel constructor(
         // Variant selector
         val variantSelectorItem: Item? = null,
         val variantSelections: Map<String, VariantSelection> = emptyMap(), // groupId → selection
+        // Barcode scanner
+        val showBarcodeScanner: Boolean = false,
+        val barcodeScanMessage: String? = null,
+        // Offers
+        val activeOffers: List<Offer> = emptyList(),
+        val appliedOffer: Offer? = null,
+        // Manual discount
+        val manualDiscountValue: String = "",
+        val manualDiscountType: String = "FIXED", // FIXED or PERCENT
+        val manualDiscountReason: String = "",
+        // Loyalty points
+        val pointsToRedeem: Int = 0,
+        val loyaltyEnabled: Boolean = false,
+        val pointsRedeemRate: Double = 0.1,
+        val minPointsRedeem: Int = 100,
+        // PIN approval
+        val showPinDialog: Boolean = false,
+        val pinError: String? = null,
+        val maxManualDiscountPercent: Double = 100.0,
+        val manualDiscountRequiresPin: Boolean = false,
+        val pinApproved: Boolean = false,
+        // Offline confirmation dialog
+        val showOfflineConfirmation: Boolean = false,
+        // Plan limit / feature gating
+        val showPlanLimitDialog: Boolean = false,
+        val planLimitMessage: String = "",
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     ) {
+        /** Items filtered by search query (cross-category) or by selected category */
+        val filteredItems: List<Item>
+            get() = when {
+                searchQuery.isNotBlank() -> items.filter {
+                    it.name.contains(searchQuery, ignoreCase = true)
+                }
+                selectedCategoryId != null -> items.filter {
+                    it.categoryId == selectedCategoryId
+                }
+                else -> items
+            }
+
         /** Whether the Place Order button should be enabled */
         val canSubmit: Boolean get() {
             if (cart.isEmpty() || isSubmitting) return false
@@ -112,9 +173,19 @@ class PosViewModel constructor(
                 _uiState.update { it.copy(isOffline = offline) }
             }
         }
+        viewModelScope.launch {
+            offlineModeManager.needsOfflineConfirmation.collect { needsConfirm ->
+                _uiState.update { it.copy(showOfflineConfirmation = needsConfirm) }
+            }
+        }
+        // Auto-prefill from reservation navigation args
+        if (navReservationId != null && navTableId != null && navClientName != null) {
+            prefillFromReservation(navTableId, navReservationId, navClientName, navClientPhone)
+        }
     }
 
     fun loadMenu() {
+        AppLogger.d("POS", "Loading POS menu")
         // Subscribe to local DB flows immediately (shows cached data even when offline)
         viewModelScope.launch {
             combine(
@@ -152,10 +223,24 @@ class PosViewModel constructor(
                         enablePickupLater = vendor.enablePickupLater,
                         vendorName = vendor.name,
                         vendorLogoUrl = vendor.logoUrl,
+                        businessType = vendor.businessType,
                         channel = if (_uiState.value.cart.isEmpty()) defaultChannel else _uiState.value.channel,
+                        loyaltyEnabled = vendor.loyaltyEnabled,
+                        pointsRedeemRate = vendor.pointsRedeemRate,
+                        minPointsRedeem = vendor.minPointsRedeem,
+                        maxManualDiscountPercent = vendor.maxManualDiscountPercent,
+                        manualDiscountRequiresPin = vendor.manualDiscountRequiresPin,
                     ) }
                 }
             }
+        }
+        // Load active offers from local DB
+        viewModelScope.launch {
+            offerRepository.getActiveOffers()
+                .catch { e -> AppLogger.e("POS", "Error loading active offers", e) }
+                .collect { offers ->
+                    _uiState.update { it.copy(activeOffers = offers) }
+                }
         }
         // Refresh from API in background (non-blocking — failures are silent when offline)
         viewModelScope.launch {
@@ -164,6 +249,7 @@ class PosViewModel constructor(
             categoryRepository.refreshCategories()
             tableRepository.refreshTables()
             customerRepository.refreshCustomers()
+            offerRepository.refreshOffers()
             taxPlaceRepository.getTaxPlaces().onSuccess { places ->
                 _uiState.update { state ->
                     state.copy(
@@ -178,10 +264,16 @@ class PosViewModel constructor(
     }
 
     fun selectCategory(categoryId: String?) {
-        _uiState.update { it.copy(selectedCategoryId = categoryId) }
+        AppLogger.d("POS", "Select category: $categoryId")
+        _uiState.update { it.copy(selectedCategoryId = categoryId, searchQuery = "") }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
     }
 
     fun addToCart(item: Item) {
+        AppLogger.d("POS", "Adding to cart: item=${item.name}, hasVariants=${item.variantGroups.isNotEmpty()}")
         // If item has variant groups, show variant selector
         if (item.variantGroups.isNotEmpty()) {
             // Pre-select defaults
@@ -213,6 +305,7 @@ class PosViewModel constructor(
 
     fun confirmVariantSelection() {
         val item = _uiState.value.variantSelectorItem ?: return
+        AppLogger.d("POS", "Confirming variant selection for item=${item.name}")
         val selections = _uiState.value.variantSelections.values.toList()
         // Check required groups
         val missingRequired = item.variantGroups.filter { it.required }.any { group ->
@@ -248,18 +341,21 @@ class PosViewModel constructor(
     }
 
     fun removeFromCart(cartIndex: Int) {
+        AppLogger.d("POS", "Removing cart item at index=$cartIndex")
         _uiState.update { state ->
             state.copy(cart = state.cart.filterIndexed { index, _ -> index != cartIndex })
         }
     }
 
     fun removeFromCart(itemId: String) {
+        AppLogger.d("POS", "Removing cart item by itemId=$itemId")
         _uiState.update { state ->
             state.copy(cart = state.cart.filter { it.item.id != itemId })
         }
     }
 
     fun updateCartQuantity(cartIndex: Int, quantity: Int) {
+        AppLogger.d("POS", "Updating cart quantity: cartIndex=$cartIndex, quantity=$quantity")
         if (quantity <= 0) {
             removeFromCart(cartIndex)
             return
@@ -272,6 +368,7 @@ class PosViewModel constructor(
     }
 
     fun updateCartQuantity(itemId: String, quantity: Int) {
+        AppLogger.d("POS", "Updating cart quantity: itemId=$itemId, quantity=$quantity")
         if (quantity <= 0) {
             removeFromCart(itemId)
             return
@@ -284,6 +381,7 @@ class PosViewModel constructor(
     }
 
     fun setChannel(channel: OrderChannel) {
+        AppLogger.d("POS", "Setting channel: ${channel.name}")
         _uiState.update {
             it.copy(
                 channel = channel,
@@ -378,6 +476,7 @@ class PosViewModel constructor(
 
     /** Called when user picks a customer from the phone dropdown */
     fun selectCustomerFromDropdown(customer: Customer) {
+        AppLogger.i("POS", "User action: selected customer from dropdown: customerId=${customer.id}")
         _uiState.update {
             it.copy(
                 clientPhone = customer.phone,
@@ -437,9 +536,41 @@ class PosViewModel constructor(
 
     fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.totalPrice }
 
+    fun getOfferDiscount(): Double {
+        val s = _uiState.value
+        val offer = s.appliedOffer ?: return 0.0
+        val subtotal = getSubtotal()
+        return when (offer.discountType) {
+            "FIXED_PRICE" -> (subtotal - offer.discountValue).coerceAtLeast(0.0)
+            "PERCENT" -> subtotal * (offer.discountValue / 100.0)
+            else -> 0.0
+        }
+    }
+
+    fun getManualDiscount(): Double {
+        val s = _uiState.value
+        val value = s.manualDiscountValue.toDoubleOrNull() ?: return 0.0
+        if (value <= 0) return 0.0
+        val subtotal = getSubtotal()
+        return when (s.manualDiscountType) {
+            "PERCENT" -> subtotal * (value / 100.0)
+            else -> value // FIXED
+        }
+    }
+
+    fun getPointsDiscount(): Double {
+        val s = _uiState.value
+        return s.pointsToRedeem * s.pointsRedeemRate
+    }
+
+    fun getDiscountAmount(): Double = getOfferDiscount() + getManualDiscount() + getPointsDiscount()
+
+    fun getTotal(): Double = (getSubtotal() - getDiscountAmount()).coerceAtLeast(0.0)
+
     // ─── Customer methods ─────────────────────────────────────────
 
     fun selectCustomerAddress(addressId: String) {
+        AppLogger.d("POS", "Selected customer address: addressId=$addressId")
         val address = _uiState.value.customerAddresses.find { it.id == addressId }
         _uiState.update {
             it.copy(
@@ -450,6 +581,7 @@ class PosViewModel constructor(
     }
 
     fun clearCustomer() {
+        AppLogger.d("POS", "Clearing customer data")
         phoneLookupJob?.cancel()
         _uiState.update {
             it.copy(
@@ -465,6 +597,7 @@ class PosViewModel constructor(
     }
 
     fun reorderFromHistory(order: Order) {
+        AppLogger.d("POS", "Reordering from history: orderId=${order.id}")
         _uiState.update { state ->
             val currentItems = state.items
             val newCart = order.items.mapNotNull { orderItem ->
@@ -476,12 +609,97 @@ class PosViewModel constructor(
         }
     }
 
+    // ─── Offers ────────────────────────────────────────────────────
+
+    fun applyOffer(offer: Offer) {
+        AppLogger.i("POS", "Applying offer: name=${offer.name}, discountType=${offer.discountType}, discountValue=${offer.discountValue}")
+        val currentItems = _uiState.value.items
+        val newCart = offer.items.mapNotNull { offerItem ->
+            currentItems.find { it.id == offerItem.itemId }?.let { item ->
+                CartItem(item = item, quantity = offerItem.quantity)
+            }
+        }
+        if (newCart.isEmpty()) {
+            AppLogger.w("POS", "No matching items found for offer ${offer.name}")
+            return
+        }
+        _uiState.update { it.copy(cart = newCart, appliedOffer = offer) }
+    }
+
+    fun clearAppliedOffer() {
+        _uiState.update { it.copy(appliedOffer = null) }
+    }
+
+    // ─── Manual Discount ──────────────────────────────────────────
+
+    fun setManualDiscountValue(v: String) { _uiState.update { it.copy(manualDiscountValue = v) } }
+    fun setManualDiscountType(type: String) { _uiState.update { it.copy(manualDiscountType = type) } }
+    fun setManualDiscountReason(v: String) { _uiState.update { it.copy(manualDiscountReason = v) } }
+
+    fun applyManualDiscount() {
+        val s = _uiState.value
+        val value = s.manualDiscountValue.toDoubleOrNull() ?: return
+        if (value <= 0) return
+
+        // Calculate effective discount percent
+        val subtotal = getSubtotal()
+        val effectivePercent = if (s.manualDiscountType == "PERCENT") value
+        else if (subtotal > 0) (value / subtotal) * 100.0 else 0.0
+
+        // Check if PIN approval is needed
+        if (s.manualDiscountRequiresPin && effectivePercent > s.maxManualDiscountPercent && !s.pinApproved) {
+            _uiState.update { it.copy(showPinDialog = true) }
+            return
+        }
+        // Discount is applied — value is already in the state
+        AppLogger.i("POS", "Manual discount applied: $value ${s.manualDiscountType}, reason=${s.manualDiscountReason}")
+    }
+
+    fun clearManualDiscount() {
+        _uiState.update { it.copy(manualDiscountValue = "", manualDiscountType = "FIXED", manualDiscountReason = "", pinApproved = false) }
+    }
+
+    // ─── Loyalty Points ───────────────────────────────────────────
+
+    fun applyAllPoints() {
+        val s = _uiState.value
+        val balance = s.selectedCustomer?.pointsBalance ?: 0
+        if (balance >= s.minPointsRedeem) {
+            _uiState.update { it.copy(pointsToRedeem = balance) }
+            AppLogger.i("POS", "Applied all loyalty points: $balance")
+        }
+    }
+
+    fun clearPointsRedemption() {
+        _uiState.update { it.copy(pointsToRedeem = 0) }
+    }
+
+    // ─── PIN Approval ─────────────────────────────────────────────
+
+    fun verifyManagerPin(pin: String) {
+        viewModelScope.launch {
+            try {
+                api.verifyManagerPin(pin)
+                _uiState.update { it.copy(showPinDialog = false, pinApproved = true, pinError = null) }
+                AppLogger.i("POS", "Manager PIN approved for discount")
+            } catch (e: Exception) {
+                _uiState.update { it.copy(pinError = e.message) }
+                AppLogger.w("POS", "Manager PIN verification failed: ${e.message}")
+            }
+        }
+    }
+
+    fun dismissPinDialog() {
+        _uiState.update { it.copy(showPinDialog = false, pinError = null) }
+    }
+
     // ─── Submit & Clear ───────────────────────────────────────────
 
     fun submitOrder(paymentMethod: PaymentMethod, paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW, onSuccess: (Order) -> Unit) {
         val s = _uiState.value
         if (!s.canSubmit) return
 
+        AppLogger.d("POS", "Submitting order: channel=${s.channel.name}, items=${s.cart.size}, paymentMethod=${paymentMethod.name}")
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }
 
@@ -521,6 +739,19 @@ class PosViewModel constructor(
                 else -> null
             }
 
+            // Calculate total discount (offer + manual + points)
+            val totalDiscount = getDiscountAmount()
+
+            // Determine discount reason
+            val reasons = mutableListOf<String>()
+            if (s.appliedOffer != null) reasons.add("Offer: ${s.appliedOffer.name}")
+            if (getManualDiscount() > 0) {
+                val manualReason = s.manualDiscountReason.ifBlank { "Manual discount" }
+                reasons.add(manualReason)
+            }
+            if (s.pointsToRedeem > 0) reasons.add("Points: ${s.pointsToRedeem}")
+            val discountReason = reasons.joinToString("; ").ifBlank { null }
+
             orderRepository.createOrder(
                 channel = s.channel,
                 tableId = if (s.channel == OrderChannel.DINE_IN) s.selectedTableId else null,
@@ -532,9 +763,16 @@ class PosViewModel constructor(
                 paymentMethod = paymentMethod,
                 paymentTiming = paymentTiming,
                 taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
+                reservationId = s.reservationId,
                 notes = s.notes.ifBlank { null },
                 items = orderItems,
+                discount = totalDiscount,
+                discountType = "FIXED",
+                offerId = s.appliedOffer?.id,
+                pointsRedeemed = s.pointsToRedeem,
+                discountReason = discountReason,
             ).onSuccess { order ->
+                AppLogger.i("POS", "Order submitted: id=${order.id}")
                 // Call onSuccess first (dismiss sheet) while cart is still non-empty,
                 // so the BottomSheet is still in the composition tree
                 onSuccess(order)
@@ -545,19 +783,30 @@ class PosViewModel constructor(
                     tableRepository.refreshTables()
                 }
             }.onFailure { e ->
-                _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+                AppLogger.e("POS", "Order submission failed", e)
+                when {
+                    e.isPlanLimitExceeded() -> _uiState.update {
+                        it.copy(isSubmitting = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
+                    }
+                    e.isFeatureNotAvailableOrOffline() -> _uiState.update {
+                        it.copy(isSubmitting = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                    }
+                    else -> _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+                }
             }
         }
     }
 
     fun clearOrder() {
+        AppLogger.d("POS", "Clearing order")
         phoneLookupJob?.cancel()
         _uiState.update {
             it.copy(
-                cart = emptyList(), createdOrder = null,
+                cart = emptyList(), createdOrder = null, appliedOffer = null,
+                searchQuery = "",
                 clientName = "", clientPhone = "", clientAddress = "",
-                notes = "", selectedTableId = null,
-                selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { it.isDefault }?.id,
+                notes = "", selectedTableId = null, reservationId = null,
+                selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id,
                 // Clear customer-related state
                 selectedCustomer = null,
                 customerAddresses = emptyList(),
@@ -567,7 +816,80 @@ class PosViewModel constructor(
                 isLookingUpCustomer = false,
                 phoneSearchResults = emptyList(),
                 showPhoneDropdown = false,
+                // Clear manual discount & points
+                manualDiscountValue = "",
+                manualDiscountType = "FIXED",
+                manualDiscountReason = "",
+                pointsToRedeem = 0,
+                pinApproved = false,
             )
+        }
+    }
+
+    // ─── Reservation Pre-fill ─────────────────────────────────────
+    fun prefillFromReservation(
+        tableId: String,
+        reservationId: String,
+        clientName: String,
+        clientPhone: String?,
+    ) {
+        _uiState.update {
+            it.copy(
+                channel = OrderChannel.DINE_IN,
+                selectedTableId = tableId,
+                reservationId = reservationId,
+                clientName = clientName,
+                clientPhone = clientPhone ?: "",
+            )
+        }
+    }
+
+    // ─── Plan Limit / Feature Gating ─────────────────────────────
+    fun dismissPlanLimitDialog() {
+        _uiState.update { it.copy(showPlanLimitDialog = false, planLimitMessage = "") }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false, featureNotAvailableMessage = "") }
+    }
+
+    // ─── Barcode Scanner ─────────────────────────────────────────
+
+    fun toggleBarcodeScanner() {
+        AppLogger.d("POS", "Toggling barcode scanner")
+        _uiState.update { it.copy(showBarcodeScanner = !it.showBarcodeScanner, barcodeScanMessage = null) }
+    }
+
+    fun dismissBarcodeScanMessage() {
+        _uiState.update { it.copy(barcodeScanMessage = null) }
+    }
+
+    fun confirmOfflineMode() {
+        AppLogger.i("POS", "User confirmed offline mode")
+        offlineModeManager.confirmOfflineMode()
+    }
+
+    fun declineOfflineMode() {
+        AppLogger.i("POS", "User declined offline mode")
+        offlineModeManager.declineOfflineMode()
+    }
+
+    fun handleBarcodeScan(barcode: String) {
+        AppLogger.d("POS", "Barcode scan: $barcode")
+        viewModelScope.launch {
+            // First try local DB lookup
+            val item = itemRepository.getItemByBarcode(barcode).firstOrNull()
+            if (item != null) {
+                AppLogger.i("POS", "Barcode found: ${item.name}")
+                addToCart(item)
+                _uiState.update { it.copy(barcodeScanMessage = "✓ ${item.name}") }
+            } else {
+                AppLogger.w("POS", "Barcode not found: $barcode")
+                _uiState.update { it.copy(barcodeScanMessage = "✗ Item not found: $barcode") }
+            }
+            // Auto-dismiss message after 2 seconds
+            delay(2000)
+            _uiState.update { it.copy(barcodeScanMessage = null) }
         }
     }
 }

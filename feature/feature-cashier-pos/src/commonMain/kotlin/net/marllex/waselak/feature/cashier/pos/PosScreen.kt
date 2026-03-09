@@ -1,5 +1,20 @@
 package net.marllex.waselak.feature.cashier.pos
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +41,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -48,6 +66,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -72,6 +93,7 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentTiming
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
@@ -79,17 +101,32 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import net.marllex.waselak.core.ui.components.WaselakSearchBar
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableBottomSheet
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.PlanLimitBottomSheet
 import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import net.marllex.waselak.core.model.Offer
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,16 +142,26 @@ fun PosScreen(
     val isTablet = maxWidth >= 600.dp
     val horizontalPadding = if (isTablet) 24.dp else 16.dp
 
+    // Vendor-type-aware labels
+    val newOrderLabel = when (uiState.businessType) {
+        "PHARMACY" -> stringResource(Res.string.new_prescription)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(Res.string.new_invoice)
+        else -> stringResource(Res.string.new_order)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
                     val logoUrl = uiState.vendorLogoUrl
+                    val logoPainter = waslekLogoPainter()
                     if (!logoUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = logoUrl, contentDescription = null,
                             modifier = Modifier.padding(start = 12.dp).size(36.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                             contentScale = ContentScale.Crop,
+                            placeholder = logoPainter,
+                            error = logoPainter,
                         )
                     } else {
                         WaslekLogo(modifier = Modifier.padding(start = 12.dp).size(36.dp))
@@ -122,14 +169,24 @@ fun PosScreen(
                 },
                 title = {
                     Column(Modifier.padding(start = 8.dp)) {
-                        Text(uiState.vendorName.ifBlank { stringResource(Res.string.new_order) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(Res.string.new_order), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(uiState.vendorName.ifBlank { newOrderLabel }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(newOrderLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 actions = {
+                    // Barcode scanner toggle
+                    IconButton(onClick = viewModel::toggleBarcodeScanner) {
+                        Icon(
+                            Icons.Filled.QrCodeScanner,
+                            contentDescription = stringResource(Res.string.barcode_scanner),
+                            tint = if (uiState.showBarcodeScanner) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Cart button
                     IconButton(onClick = { showCartSheet = true }) {
                         BadgedBox(badge = {
                             if (uiState.cart.isNotEmpty()) {
@@ -192,50 +249,138 @@ fun PosScreen(
                     }
                 }
 
-                // Category filter
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = horizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = uiState.selectedCategoryId == null,
-                            onClick = { viewModel.selectCategory(null) },
-                            label = { Text("All") },
-                            colors = FilterChipDefaults.filterChipColors(),
-                        )
-                    }
-                    items(uiState.categories) { cat ->
-                        FilterChip(
-                            selected = uiState.selectedCategoryId == cat.id,
-                            onClick = { viewModel.selectCategory(cat.id) },
-                            label = { Text(cat.name) },
-                            colors = FilterChipDefaults.filterChipColors(),
+                // ─── Barcode Scanner Panel ─────────────────────────
+                if (uiState.showBarcodeScanner) {
+                    net.marllex.waselak.core.ui.components.BarcodeScannerView(
+                        onBarcodeScanned = viewModel::handleBarcodeScan,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .padding(horizontal = horizontalPadding),
+                        enabled = uiState.showBarcodeScanner,
+                    )
+                }
+                // Barcode scan feedback message
+                uiState.barcodeScanMessage?.let { message ->
+                    val isSuccess = message.startsWith("✓")
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalPadding, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSuccess)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.errorContainer
+                        ),
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isSuccess)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
                 }
 
-                // Items grid
-                val filteredItems = if (uiState.selectedCategoryId != null) {
-                    uiState.items.filter { it.categoryId == uiState.selectedCategoryId }
-                } else uiState.items
+                // ─── Offers Banner Carousel ────────────────────────
+                if (uiState.activeOffers.isNotEmpty()) {
+                    OffersBannerCarousel(
+                        offers = uiState.activeOffers,
+                        onOfferClick = { offer -> viewModel.applyOffer(offer) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalPadding, vertical = 4.dp),
+                    )
+                }
 
-                if (filteredItems.isEmpty()) {
-                    EmptyView(stringResource(Res.string.no_menu_items))
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 150.dp),
+                // ─── Search Bar ──────────────────────────────
+                WaselakSearchBar(
+                    query = uiState.searchQuery,
+                    onQueryChange = viewModel::updateSearchQuery,
+                    placeholder = stringResource(Res.string.search_menu),
+                    modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 4.dp),
+                )
+
+                // ─── Category Sidebar + Items Grid ─────────────────
+                val allLabel = stringResource(Res.string.all_categories)
+                val allCategories = remember(uiState.categories, allLabel) {
+                    listOf<Pair<String?, String>>(null to allLabel) +
+                        uiState.categories.map { it.id to it.name }
+                }
+
+                val filteredItems = uiState.filteredItems
+
+                // Count items per category for badges
+                val itemCountByCategory = remember(uiState.items) {
+                    val counts = mutableMapOf<String?, Int>()
+                    counts[null] = uiState.items.size // "All" count
+                    uiState.items.groupBy { it.categoryId }.forEach { (catId, items) ->
+                        counts[catId] = items.size
+                    }
+                    counts
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 4.dp),
+                ) {
+                    // ─── Left: Category Sidebar ─────────────────
+                    CategorySidebar(
+                        categories = allCategories,
+                        selectedCategoryId = if (uiState.searchQuery.isNotBlank()) null else uiState.selectedCategoryId,
+                        onCategorySelected = viewModel::selectCategory,
+                        isTablet = isTablet,
+                        itemCountByCategory = itemCountByCategory,
+                    )
+
+                    // ─── Right: Items Grid with fade animation ────
+                    AnimatedContent(
+                        targetState = if (uiState.searchQuery.isNotBlank()) uiState.searchQuery else uiState.selectedCategoryId,
+                        transitionSpec = {
+                            (fadeIn(tween(250)) + expandVertically(tween(250)))
+                                .togetherWith(fadeOut(tween(200)) + shrinkVertically(tween(200)))
+                        },
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontalPadding),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(filteredItems, key = { it.id }) { item ->
-                            MenuItemGridCard(
-                                item = item,
-                                cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
-                                onAdd = { viewModel.addToCart(item) },
-                            )
+                        label = "itemsGridAnimation",
+                    ) { _ ->
+                        val animatedItems = uiState.filteredItems
+
+                        if (animatedItems.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                EmptyView(stringResource(Res.string.no_menu_items))
+                            }
+                        } else {
+                            LazyVerticalGrid(
+                                columns = if (isTablet) GridCells.Adaptive(minSize = 150.dp)
+                                          else GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    start = 8.dp,
+                                    end = horizontalPadding,
+                                    top = 4.dp,
+                                    bottom = 16.dp,
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(animatedItems, key = { it.id }) { item ->
+                                    MenuItemGridCard(
+                                        item = item,
+                                        cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
+                                        onAdd = { viewModel.addToCart(item) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -264,93 +409,409 @@ fun PosScreen(
                 onDismiss = viewModel::dismissVariantSelector,
             )
         }
+
+        // Plan limit dialog
+        if (uiState.showPlanLimitDialog) {
+            PlanLimitBottomSheet(
+                message = uiState.planLimitMessage,
+                onDismiss = viewModel::dismissPlanLimitDialog,
+            )
+        }
+
+        // Feature not available dialog
+        if (uiState.showFeatureNotAvailable) {
+            FeatureNotAvailableBottomSheet(
+                message = uiState.featureNotAvailableMessage,
+                onDismiss = viewModel::dismissFeatureNotAvailable,
+            )
+        }
+
+        // Manager PIN approval dialog
+        if (uiState.showPinDialog) {
+            var pinInput by remember { mutableStateOf("") }
+            // Get list of manager workers to show as options
+            // For simplicity, ask for worker ID + PIN in one dialog
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = viewModel::dismissPinDialog,
+                title = {
+                    Text(
+                        text = stringResource(Res.string.pin_required_title),
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(Res.string.pin_required_message))
+                        OutlinedTextField(
+                            value = pinInput,
+                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
+                            label = { Text(stringResource(Res.string.manager_pin)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.fillMaxWidth(),
+                            isError = uiState.pinError != null,
+                            supportingText = uiState.pinError?.let { err -> { Text(err) } },
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.verifyManagerPin(pinInput) },
+                        enabled = pinInput.length >= 4,
+                    ) {
+                        Text(stringResource(Res.string.verify_pin))
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = viewModel::dismissPinDialog) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                },
+            )
+        }
+
+        // Offline confirmation dialog
+        if (uiState.showOfflineConfirmation) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = viewModel::declineOfflineMode,
+                title = {
+                    Text(
+                        text = stringResource(Res.string.offline_confirm_title),
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                text = {
+                    Text(stringResource(Res.string.offline_confirm_message))
+                },
+                confirmButton = {
+                    Button(onClick = viewModel::confirmOfflineMode) {
+                        Text(stringResource(Res.string.continue_offline))
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = viewModel::declineOfflineMode) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                },
+            )
+        }
     }
     } // BoxWithConstraints
 }
 
 @Composable
+private fun CategorySidebar(
+    categories: List<Pair<String?, String>>,
+    selectedCategoryId: String?,
+    onCategorySelected: (String?) -> Unit,
+    isTablet: Boolean,
+    itemCountByCategory: Map<String?, Int> = emptyMap(),
+) {
+    val sidebarWidth = if (isTablet) 110.dp else 92.dp
+    val categoryListState = rememberLazyListState()
+
+    val selectedIndex = remember(selectedCategoryId, categories) {
+        categories.indexOfFirst { it.first == selectedCategoryId }.coerceAtLeast(0)
+    }
+    LaunchedEffect(selectedIndex) {
+        categoryListState.animateScrollToItem(selectedIndex)
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(sidebarWidth)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
+            ),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
+    ) {
+        LazyColumn(
+            state = categoryListState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(vertical = 8.dp, horizontal = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            items(
+                items = categories,
+                key = { it.first ?: "__all__" },
+            ) { (categoryId, categoryName) ->
+                val isSelected = categoryId == selectedCategoryId
+                val count = itemCountByCategory[categoryId]
+
+                CategorySidebarItem(
+                    name = categoryName,
+                    isSelected = isSelected,
+                    itemCount = count,
+                    onClick = { onCategorySelected(categoryId) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySidebarItem(
+    name: String,
+    isSelected: Boolean,
+    itemCount: Int? = null,
+    onClick: () -> Unit,
+) {
+    // Animated colors
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        animationSpec = tween(300),
+        label = "categoryBg",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.onPrimary
+        else
+            MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(300),
+        label = "categoryContent",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+        animationSpec = tween(300),
+        label = "categoryBorder",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (isSelected) 4.dp else 0.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "categoryElevation",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.02f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "categoryScale",
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 58.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .border(
+                width = if (isSelected) 1.5.dp else 0.5.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(14.dp),
+            ),
+        shape = RoundedCornerShape(14.dp),
+        color = bgColor,
+        contentColor = contentColor,
+        shadowElevation = elevation,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+            if (itemCount != null && itemCount > 0) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = "$itemCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun MenuItemGridCard(item: Item, cartQuantity: Int, onAdd: () -> Unit) {
+    val isInCart = cartQuantity > 0
+
+    // Animated properties
+    val cardBgColor by animateColorAsState(
+        targetValue = if (isInCart)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        else
+            MaterialTheme.colorScheme.surface,
+        animationSpec = tween(350),
+        label = "itemCardBg",
+    )
+    val cardBorderColor by animateColorAsState(
+        targetValue = if (isInCart)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        else
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        animationSpec = tween(350),
+        label = "itemCardBorder",
+    )
+    val cardElevation by animateDpAsState(
+        targetValue = if (isInCart) 4.dp else 1.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "itemCardElevation",
+    )
+    val cardScale by animateFloatAsState(
+        targetValue = if (isInCart) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "itemCardScale",
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
             .clickable(onClick = onAdd),
-        shape = RoundedCornerShape(16.dp),
-        colors = if (cartQuantity > 0) CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-        ) else CardDefaults.cardColors(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBgColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
+        border = BorderStroke(
+            width = if (isInCart) 1.5.dp else 0.5.dp,
+            color = cardBorderColor,
+        ),
     ) {
         Column {
-            // Image placeholder / AsyncImage
+            // Image section
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(110.dp)
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .height(90.dp)
+                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center,
             ) {
+                val itemLogoPainter = waslekLogoPainter()
                 if (!item.imageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = item.imageUrl,
                         contentDescription = item.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
+                        placeholder = itemLogoPainter,
+                        error = itemLogoPainter,
                     )
                 } else {
-                    Icon(
-                        Icons.Filled.Restaurant,
+                    Image(
+                        painter = itemLogoPainter,
                         contentDescription = null,
                         modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        contentScale = ContentScale.Crop,
+                        alpha = 0.35f,
                     )
                 }
 
-                // Cart quantity badge
-                if (cartQuantity > 0) {
-                    Box(
+                // Cart quantity badge with scale animation
+                if (isInCart) {
+                    val badgeScale by animateFloatAsState(
+                        targetValue = 1f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "badgeScale",
+                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 2.dp,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(6.dp)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center,
+                            .size(28.dp)
+                            .graphicsLayer { scaleX = badgeScale; scaleY = badgeScale },
                     ) {
-                        Text(
-                            text = "$cartQuantity",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            AnimatedContent(
+                                targetState = cartQuantity,
+                                transitionSpec = {
+                                    (scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn())
+                                        .togetherWith(scaleOut() + fadeOut())
+                                },
+                                label = "qtyAnimation",
+                            ) { qty ->
+                                Text(
+                                    text = "$qty",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             // Item info
             Column(
-                modifier = Modifier.padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = CurrencyFormatter.formatDecimal(item.price),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-                if (item.variantGroups.isNotEmpty()) {
-                    Text(
-                        text = "+${stringResource(Res.string.select_options)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    ) {
+                        Text(
+                            text = CurrencyFormatter.formatDecimal(item.price),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                    if (item.variantGroups.isNotEmpty()) {
+                        Text(
+                            text = "+${stringResource(Res.string.select_options)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                 }
             }
         }
@@ -371,6 +832,8 @@ private fun CartBottomSheet(
     ) }
     var hasAttemptedSubmit by remember { mutableStateOf(false) }
     val isDeliveryOrTakeaway = uiState.channel in listOf(OrderChannel.DELIVERY, OrderChannel.TAKEAWAY, OrderChannel.PICKUP_LATER)
+    var expandManualDiscount by remember { mutableStateOf(false) }
+    var expandLoyaltyPoints by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -394,18 +857,339 @@ private fun CartBottomSheet(
                 )
             }
 
+            // ─── Manual Discount Section (Collapsible) ─────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                val manualDiscountActive = viewModel.getManualDiscount() > 0
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (manualDiscountActive)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    ),
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { expandManualDiscount = !expandManualDiscount }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.manual_discount),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                if (manualDiscountActive) {
+                                    Text(
+                                        text = "- ${CurrencyFormatter.formatDecimal(viewModel.getManualDiscount())}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = if (expandManualDiscount) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = expandManualDiscount,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    // Type toggle: Fixed / Percent
+                                    SingleChoiceSegmentedButtonRow(modifier = Modifier.width(160.dp)) {
+                                        listOf("FIXED" to Res.string.discount_type_fixed, "PERCENT" to Res.string.discount_type_percent).forEachIndexed { index, (type, labelRes) ->
+                                            SegmentedButton(
+                                                selected = uiState.manualDiscountType == type,
+                                                onClick = { viewModel.setManualDiscountType(type) },
+                                                shape = SegmentedButtonDefaults.itemShape(index, 2),
+                                            ) { Text(stringResource(labelRes), style = MaterialTheme.typography.labelSmall) }
+                                        }
+                                    }
+                                    OutlinedTextField(
+                                        value = uiState.manualDiscountValue,
+                                        onValueChange = viewModel::setManualDiscountValue,
+                                        label = { Text(stringResource(Res.string.discount_value)) },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = uiState.manualDiscountReason,
+                                    onValueChange = viewModel::setManualDiscountReason,
+                                    label = { Text(stringResource(Res.string.discount_reason_hint)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Button(
+                                        onClick = viewModel::applyManualDiscount,
+                                        modifier = Modifier.weight(1f),
+                                        enabled = uiState.manualDiscountValue.toDoubleOrNull()?.let { it > 0 } == true,
+                                    ) {
+                                        if (uiState.pinApproved) {
+                                            Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(stringResource(Res.string.pin_approved))
+                                        } else {
+                                            Text(stringResource(Res.string.apply_discount))
+                                        }
+                                    }
+                                    if (manualDiscountActive) {
+                                        androidx.compose.material3.TextButton(
+                                            onClick = viewModel::clearManualDiscount,
+                                        ) { Text(stringResource(Res.string.clear_discount)) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ─── Loyalty Points Section (Collapsible) ──────────────────────────
+            if (uiState.loyaltyEnabled && uiState.selectedCustomer != null) {
+                val pointsBalance = uiState.selectedCustomer.pointsBalance
+                if (pointsBalance > 0) {
+                    item {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val pointsApplied = uiState.pointsToRedeem > 0
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (pointsApplied)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            ),
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { expandLoyaltyPoints = !expandLoyaltyPoints }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(
+                                            text = stringResource(Res.string.loyalty_points_section),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        if (pointsApplied) {
+                                            Text(
+                                                text = "- ${CurrencyFormatter.formatDecimal(viewModel.getPointsDiscount())}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        } else {
+                                            Text(
+                                                text = stringResource(Res.string.points_available, pointsBalance),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        imageVector = if (expandLoyaltyPoints) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                                AnimatedVisibility(
+                                    visible = expandLoyaltyPoints,
+                                    enter = expandVertically(),
+                                    exit = shrinkVertically(),
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                                        if (pointsApplied) {
+                                            // Points applied — show confirmation with clear option
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                Icon(
+                                                    Icons.Filled.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = stringResource(Res.string.points_applied_label, uiState.pointsToRedeem),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                    Text(
+                                                        text = stringResource(Res.string.points_discount_value, CurrencyFormatter.formatDecimal(viewModel.getPointsDiscount())),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                androidx.compose.material3.TextButton(
+                                                    onClick = viewModel::clearPointsRedemption,
+                                                ) { Text(stringResource(Res.string.clear_points)) }
+                                            }
+                                        } else if (pointsBalance >= uiState.minPointsRedeem) {
+                                            // Points available — show apply button
+                                            val discountPreview = pointsBalance * uiState.pointsRedeemRate
+                                            Button(
+                                                onClick = viewModel::applyAllPoints,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(12.dp),
+                                            ) {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.apply_all_points,
+                                                        pointsBalance,
+                                                        CurrencyFormatter.formatDecimal(discountPreview),
+                                                    ),
+                                                )
+                                            }
+                                        } else {
+                                            // Not enough points
+                                            Text(
+                                                text = stringResource(Res.string.min_points_hint, uiState.minPointsRedeem),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ─── Price Breakdown ─────────────────────────────────
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("Subtotal", style = MaterialTheme.typography.titleMedium)
+                    Text("Subtotal", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         text = CurrencyFormatter.formatDecimal(viewModel.getSubtotal()),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge,
                     )
+                }
+
+                // Detailed discount breakdown
+                val offerDiscount = viewModel.getOfferDiscount()
+                val manualDiscount = viewModel.getManualDiscount()
+                val pointsDiscount = viewModel.getPointsDiscount()
+                val totalDiscount = viewModel.getDiscountAmount()
+
+                if (offerDiscount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.offer_discount_row),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = "- ${CurrencyFormatter.formatDecimal(offerDiscount)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+
+                if (manualDiscount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.manual_discount_row),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = "- ${CurrencyFormatter.formatDecimal(manualDiscount)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+
+                if (pointsDiscount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.points_discount_row),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = "- ${CurrencyFormatter.formatDecimal(pointsDiscount)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+
+                if (totalDiscount > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.total_label),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = CurrencyFormatter.formatDecimal(viewModel.getTotal()),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
 
@@ -755,11 +1539,16 @@ private fun CartBottomSheet(
                     enabled = !uiState.isSubmitting && uiState.cart.isNotEmpty(),
                 ) {
                     Text(if (uiState.isSubmitting) {
-                        stringResource(Res.string.placing_order)
-                    } else stringResource(
-                        Res.string.place_order,
-                        CurrencyFormatter.formatDecimal(viewModel.getSubtotal())
-                    )
+                        when (uiState.businessType) {
+                            "PHARMACY" -> stringResource(Res.string.placing_prescription)
+                            "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(Res.string.placing_invoice)
+                            else -> stringResource(Res.string.placing_order)
+                        }
+                    } else when (uiState.businessType) {
+                        "PHARMACY" -> stringResource(Res.string.place_prescription, CurrencyFormatter.formatDecimal(viewModel.getTotal()))
+                        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(Res.string.place_invoice, CurrencyFormatter.formatDecimal(viewModel.getTotal()))
+                        else -> stringResource(Res.string.place_order, CurrencyFormatter.formatDecimal(viewModel.getTotal()))
+                    }
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -996,4 +1785,183 @@ private fun VariantSelectorDialog(
             }
         },
     )
+}
+
+// ─── Offers Banner Carousel ──────────────────────────────────────────
+
+private val offerGradients = listOf(
+    listOf(Color(0xFF667eea), Color(0xFF764ba2)),
+    listOf(Color(0xFFf093fb), Color(0xFFf5576c)),
+    listOf(Color(0xFF4facfe), Color(0xFF00f2fe)),
+    listOf(Color(0xFF43e97b), Color(0xFF38f9d7)),
+    listOf(Color(0xFFfa709a), Color(0xFFfee140)),
+    listOf(Color(0xFFa18cd1), Color(0xFFfbc2eb)),
+)
+
+@Composable
+private fun OffersBannerCarousel(
+    offers: List<Offer>,
+    onOfferClick: (Offer) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState(pageCount = { offers.size })
+
+    // Auto-advance every 4 seconds
+    LaunchedEffect(offers.size) {
+        if (offers.size > 1) {
+            while (true) {
+                delay(4000)
+                val nextPage = (pagerState.currentPage + 1) % offers.size
+                pagerState.animateScrollToPage(nextPage)
+            }
+        }
+    }
+
+    Column(modifier = modifier) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth().height(130.dp),
+            pageSpacing = 8.dp,
+        ) { page ->
+            val offer = offers[page]
+            OfferBannerCard(
+                offer = offer,
+                gradientIndex = page % offerGradients.size,
+                onClick = { onOfferClick(offer) },
+            )
+        }
+
+        // Page indicator dots
+        if (offers.size > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                repeat(offers.size) { index ->
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (pagerState.currentPage == index)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfferBannerCard(
+    offer: Offer,
+    gradientIndex: Int,
+    onClick: () -> Unit,
+) {
+    val gradient = offerGradients[gradientIndex]
+
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background: image or gradient
+            if (!offer.imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = offer.imageUrl,
+                    contentDescription = offer.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Dark scrim over image for text readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.linearGradient(gradient)),
+                )
+            }
+
+            // Content overlay
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // Offer name
+                Text(
+                    text = offer.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                // Description (if any)
+                val desc = offer.description
+                if (!desc.isNullOrBlank()) {
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    // Discount badge
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.2f),
+                        ),
+                    ) {
+                        Text(
+                            text = when (offer.discountType) {
+                                "FIXED_PRICE" -> stringResource(
+                                    Res.string.offer_discount_fixed,
+                                    CurrencyFormatter.formatDecimal(offer.discountValue),
+                                )
+                                "PERCENT" -> stringResource(
+                                    Res.string.offer_discount_percent,
+                                    "${offer.discountValue.toInt()}%",
+                                )
+                                else -> ""
+                            },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        )
+                    }
+
+                    // Items count
+                    Text(
+                        text = stringResource(Res.string.offer_banner_items, offer.items.size),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                    )
+                }
+            }
+        }
+    }
 }

@@ -2,10 +2,16 @@
 <resources>
     <string name="add_to_cart">أضف للسلة</string>
     <string name="new_order">طلب جديد</string>
+    <string name="new_prescription">روشتة جديدة</string>
+    <string name="new_invoice">فاتورة جديدة</string>
     <string name="select_table">اختار الترابيزة</string>
     <string name="notes_optional">ملاحظات (اختياري)</string>
     <string name="placing_order">بنعمل الطلب...</string>
+    <string name="placing_prescription">بنجهز الروشتة...</string>
+    <string name="placing_invoice">بنعمل الفاتورة...</string>
     <string name="place_order">اعمل الطلب - %1$s</string>
+    <string name="place_prescription">تسجيل الروشتة - %1$s</string>
+    <string name="place_invoice">اعمل الفاتورة - %1$s</string>
     <string name="channel_dine_in">محلي</string>
     <string name="channel_delivery">توصيل</string>
     <string name="channel_takeaway">تيك أواي</string>
@@ -33,5 +39,43 @@
     <string name="confirm_add">أضف للسلة - %1$s</string>
     <string name="cancel">إلغاء</string>
     <string name="price">السعر</string>
+    <string name="all_categories">الكل</string>
+    <string name="search_menu">ابحث في المنيو...</string>
     <string name="no_menu_items">مفيش أصناف متاحة</string>
+    <string name="barcode_scanner">ماسح الباركود</string>
+    <string name="offline_confirm_title">مفيش إنترنت</string>
+    <string name="offline_confirm_message">أنت أوفلاين. عايز تكمل شغل من غير إنترنت؟ الطلبات هتتحفظ محلي وهتتزامن لما الإنترنت يرجع.</string>
+    <string name="continue_offline">كمّل أوفلاين</string>
+    <!-- Offers Banner -->
+    <string name="offer_discount_fixed">%1$s بس</string>
+    <string name="offer_discount_percent">خصم %1$s</string>
+    <string name="offer_banner_items">%1$d أصناف</string>
+    <string name="offer_applied">العرض اتطبق</string>
+    <string name="discount_label">الخصم</string>
+    <string name="total_label">الإجمالي</string>
+    <!-- Manual Discount -->
+    <string name="manual_discount">خصم يدوي</string>
+    <string name="discount_value">قيمة الخصم</string>
+    <string name="discount_type_fixed">ثابت</string>
+    <string name="discount_type_percent">نسبة</string>
+    <string name="discount_reason_hint">السبب (اختياري)</string>
+    <string name="apply_discount">تطبيق</string>
+    <string name="clear_discount">مسح</string>
+    <string name="pin_required_title">موافقة المدير</string>
+    <string name="pin_required_message">الخصم ده أكبر من الحد المسموح. ادخل رقم PIN المدير عشان يوافق.</string>
+    <string name="manager_pin">رقم PIN المدير</string>
+    <string name="verify_pin">تحقق</string>
+    <string name="pin_approved">تم الموافقة</string>
+    <!-- Loyalty Points -->
+    <string name="loyalty_points_section">نقاط الولاء</string>
+    <string name="points_available">%1$d نقطة متاحة</string>
+    <string name="apply_all_points">تطبيق %1$d نقطة (-%2$s)</string>
+    <string name="points_applied_label">تم تطبيق %1$d نقطة</string>
+    <string name="points_discount_value">= خصم %1$s</string>
+    <string name="min_points_hint">يجب أن يكون لديك %1$d نقطة على الأقل للاستبدال</string>
+    <string name="clear_points">مسح</string>
+    <!-- Discount Breakdown -->
+    <string name="offer_discount_row">خصم العرض</string>
+    <string name="manual_discount_row">الخصم اليدوي</string>
+    <string name="points_discount_row">خصم النقاط</string>
 </resources>
