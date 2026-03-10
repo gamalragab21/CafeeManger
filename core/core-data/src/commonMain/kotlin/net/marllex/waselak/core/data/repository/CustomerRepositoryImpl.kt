@@ -14,6 +14,8 @@ import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Order
+import net.marllex.waselak.core.model.PointsTransaction
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.CreateCustomerAddressRequest
 import net.marllex.waselak.core.network.dto.CreateCustomerRequest
@@ -65,6 +67,7 @@ class CustomerRepositoryImpl(
     // ─── Network refresh ─────────────────────────────────────────
 
     override suspend fun refreshCustomers(): Result<List<Customer>> = runCatching {
+        AppLogger.d(TAG, "Refreshing customers")
         val response = api.getCustomers()
         val customers = response.map { it.toDomain() }
         // Clear and re-insert
@@ -75,12 +78,14 @@ class CustomerRepositoryImpl(
             customerDao.deleteAddressesByCustomerId(customer.id)
             customerDao.insertAddresses(customer.addresses.map { it.toDbEntity() })
         }
+        AppLogger.i(TAG, "Fetched ${customers.size} customers")
         customers
     }
 
     // ─── Phone lookup ────────────────────────────────────────────
 
     override suspend fun lookupCustomerByPhone(phone: String): Result<Customer?> = runCatching {
+        AppLogger.d(TAG, "Looking up customer by phone")
         try {
             val response = api.getCustomerByPhone(phone)
             response?.let { dto ->
@@ -106,11 +111,13 @@ class CustomerRepositoryImpl(
         name: String?,
         notes: String?,
     ): Result<Customer> = runCatching {
+        AppLogger.d(TAG, "Creating customer: phone=$phone")
         val response = api.createCustomer(
             CreateCustomerRequest(phone = phone, name = name, notes = notes)
         )
         val customer = response.toDomain()
         customerDao.insertCustomer(customer.toDbEntity())
+        AppLogger.i(TAG, "Customer created: id=${customer.id}")
         customer
     }
 
@@ -120,6 +127,7 @@ class CustomerRepositoryImpl(
         phone: String?,
         notes: String?,
     ): Result<Customer> = runCatching {
+        AppLogger.d(TAG, "Updating customer: id=$id")
         val response = api.updateCustomer(
             id, UpdateCustomerRequest(name = name, phone = phone, notes = notes)
         )
@@ -129,9 +137,11 @@ class CustomerRepositoryImpl(
     }
 
     override suspend fun deleteCustomer(id: String): Result<Unit> = runCatching {
+        AppLogger.d(TAG, "Deleting customer: id=$id")
         api.deleteCustomer(id)
         customerDao.deleteAddressesByCustomerId(id)
         customerDao.deleteCustomer(id)
+        AppLogger.i(TAG, "Customer deleted: id=$id")
     }
 
     // ─── Addresses ───────────────────────────────────────────────
@@ -159,6 +169,7 @@ class CustomerRepositoryImpl(
         deliveryZoneId: String?,
         isDefault: Boolean,
     ): Result<CustomerAddress> = runCatching {
+        AppLogger.d(TAG, "Adding address for customer=$customerId")
         val response = api.createCustomerAddress(
             customerId,
             CreateCustomerAddressRequest(
@@ -172,11 +183,13 @@ class CustomerRepositoryImpl(
         )
         val addr = response.toDomain()
         customerDao.insertAddress(addr.toDbEntity())
+        AppLogger.i(TAG, "Address added: id=${addr.id}")
         addr
     }
 
     override suspend fun deleteAddress(customerId: String, addressId: String): Result<Unit> =
         runCatching {
+            AppLogger.d(TAG, "Deleting address: id=$addressId")
             api.deleteCustomerAddress(customerId, addressId)
             customerDao.deleteAddress(addressId)
         }
@@ -187,7 +200,29 @@ class CustomerRepositoryImpl(
         customerId: String,
         limit: Int,
     ): Result<List<Order>> = runCatching {
+        AppLogger.d(TAG, "Fetching recent orders for customer=$customerId")
         val response = api.getCustomerOrders(customerId, limit)
         response.orders.map { it.toDomain() }
+    }
+
+    // ─── Points & Discount history ─────────────────────────────
+
+    override suspend fun getCustomerPointsHistory(
+        customerId: String,
+    ): Result<List<PointsTransaction>> = runCatching {
+        AppLogger.d(TAG, "Fetching points history for customer=$customerId")
+        api.getCustomerPointsHistory(customerId).map { it.toDomain() }
+    }
+
+    override suspend fun getCustomerDiscountOrders(
+        customerId: String,
+        limit: Int,
+    ): Result<List<Order>> = runCatching {
+        AppLogger.d(TAG, "Fetching discount orders for customer=$customerId")
+        api.getCustomerDiscountOrders(customerId, limit).map { it.toDomain() }
+    }
+
+    private companion object {
+        const val TAG = "CustomerRepo"
     }
 }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offers_title">العروض</string>
+    <string name="add_offer">إضافة عرض</string>
+    <string name="edit_offer">تعديل العرض</string>
+    <string name="offer_name">اسم العرض</string>
+    <string name="offer_description">الوصف</string>
+    <string name="offer_add_image">أضف صورة</string>
+    <string name="offer_change_image">غيّر الصورة</string>
+    <string name="offer_uploading_image">بيتحمّل…</string>
+    <string name="discount_type">نوع الخصم</string>
+    <string name="fixed_price">سعر ثابت</string>
+    <string name="percentage">نسبة مئوية</string>
+    <string name="discount_value">قيمة الخصم</string>
+    <string name="active">نشط</string>
+    <string name="inactive">غير نشط</string>
+    <string name="expires_at">تاريخ الانتهاء (اختياري)</string>
+    <string name="select_items">اختر الأصناف</string>
+    <string name="items_count">%1$d أصناف</string>
+    <string name="no_offers">لا توجد عروض</string>
+    <string name="no_offers_desc">أنشئ عرضك الأول للبدء</string>
+    <string name="delete_offer">حذف العرض</string>
+    <string name="delete_offer_confirm">هل أنت متأكد من حذف هذا العرض؟</string>
+    <string name="saving">جاري الحفظ…</string>
+    <string name="cancel">إلغاء</string>
+    <string name="save">حفظ</string>
+    <string name="delete">حذف</string>
+    <string name="expired">منتهي</string>
+    <string name="off">خصم</string>
+    <string name="quantity">الكمية</string>
+    <string name="no_items_available">لا توجد أصناف متاحة</string>
+    <string name="search_items">بحث عن أصناف…</string>
+    <!-- Enhanced Offer Fields -->
+    <string name="promo_code">كود الخصم</string>
+    <string name="promo_code_hint">كود خصم اختياري</string>
+    <string name="max_uses">أقصى عدد استخدامات</string>
+    <string name="max_uses_hint">فارغ = غير محدود</string>
+    <string name="starts_at">تاريخ البداية (اختياري)</string>
+    <string name="usage_stats">مستخدم %1$d / %2$d مرة</string>
+    <string name="usage_unlimited">مستخدم %1$d مرة (غير محدود)</string>
+</resources>

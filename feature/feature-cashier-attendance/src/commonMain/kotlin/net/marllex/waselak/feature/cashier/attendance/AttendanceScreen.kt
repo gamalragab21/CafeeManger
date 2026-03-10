@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.ProfileAvatar
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.feature.cashier.attendance.components.PinEntryDialog
 import net.marllex.waselak.feature.cashier.attendance.components.QrScannerDialog
@@ -120,6 +122,9 @@ fun AttendanceScreen(
         },
     ) { padding ->
         when {
+            uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
+                message = uiState.featureNotAvailableMessage,
+            )
             uiState.isLoading -> LoadingIndicator()
             else -> {
                 val filteredWorkers = remember(uiState.workers, uiState.searchQuery) {
@@ -370,6 +375,7 @@ fun AttendanceScreen(
                             workerName = worker.fullName,
                             workerId = worker.workerId,
                             role = worker.role,
+                            photoUrl = worker.photoUrl,
                             isPresent = isPresent,
                             attendedToday = attendedToday,
                             isCheckedOut = isCheckedOut,
@@ -394,6 +400,7 @@ private fun WorkerAttendanceCard(
     workerName: String,
     workerId: String,
     role: String,
+    photoUrl: String? = null,
     isPresent: Boolean,
     attendedToday: Boolean,
     isCheckedOut: Boolean,
@@ -436,12 +443,25 @@ private fun WorkerAttendanceCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                )
+                // Worker avatar with status indicator
+                Box {
+                    ProfileAvatar(
+                        photoUrl = photoUrl,
+                        size = 44.dp,
+                        contentDescription = workerName,
+                    )
+                    // Status dot overlay
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(2.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                            .align(Alignment.BottomEnd)
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(

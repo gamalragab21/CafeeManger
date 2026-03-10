@@ -8,8 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "net.marllex.waselak.cashier"
-        versionCode = 1
-        versionName = "1.0.0"
+        // versionCode and versionName are set centrally via gradle.properties → KmpApplicationConventionPlugin
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations.addAll(listOf("en", "ar"))
@@ -29,6 +28,29 @@ android {
 compose.desktop {
     application {
         mainClass = "net.marllex.waselak.cashier.MainKt"
+
+        nativeDistributions {
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
+            )
+            packageName = "Waselak Cashier"
+            packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
+            vendor = "Marllex"
+            description = "Waselak Restaurant Cashier"
+
+            macOS {
+                bundleID = "net.marllex.waselak.cashier"
+                iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+            }
+        }
     }
 }
 

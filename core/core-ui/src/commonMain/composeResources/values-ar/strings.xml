@@ -99,7 +99,13 @@
 
     <!-- Navigation - Cashier -->
     <string name="nav_new_order">طلب جديد</string>
+    <string name="nav_new_prescription">روشتة جديدة</string>
+    <string name="nav_new_invoice">فاتورة جديدة</string>
+    <string name="nav_orders_prescriptions">الروشتات</string>
+    <string name="nav_orders_invoices">الفواتير</string>
     <string name="nav_tables">الترابيزات</string>
+    <string name="nav_more">المزيد</string>
+    <string name="nav_offers">العروض</string>
 
     <!-- Navigation - Delivery -->
     <string name="nav_my_orders">طلباتي</string>
@@ -109,6 +115,7 @@
     <!-- Navigation - Drawer Items -->
     <string name="nav_delivery">التوصيل</string>
     <string name="nav_attendance">الحضور</string>
+    <string name="nav_overtime">الأوفرتايم</string>
 
     <!-- Menu Sub-Tabs -->
     <string name="tab_categories">الأقسام</string>
@@ -168,7 +175,7 @@
     <!-- Offline Mode -->
     <string name="offline_mode">وضع بدون إنترنت</string>
     <string name="sync_now">مزامنة دلوقتي</string>
-    <string name="items_pending_sync">%d حاجات مستنية المزامنة</string>
+    <string name="items_pending_sync">%1$d حاجات مستنية المزامنة</string>
     <string name="order_saved_locally">الطلب اتحفظ محلي</string>
     <string name="qr_not_available_offline">الـ QR مش متاح من غير إنترنت</string>
     <string name="store_configuration">إعدادات المحل</string>
@@ -197,4 +204,124 @@
     <string name="order_payment_sync">مزامنة الطلبات والمدفوعات</string>
     <string name="sync_all_now">مزامنة الكل دلوقتي</string>
     <string name="failed_items">عناصر فاشلة</string>
+
+    <!-- Logging -->
+    <string name="upload_logs">رفع السجلات</string>
+    <string name="upload_logs_description">ارسل سجلات التطبيق للمساعدة في حل المشاكل</string>
+    <string name="uploading_logs">بيتم رفع السجلات…</string>
+    <string name="logs_uploaded">تم رفع السجلات بنجاح</string>
+    <string name="logs_upload_failed">فشل رفع السجلات</string>
+    <string name="no_logs_available">مفيش سجلات متاحة</string>
+    <string name="share_logs">مشاركة السجلات</string>
+    <string name="clear_logs">مسح السجلات</string>
+    <string name="clear_logs_confirm">أنت متأكد إنك عايز تمسح كل السجلات؟</string>
+    <string name="logs_cleared">تم مسح السجلات</string>
+
+    <!-- Offline Confirmation -->
+    <!-- Plan Gating -->
+    <string name="feature_not_available_message">الميزة دي مش متاحة في باقتك الحالية</string>
+    <string name="feature_not_available_title">الميزه مش متاحه</string>
+    <string name="upgrade_plan_subtitle">قم بترقية باقتك للوصول لهذه الميزه. تواصل مع المسؤول للتفاصيل.</string>
+
+    <!-- Shift Summary -->
+    <string name="shift_summary">ملخص الشيفت</string>
+    <string name="shift_summary_for">ملخص الشيفت - %1$s</string>
+    <string name="total_revenue">إجمالي الإيرادات</string>
+    <string name="orders_count">%1$d طلبات</string>
+    <string name="cancelled">ملغي</string>
+    <string name="refunded">مسترد</string>
+    <string name="no_orders_this_shift">مفيش طلبات في الشيفت دي</string>
+
+    <!-- Plan Info -->
+    <string name="plan_info_title">باقة الاشتراك</string>
+    <string name="egp_month">%1$d ج.م/شهر</string>
+    <string name="plan_usage">الاستخدام</string>
+    <string name="plan_features_title">المميزات</string>
+    <string name="plan_managers">المديرين</string>
+    <string name="plan_cashiers">الكاشيرات</string>
+    <string name="plan_delivery_persons">مناديب التوصيل</string>
+    <string name="plan_orders_month">الطلبات/شهر</string>
+    <string name="plan_menu_items">أصناف المنيو</string>
+    <string name="plan_stock">إدارة المخزون</string>
+    <string name="plan_attendance">الحضور</string>
+    <string name="plan_overtime">الأوفرتايم</string>
+    <string name="plan_salaries">المرتبات</string>
+    <string name="plan_delivery_module">التوصيل</string>
+    <string name="plan_customers">إدارة العملاء</string>
+    <string name="plan_analytics">التحليلات</string>
+    <string name="plan_digital_menu">المنيو الرقمي</string>
+    <string name="plan_digital_receipt">الايصال الرقمي</string>
+    <string name="plan_table_reservation">الترابيزات والحجز</string>
+    <string name="plan_worker_qrcode">كارت العامل QR</string>
+    <string name="plan_loyalty_points">نقاط الولاء</string>
+    <string name="plan_manual_discount">الخصم اليدوي</string>
+    <string name="plan_offers_management">إدارة العروض</string>
+    <string name="unlimited">بلا حدود</string>
+    <string name="usage_format">%1$d / %2$d</string>
+    <string name="usage_unlimited">%1$d / بلا حدود</string>
+
+    <!-- Plan Limit -->
+    <string name="plan_limit_reached">وصلت لحد الباقة</string>
+    <string name="plan_limit_message">وصلت لأقصى عدد في باقتك الحالية. من فضلك ارفع باقتك عشان تقدر تضيف أكتر.</string>
+
+    <!-- Plans Comparison -->
+    <string name="subscription_plans">باقات الاشتراك</string>
+    <string name="current_plan_badge">الباقه الحاليه</string>
+    <string name="contact_admin_upgrade">تواصل مع المسؤول لتغيير باقتك</string>
+    <string name="plan_branches">الفروع</string>
+
+    <string name="offline_confirm_title">مفيش إنترنت</string>
+    <string name="offline_confirm_message">أنت أوفلاين. عايز تكمل شغل من غير إنترنت؟ الطلبات هتتحفظ محلي وهتتزامن لما الإنترنت يرجع.</string>
+    <string name="continue_offline">كمّل أوفلاين</string>
+
+    <!-- Loyalty & Discounts -->
+    <string name="loyalty_and_discounts">الولاء والخصومات</string>
+    <string name="loyalty_discounts_screen_desc">إدارة نقاط الولاء وسياسات الخصم لمحلك</string>
+    <string name="loyalty_points">نقاط الولاء</string>
+    <string name="loyalty_points_desc">العملاء يكسبوا نقاط على كل طلب</string>
+    <string name="loyalty_points_enable">تفعيل نقاط الولاء</string>
+    <string name="points_earn_rate">نقاط لكل 1 جنيه</string>
+    <string name="points_earn_rate_desc">عدد النقاط اللي العميل يكسبها لكل 1 جنيه</string>
+    <string name="points_redeem_rate">جنيه لكل نقطة</string>
+    <string name="points_redeem_rate_desc">قيمة الخصم لكل نقطة يتم استبدالها</string>
+    <string name="min_points_redeem">الحد الأدنى للاستبدال</string>
+    <string name="min_points_redeem_desc">أقل رصيد نقاط مطلوب للاستبدال</string>
+    <string name="manual_discount">خصم يدوي</string>
+    <string name="manual_discount_desc">تحكم في طريقة تطبيق الكاشير للخصم اليدوي عند الدفع</string>
+    <string name="max_discount_percent">أقصى نسبة خصم %%</string>
+    <string name="max_discount_percent_desc">أقصى خصم يدوي يقدر الكاشير يعمله</string>
+    <string name="require_manager_pin">طلب رقم المدير السري</string>
+    <string name="require_manager_pin_desc">الخصومات الكبيرة تحتاج موافقة المدير</string>
+    <string name="save_settings">حفظ الإعدادات</string>
+    <string name="points_balance">رصيد النقاط</string>
+    <string name="redeem_points">استبدال النقاط</string>
+    <string name="points_value">قيمة النقاط</string>
+    <string name="enter_manager_pin">ادخل رقم المدير السري</string>
+    <string name="discount">الخصم</string>
+    <string name="discount_reason">سبب الخصم</string>
+    <string name="points_earned">نقاط مكتسبة</string>
+    <string name="points_redeemed">نقاط مستبدلة</string>
+    <string name="promo_code">كود خصم</string>
+    <string name="apply_promo">تطبيق</string>
+    <string name="promo_code_invalid">كود خصم غير صالح</string>
+    <string name="promo_code_applied">تم تطبيق كود الخصم</string>
+
+    <!-- Vendor Type Labels -->
+    <string name="vendor_type_restaurant">مطعم</string>
+    <string name="vendor_type_cafe">كافيه</string>
+    <string name="vendor_type_pharmacy">صيدلية</string>
+    <string name="vendor_type_bakery">مخبز</string>
+    <string name="vendor_type_supermarket">سوبر ماركت</string>
+    <string name="vendor_type_grocery">بقالة</string>
+    <string name="vendor_type_retail">محل</string>
+    <string name="vendor_type_juice_bar">عصائر</string>
+
+    <!-- Vendor-specific order type labels -->
+    <string name="order_label_default">طلب</string>
+    <string name="order_label_prescription">روشتة</string>
+    <string name="order_label_invoice">فاتورة</string>
+    <string name="orders_label_default">طلبات</string>
+    <string name="orders_label_prescriptions">روشتات</string>
+    <string name="orders_label_invoices">فواتير</string>
+    <string name="order_number_label">%1$s #%2$s</string>
 </resources>

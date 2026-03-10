@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.foundation.Image
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.ui.components.ChannelChip
@@ -63,18 +65,22 @@ fun BrandedTopBar(uiState: HomeDashboardUiState) {
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
+                val logoPainter = waslekLogoPainter()
                 if (!logoUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = logoUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
+                        placeholder = logoPainter,
+                        error = logoPainter,
                     )
                 } else {
-                    Icon(
-                        Icons.Rounded.Storefront,
+                    Image(
+                        painter = logoPainter,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
                     )
                 }
             }

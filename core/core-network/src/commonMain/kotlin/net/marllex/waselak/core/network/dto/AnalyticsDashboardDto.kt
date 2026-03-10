@@ -230,3 +230,81 @@ data class StockOverviewResponse(
     @SerialName("dead_stock_items") val deadStockItems: List<StockOverviewItemResponse>,
     @SerialName("movement_summary") val movementSummary: List<StockMovementResponse>,
 )
+
+// ── Offers Analytics ──────────────────────────────────────────
+@Serializable
+data class OfferPerformanceItemResponse(
+    @SerialName("offer_id") val offerId: String,
+    @SerialName("offer_name") val offerName: String,
+    @SerialName("discount_type") val discountType: String,
+    @SerialName("discount_value") val discountValue: Double,
+    @SerialName("usage_count") val usageCount: Int,
+    @SerialName("total_discount_given") val totalDiscountGiven: Double,
+    @SerialName("total_revenue_from_offer_orders") val totalRevenueFromOfferOrders: Double,
+    @SerialName("promo_code") val promoCode: String? = null,
+    @SerialName("is_active") val isActive: Boolean,
+)
+
+@Serializable
+data class DailyOfferUsageResponse(
+    val date: String,
+    @SerialName("usage_count") val usageCount: Int,
+    @SerialName("discount_amount") val discountAmount: Double,
+)
+
+@Serializable
+data class OffersAnalyticsResponse(
+    @SerialName("total_offers") val totalOffers: Int,
+    @SerialName("active_offers") val activeOffers: Int,
+    @SerialName("total_offer_uses") val totalOfferUses: Int,
+    @SerialName("total_discount_from_offers") val totalDiscountFromOffers: Double,
+    @SerialName("average_discount_per_use") val averageDiscountPerUse: Double,
+    @SerialName("top_offers") val topOffers: List<OfferPerformanceItemResponse>,
+    @SerialName("offer_usage_trend") val offerUsageTrend: List<DailyOfferUsageResponse>,
+)
+
+// ── Discount Analytics ────────────────────────────────────────
+@Serializable
+data class DiscountBreakdownResponse(
+    val type: String,
+    val count: Int,
+    @SerialName("total_amount") val totalAmount: Double,
+    @SerialName("percent_of_total") val percentOfTotal: Double,
+)
+
+@Serializable
+data class DailyDiscountResponse(
+    val date: String,
+    @SerialName("manual_discount") val manualDiscount: Double,
+    @SerialName("offer_discount") val offerDiscount: Double,
+    @SerialName("points_discount") val pointsDiscount: Double,
+)
+
+@Serializable
+data class DiscountAnalyticsResponse(
+    @SerialName("total_orders_with_discount") val totalOrdersWithDiscount: Int,
+    @SerialName("total_discount_given") val totalDiscountGiven: Double,
+    @SerialName("average_discount_per_order") val averageDiscountPerOrder: Double,
+    @SerialName("discount_rate") val discountRate: Double,
+    val breakdown: List<DiscountBreakdownResponse>,
+    @SerialName("daily_trend") val dailyTrend: List<DailyDiscountResponse>,
+)
+
+// ── Loyalty Analytics ─────────────────────────────────────────
+@Serializable
+data class DailyLoyaltyResponse(
+    val date: String,
+    @SerialName("points_earned") val pointsEarned: Int,
+    @SerialName("points_redeemed") val pointsRedeemed: Int,
+)
+
+@Serializable
+data class LoyaltyAnalyticsResponse(
+    @SerialName("total_points_earned") val totalPointsEarned: Long,
+    @SerialName("total_points_redeemed") val totalPointsRedeemed: Long,
+    @SerialName("total_points_outstanding") val totalPointsOutstanding: Long,
+    @SerialName("active_loyalty_customers") val activeLoyaltyCustomers: Int,
+    @SerialName("redemption_rate") val redemptionRate: Double,
+    @SerialName("points_to_revenue") val pointsToRevenue: Double,
+    @SerialName("daily_trend") val dailyTrend: List<DailyLoyaltyResponse>,
+)

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS offer_items (
+    id TEXT NOT NULL PRIMARY KEY,
+    offer_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    item_price REAL NOT NULL,
+    quantity INTEGER AS kotlin.Int NOT NULL DEFAULT 1
+);
+
+getOfferItems:
+SELECT * FROM offer_items WHERE offer_id = ?;
+
+insertOfferItem:
+INSERT OR REPLACE INTO offer_items(id, offer_id, item_id, item_name, item_price, quantity)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteOfferItems:
+DELETE FROM offer_items WHERE offer_id = ?;
+
+deleteAllOfferItems:
+DELETE FROM offer_items;

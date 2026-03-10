@@ -21,6 +21,9 @@ import net.marllex.waselak.core.database.Customer_addresses
 import net.marllex.waselak.core.database.Overtime_entries
 import net.marllex.waselak.core.database.Item_variant_groups
 import net.marllex.waselak.core.database.Item_variant_options
+import net.marllex.waselak.core.database.Reservations
+import net.marllex.waselak.core.database.Offers
+import net.marllex.waselak.core.database.Offer_items
 
 // ─── Vendor Mappers ──────────────────────────────────────────────
 fun Vendors.toDomain() = Vendor(
@@ -40,6 +43,12 @@ fun Vendors.toDomain() = Vendor(
     biometricRequired = biometric_required,
     enableOfflineMode = enable_offline_mode,
     digitalMenuUrl = digital_menu_url,
+    loyaltyEnabled = loyalty_enabled,
+    pointsEarnRate = points_earn_rate,
+    pointsRedeemRate = points_redeem_rate,
+    minPointsRedeem = min_points_redeem,
+    maxManualDiscountPercent = max_manual_discount_percent,
+    manualDiscountRequiresPin = manual_discount_requires_pin,
     createdAt = created_at, updatedAt = updated_at
 )
 
@@ -60,20 +69,26 @@ fun Vendor.toDbEntity() = Vendors(
     biometric_required = biometricRequired,
     enable_offline_mode = enableOfflineMode,
     digital_menu_url = digitalMenuUrl,
+    loyalty_enabled = loyaltyEnabled,
+    points_earn_rate = pointsEarnRate,
+    points_redeem_rate = pointsRedeemRate,
+    min_points_redeem = minPointsRedeem,
+    max_manual_discount_percent = maxManualDiscountPercent,
+    manual_discount_requires_pin = manualDiscountRequiresPin,
     created_at = createdAt, updated_at = updatedAt
 )
 
 // ─── User Mappers ────────────────────────────────────────────────
 fun Users.toDomain() = User(
     id = id, vendorId = vendor_id, role = UserRole.valueOf(role),
-    name = name, phone = phone, email = email, active = active,
-    createdAt = created_at
+    name = name, phone = phone, email = email, photoUrl = photo_url,
+    active = active, createdAt = created_at
 )
 
 fun User.toDbEntity() = Users(
     id = id, vendor_id = vendorId, role = role.name,
-    name = name, phone = phone, email = email, active = active,
-    created_at = createdAt
+    name = name, phone = phone, email = email, photo_url = photoUrl,
+    active = active, created_at = createdAt
 )
 
 // ─── Category Mappers ────────────────────────────────────────────
@@ -113,6 +128,62 @@ fun Table.toDbEntity() = Tables(
     capacity = capacity, status = status.name
 )
 
+// ─── Reservation Mappers ────────────────────────────────────────
+fun Reservations.toDomain() = Reservation(
+    id = id, vendorId = vendor_id, tableId = table_id,
+    tableNumber = table_number, clientName = client_name,
+    clientPhone = client_phone, reservationDate = reservation_date,
+    reservationTime = reservation_time, numberOfGuests = number_of_guests,
+    notes = notes, status = ReservationStatus.valueOf(status),
+    orderId = order_id, createdBy = created_by,
+    createdAt = created_at, updatedAt = updated_at,
+)
+
+fun Reservation.toDbEntity() = Reservations(
+    id = id, vendor_id = vendorId, table_id = tableId,
+    table_number = tableNumber, client_name = clientName,
+    client_phone = clientPhone, reservation_date = reservationDate,
+    reservation_time = reservationTime, number_of_guests = numberOfGuests,
+    notes = notes, status = status.name,
+    order_id = orderId, created_by = createdBy,
+    created_at = createdAt, updated_at = updatedAt,
+)
+
+// ─── Offer Mappers ──────────────────────────────────────────────
+fun Offers.toDomain(items: List<OfferItem> = emptyList()) = Offer(
+    id = id, vendorId = vendor_id, name = name,
+    description = description, imageUrl = image_url,
+    discountType = discount_type, discountValue = discount_value,
+    active = active, expiresAt = expires_at,
+    promoCode = promo_code, maxUses = max_uses,
+    usedCount = used_count, startsAt = starts_at,
+    displayOrder = display_order, items = items,
+    createdAt = created_at, updatedAt = updated_at,
+)
+
+fun Offer_items.toDomain() = OfferItem(
+    id = id, offerId = offer_id, itemId = item_id,
+    itemName = item_name, itemPrice = item_price,
+    quantity = quantity,
+)
+
+fun Offer.toDbEntity() = Offers(
+    id = id, vendor_id = vendorId, name = name,
+    description = description, image_url = imageUrl,
+    discount_type = discountType, discount_value = discountValue,
+    active = active, expires_at = expiresAt,
+    promo_code = promoCode, max_uses = maxUses,
+    used_count = usedCount, starts_at = startsAt,
+    display_order = displayOrder,
+    created_at = createdAt, updated_at = updatedAt,
+)
+
+fun OfferItem.toDbEntity() = Offer_items(
+    id = id, offer_id = offerId, item_id = itemId,
+    item_name = itemName, item_price = itemPrice,
+    quantity = quantity,
+)
+
 // ─── Order Mappers ───────────────────────────────────────────────
 fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     id = id, vendorId = vendor_id,
@@ -133,7 +204,9 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     subtotal = subtotal, deliveryFee = delivery_fee,
     discount = discount, discountType = discount_type,
     tax = tax, taxPercent = tax_percent, total = total,
-    notes = notes, items = items,
+    notes = notes, offerId = offer_id, items = items,
+    pointsEarned = points_earned, pointsRedeemed = points_redeemed,
+    discountReason = discount_reason,
     createdAt = created_at, updatedAt = updated_at,
     refundedAt = refunded_at, refundedBy = refunded_by, refundReason = refund_reason,
     syncStatus = sync_status,
@@ -156,7 +229,10 @@ fun Order.toDbEntity() = Orders(
     subtotal = subtotal, delivery_fee = deliveryFee,
     discount = discount, discount_type = discountType,
     tax = tax, tax_percent = taxPercent, total = total,
-    notes = notes, created_at = createdAt, updated_at = updatedAt,
+    notes = notes, offer_id = offerId,
+    points_earned = pointsEarned, points_redeemed = pointsRedeemed,
+    discount_reason = discountReason,
+    created_at = createdAt, updated_at = updatedAt,
     refunded_at = refundedAt, refunded_by = refundedBy, refund_reason = refundReason,
     sync_status = syncStatus,
 )
@@ -225,6 +301,7 @@ fun StockTransaction.toDbEntity() = Stock_transactions(
 fun Workers.toDomain() = Worker(
     id = id, vendorId = vendor_id, workerId = worker_id,
     fullName = full_name, phone = phone, description = description,
+    photoUrl = photo_url,
     role = role, salaryType = SalaryType.valueOf(salary_type),
     salaryAmount = salary_amount, active = active,
     userId = user_id, isLoginEnabled = is_login_enabled,
@@ -235,6 +312,7 @@ fun Workers.toDomain() = Worker(
 fun Worker.toDbEntity() = Workers(
     id = id, vendor_id = vendorId, worker_id = workerId,
     full_name = fullName, phone = phone, description = description,
+    photo_url = photoUrl,
     role = role, salary_type = salaryType.name,
     salary_amount = salaryAmount, active = active,
     user_id = userId, is_login_enabled = isLoginEnabled,
@@ -312,14 +390,15 @@ fun Overtime.toDbEntity() = Overtime_entries(
 fun Customers.toDomain(addresses: List<CustomerAddress> = emptyList()) = Customer(
     id = id, vendorId = vendor_id, name = name, phone = phone,
     notes = notes, orderCount = order_count, totalSpent = total_spent,
-    lastOrderAt = last_order_at, addresses = addresses,
+    pointsBalance = points_balance, lastOrderAt = last_order_at,
+    addresses = addresses,
     createdAt = created_at, updatedAt = updated_at
 )
 
 fun Customer.toDbEntity() = Customers(
     id = id, vendor_id = vendorId, name = name, phone = phone,
     notes = notes, order_count = orderCount, total_spent = totalSpent,
-    last_order_at = lastOrderAt,
+    points_balance = pointsBalance, last_order_at = lastOrderAt,
     created_at = createdAt, updated_at = updatedAt
 )
 

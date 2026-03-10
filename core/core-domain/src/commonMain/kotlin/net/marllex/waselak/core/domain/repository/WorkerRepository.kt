@@ -10,16 +10,18 @@ interface WorkerRepository {
     suspend fun refreshWorkers(): Result<List<Worker>>
     suspend fun createWorker(
         fullName: String, phone: String?, description: String?,
+        photoUrl: String? = null,
         role: String, salaryType: SalaryType, salaryAmount: Double,
         isLoginEnabled: Boolean = false, password: String? = null, loginRole: String? = null,
         pin: String
     ): Result<Worker>
     suspend fun updateWorker(
         id: String, fullName: String?, phone: String?,
-        description: String?, role: String?, salaryType: String?,
+        description: String?, photoUrl: String? = null, role: String?, salaryType: String?,
         salaryAmount: Double?, pin: String? = null, active: Boolean?
     ): Result<Worker>
     suspend fun deleteWorker(id: String): Result<Unit>
+    suspend fun uploadImage(imageBytes: ByteArray, fileName: String): Result<String>
     
     // PIN & QR Code Management
     suspend fun updateWorkerPin(workerId: String, pin: String): Result<Unit>
@@ -68,7 +70,10 @@ interface WorkerRepository {
         workerId: String? = null, fromDate: String? = null, toDate: String? = null
     ): Result<List<Overtime>>
     suspend fun createOvertime(
-        workerId: String, date: String, hours: Double, ratePerHour: Double, note: String? = null
+        workerId: String, date: String, hours: Double, ratePerHour: Double = 0.0, note: String? = null
+    ): Result<Overtime>
+    suspend fun updateOvertime(
+        id: String, ratePerHour: Double? = null, note: String? = null
     ): Result<Overtime>
     suspend fun deleteOvertime(id: String): Result<Unit>
 }

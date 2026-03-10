@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.dto.PlanFeaturesResponse
 import net.marllex.waselak.core.network.dto.UpdateUserRequest
 
 class RestaurantProfileViewModel(
@@ -33,6 +35,10 @@ class RestaurantProfileViewModel(
         val editLogoUrl: String = "",
         val managerName: String = "",
         val editManagerName: String = "",
+        val planInfo: PlanFeaturesResponse? = null,
+        val planLoading: Boolean = false,
+        // Loyalty & Discount settings
+        val loyaltySaving: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -41,6 +47,20 @@ class RestaurantProfileViewModel(
     init {
         loadVendor()
         loadManagerName()
+        loadPlan()
+    }
+
+    private fun loadPlan() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(planLoading = true) }
+            try {
+                val plan = api.getMyPlan()
+                _uiState.update { it.copy(planInfo = plan, planLoading = false) }
+            } catch (e: Exception) {
+                AppLogger.e("Profile", "Failed to load plan info", e)
+                _uiState.update { it.copy(planLoading = false) }
+            }
+        }
     }
 
     private fun loadManagerName() {
@@ -53,6 +73,7 @@ class RestaurantProfileViewModel(
 
     fun loadVendor() {
         viewModelScope.launch {
+            AppLogger.d("Profile", "Loading vendor profile")
             _uiState.update { it.copy(isLoading = true, error = null) }
             vendorRepository.refreshVendor()
             vendorRepository.getMyVendor().collect { vendor ->
@@ -72,6 +93,7 @@ class RestaurantProfileViewModel(
     }
 
     fun startEditing() {
+        AppLogger.d("Profile", "Started editing profile")
         val v = _uiState.value.vendor ?: return
         _uiState.update {
             it.copy(
@@ -86,18 +108,35 @@ class RestaurantProfileViewModel(
         }
     }
 
-    fun cancelEditing() { _uiState.update { it.copy(isEditing = false) } }
+    fun cancelEditing() {
+        AppLogger.d("Profile", "User cancelled editing")
+        _uiState.update { it.copy(isEditing = false) }
+    }
     fun updateName(v: String) { _uiState.update { it.copy(editName = v) } }
     fun updateAddress(v: String) { _uiState.update { it.copy(editAddress = v) } }
     fun updateContactPhone(v: String) { _uiState.update { it.copy(editContactPhone = v) } }
     fun updateWalletPhone(v: String) { _uiState.update { it.copy(editWalletPhone = v) } }
     fun updateLogoUrl(v: String) { _uiState.update { it.copy(editLogoUrl = v) } }
+    fun uploadLogo(imageBytes: ByteArray) {
+        viewModelScope.launch {
+            AppLogger.d("Profile", "Uploading logo")
+            try {
+                val response = api.uploadImage(imageBytes, "vendor_logo_${kotlin.random.Random.nextInt(100000, 999999)}.jpg")
+                _uiState.update { it.copy(editLogoUrl = response.url) }
+                AppLogger.i("Profile", "Logo uploaded")
+            } catch (e: Exception) {
+                AppLogger.e("Profile", "Failed to upload logo", e)
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
     fun updateManagerName(v: String) { _uiState.update { it.copy(editManagerName = v) } }
 
     fun saveProfile() {
         val s = _uiState.value
         if (s.editName.isBlank() || s.editAddress.isBlank()) return
         viewModelScope.launch {
+            AppLogger.d("Profile", "Saving profile: name=${s.editName}")
             _uiState.update { it.copy(isSaving = true) }
             vendorRepository.updateVendor(
                 name = s.editName,
@@ -113,8 +152,10 @@ class RestaurantProfileViewModel(
                         authRepository.refreshToken()
                     } catch (_: Exception) { }
                 }
+                AppLogger.i("Profile", "Profile saved successfully")
                 _uiState.update { it.copy(isSaving = false, isEditing = false, saveSuccess = true) }
             }.onFailure { e ->
+                AppLogger.e("Profile", "Failed to save profile", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
@@ -124,11 +165,60 @@ class RestaurantProfileViewModel(
         biometricRequired: Boolean? = null,
     ) {
         viewModelScope.launch {
+            AppLogger.d("Profile", "Updating store configuration")
             vendorRepository.updateVendor(
                 biometricRequired = biometricRequired,
             ).onSuccess {
                 vendorRepository.refreshVendor()
             }
+        }
+    }
+
+    // ─── Loyalty & Discount Settings ────────────────────────────
+
+    fun toggleLoyalty(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(loyaltySaving = true) }
+            vendorRepository.updateVendor(loyaltyEnabled = enabled).onSuccess {
+                vendorRepository.refreshVendor()
+            }
+            _uiState.update { it.copy(loyaltySaving = false) }
+        }
+    }
+
+    fun updateLoyaltySettings(
+        pointsEarnRate: Double? = null,
+        pointsRedeemRate: Double? = null,
+        minPointsRedeem: Int? = null,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(loyaltySaving = true) }
+            vendorRepository.updateVendor(
+                pointsEarnRate = pointsEarnRate,
+                pointsRedeemRate = pointsRedeemRate,
+                minPointsRedeem = minPointsRedeem,
+            ).onSuccess {
+                vendorRepository.refreshVendor()
+                _uiState.update { it.copy(saveSuccess = true) }
+            }
+            _uiState.update { it.copy(loyaltySaving = false) }
+        }
+    }
+
+    fun updateDiscountSettings(
+        maxManualDiscountPercent: Double? = null,
+        manualDiscountRequiresPin: Boolean? = null,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(loyaltySaving = true) }
+            vendorRepository.updateVendor(
+                maxManualDiscountPercent = maxManualDiscountPercent,
+                manualDiscountRequiresPin = manualDiscountRequiresPin,
+            ).onSuccess {
+                vendorRepository.refreshVendor()
+                _uiState.update { it.copy(saveSuccess = true) }
+            }
+            _uiState.update { it.copy(loyaltySaving = false) }
         }
     }
 

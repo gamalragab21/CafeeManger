@@ -29,4 +29,8 @@ class TokenProviderImpl(
             null
         }
     }
+
+    override suspend fun clearTokens() {
+        tokenManager.clearTokens()
+    }
 }

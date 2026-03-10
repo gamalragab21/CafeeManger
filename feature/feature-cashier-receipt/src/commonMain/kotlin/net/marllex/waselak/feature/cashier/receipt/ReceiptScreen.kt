@@ -63,7 +63,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -105,9 +107,11 @@ private fun formatAmount(amount: Double, currency: String = "EGP"): String {
 private fun formatDate(epochMs: Long): String {
     val instant = Instant.fromEpochMilliseconds(epochMs)
     val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+    val h12 = if (dt.hour == 0) 12 else if (dt.hour > 12) dt.hour - 12 else dt.hour
+    val amPm = if (dt.hour < 12) "AM" else "PM"
     return "${dt.year}-${dt.monthNumber.toString().padStart(2, '0')}-${
         dt.dayOfMonth.toString().padStart(2, '0')
-    }  ${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}"
+    }  ${h12.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')} $amPm"
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -126,7 +130,12 @@ fun ReceiptScreen(
     // Localized strings
     val receiptTitle = stringResource(Res.string.receipt)
     val backStr = stringResource(Res.string.back)
-    val orderNumLabel = stringResource(Res.string.order_number_receipt)
+    val vendorBusinessType = uiState.vendor?.businessType ?: "RESTAURANT"
+    val orderNumLabel = when (vendorBusinessType) {
+        "PHARMACY" -> stringResource(Res.string.order_number_prescription)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(Res.string.order_number_invoice)
+        else -> stringResource(Res.string.order_number_receipt)
+    }
     val dateLabel = stringResource(Res.string.date)
     val channelLabel = stringResource(Res.string.channel)
     val paymentLabel = stringResource(Res.string.payment)
@@ -196,9 +205,23 @@ fun ReceiptScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 // Header with Logo
+                                val logoPainter = waslekLogoPainter()
                                 if (!vendor?.logoUrl.isNullOrBlank()) {
                                     AsyncImage(
                                         model = vendor?.logoUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, receiptColors.divider, CircleShape),
+                                        contentScale = ContentScale.Crop,
+                                        placeholder = logoPainter,
+                                        error = logoPainter,
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                } else {
+                                    Image(
+                                        painter = logoPainter,
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(64.dp)
@@ -346,22 +369,25 @@ fun ReceiptScreen(
 
                                 Spacer(Modifier.height(20.dp))
 
-                                // Receipt QR Code (shows order ID directly)
-                                DashedDivider(color = receiptColors.divider)
-                                Spacer(Modifier.height(12.dp))
-                                Image(
-                                    painter = rememberQrKitPainter(data = order.id),
-                                    contentDescription = "Receipt QR Code",
-                                    modifier = Modifier.size(100.dp),
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "$orderNumLabel${order.id.takeLast(8).uppercase()}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = receiptColors.textSecondary,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Spacer(Modifier.height(12.dp))
+                                // Receipt QR Code (only for Enterprise plan with digital receipt)
+                                val shareUrl = uiState.shareUrl
+                                if (uiState.digitalReceiptEnabled && shareUrl != null) {
+                                    DashedDivider(color = receiptColors.divider)
+                                    Spacer(Modifier.height(12.dp))
+                                    Image(
+                                        painter = rememberQrKitPainter(data = shareUrl),
+                                        contentDescription = "Receipt QR Code",
+                                        modifier = Modifier.size(100.dp),
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "$orderNumLabel${order.id.takeLast(8).uppercase()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = receiptColors.textSecondary,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                }
 
                                 // Footer
                                 Text(
@@ -397,28 +423,30 @@ fun ReceiptScreen(
                                 Spacer(Modifier.width(4.dp))
                                 Text(printStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            OutlinedButton(
-                                onClick = { showQr = true },
-                                modifier = btnMod,
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                            ) {
-                                Icon(Icons.Default.QrCode, null, Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(qrStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    val html = buildReceiptHtml(order, vendor)
-                                    platformActions.shareHtmlAsImage(html, "receipt-${order.id.takeLast(8)}")
-                                },
-                                modifier = btnMod,
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                            ) {
-                                Icon(Icons.Default.Share, null, Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(shareStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (uiState.digitalReceiptEnabled) {
+                                OutlinedButton(
+                                    onClick = { showQr = true },
+                                    modifier = btnMod,
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                ) {
+                                    Icon(Icons.Default.QrCode, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(qrStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val html = buildReceiptHtml(order, vendor)
+                                        platformActions.shareHtmlAsImage(html, "receipt-${order.id.takeLast(8)}")
+                                    },
+                                    modifier = btnMod,
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                ) {
+                                    Icon(Icons.Default.Share, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(shareStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
                         }
 
@@ -464,7 +492,7 @@ fun ReceiptScreen(
                         tonalElevation = 2.dp,
                     ) {
                         Image(
-                            painter = rememberQrKitPainter(data = order.id),
+                            painter = rememberQrKitPainter(data = uiState.shareUrl ?: order.id),
                             contentDescription = "QR",
                             modifier = Modifier.fillMaxSize().padding(12.dp),
                         )
@@ -480,6 +508,7 @@ fun ReceiptScreen(
             },
         )
     }
+
 }
 
 @Composable

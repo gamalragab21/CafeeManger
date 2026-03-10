@@ -11,10 +11,15 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import io.ktor.server.request.header
+import net.marllex.waselak.backend.plugins.routeTrace
+import net.marllex.waselak.backend.data.database.SubscriptionPlansTable
 import net.marllex.waselak.backend.data.database.VendorsTable
+import net.marllex.waselak.backend.domain.service.PlanService
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.koin.java.KoinJavaComponent
 import java.util.UUID
 
 @Serializable
@@ -41,6 +46,13 @@ data class VendorResponse(
     val biometric_required: Boolean = false,
     val enable_offline_mode: Boolean = false,
     val digital_menu_url: String? = null,
+    // Loyalty & discount settings
+    val loyalty_enabled: Boolean = false,
+    val points_earn_rate: Double = 1.0,
+    val points_redeem_rate: Double = 0.1,
+    val min_points_redeem: Int = 100,
+    val max_manual_discount_percent: Double = 100.0,
+    val manual_discount_requires_pin: Boolean = false,
     val created_at: Long,
     val updated_at: Long? = null
 )
@@ -66,23 +78,198 @@ data class UpdateVendorRequest(
     val stock_mode: String? = null,
     val biometric_required: Boolean? = null,
     val enable_offline_mode: Boolean? = null,
-    val digital_menu_url: String? = null
+    val digital_menu_url: String? = null,
+    // Loyalty & discount settings
+    val loyalty_enabled: Boolean? = null,
+    val points_earn_rate: Double? = null,
+    val points_redeem_rate: Double? = null,
+    val min_points_redeem: Int? = null,
+    val max_manual_discount_percent: Double? = null,
+    val manual_discount_requires_pin: Boolean? = null,
+)
+
+@Serializable
+data class PlanFeaturesResponse(
+    val plan_name: String,
+    val plan_display_name: String,
+    val price_egp: Int,
+    val features: PlanFeaturesDto,
+    val limits: PlanLimitsDto,
+    val usage: PlanUsageDto,
+)
+
+@Serializable
+data class PlanFeaturesDto(
+    val stock_management: Boolean,
+    val worker_attendance: Boolean,
+    val overtime: Boolean,
+    val salaries: Boolean,
+    val delivery_module: Boolean,
+    val customer_management: Boolean,
+    val table_management: Boolean,
+    val digital_receipt: Boolean,
+    val worker_qrcode: Boolean,
+    val loyalty_points: Boolean = false,
+    val manual_discount: Boolean = false,
+    val offers_management: Boolean = false,
+    val analytics: String,
+    val digital_menu: String,
+)
+
+@Serializable
+data class PlanLimitsDto(
+    val max_managers: Int,
+    val max_cashiers: Int,
+    val max_delivery: Int,
+    val max_orders_per_month: Int,
+    val max_menu_items: Int,
+    val max_branches: Int,
+)
+
+@Serializable
+data class PlanUsageDto(
+    val managers: Int,
+    val cashiers: Int,
+    val delivery: Int,
+    val monthly_orders: Int,
+    val menu_items: Int,
+)
+
+@Serializable
+data class PlanSummaryResponse(
+    val name: String,
+    val display_name: String,
+    val price_egp: Int,
+    val features: PlanFeaturesDto,
+    val limits: PlanLimitsDto,
 )
 
 fun Route.vendorRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+
     route("/api/v1/vendors") {
-        get("/me") {
+        // ─── List all available plans ───────────────────────────
+        get("/plans") {
+            val trace = call.routeTrace()
+            trace.step("List plans started")
+            currentUser() // authenticate
+            val plans = planService.listActivePlans()
+            trace.step("Fetched active plans", mapOf("count" to plans.size.toString()))
+            val response = plans.map { plan ->
+                PlanSummaryResponse(
+                    name = plan[SubscriptionPlansTable.name],
+                    display_name = plan[SubscriptionPlansTable.displayName],
+                    price_egp = plan[SubscriptionPlansTable.priceEgp],
+                    features = PlanFeaturesDto(
+                        stock_management = plan[SubscriptionPlansTable.stockManagement],
+                        worker_attendance = plan[SubscriptionPlansTable.workerAttendance],
+                        overtime = plan[SubscriptionPlansTable.overtime],
+                        salaries = plan[SubscriptionPlansTable.salaries],
+                        delivery_module = plan[SubscriptionPlansTable.deliveryModule],
+                        customer_management = plan[SubscriptionPlansTable.customerManagement],
+                        table_management = plan[SubscriptionPlansTable.tableManagement],
+                        digital_receipt = plan[SubscriptionPlansTable.digitalReceipt],
+                        worker_qrcode = plan[SubscriptionPlansTable.workerQrcode],
+                        loyalty_points = plan[SubscriptionPlansTable.loyaltyPoints],
+                        manual_discount = plan[SubscriptionPlansTable.manualDiscount],
+                        offers_management = plan[SubscriptionPlansTable.offersManagement],
+                        analytics = plan[SubscriptionPlansTable.analytics],
+                        digital_menu = plan[SubscriptionPlansTable.digitalMenu],
+                    ),
+                    limits = PlanLimitsDto(
+                        max_managers = plan[SubscriptionPlansTable.maxManagers],
+                        max_cashiers = plan[SubscriptionPlansTable.maxCashiers],
+                        max_delivery = plan[SubscriptionPlansTable.maxDelivery],
+                        max_orders_per_month = plan[SubscriptionPlansTable.maxOrdersPerMonth],
+                        max_menu_items = plan[SubscriptionPlansTable.maxMenuItems],
+                        max_branches = plan[SubscriptionPlansTable.maxBranches],
+                    ),
+                )
+            }
+            trace.step("List plans completed", mapOf("count" to response.size.toString()))
+            call.respond(HttpStatusCode.OK, response)
+        }
+
+        // ─── Plan info for current vendor ───────────────────────
+        get("/me/plan") {
+            val trace = call.routeTrace()
+            trace.step("Get vendor plan started")
             val principal = currentUser()
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Fetching vendor plan limits", mapOf("vendorId" to principal.vendorId))
+            val limits = planService.getVendorPlanLimits(vendorUUID)
+            trace.step("Plan limits fetched", mapOf("planName" to limits.planName))
+            val usage = planService.getVendorUsage(vendorUUID)
+            trace.step("Plan usage fetched", mapOf(
+                "managers" to (usage["managers"] as Int).toString(),
+                "cashiers" to (usage["cashiers"] as Int).toString(),
+                "delivery" to (usage["delivery"] as Int).toString(),
+                "monthlyOrders" to (usage["monthlyOrders"] as Int).toString(),
+                "menuItems" to (usage["menuItems"] as Int).toString()
+            ))
+
+            trace.step("Get vendor plan completed")
+            call.respond(HttpStatusCode.OK, PlanFeaturesResponse(
+                plan_name = limits.planName,
+                plan_display_name = limits.planDisplayName,
+                price_egp = limits.priceEgp,
+                features = PlanFeaturesDto(
+                    stock_management = limits.stockManagement,
+                    worker_attendance = limits.workerAttendance,
+                    overtime = limits.overtime,
+                    salaries = limits.salaries,
+                    delivery_module = limits.deliveryModule,
+                    customer_management = limits.customerManagement,
+                    table_management = limits.tableManagement,
+                    digital_receipt = limits.digitalReceipt,
+                    worker_qrcode = limits.workerQrcode,
+                    loyalty_points = limits.loyaltyPoints,
+                    manual_discount = limits.manualDiscount,
+                    offers_management = limits.offersManagement,
+                    analytics = limits.analytics,
+                    digital_menu = limits.digitalMenu,
+                ),
+                limits = PlanLimitsDto(
+                    max_managers = limits.effectiveMaxManagers(),
+                    max_cashiers = limits.effectiveMaxCashiers(),
+                    max_delivery = limits.effectiveMaxDelivery(),
+                    max_orders_per_month = limits.effectiveMaxOrders(),
+                    max_menu_items = limits.effectiveMaxItems(),
+                    max_branches = limits.maxBranches,
+                ),
+                usage = PlanUsageDto(
+                    managers = usage["managers"] as Int,
+                    cashiers = usage["cashiers"] as Int,
+                    delivery = usage["delivery"] as Int,
+                    monthly_orders = usage["monthlyOrders"] as Int,
+                    menu_items = usage["menuItems"] as Int,
+                ),
+            ))
+        }
+
+        get("/me") {
+            val trace = call.routeTrace()
+            trace.step("Get vendor profile started")
+            val principal = currentUser()
+            trace.step("Fetching vendor profile", mapOf("vendorId" to principal.vendorId))
             val vendor = transaction {
                 VendorsTable.selectAll()
                     .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
                     .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
             }
+            trace.step("Vendor profile fetched", mapOf(
+                "vendorId" to vendor[VendorsTable.id].toString(),
+                "name" to vendor[VendorsTable.name]
+            ))
 
+            val host = call.request.header("Host") ?: "localhost:8080"
+            val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
+
+            trace.step("Get vendor profile completed")
             call.respond(HttpStatusCode.OK, VendorResponse(
                 id = vendor[VendorsTable.id].toString(),
                 name = vendor[VendorsTable.name],
-                logo_url = vendor[VendorsTable.logoUrl],
+                logo_url = rewriteUploadUrl(vendor[VendorsTable.logoUrl], host, scheme),
                 address = vendor[VendorsTable.address],
                 contact_phone = vendor[VendorsTable.contactPhone],
                 wallet_phone = vendor[VendorsTable.walletPhone],
@@ -102,12 +289,20 @@ fun Route.vendorRoutes() {
                 biometric_required = vendor[VendorsTable.biometricRequired],
                 enable_offline_mode = vendor[VendorsTable.enableOfflineMode],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
+                loyalty_enabled = vendor[VendorsTable.loyaltyEnabled],
+                points_earn_rate = vendor[VendorsTable.pointsEarnRate].toDouble(),
+                points_redeem_rate = vendor[VendorsTable.pointsRedeemRate].toDouble(),
+                min_points_redeem = vendor[VendorsTable.minPointsRedeem],
+                max_manual_discount_percent = vendor[VendorsTable.maxManualDiscountPercent].toDouble(),
+                manual_discount_requires_pin = vendor[VendorsTable.manualDiscountRequiresPin],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
             ))
         }
 
         put("/me") {
+            val trace = call.routeTrace()
+            trace.step("Update vendor started")
             val principal = requireRole("MANAGER")
 
             // Check if vendor is suspended
@@ -117,13 +312,53 @@ fun Route.vendorRoutes() {
                     .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
             }
             if (currentVendor[VendorsTable.isSuspended]) {
+                trace.step("Update vendor rejected - vendor suspended", mapOf("vendorId" to principal.vendorId))
                 call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Vendor account is suspended. Contact admin."))
                 return@put
             }
 
             val request = call.receive<UpdateVendorRequest>()
 
+            // Build a map of which settings are being changed
+            val settingsChanged = mutableListOf<String>()
+            request.name?.let { settingsChanged.add("name") }
+            request.logo_url?.let { settingsChanged.add("logo_url") }
+            request.address?.let { settingsChanged.add("address") }
+            request.contact_phone?.let { settingsChanged.add("contact_phone") }
+            request.wallet_phone?.let { settingsChanged.add("wallet_phone") }
+            request.default_delivery_fee?.let { settingsChanged.add("default_delivery_fee") }
+            request.store_type?.let { settingsChanged.add("store_type") }
+            request.enable_tables?.let { settingsChanged.add("enable_tables") }
+            request.enable_dine_in?.let { settingsChanged.add("enable_dine_in") }
+            request.enable_delivery?.let { settingsChanged.add("enable_delivery") }
+            request.enable_takeaway?.let { settingsChanged.add("enable_takeaway") }
+            request.enable_in_store?.let { settingsChanged.add("enable_in_store") }
+            request.enable_pickup_later?.let { settingsChanged.add("enable_pickup_later") }
+            request.business_type?.let { settingsChanged.add("business_type") }
+            request.tax_enabled?.let { settingsChanged.add("tax_enabled") }
+            request.default_tax_percent?.let { settingsChanged.add("default_tax_percent") }
+            request.stock_mode?.let { settingsChanged.add("stock_mode") }
+            request.biometric_required?.let { settingsChanged.add("biometric_required") }
+            request.enable_offline_mode?.let { settingsChanged.add("enable_offline_mode") }
+            request.digital_menu_url?.let { settingsChanged.add("digital_menu_url") }
+
+            trace.step("Updating vendor", mapOf(
+                "vendorId" to principal.vendorId,
+                "name" to (request.name ?: "null"),
+                "settingsChanged" to settingsChanged.joinToString(",")
+            ))
+
             val updated = transaction {
+                // Delete old logo file if being replaced
+                if (request.logo_url != null) {
+                    val oldLogoUrl = VendorsTable.selectAll()
+                        .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
+                        .firstOrNull()?.get(VendorsTable.logoUrl)
+                    if (oldLogoUrl != null && oldLogoUrl != request.logo_url) {
+                        deleteUploadedFile(oldLogoUrl)
+                    }
+                }
+                trace.step("Executing vendor update in database")
                 VendorsTable.update({ VendorsTable.id eq UUID.fromString(principal.vendorId) }) { stmt ->
                     request.name?.let { stmt[name] = it }
                     request.logo_url?.let { stmt[logoUrl] = it }
@@ -145,6 +380,12 @@ fun Route.vendorRoutes() {
                     request.biometric_required?.let { stmt[biometricRequired] = it }
                     request.enable_offline_mode?.let { stmt[enableOfflineMode] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
+                    request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
+                    request.points_earn_rate?.let { stmt[pointsEarnRate] = it.toBigDecimal() }
+                    request.points_redeem_rate?.let { stmt[pointsRedeemRate] = it.toBigDecimal() }
+                    request.min_points_redeem?.let { stmt[minPointsRedeem] = it }
+                    request.max_manual_discount_percent?.let { stmt[maxManualDiscountPercent] = it.toBigDecimal() }
+                    request.manual_discount_requires_pin?.let { stmt[manualDiscountRequiresPin] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 
@@ -152,11 +393,19 @@ fun Route.vendorRoutes() {
                     .where { VendorsTable.id eq UUID.fromString(principal.vendorId) }
                     .first()
             }
+            trace.step("Update vendor result", mapOf(
+                "vendorId" to updated[VendorsTable.id].toString(),
+                "name" to updated[VendorsTable.name]
+            ))
 
+            val putHost = call.request.header("Host") ?: "localhost:8080"
+            val putScheme = call.request.header("X-Forwarded-Proto") ?: "http"
+
+            trace.step("Update vendor completed")
             call.respond(HttpStatusCode.OK, VendorResponse(
                 id = updated[VendorsTable.id].toString(),
                 name = updated[VendorsTable.name],
-                logo_url = updated[VendorsTable.logoUrl],
+                logo_url = rewriteUploadUrl(updated[VendorsTable.logoUrl], putHost, putScheme),
                 address = updated[VendorsTable.address],
                 contact_phone = updated[VendorsTable.contactPhone],
                 wallet_phone = updated[VendorsTable.walletPhone],
@@ -176,6 +425,12 @@ fun Route.vendorRoutes() {
                 biometric_required = updated[VendorsTable.biometricRequired],
                 enable_offline_mode = updated[VendorsTable.enableOfflineMode],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
+                loyalty_enabled = updated[VendorsTable.loyaltyEnabled],
+                points_earn_rate = updated[VendorsTable.pointsEarnRate].toDouble(),
+                points_redeem_rate = updated[VendorsTable.pointsRedeemRate].toDouble(),
+                min_points_redeem = updated[VendorsTable.minPointsRedeem],
+                max_manual_discount_percent = updated[VendorsTable.maxManualDiscountPercent].toDouble(),
+                manual_discount_requires_pin = updated[VendorsTable.manualDiscountRequiresPin],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
             ))

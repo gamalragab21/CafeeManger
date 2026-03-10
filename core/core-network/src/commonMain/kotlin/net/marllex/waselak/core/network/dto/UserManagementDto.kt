@@ -17,6 +17,7 @@ data class UpdateUserRequest(
     val name: String? = null,
     val phone: String? = null,
     val email: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
     val active: Boolean? = null,
     val role: String? = null,
     val password: String? = null
@@ -33,4 +34,15 @@ data class ApiErrorResponse(
     val error: String,
     val message: String,
     @SerialName("status_code") val statusCode: Int? = null
+)
+
+@Serializable
+data class UploadResponse(
+    val url: String,
+)
+
+@Serializable
+data class LogUploadResponse(
+    val message: String,
+    val filename: String,
 )

@@ -3,8 +3,12 @@ package net.marllex.waselak.backend.domain.service
 import kotlinx.datetime.Clock
 import net.marllex.waselak.backend.config.JwtConfig
 import net.marllex.waselak.backend.data.database.RefreshTokensTable
+import net.marllex.waselak.backend.data.database.VendorSubscriptionsTable
+import net.marllex.waselak.backend.data.database.SubscriptionPlansTable
 import net.marllex.waselak.backend.data.database.UsersTable
 import net.marllex.waselak.backend.data.database.VendorsTable
+import net.marllex.waselak.backend.data.database.WorkersTable
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -25,7 +29,8 @@ class AuthService(private val jwtConfig: JwtConfig) {
         val role: String,
         val name: String,
         val phone: String,
-        val email: String?
+        val email: String?,
+        val photoUrl: String?
     )
 
     /**
@@ -76,13 +81,19 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
             if (vendorRow[VendorsTable.isSuspended]) {
                 val reason = vendorRow[VendorsTable.suspensionReason] ?: "No reason provided"
-                throw IllegalStateException("Your vendor account is suspended: $reason")
+                throw AccountSuspendedException("Your vendor account is suspended: $reason")
             }
 
             val userId = user[UsersTable.id].value
             val userIdStr = userId.toString()
             val vendorId = user[UsersTable.vendorId].toString()
             val role = user[UsersTable.role]
+
+            // Resolve photo: prefer user photo, fallback to linked worker photo
+            val photoUrl = user[UsersTable.photoUrl]
+                ?: WorkersTable.selectAll()
+                    .where { (WorkersTable.userId eq userId) and WorkersTable.photoUrl.isNotNull() }
+                    .firstOrNull()?.get(WorkersTable.photoUrl)
 
             val refreshToken = jwtConfig.generateRefreshToken(userIdStr)
 
@@ -97,7 +108,8 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 role = role,
                 name = user[UsersTable.name],
                 phone = user[UsersTable.phone],
-                email = user[UsersTable.email]
+                email = user[UsersTable.email],
+                photoUrl = photoUrl
             )
         }
     }
@@ -128,12 +140,18 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 .firstOrNull() ?: throw NoSuchElementException("Vendor not found")
             if (vendorCheck[VendorsTable.isSuspended]) {
                 val reason = vendorCheck[VendorsTable.suspensionReason] ?: "No reason provided"
-                throw IllegalStateException("Your vendor account is suspended: $reason")
+                throw AccountSuspendedException("Your vendor account is suspended: $reason")
             }
 
             val userUUID = user[UsersTable.id].value
             val vendorId = user[UsersTable.vendorId].toString()
             val role = user[UsersTable.role]
+
+            // Resolve photo: prefer user photo, fallback to linked worker photo
+            val photoUrl = user[UsersTable.photoUrl]
+                ?: WorkersTable.selectAll()
+                    .where { (WorkersTable.userId eq userUUID) and WorkersTable.photoUrl.isNotNull() }
+                    .firstOrNull()?.get(WorkersTable.photoUrl)
 
             val newRefreshToken = jwtConfig.generateRefreshToken(userId)
 
@@ -155,7 +173,8 @@ class AuthService(private val jwtConfig: JwtConfig) {
                 role = role,
                 name = user[UsersTable.name],
                 phone = user[UsersTable.phone],
-                email = user[UsersTable.email]
+                email = user[UsersTable.email],
+                photoUrl = photoUrl
             )
         }
     }

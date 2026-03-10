@@ -1,11 +1,39 @@
 <configuration>
+    <!-- Console appender: human-readable for local development -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
+
+    <!-- JSON file appender: structured logs for Loki/Grafana -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/backend/waselak-backend.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/backend/waselak-backend.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>vendorId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>userRole</includeMdcKeyName>
+            <includeMdcKeyName>method</includeMdcKeyName>
+            <includeMdcKeyName>path</includeMdcKeyName>
+            <includeMdcKeyName>queryParams</includeMdcKeyName>
+            <includeMdcKeyName>statusCode</includeMdcKeyName>
+            <includeMdcKeyName>durationMs</includeMdcKeyName>
+            <includeMdcKeyName>clientIp</includeMdcKeyName>
+            <includeMdcKeyName>userAgent</includeMdcKeyName>
+            <includeMdcKeyName>requestBody</includeMdcKeyName>
+            <includeMdcKeyName>responseBody</includeMdcKeyName>
+            <includeMdcKeyName>errorMessage</includeMdcKeyName>
+        </encoder>
+    </appender>
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="JSON_FILE"/>
     </root>
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>

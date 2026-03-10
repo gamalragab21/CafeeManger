@@ -5,10 +5,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.OrderRepository
+import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
@@ -22,6 +23,7 @@ import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 class OrdersViewModel constructor(
     private val orderRepository: OrderRepository,
     private val userRepository: UserManagementRepository,
+    private val tableRepository: TableRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -30,10 +32,12 @@ class OrdersViewModel constructor(
         val selectedChannel: String? = null,
         val selectedCashierId: String? = null,
         val selectedDeliveryUserId: String? = null,
+        val selectedTableId: String? = null,
         val fromDate: Long? = null,
         val toDate: Long? = null,
         val cashiers: List<net.marllex.waselak.core.model.User> = emptyList(),
         val deliveryUsers: List<net.marllex.waselak.core.model.User> = emptyList(),
+        val tables: List<net.marllex.waselak.core.model.Table> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
         // Delivery assignment dialog
@@ -58,10 +62,16 @@ class OrdersViewModel constructor(
         val refundingOrder: Order? = null,
         val refundReason: String = "",
         val isRefundProcessing: Boolean = false,
+        // Pagination
+        val currentOffset: Int = 0,
+        val totalCount: Int = 0,
+        val hasMore: Boolean = false,
+        val isLoadingMore: Boolean = false,
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
                     selectedCashierId != null || selectedDeliveryUserId != null ||
+                    selectedTableId != null ||
                     fromDate != null || toDate != null
     }
 
@@ -71,6 +81,18 @@ class OrdersViewModel constructor(
     init {
         loadOrders()
         loadUsers()
+        loadTables()
+    }
+
+    private fun loadTables() {
+        viewModelScope.launch {
+            tableRepository.refreshTables()
+        }
+        viewModelScope.launch {
+            tableRepository.getTables().collect { tables ->
+                _uiState.update { it.copy(tables = tables) }
+            }
+        }
     }
 
     private fun loadUsers() {
@@ -92,28 +114,79 @@ class OrdersViewModel constructor(
 
     fun loadOrders() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
             val s = _uiState.value
+            AppLogger.d("Orders", "Loading orders: status=${s.selectedStatus}, channel=${s.selectedChannel}")
+            _uiState.update { it.copy(isLoading = true, error = null, currentOffset = 0) }
             orderRepository.refreshOrders(
                 status = s.selectedStatus,
                 channel = s.selectedChannel,
                 cashierId = s.selectedCashierId,
                 deliveryUserId = s.selectedDeliveryUserId,
+                tableId = s.selectedTableId,
                 from = s.fromDate,
-                to = s.toDate
-            )
-            orderRepository.getOrders(s.selectedStatus, s.selectedChannel)
-                .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
-                .collect { orders -> _uiState.update { it.copy(orders = orders, isLoading = false) } }
+                to = s.toDate,
+                limit = PAGE_SIZE,
+                offset = 0,
+            ).onSuccess { result ->
+                _uiState.update {
+                    it.copy(
+                        orders = result.data,
+                        isLoading = false,
+                        currentOffset = result.data.size,
+                        totalCount = result.total,
+                        hasMore = result.hasMore,
+                    )
+                }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
         }
     }
 
+    fun loadMoreOrders() {
+        val s = _uiState.value
+        if (s.isLoadingMore || !s.hasMore) return
+        viewModelScope.launch {
+            AppLogger.d("Orders", "Loading more orders: offset=${s.currentOffset}")
+            _uiState.update { it.copy(isLoadingMore = true) }
+            orderRepository.refreshOrders(
+                status = s.selectedStatus,
+                channel = s.selectedChannel,
+                cashierId = s.selectedCashierId,
+                deliveryUserId = s.selectedDeliveryUserId,
+                tableId = s.selectedTableId,
+                from = s.fromDate,
+                to = s.toDate,
+                limit = PAGE_SIZE,
+                offset = s.currentOffset,
+            ).onSuccess { result ->
+                _uiState.update {
+                    it.copy(
+                        orders = it.orders + result.data,
+                        isLoadingMore = false,
+                        currentOffset = it.currentOffset + result.data.size,
+                        totalCount = result.total,
+                        hasMore = result.hasMore,
+                    )
+                }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isLoadingMore = false, error = e.message) }
+            }
+        }
+    }
+
+    companion object {
+        private const val PAGE_SIZE = 50
+    }
+
     fun filterByStatus(status: String?) {
+        AppLogger.d("Orders", "Filter by status: $status")
         _uiState.update { it.copy(selectedStatus = status) }
         loadOrders()
     }
 
     fun filterByChannel(channel: String?) {
+        AppLogger.d("Orders", "Filter by channel: $channel")
         val currentStatus = _uiState.value.selectedStatus
         // Clear status filter if it's incompatible with new channel
         val resetStatus = if (currentStatus != null && channel != null) {
@@ -132,27 +205,38 @@ class OrdersViewModel constructor(
     }
 
     fun filterByCashier(cashierId: String?) {
+        AppLogger.d("Orders", "Filter by cashier: $cashierId")
         _uiState.update { it.copy(selectedCashierId = cashierId) }
         loadOrders()
     }
 
     fun filterByDelivery(deliveryUserId: String?) {
+        AppLogger.d("Orders", "Filter by delivery user: $deliveryUserId")
         _uiState.update { it.copy(selectedDeliveryUserId = deliveryUserId) }
         loadOrders()
     }
 
+    fun filterByTable(tableId: String?) {
+        AppLogger.d("Orders", "Filter by table: $tableId")
+        _uiState.update { it.copy(selectedTableId = tableId) }
+        loadOrders()
+    }
+
     fun filterByDateRange(from: Long?, to: Long?) {
+        AppLogger.d("Orders", "Filter by date range: from=$from, to=$to")
         _uiState.update { it.copy(fromDate = from, toDate = to) }
         loadOrders()
     }
 
     fun clearAllFilters() {
+        AppLogger.d("Orders", "Clearing all filters")
         _uiState.update {
             it.copy(
                 selectedStatus = null,
                 selectedChannel = null,
                 selectedCashierId = null,
                 selectedDeliveryUserId = null,
+                selectedTableId = null,
                 fromDate = null,
                 toDate = null
             )
@@ -161,6 +245,7 @@ class OrdersViewModel constructor(
     }
 
     fun shareReceipt(orderId: String, onLink: (String) -> Unit) {
+        AppLogger.d("Orders", "Sharing receipt: orderId=$orderId")
         viewModelScope.launch {
             orderRepository.shareReceipt(orderId)
                 .onSuccess { link -> onLink(link.url) }
@@ -169,10 +254,11 @@ class OrdersViewModel constructor(
     }
 
     fun updateOrderStatus(orderId: String, newStatus: OrderStatus) {
+        val currentOrder = _uiState.value.orders.find { it.id == orderId }
+        AppLogger.d("Orders", "Updating order status: orderId=$orderId, from=${currentOrder?.status?.name} to=${newStatus.name}, channel=${currentOrder?.channel?.name}")
         // If transitioning to ASSIGNED on a delivery order, show the delivery person picker
         if (newStatus == OrderStatus.ASSIGNED) {
-            val order = _uiState.value.orders.find { it.id == orderId }
-            if (order?.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY) {
+            if (currentOrder?.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY) {
                 _uiState.update {
                     it.copy(showAssignDeliveryDialog = true, assignOrderId = orderId)
                 }
@@ -180,9 +266,26 @@ class OrdersViewModel constructor(
             }
         }
         viewModelScope.launch {
-            orderRepository.updateOrderStatus(orderId, newStatus).onFailure { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
+            orderRepository.updateOrderStatus(orderId, newStatus)
+                .onSuccess { updatedOrder ->
+                    AppLogger.i("Orders", "Order status updated: orderId=$orderId, newStatus=${updatedOrder.status.name}")
+                    // Update the order in the local list immediately for instant UI feedback
+                    _uiState.update { state ->
+                        state.copy(
+                            orders = state.orders.map { if (it.id == orderId) updatedOrder else it }
+                        )
+                    }
+                    // Refresh tables so DINE_IN table goes back to AVAILABLE after COMPLETED/CANCELLED
+                    if (newStatus in listOf(OrderStatus.COMPLETED, OrderStatus.CANCELED)) {
+                        tableRepository.refreshTables()
+                    }
+                }
+                .onFailure { e ->
+                    AppLogger.e("Orders", "Order status update failed: orderId=$orderId, target=${newStatus.name}", e)
+                    _uiState.update { it.copy(error = e.message) }
+                    // Auto-refresh orders to get the latest status from server
+                    loadOrders()
+                }
         }
     }
 
@@ -193,13 +296,15 @@ class OrdersViewModel constructor(
     fun assignDeliveryUser(deliveryUserId: String) {
         val orderId = _uiState.value.assignOrderId ?: return
         viewModelScope.launch {
+            AppLogger.d("Orders", "Assigning delivery user: $deliveryUserId to order $orderId")
             // Don't close dialog immediately - wait for API response
             _uiState.update { it.copy(isLoading = true) }
             
             orderRepository.assignDeliveryUser(orderId, deliveryUserId)
                 .onSuccess {
+                    AppLogger.i("Orders", "Delivery user assigned successfully")
                     // Close dialog only on success
-                    _uiState.update { 
+                    _uiState.update {
                         it.copy(
                             showAssignDeliveryDialog = false, 
                             assignOrderId = null,
@@ -209,12 +314,13 @@ class OrdersViewModel constructor(
                     loadOrders() // Refresh orders list
                 }
                 .onFailure { e ->
+                    AppLogger.e("Orders", "Failed to assign delivery user", e)
                     // Keep dialog open on error, show error message
-                    _uiState.update { 
+                    _uiState.update {
                         it.copy(
                             error = e.message,
                             isLoading = false
-                        ) 
+                        )
                     }
                 }
         }
@@ -222,6 +328,7 @@ class OrdersViewModel constructor(
 
     // ─── Edit Order ────────────────────────────────────────────────
     fun showEditOrder(order: Order) {
+        AppLogger.i("Orders", "User action: open edit order dialog for orderId=${order.id}")
         _uiState.update {
             it.copy(
                 showEditOrderDialog = true,
@@ -245,6 +352,7 @@ class OrdersViewModel constructor(
     fun updateEditNotes(v: String) = _uiState.update { it.copy(editNotes = v) }
 
     fun updateEditItemQuantity(itemId: String, quantity: Int) {
+        AppLogger.d("Orders", "Updating edit item quantity: itemId=$itemId, quantity=$quantity")
         _uiState.update { state ->
             if (quantity <= 0) {
                 state.copy(editItems = state.editItems.filter { it.id != itemId })
@@ -257,6 +365,7 @@ class OrdersViewModel constructor(
     }
 
     fun removeEditItem(itemId: String) {
+        AppLogger.d("Orders", "Removing edit item: itemId=$itemId")
         _uiState.update { state ->
             state.copy(editItems = state.editItems.filter { it.id != itemId })
         }
@@ -268,6 +377,7 @@ class OrdersViewModel constructor(
         if (s.editItems.isEmpty()) return
 
         viewModelScope.launch {
+            AppLogger.d("Orders", "Saving order edit: orderId=${order.id}, items=${s.editItems.size}")
             _uiState.update { it.copy(isEditSaving = true) }
             orderRepository.updateOrder(
                 id = order.id,
@@ -283,9 +393,11 @@ class OrdersViewModel constructor(
                     )
                 },
             ).onSuccess {
+                AppLogger.i("Orders", "Order edited successfully")
                 _uiState.update { it.copy(isEditSaving = false, showEditOrderDialog = false, editingOrder = null) }
                 loadOrders()
             }.onFailure { e ->
+                AppLogger.e("Orders", "Failed to edit order", e)
                 _uiState.update { it.copy(isEditSaving = false, error = e.message) }
             }
         }
@@ -293,6 +405,7 @@ class OrdersViewModel constructor(
 
     // ─── Payment Dialog ──────────────────────────────────────────────
     fun showPaymentDialog(order: Order) {
+        AppLogger.i("Orders", "User action: open payment dialog for orderId=${order.id}")
         _uiState.update {
             it.copy(
                 showPaymentDialog = true,
@@ -307,6 +420,7 @@ class OrdersViewModel constructor(
     }
 
     fun selectPaymentMethod(method: PaymentMethod) {
+        AppLogger.d("Orders", "Selected payment method: ${method.name}")
         _uiState.update { it.copy(selectedPaymentMethod = method) }
     }
 
@@ -314,21 +428,24 @@ class OrdersViewModel constructor(
         val s = _uiState.value
         val order = s.payingOrder ?: return
         viewModelScope.launch {
+            AppLogger.d("Orders", "Confirming payment: orderId=${order.id}, method=${s.selectedPaymentMethod}")
             _uiState.update { it.copy(isPaymentProcessing = true) }
             orderRepository.updatePaymentStatus(
                 id = order.id,
                 status = PaymentStatus.PAID,
                 paymentMethod = s.selectedPaymentMethod,
-            ).onSuccess {
-                _uiState.update {
-                    it.copy(
+            ).onSuccess { updatedOrder ->
+                AppLogger.i("Orders", "Payment confirmed")
+                _uiState.update { state ->
+                    state.copy(
                         isPaymentProcessing = false,
                         showPaymentDialog = false,
                         payingOrder = null,
+                        orders = state.orders.map { if (it.id == order.id) updatedOrder else it },
                     )
                 }
-                loadOrders()
             }.onFailure { e ->
+                AppLogger.e("Orders", "Payment failed", e)
                 _uiState.update { it.copy(isPaymentProcessing = false, error = e.message) }
             }
         }
@@ -337,6 +454,7 @@ class OrdersViewModel constructor(
     // ─── Refund ──────────────────────────────────────────────────────
 
     fun showRefundDialog(order: Order) {
+        AppLogger.i("Orders", "User action: open refund dialog for orderId=${order.id}")
         _uiState.update { it.copy(showRefundDialog = true, refundingOrder = order, refundReason = "") }
     }
 
@@ -348,14 +466,20 @@ class OrdersViewModel constructor(
         _uiState.update { it.copy(refundReason = reason) }
     }
 
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     fun confirmRefund() {
         val order = _uiState.value.refundingOrder ?: return
         val reason = _uiState.value.refundReason
         if (reason.isBlank()) return
 
         viewModelScope.launch {
+            AppLogger.d("Orders", "Confirming refund: orderId=${order.id}")
             _uiState.update { it.copy(isRefundProcessing = true) }
             orderRepository.refundOrder(order.id, reason).onSuccess {
+                AppLogger.i("Orders", "Refund processed")
                 _uiState.update {
                     it.copy(
                         isRefundProcessing = false,
@@ -366,6 +490,7 @@ class OrdersViewModel constructor(
                 }
                 loadOrders()
             }.onFailure { e ->
+                AppLogger.e("Orders", "Refund failed", e)
                 _uiState.update { it.copy(isRefundProcessing = false, error = e.message) }
             }
         }

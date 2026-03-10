@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
@@ -67,6 +68,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
@@ -109,11 +111,14 @@ fun DeliveryOrdersScreen(
             TopAppBar(
                 navigationIcon = {
                     val logoUrl = uiState.vendorLogoUrl
+                    val logoPainter = waslekLogoPainter()
                     if (!logoUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = logoUrl, contentDescription = null,
                             modifier = Modifier.padding(start = 12.dp).size(36.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                             contentScale = ContentScale.Crop,
+                            placeholder = logoPainter,
+                            error = logoPainter,
                         )
                     } else {
                         WaslekLogo(modifier = Modifier.padding(start = 12.dp).size(36.dp))
@@ -202,6 +207,22 @@ fun DeliveryOrdersScreen(
                                         onViewReceipt = { onNavigateToReceipt(order.id) },
                                         onConfirmPayment = { viewModel.confirmPayment(order.id) },
                                     )
+                                }
+                                if (uiState.hasMore) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (uiState.isLoadingMore) {
+                                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                            } else {
+                                                OutlinedButton(onClick = { viewModel.loadMoreOrders() }) {
+                                                    Text(stringResource(Res.string.load_more))
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

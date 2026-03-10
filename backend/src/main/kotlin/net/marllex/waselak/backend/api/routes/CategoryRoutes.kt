@@ -8,6 +8,7 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.CategoriesTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -33,19 +34,28 @@ data class UpdateCategoryDto(val name: String? = null, val display_order: Int? =
 fun Route.categoryRoutes() {
     route("/api/v1/categories") {
         get {
+            val trace = call.routeTrace()
+            trace.step("List categories started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val categories = transaction {
                 CategoriesTable.selectAll()
                     .where { CategoriesTable.vendorId eq UUID.fromString(principal.vendorId) }
                     .orderBy(CategoriesTable.displayOrder)
                     .map { it.toCategoryDto() }
             }
+            trace.step("Categories fetched", mapOf("count" to categories.size.toString()))
+            trace.step("List categories completed")
             call.respond(HttpStatusCode.OK, categories)
         }
 
         post {
+            val trace = call.routeTrace()
+            trace.step("Create category started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val request = call.receive<CreateCategoryDto>()
+            trace.step("Request received", mapOf("name" to request.name, "displayOrder" to request.display_order.toString()))
             require(request.name.isNotBlank()) { "Category name is required" }
 
             val category = transaction {
@@ -58,13 +68,23 @@ fun Route.categoryRoutes() {
                 }
                 CategoriesTable.selectAll().where { CategoriesTable.id eq id }.first().toCategoryDto()
             }
+            trace.step("Category created", mapOf("categoryId" to category.id, "categoryName" to category.name))
+            trace.step("Create category completed")
             call.respond(HttpStatusCode.Created, category)
         }
 
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update category started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Category ID param", mapOf("categoryId" to id))
             val request = call.receive<UpdateCategoryDto>()
+            trace.step("Update fields received", mapOf(
+                "name" to (request.name ?: "null"),
+                "displayOrder" to (request.display_order?.toString() ?: "null")
+            ))
 
             val updated = transaction {
                 CategoriesTable.update({
@@ -78,12 +98,18 @@ fun Route.categoryRoutes() {
                 CategoriesTable.selectAll().where { CategoriesTable.id eq UUID.fromString(id) }
                     .firstOrNull()?.toCategoryDto() ?: throw NoSuchElementException("Category not found")
             }
+            trace.step("Category updated", mapOf("categoryId" to updated.id, "categoryName" to updated.name))
+            trace.step("Update category completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete category started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Category ID param", mapOf("categoryId" to id))
 
             transaction {
                 val deleted = CategoriesTable.deleteWhere {
@@ -91,7 +117,9 @@ fun Route.categoryRoutes() {
                     (vendorId eq UUID.fromString(principal.vendorId))
                 }
                 if (deleted == 0) throw NoSuchElementException("Category not found")
+                trace.step("Category deleted from database", mapOf("rowsAffected" to deleted.toString()))
             }
+            trace.step("Delete category completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }

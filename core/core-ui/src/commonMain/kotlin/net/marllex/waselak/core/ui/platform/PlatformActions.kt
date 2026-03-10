@@ -15,6 +15,11 @@ expect class PlatformActions {
      * Returns the absolute path of the saved file.
      */
     fun saveFileToDownloads(bytes: ByteArray, fileName: String): String
+
+    /**
+     * Share/open a file via the platform share sheet or file explorer.
+     */
+    fun shareFile(bytes: ByteArray, fileName: String, mimeType: String)
 }
 
 @Composable

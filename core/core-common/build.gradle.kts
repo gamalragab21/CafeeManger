@@ -13,6 +13,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kermit)
+            api(libs.sentry.kmp)
         }
     }
 }

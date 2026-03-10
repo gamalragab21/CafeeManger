@@ -252,6 +252,69 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         )""",
         // v18: variant_options_snapshot on order_items
         "ALTER TABLE order_items ADD COLUMN variant_options_snapshot TEXT",
+        // v19: photo_url on users and workers
+        "ALTER TABLE users ADD COLUMN photo_url TEXT",
+        "ALTER TABLE workers ADD COLUMN photo_url TEXT",
+        // v20: overtime tracking columns on salary_payments
+        "ALTER TABLE salary_payments ADD COLUMN overtime_hours REAL NOT NULL DEFAULT 0.0",
+        "ALTER TABLE salary_payments ADD COLUMN overtime_amount REAL NOT NULL DEFAULT 0.0",
+        // v22: offers and offer_items tables
+        """CREATE TABLE IF NOT EXISTS offers (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            image_url TEXT,
+            discount_type TEXT NOT NULL,
+            discount_value REAL NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            expires_at INTEGER,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER,
+            updated_at INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS offer_items (
+            id TEXT NOT NULL PRIMARY KEY,
+            offer_id TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            item_price REAL NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1
+        )""",
+        // v23: Phase 3 - loyalty, discounts, offers enhancements
+        "ALTER TABLE vendors ADD COLUMN loyalty_enabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN points_earn_rate REAL NOT NULL DEFAULT 1.0",
+        "ALTER TABLE vendors ADD COLUMN points_redeem_rate REAL NOT NULL DEFAULT 0.1",
+        "ALTER TABLE vendors ADD COLUMN min_points_redeem INTEGER NOT NULL DEFAULT 100",
+        "ALTER TABLE vendors ADD COLUMN max_manual_discount_percent REAL NOT NULL DEFAULT 100.0",
+        "ALTER TABLE vendors ADD COLUMN manual_discount_requires_pin INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE customers ADD COLUMN points_balance INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN offer_id TEXT",
+        "ALTER TABLE orders ADD COLUMN points_earned INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN points_redeemed INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN discount_reason TEXT",
+        "ALTER TABLE offers ADD COLUMN promo_code TEXT",
+        "ALTER TABLE offers ADD COLUMN max_uses INTEGER",
+        "ALTER TABLE offers ADD COLUMN used_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE offers ADD COLUMN starts_at INTEGER",
+        // v21: reservations table
+        """CREATE TABLE IF NOT EXISTS reservations (
+            id TEXT NOT NULL PRIMARY KEY,
+            vendor_id TEXT NOT NULL,
+            table_id TEXT NOT NULL,
+            table_number TEXT,
+            client_name TEXT NOT NULL,
+            client_phone TEXT,
+            reservation_date TEXT NOT NULL,
+            reservation_time TEXT NOT NULL,
+            number_of_guests INTEGER NOT NULL DEFAULT 1,
+            notes TEXT,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            order_id TEXT,
+            created_by TEXT NOT NULL,
+            created_at INTEGER,
+            updated_at INTEGER
+        )""",
     )
     migrations.forEach { sql ->
         try {
@@ -269,11 +332,18 @@ val databaseModule = module {
         migrateIfNeeded(driver)
         WaselakDatabase(
             driver = driver,
+            vendorsAdapter = Vendors.Adapter(
+                min_points_redeemAdapter = intAdapter,
+            ),
             attendanceAdapter = Attendance.Adapter(
                 worked_minutesAdapter = intAdapter,
             ),
             categoriesAdapter = Categories.Adapter(
                 display_orderAdapter = intAdapter,
+            ),
+            ordersAdapter = Orders.Adapter(
+                points_earnedAdapter = intAdapter,
+                points_redeemedAdapter = intAdapter,
             ),
             order_itemsAdapter = Order_items.Adapter(
                 quantityAdapter = intAdapter,
@@ -293,6 +363,7 @@ val databaseModule = module {
             ),
             customersAdapter = Customers.Adapter(
                 order_countAdapter = intAdapter,
+                points_balanceAdapter = intAdapter,
             ),
             pending_syncAdapter = Pending_sync.Adapter(
                 retry_countAdapter = intAdapter,
@@ -305,6 +376,17 @@ val databaseModule = module {
             ),
             item_variant_optionsAdapter = Item_variant_options.Adapter(
                 display_orderAdapter = intAdapter,
+            ),
+            reservationsAdapter = Reservations.Adapter(
+                number_of_guestsAdapter = intAdapter,
+            ),
+            offersAdapter = Offers.Adapter(
+                max_usesAdapter = intAdapter,
+                used_countAdapter = intAdapter,
+                display_orderAdapter = intAdapter,
+            ),
+            offer_itemsAdapter = Offer_items.Adapter(
+                quantityAdapter = intAdapter,
             ),
         )
     }
@@ -321,4 +403,6 @@ val databaseModule = module {
     single { CustomerDao(get()) }
     single { PendingSyncDao(get()) }
     single { ItemVariantDao(get()) }
+    single { ReservationDao(get()) }
+    single { OfferDao(get()) }
 }

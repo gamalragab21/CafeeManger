@@ -5,9 +5,30 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import kotlinx.serialization.Serializable
+import net.marllex.waselak.backend.domain.service.AccountSuspendedException
+import net.marllex.waselak.backend.domain.service.FeatureNotAvailableException
+import net.marllex.waselak.backend.domain.service.PlanLimitExceededException
 
 fun Application.configureStatusPages() {
     install(StatusPages) {
+        exception<AccountSuspendedException> { call, cause ->
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ErrorResponse("ACCOUNT_SUSPENDED", cause.message ?: "Your account has been suspended")
+            )
+        }
+        exception<PlanLimitExceededException> { call, cause ->
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ErrorResponse("PLAN_LIMIT_EXCEEDED", cause.message ?: "You have reached your plan's limit")
+            )
+        }
+        exception<FeatureNotAvailableException> { call, cause ->
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ErrorResponse("FEATURE_NOT_AVAILABLE", cause.message ?: "This feature is not available on your current plan")
+            )
+        }
         exception<IllegalArgumentException> { call, cause ->
             call.respond(
                 HttpStatusCode.BadRequest,

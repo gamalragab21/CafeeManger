@@ -11,6 +11,7 @@ data class Customer(
     val notes: String? = null,
     val orderCount: Int = 0,
     val totalSpent: Double = 0.0,
+    val pointsBalance: Int = 0,
     val lastOrderAt: Long? = null,
     val addresses: List<CustomerAddress> = emptyList(),
     val createdAt: Long,
@@ -28,5 +29,17 @@ data class CustomerAddress(
     val deliveryZoneId: String? = null,
     val deliveryFee: Double? = null,
     val isDefault: Boolean = false,
+    val createdAt: Long,
+)
+
+@Serializable
+data class PointsTransaction(
+    val id: String,
+    val customerId: String,
+    val vendorId: String,
+    val orderId: String? = null,
+    val type: String, // EARN or REDEEM
+    val points: Int,
+    val description: String? = null,
     val createdAt: Long,
 )

@@ -1,5 +1,6 @@
 package net.marllex.waselak.core.data.repository
 
+import net.marllex.waselak.core.common.logging.AppLogger
 import io.ktor.client.call.body
 import io.ktor.client.statement.readBytes
 import io.ktor.http.isSuccess
@@ -14,6 +15,7 @@ class AnalyticsRepositoryImpl(
 ) : AnalyticsRepository {
 
     override suspend fun getSummary(from: Long?, to: Long?): Result<AnalyticsSummary> = runCatching {
+        AppLogger.d(TAG, "Fetching analytics summary")
         val now = Clock.System.now().toEpochMilliseconds()
         val fromDate = from ?: (now - (30L * 24 * 60 * 60 * 1000))
         val toDate = to ?: now
@@ -28,6 +30,7 @@ class AnalyticsRepositoryImpl(
         from: Long?,
         to: Long?
     ): Result<AnalyticsSummary> = runCatching {
+        AppLogger.d(TAG, "Fetching filtered analytics: status=$status, channel=$channel")
         val now = Clock.System.now().toEpochMilliseconds()
         val fromDate = from ?: (now - (30L * 24 * 60 * 60 * 1000))
         val toDate = to ?: now
@@ -103,19 +106,34 @@ class AnalyticsRepositoryImpl(
     override suspend fun getStockOverview(): Result<StockOverview> =
         runCatching { api.getStockOverview().toDomain() }
 
+    override suspend fun getOffersAnalytics(from: Long?, to: Long?): Result<OffersAnalytics> =
+        runCatching { api.getOffersAnalytics(from, to).toDomain() }
+
+    override suspend fun getDiscountAnalytics(from: Long?, to: Long?): Result<DiscountAnalytics> =
+        runCatching { api.getDiscountAnalytics(from, to).toDomain() }
+
+    override suspend fun getLoyaltyAnalytics(from: Long?, to: Long?): Result<LoyaltyAnalytics> =
+        runCatching { api.getLoyaltyAnalytics(from, to).toDomain() }
+
     override suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
+        AppLogger.d(TAG, "Exporting orders PDF")
         val response = api.exportOrdersPDF(fromDate, toDate)
         if (response.status.isSuccess()) {
-            response.readBytes()
+            val bytes = response.readBytes()
+            AppLogger.i(TAG, "PDF export completed")
+            bytes
         } else {
             throw Exception("Failed to export PDF: ${response.status}")
         }
     }
 
     override suspend fun exportOrdersExcel(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
+        AppLogger.d(TAG, "Exporting orders Excel")
         val response = api.exportOrdersExcel(fromDate, toDate)
         if (response.status.isSuccess()) {
-            response.readBytes()
+            val bytes = response.readBytes()
+            AppLogger.i(TAG, "Excel export completed")
+            bytes
         } else {
             throw Exception("Failed to export Excel: ${response.status}")
         }
@@ -128,5 +146,9 @@ class AnalyticsRepositoryImpl(
         } else {
             throw Exception("Failed to load preview: ${response.status}")
         }
+    }
+
+    private companion object {
+        const val TAG = "AnalyticsRepo"
     }
 }

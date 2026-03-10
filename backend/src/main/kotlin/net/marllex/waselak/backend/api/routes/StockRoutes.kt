@@ -12,11 +12,14 @@ import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.StockTable
 import net.marllex.waselak.backend.data.database.StockTransactionsTable
 import net.marllex.waselak.backend.domain.model.StockUnit
+import net.marllex.waselak.backend.domain.service.PlanService
+import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.math.BigDecimal
 import java.util.UUID
+import org.koin.java.KoinJavaComponent
 
 // ─── DTOs ───────────────────────────────────────────────────────
 
@@ -127,11 +130,17 @@ data class StockAnalyticsSummaryDto(
 // ─── Routes ─────────────────────────────────────────────────────
 
 fun Route.stockRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+
     route("/api/v1/stock") {
 
         // GET all stock for this vendor
         get {
+            val trace = call.routeTrace()
+            trace.step("List stock started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val vendorUUID = UUID.fromString(principal.vendorId)
 
             val stocks = transaction {
@@ -140,13 +149,20 @@ fun Route.stockRoutes() {
                     .orderBy(StockTable.itemName)
                     .map { it.toStockDto() }
             }
+            trace.step("Stock items fetched", mapOf("count" to stocks.size.toString()))
+            trace.step("List stock completed")
             call.respond(HttpStatusCode.OK, stocks)
         }
 
         // GET single stock item
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get stock item started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
 
             val stock = transaction {
                 StockTable.selectAll()
@@ -156,13 +172,20 @@ fun Route.stockRoutes() {
                     }.firstOrNull()?.toStockDto()
                     ?: throw NoSuchElementException("Stock item not found")
             }
+            trace.step("Stock item found", mapOf("itemName" to stock.item_name, "quantity" to stock.quantity.toString(), "unit" to stock.unit))
+            trace.step("Get stock item completed")
             call.respond(HttpStatusCode.OK, stock)
         }
 
         // GET stock by item ID
         get("/by-item/{itemId}") {
+            val trace = call.routeTrace()
+            trace.step("Get stock by item ID started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val itemId = call.parameters["itemId"] ?: throw IllegalArgumentException("Item ID required")
+            trace.step("Item ID parsed", mapOf("itemId" to itemId))
 
             val stock = transaction {
                 StockTable.selectAll()
@@ -172,8 +195,12 @@ fun Route.stockRoutes() {
                     }.firstOrNull()?.toStockDto()
             }
             if (stock != null) {
+                trace.step("Stock found for item", mapOf("stockId" to stock.id, "itemName" to stock.item_name, "quantity" to stock.quantity.toString()))
+                trace.step("Get stock by item ID completed")
                 call.respond(HttpStatusCode.OK, stock)
             } else {
+                trace.step("Stock not found for item", mapOf("itemId" to itemId))
+                trace.step("Get stock by item ID completed")
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Stock not found for this item"))
             }
         }
@@ -181,14 +208,28 @@ fun Route.stockRoutes() {
         // CREATE stock item (MANAGER only)
         // Supports both menu-linked items (item_id provided) and independent items (item_name provided)
         post {
+            val trace = call.routeTrace()
+            trace.step("Create stock item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val request = call.receive<CreateStockDto>()
+            trace.step("Request parsed", mapOf(
+                "itemId" to (request.item_id ?: "null"),
+                "itemName" to (request.item_name ?: "null"),
+                "quantity" to request.quantity.toString(),
+                "unit" to request.unit,
+                "minQuantity" to request.min_quantity.toString()
+            ))
             require(request.quantity >= 0) { "Quantity must be non-negative" }
 
             // Validate: either item_id or item_name must be provided
             require(request.item_id != null || !request.item_name.isNullOrBlank()) {
                 "Either item_id (for menu items) or item_name (for independent items) must be provided"
             }
+
+            val isMenuLinkedReq = request.item_id != null
+            trace.step("Stock mode determined", mapOf("isMenuLinked" to isMenuLinkedReq.toString()))
 
             val stock = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -270,14 +311,27 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockId }.first().toStockDto()
             }
+            trace.step("Stock item created", mapOf("stockId" to stock.id, "itemName" to stock.item_name, "quantity" to stock.quantity.toString(), "unit" to stock.unit))
+            trace.step("Create stock item completed")
             call.respond(HttpStatusCode.Created, stock)
         }
 
         // UPDATE stock item (MANAGER only)
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update stock item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
             val request = call.receive<UpdateStockDto>()
+            trace.step("Request parsed", mapOf(
+                "quantity" to (request.quantity?.toString() ?: "null"),
+                "minQuantity" to (request.min_quantity?.toString() ?: "null"),
+                "unit" to (request.unit ?: "null"),
+                "alertEnabled" to (request.alert_enabled?.toString() ?: "null")
+            ))
 
             val updated = transaction {
                 val stockUUID = UUID.fromString(id)
@@ -336,14 +390,22 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
             }
+            trace.step("Stock item updated", mapOf("stockId" to updated.id, "itemName" to updated.item_name, "quantity" to updated.quantity.toString()))
+            trace.step("Update stock item completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // ADD quantity (MANAGER only)
         patch("/{id}/add") {
+            val trace = call.routeTrace()
+            trace.step("Add stock quantity started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
             val request = call.receive<AdjustQuantityDto>()
+            trace.step("Request parsed", mapOf("addQuantity" to request.quantity.toString(), "note" to (request.note ?: "null")))
             require(request.quantity > 0) { "Quantity must be positive" }
 
             val updated = transaction {
@@ -378,14 +440,22 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
             }
+            trace.step("Stock quantity added", mapOf("stockId" to updated.id, "previousQuantity" to (updated.quantity - request.quantity).toString(), "newQuantity" to updated.quantity.toString()))
+            trace.step("Add stock quantity completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // DEDUCT quantity (MANAGER/CASHIER)
         patch("/{id}/deduct") {
+            val trace = call.routeTrace()
+            trace.step("Deduct stock quantity started")
             val principal = requireRole("MANAGER", "CASHIER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
             val request = call.receive<AdjustQuantityDto>()
+            trace.step("Request parsed", mapOf("deductQuantity" to request.quantity.toString(), "note" to (request.note ?: "null")))
             require(request.quantity > 0) { "Quantity must be positive" }
 
             val updated = transaction {
@@ -420,14 +490,22 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
             }
+            trace.step("Stock quantity deducted", mapOf("stockId" to updated.id, "newQuantity" to updated.quantity.toString()))
+            trace.step("Deduct stock quantity completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // WASTE — record stock wastage (MANAGER only)
         patch("/{id}/waste") {
+            val trace = call.routeTrace()
+            trace.step("Record stock waste started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
             val request = call.receive<AdjustQuantityDto>()
+            trace.step("Request parsed", mapOf("wasteQuantity" to request.quantity.toString(), "note" to (request.note ?: "null")))
             require(request.quantity > 0) { "Quantity must be positive" }
 
             val updated = transaction {
@@ -462,14 +540,21 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
             }
+            trace.step("Stock waste recorded", mapOf("stockId" to updated.id, "wastedQuantity" to request.quantity.toString(), "newQuantity" to updated.quantity.toString()))
+            trace.step("Record stock waste completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // TRANSFER — move stock between stock items (MANAGER only)
         post("/{id}/transfer") {
+            val trace = call.routeTrace()
+            trace.step("Transfer stock started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("Source stock ID required")
             val request = call.receive<TransferStockDto>()
+            trace.step("Request parsed", mapOf("sourceStockId" to id, "targetStockId" to request.target_stock_id, "transferQuantity" to request.quantity.toString()))
             require(request.quantity > 0) { "Quantity must be positive" }
 
             val result = transaction {
@@ -527,14 +612,30 @@ fun Route.stockRoutes() {
                     "target" to StockTable.selectAll().where { StockTable.id eq targetUUID }.first().toStockDto(),
                 )
             }
+            trace.step("Stock transferred", mapOf(
+                "sourceStockId" to id,
+                "targetStockId" to request.target_stock_id,
+                "quantity" to request.quantity.toString()
+            ))
+            trace.step("Transfer stock completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // PURCHASE — add stock with unit conversion (MANAGER only)
         post("/{id}/purchase") {
+            val trace = call.routeTrace()
+            trace.step("Purchase stock started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
             val request = call.receive<PurchaseStockDto>()
+            trace.step("Request parsed", mapOf(
+                "purchaseQuantity" to request.quantity.toString(),
+                "purchaseUnit" to request.unit,
+                "costPrice" to (request.cost_price?.toString() ?: "null")
+            ))
             require(request.quantity > 0) { "Quantity must be positive" }
 
             val updated = transaction {
@@ -575,13 +676,20 @@ fun Route.stockRoutes() {
 
                 StockTable.selectAll().where { StockTable.id eq stockUUID }.first().toStockDto()
             }
+            trace.step("Stock purchased", mapOf("stockId" to updated.id, "newQuantity" to updated.quantity.toString(), "unit" to updated.unit))
+            trace.step("Purchase stock completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // GET transactions for a stock item
         get("/{id}/transactions") {
+            val trace = call.routeTrace()
+            trace.step("Get stock transactions started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
 
             val transactions = transaction {
                 // Verify stock belongs to vendor
@@ -596,13 +704,20 @@ fun Route.stockRoutes() {
                     .orderBy(StockTransactionsTable.createdAt, SortOrder.DESC)
                     .map { it.toStockTransactionDto() }
             }
+            trace.step("Stock transactions fetched", mapOf("stockId" to id, "count" to transactions.size.toString()))
+            trace.step("Get stock transactions completed")
             call.respond(HttpStatusCode.OK, transactions)
         }
 
         // DELETE stock item (MANAGER only)
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete stock item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Stock ID parsed", mapOf("stockId" to id))
 
             transaction {
                 val stockUUID = UUID.fromString(id)
@@ -620,6 +735,8 @@ fun Route.stockRoutes() {
                     (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
                 }
             }
+            trace.step("Stock item deleted", mapOf("stockId" to id))
+            trace.step("Delete stock item completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
 
@@ -629,13 +746,24 @@ fun Route.stockRoutes() {
 
         // GET all transactions (with filters)
         get("/analytics/transactions") {
+            val trace = call.routeTrace()
+            trace.step("Get analytics transactions started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val stockId = call.parameters["stock_id"]?.let { UUID.fromString(it) }
             val type = call.parameters["type"] // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, WASTE, TRANSFER
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 100
+            trace.step("Query filters", mapOf(
+                "stockId" to (stockId?.toString() ?: "null"),
+                "type" to (type ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null"),
+                "limit" to limit.toString()
+            ))
 
             val transactions = transaction {
                 // Get all stock IDs for this vendor
@@ -694,12 +822,18 @@ fun Route.stockRoutes() {
                         )
                     }
             }
+            trace.step("Analytics transactions fetched", mapOf("count" to transactions.size.toString()))
+            trace.step("Get analytics transactions completed")
             call.respond(HttpStatusCode.OK, transactions)
         }
 
         // GET low stock alerts
         get("/analytics/alerts") {
+            val trace = call.routeTrace()
+            trace.step("Get stock alerts started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val vendorUUID = UUID.fromString(principal.vendorId)
 
             val alerts = transaction {
@@ -723,12 +857,19 @@ fun Route.stockRoutes() {
                         )
                     }
             }
+            val outOfStockCount = alerts.count { it.is_out_of_stock }
+            trace.step("Stock alerts fetched", mapOf("totalAlerts" to alerts.size.toString(), "outOfStock" to outOfStockCount.toString()))
+            trace.step("Get stock alerts completed")
             call.respond(HttpStatusCode.OK, alerts)
         }
 
         // GET stock analytics summary
         get("/analytics/summary") {
+            val trace = call.routeTrace()
+            trace.step("Get stock analytics summary started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
             val vendorUUID = UUID.fromString(principal.vendorId)
 
             val summary = transaction {
@@ -795,6 +936,13 @@ fun Route.stockRoutes() {
                     total_deducted_today = totalDeductedToday,
                 )
             }
+            trace.step("Stock analytics summary fetched", mapOf(
+                "totalItems" to summary.total_items.toString(),
+                "lowStockCount" to summary.low_stock_count.toString(),
+                "outOfStockCount" to summary.out_of_stock_count.toString(),
+                "transactionsToday" to summary.total_transactions_today.toString()
+            ))
+            trace.step("Get stock analytics summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
     }

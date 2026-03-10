@@ -52,6 +52,7 @@ import net.marllex.waselak.core.model.DeliveryAvailability
 import net.marllex.waselak.core.model.DeliveryOrderSummary
 import net.marllex.waselak.core.model.DeliveryPersonStatus
 import net.marllex.waselak.core.ui.components.ErrorView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import org.koin.compose.viewmodel.koinViewModel
@@ -68,6 +69,9 @@ fun DeliveryDashboardScreen(
     val isTablet = maxWidth >= 600.dp
 
     when {
+        uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
+            message = uiState.featureNotAvailableMessage,
+        )
         uiState.isLoading -> LoadingIndicator()
         uiState.error != null && uiState.deliveryPersons.isEmpty() -> ErrorView(
             message = uiState.error!!,
@@ -114,6 +118,7 @@ fun DeliveryDashboardScreen(
         }
     }
     } // BoxWithConstraints
+
 }
 
 @Composable
@@ -287,7 +292,7 @@ private fun ActiveOrderRow(order: DeliveryOrderSummary) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = order.createdAt.formatEpochMs("HH:mm"),
+                text = order.createdAt.formatEpochMs("hh:mm a"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

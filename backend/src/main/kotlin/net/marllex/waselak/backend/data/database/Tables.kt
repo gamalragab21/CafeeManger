@@ -30,6 +30,13 @@ object VendorsTable : UUIDTable("vendors") {
     val suspensionReason = text("suspension_reason").nullable()
     val enableOfflineMode = bool("enable_offline_mode").default(false)
     val digitalMenuUrl = text("digital_menu_url").nullable()
+    // Loyalty & discount settings
+    val loyaltyEnabled = bool("loyalty_enabled").default(false)
+    val pointsEarnRate = decimal("points_earn_rate", 10, 2).default(java.math.BigDecimal("1.0"))
+    val pointsRedeemRate = decimal("points_redeem_rate", 10, 2).default(java.math.BigDecimal("0.1"))
+    val minPointsRedeem = integer("min_points_redeem").default(100)
+    val maxManualDiscountPercent = decimal("max_manual_discount_percent", 5, 2).default(java.math.BigDecimal("100.0"))
+    val manualDiscountRequiresPin = bool("manual_discount_requires_pin").default(false)
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -42,6 +49,7 @@ object UsersTable : UUIDTable("users") {
     val phone = varchar("phone", 20)
     val email = varchar("email", 255).nullable()
     val passwordHash = varchar("password_hash", 255)
+    val photoUrl = text("photo_url").nullable()
     val active = bool("active").default(true)
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
@@ -114,6 +122,23 @@ object TablesTable : UUIDTable("restaurant_tables") {
     }
 }
 
+// ─── Reservations ───────────────────────────────────────────────
+object ReservationsTable : UUIDTable("reservations") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val tableId = reference("table_id", TablesTable)
+    val clientName = varchar("client_name", 255)
+    val clientPhone = varchar("client_phone", 20).nullable()
+    val reservationDate = varchar("reservation_date", 10) // YYYY-MM-DD
+    val reservationTime = varchar("reservation_time", 5) // HH:MM
+    val numberOfGuests = integer("number_of_guests").default(1)
+    val notes = text("notes").nullable()
+    val status = varchar("status", 20).default("PENDING") // PENDING, CONFIRMED, CANCELLED, COMPLETED
+    val orderId = reference("order_id", OrdersTable).nullable()
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
 // ─── Tax Places (per-vendor tax rates by place) ───────────────────
 object TaxPlacesTable : UUIDTable("tax_places") {
     val vendorId = reference("vendor_id", VendorsTable)
@@ -158,6 +183,10 @@ object OrdersTable : UUIDTable("orders") {
     val refundedAt = timestamp("refunded_at").nullable()
     val refundedBy = reference("refunded_by", UsersTable).nullable()
     val refundReason = text("refund_reason").nullable()
+    val offerId = reference("offer_id", OffersTable, onDelete = ReferenceOption.SET_NULL).nullable()
+    val pointsEarned = integer("points_earned").default(0)
+    val pointsRedeemed = integer("points_redeemed").default(0)
+    val discountReason = varchar("discount_reason", 100).nullable()
 }
 
 // ─── Order Items ─────────────────────────────────────────────────
@@ -237,6 +266,7 @@ object WorkersTable : UUIDTable("workers") {
     val fullName = varchar("full_name", 255)
     val phone = varchar("phone", 20).nullable()
     val description = text("description").nullable()
+    val photoUrl = text("photo_url").nullable()
     val role = varchar("role", 100) // Custom role from predefined settings
     val salaryType = varchar("salary_type", 20) // DAILY, MONTHLY
     val salaryAmount = decimal("salary_amount", 10, 2).default(java.math.BigDecimal.ZERO)
@@ -369,6 +399,7 @@ object CustomersTable : UUIDTable("customers") {
     val notes = text("notes").nullable()
     val orderCount = integer("order_count").default(0)
     val totalSpent = decimal("total_spent", 10, 2).default(java.math.BigDecimal.ZERO)
+    val pointsBalance = integer("points_balance").default(0)
     val lastOrderAt = timestamp("last_order_at").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").nullable()
@@ -397,4 +428,133 @@ object RefreshTokensTable : UUIDTable("refresh_tokens") {
     val tokenHash = varchar("token_hash", 255).uniqueIndex()
     val expiresAt = timestamp("expires_at")
     val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Admin Users ─────────────────────────────────────────────────
+object AdminUsersTable : UUIDTable("admin_users") {
+    val name = varchar("name", 255)
+    val email = varchar("email", 255).uniqueIndex()
+    val passwordHash = varchar("password_hash", 255)
+    val active = bool("active").default(true)
+    val lastLoginAt = timestamp("last_login_at").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Admin Refresh Tokens ────────────────────────────────────────
+object AdminRefreshTokensTable : UUIDTable("admin_refresh_tokens") {
+    val adminId = reference("admin_id", AdminUsersTable)
+    val tokenHash = varchar("token_hash", 255).uniqueIndex()
+    val expiresAt = timestamp("expires_at")
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Subscription Plans ──────────────────────────────────────────
+object SubscriptionPlansTable : UUIDTable("subscription_plans") {
+    val name = varchar("name", 50).uniqueIndex()
+    val displayName = varchar("display_name", 100)
+    val priceEgp = integer("price_egp")
+    val billingCycle = varchar("billing_cycle", 20).default("MONTHLY")
+    val maxManagers = integer("max_managers").default(1)
+    val maxCashiers = integer("max_cashiers").default(1)
+    val maxDelivery = integer("max_delivery").default(0)
+    val maxOrdersPerMonth = integer("max_orders_per_month").default(750)
+    val maxMenuItems = integer("max_menu_items").default(50)
+    val maxBranches = integer("max_branches").default(1)
+    val stockManagement = bool("stock_management").default(false)
+    val workerAttendance = bool("worker_attendance").default(false)
+    val deliveryModule = bool("delivery_module").default(false)
+    val analytics = varchar("analytics", 20).default("NONE")
+    val digitalMenu = varchar("digital_menu", 20).default("NONE")
+    val overtime = bool("overtime").default(false)
+    val salaries = bool("salaries").default(false)
+    val customerManagement = bool("customer_management").default(false)
+    val tableManagement = bool("table_management").default(false)
+    val digitalReceipt = bool("digital_receipt").default(false)
+    val workerQrcode = bool("worker_qrcode").default(false)
+    val loyaltyPoints = bool("loyalty_points").default(false)
+    val manualDiscount = bool("manual_discount").default(false)
+    val offersManagement = bool("offers_management").default(false)
+    val active = bool("active").default(true)
+    val displayOrder = integer("display_order").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Vendor Subscriptions ────────────────────────────────────────
+object VendorSubscriptionsTable : UUIDTable("vendor_subscriptions") {
+    val vendorId = uuid("vendor_id").uniqueIndex()
+    val planId = reference("plan_id", SubscriptionPlansTable)
+    val status = varchar("status", 20).default("ACTIVE")
+    val startedAt = timestamp("started_at").default(Clock.System.now())
+    val expiresAt = timestamp("expires_at").nullable()
+    val notes = text("notes").nullable()
+    val overrideMaxManagers = integer("override_max_managers").nullable()
+    val overrideMaxCashiers = integer("override_max_cashiers").nullable()
+    val overrideMaxDelivery = integer("override_max_delivery").nullable()
+    val overrideMaxOrders = integer("override_max_orders").nullable()
+    val overrideMaxItems = integer("override_max_items").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Offers ─────────────────────────────────────────────────────
+object OffersTable : UUIDTable("offers") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val name = varchar("name", 255)
+    val description = text("description").nullable()
+    val imageUrl = text("image_url").nullable()
+    val discountType = varchar("discount_type", 20) // FIXED_PRICE or PERCENT
+    val discountValue = decimal("discount_value", 10, 2)
+    val active = bool("active").default(true)
+    val expiresAt = long("expires_at").nullable()
+    val displayOrder = integer("display_order").default(0)
+    val promoCode = varchar("promo_code", 50).nullable()
+    val maxUses = integer("max_uses").nullable()
+    val usedCount = integer("used_count").default(0)
+    val startsAt = long("starts_at").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Offer Items ────────────────────────────────────────────────
+object OfferItemsTable : UUIDTable("offer_items") {
+    val offerId = reference("offer_id", OffersTable, onDelete = ReferenceOption.CASCADE)
+    val itemId = reference("item_id", ItemsTable)
+    val quantity = integer("quantity").default(1)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Points Transactions ────────────────────────────────────────
+object PointsTransactionsTable : UUIDTable("points_transactions") {
+    val customerId = reference("customer_id", CustomersTable)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val orderId = reference("order_id", OrdersTable).nullable()
+    val type = varchar("type", 20) // EARN, REDEEM
+    val points = integer("points")
+    val description = text("description").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Request Logs ────────────────────────────────────────────────
+object RequestLogsTable : UUIDTable("request_logs") {
+    val vendorId = varchar("vendor_id", 36).nullable().index()
+    val userId = varchar("user_id", 36).nullable().index()
+    val userRole = varchar("user_role", 50).nullable()
+    val method = varchar("method", 10)
+    val path = varchar("path", 1024).index()
+    val queryParams = text("query_params").nullable()
+    val statusCode = integer("status_code").index()
+    val durationMs = long("duration_ms")
+    val clientIp = varchar("client_ip", 100).nullable()
+    val userAgent = text("user_agent").nullable()
+    val requestBody = text("request_body").nullable()
+    val responseBody = text("response_body").nullable()
+    val errorMessage = text("error_message").nullable()
+    val resource = varchar("resource", 100).nullable().index()   // e.g. "orders", "items", "workers"
+    val action = varchar("action", 100).nullable().index()       // e.g. "list", "create", "update", "delete"
+    val tags = text("tags").nullable()                            // JSON map of extracted attributes
+    val description = text("description").nullable()             // Human-readable summary of what the API call did
+    val traceLog = text("trace_log").nullable()                  // JSON array of step-by-step trace entries from RouteTrace
+    val createdAt = timestamp("created_at").default(Clock.System.now()).index()
 }

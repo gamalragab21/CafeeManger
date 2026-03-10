@@ -12,6 +12,8 @@
     <string name="back">رجوع</string>
     <string name="restaurant_fallback">المحل</string>
     <string name="order_number_receipt">رقم الطلب</string>
+    <string name="order_number_prescription">رقم الروشتة</string>
+    <string name="order_number_invoice">رقم الفاتورة</string>
     <string name="channel">القناة</string>
     <string name="payment">الدفع</string>
     <string name="date">التاريخ</string>

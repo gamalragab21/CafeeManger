@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -49,6 +50,7 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 @Composable
 fun TaxPlacesScreen(
     viewModel: TaxPlacesViewModel = koinViewModel(),
+    onNavigateBack: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -57,6 +59,13 @@ fun TaxPlacesScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Delivery Zones") },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),

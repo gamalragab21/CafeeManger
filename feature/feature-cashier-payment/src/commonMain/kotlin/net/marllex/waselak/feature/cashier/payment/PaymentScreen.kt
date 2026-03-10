@@ -32,10 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableBottomSheet
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.components.OrderStatusChip
 import net.marllex.waselak.core.ui.components.PaymentStatusChip
 import net.marllex.waselak.core.ui.components.PaymentMethodChip
+import net.marllex.waselak.core.ui.components.PlanLimitBottomSheet
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,6 +186,20 @@ fun PaymentScreen(
                 }
             }
         }
+    }
+
+    if (uiState.showFeatureNotAvailable) {
+        FeatureNotAvailableBottomSheet(
+            message = uiState.featureNotAvailableMessage,
+            onDismiss = viewModel::dismissFeatureNotAvailable,
+        )
+    }
+
+    if (uiState.showPlanLimitDialog) {
+        PlanLimitBottomSheet(
+            message = uiState.planLimitMessage,
+            onDismiss = viewModel::dismissPlanLimitDialog,
+        )
     }
 }
 

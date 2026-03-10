@@ -57,7 +57,13 @@ class AnalyticsViewModel(
         val customerIntelligence: SectionState<CustomerIntelligence> = SectionState.Loading,
         val alerts: SectionState<List<AnalyticsAlert>> = SectionState.Loading,
         val stockOverview: SectionState<StockOverview> = SectionState.Loading,
+        val offersAnalytics: SectionState<OffersAnalytics> = SectionState.Loading,
+        val discountAnalytics: SectionState<DiscountAnalytics> = SectionState.Loading,
+        val loyaltyAnalytics: SectionState<LoyaltyAnalytics> = SectionState.Loading,
         val exportState: ExportState = ExportState.Idle,
+        val isFeatureGated: Boolean = false,
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     )
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -101,6 +107,9 @@ class AnalyticsViewModel(
                 "customerIntelligence" -> loadCustomerIntelligence(from, to)
                 "alerts" -> loadAlerts(from, to)
                 "stockOverview" -> loadStockOverview()
+                "offersAnalytics" -> loadOffersAnalytics(from, to)
+                "discountAnalytics" -> loadDiscountAnalytics(from, to)
+                "loyaltyAnalytics" -> loadLoyaltyAnalytics(from, to)
             }
         }
     }
@@ -152,6 +161,10 @@ class AnalyticsViewModel(
         _uiState.update { it.copy(exportState = ExportState.Idle) }
     }
 
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
+    }
+
     // ── Parallel loading ────────────────────────────────────────────
 
     private fun loadAllSections() {
@@ -170,6 +183,9 @@ class AnalyticsViewModel(
                 customerIntelligence = SectionState.Loading,
                 alerts = SectionState.Loading,
                 stockOverview = SectionState.Loading,
+                offersAnalytics = SectionState.Loading,
+                discountAnalytics = SectionState.Loading,
+                loyaltyAnalytics = SectionState.Loading,
             )
         }
 
@@ -185,17 +201,23 @@ class AnalyticsViewModel(
             val d8 = async { loadCustomerIntelligence(from, to) }
             val d9 = async { loadAlerts(from, to) }
             val d10 = async { loadStockOverview() }
+            val d11 = async { loadOffersAnalytics(from, to) }
+            val d12 = async { loadDiscountAnalytics(from, to) }
+            val d13 = async { loadLoyaltyAnalytics(from, to) }
 
             // Await all (each one updates state independently)
             d1.await(); d2.await(); d3.await(); d4.await(); d5.await()
             d6.await(); d7.await(); d8.await(); d9.await(); d10.await()
+            d11.await(); d12.await(); d13.await()
         }
     }
 
     private suspend fun loadExecutiveSummary(from: Long, to: Long) {
         analyticsRepository.getExecutiveSummary(from, to)
             .onSuccess { data -> _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e ->
+                _uiState.update { it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed")) }
+            }
     }
 
     private suspend fun loadRevenueProfit(from: Long, to: Long) {
@@ -250,6 +272,24 @@ class AnalyticsViewModel(
         analyticsRepository.getStockOverview()
             .onSuccess { data -> _uiState.update { it.copy(stockOverview = SectionState.Success(data)) } }
             .onFailure { e -> _uiState.update { it.copy(stockOverview = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadOffersAnalytics(from: Long, to: Long) {
+        analyticsRepository.getOffersAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(offersAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(offersAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadDiscountAnalytics(from: Long, to: Long) {
+        analyticsRepository.getDiscountAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(discountAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(discountAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadLoyaltyAnalytics(from: Long, to: Long) {
+        analyticsRepository.getLoyaltyAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Error(e.message ?: "Failed")) } }
     }
 
     // ── Date range calculation ───────────────────────────────────────

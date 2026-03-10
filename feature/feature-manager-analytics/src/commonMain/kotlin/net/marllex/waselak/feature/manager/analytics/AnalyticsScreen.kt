@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +27,9 @@ import net.marllex.waselak.feature.manager.analytics.components.AlertsSection
 import net.marllex.waselak.feature.manager.analytics.components.CashierPerformanceSection
 import net.marllex.waselak.feature.manager.analytics.components.CustomerIntelligenceSection
 import net.marllex.waselak.feature.manager.analytics.components.DeliveryPerformanceSection
+import net.marllex.waselak.feature.manager.analytics.components.DiscountAnalyticsSection
+import net.marllex.waselak.feature.manager.analytics.components.LoyaltyAnalyticsSection
+import net.marllex.waselak.feature.manager.analytics.components.OffersAnalyticsSection
 import net.marllex.waselak.feature.manager.analytics.components.ExecutiveSummaryCards
 import net.marllex.waselak.feature.manager.analytics.components.ExportSection
 import net.marllex.waselak.feature.manager.analytics.components.GlobalFilterBar
@@ -44,6 +48,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun AnalyticsScreen(
     viewModel: AnalyticsViewModel = koinViewModel(),
+    onNavigateBack: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
@@ -52,6 +57,13 @@ fun AnalyticsScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.analytics)) },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -144,7 +156,31 @@ fun AnalyticsScreen(
                 )
             }
 
-            // 10. Alerts & Risks
+            // 10. Offers Performance
+            item {
+                OffersAnalyticsSection(
+                    state = state.offersAnalytics,
+                    onRetry = { viewModel.retrySection("offersAnalytics") },
+                )
+            }
+
+            // 11. Discount Analytics
+            item {
+                DiscountAnalyticsSection(
+                    state = state.discountAnalytics,
+                    onRetry = { viewModel.retrySection("discountAnalytics") },
+                )
+            }
+
+            // 12. Loyalty Analytics
+            item {
+                LoyaltyAnalyticsSection(
+                    state = state.loyaltyAnalytics,
+                    onRetry = { viewModel.retrySection("loyaltyAnalytics") },
+                )
+            }
+
+            // 13. Alerts & Risks
             item {
                 AlertsSection(
                     state = state.alerts,
@@ -152,7 +188,7 @@ fun AnalyticsScreen(
                 )
             }
 
-            // 11. Stock Overview
+            // 14. Stock Overview
             item {
                 StockOverviewSection(
                     state = state.stockOverview,
@@ -160,7 +196,7 @@ fun AnalyticsScreen(
                 )
             }
 
-            // 12. Export Report
+            // 15. Export Report
             item {
                 val fileSaver: (ByteArray, String) -> String = { bytes, name ->
                     platformActions.saveFileToDownloads(bytes, name)
@@ -179,4 +215,5 @@ fun AnalyticsScreen(
             }
         }
     }
+
 }

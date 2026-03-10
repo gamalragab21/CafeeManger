@@ -42,14 +42,14 @@
     <string name="enter_pin">Enter PIN</string>
     <string name="pin_length_hint">PIN must be 4-6 digits</string>
     <string name="confirm">Confirm</string>
-    <string name="check_in_time_label">In: %s</string>
-    <string name="check_out_time_label">Out: %s</string>
+    <string name="check_in_time_label">In: %1$s</string>
+    <string name="check_out_time_label">Out: %1$s</string>
     <string name="backspace">Backspace</string>
     <string name="clear_pin">Clear</string>
     <string name="unknown_error">An unknown error occurred</string>
     <string name="offline_mode">Offline Mode</string>
     <string name="offline_mode_desc">Attendance will sync when connected</string>
-    <string name="pending_sync">%d pending sync</string>
+    <string name="pending_sync">%1$d pending sync</string>
     <string name="sync_in_progress">Syncing attendance…</string>
     <string name="sync_complete">Attendance synced successfully</string>
     <string name="sync_failed">Some records failed to sync</string>

@@ -18,6 +18,7 @@ import net.marllex.waselak.core.network.dto.CreateVariantGroupRequest
 import net.marllex.waselak.core.network.dto.CreateVariantOptionRequest
 import net.marllex.waselak.core.network.dto.UpdateItemRequest
 import net.marllex.waselak.core.network.mapper.toDomain
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.database.Item_variant_groups
 import net.marllex.waselak.core.database.Item_variant_options
 
@@ -41,6 +42,7 @@ class ItemRepositoryImpl constructor(
     }
 
     override fun getItems(categoryId: String?): Flow<List<Item>> {
+        AppLogger.d("ItemRepo", "Reading items from local DB: categoryId=$categoryId")
         val itemsFlow = if (categoryId != null) {
             itemDao.getItemsByCategory(vendorId, categoryId).map { list -> list.map { it.toDomain() } }
         } else {
@@ -49,17 +51,38 @@ class ItemRepositoryImpl constructor(
         return itemsFlow.map { items -> items.withVariants() }
     }
 
-    override fun getAvailableItems(): Flow<List<Item>> =
-        itemDao.getAvailableItems(vendorId).map { list ->
+    override fun getAvailableItems(): Flow<List<Item>> {
+        AppLogger.d("ItemRepo", "Reading available items from local DB")
+        return itemDao.getAvailableItems(vendorId).map { list ->
             list.map { it.toDomain() }.withVariants()
         }
+    }
+
+    override fun getItemByBarcode(barcode: String): Flow<Item?> {
+        AppLogger.d("ItemRepo", "Reading item by barcode from local DB: barcode=$barcode")
+        return itemDao.getItemByBarcode(vendorId, barcode).map { dbItem ->
+            val item = dbItem?.toDomain() ?: return@map null
+            // Enrich with variants so barcode-scanned items show variant selector
+            val groups = itemVariantDao.getVariantGroupsByItemList(item.id)
+            if (groups.isEmpty()) return@map item
+            val variantGroups = groups.map { group ->
+                val options = itemVariantDao.getVariantOptionsByGroupList(group.id)
+                group.toDomain(options.map { it.toDomain() })
+            }
+            item.copy(variantGroups = variantGroups)
+        }
+    }
 
     override suspend fun refreshItems(): Result<List<Item>> = runCatching {
+        AppLogger.d("ItemRepo", "Refreshing items from API")
         val response = api.getItems()
         val items = response.map { it.toDomain() }
+        AppLogger.i("ItemRepo", "Fetched ${items.size} items from API")
+        AppLogger.d("ItemRepo", "Saving ${items.size} items to local DB")
         itemDao.deleteAllItems(vendorId)
         itemDao.insertItems(items.map { it.toDbEntity() })
         // Save variant groups locally for offline access
+        AppLogger.d("ItemRepo", "Saving variant groups to local DB")
         itemVariantDao.deleteAllVariants()
         response.forEach { itemResponse ->
             if (itemResponse.variantGroups.isNotEmpty()) {
@@ -81,48 +104,76 @@ class ItemRepositoryImpl constructor(
                 itemVariantDao.insertVariantGroups(itemResponse.id, groups, options)
             }
         }
+        AppLogger.i("ItemRepo", "Items refresh complete: ${items.size} items with variants saved")
         items
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to refresh items", e)
     }
 
     override suspend fun createItem(
         categoryId: String, name: String, description: String?,
-        price: Double, imageUrl: String?, available: Boolean
+        price: Double, imageUrl: String?, available: Boolean,
+        barcode: String?, sku: String?,
     ): Result<Item> = runCatching {
+        AppLogger.d("ItemRepo", "Creating item: name=$name, price=$price")
         val response = api.createItem(CreateItemRequest(
             categoryId = categoryId, name = name, description = description,
-            price = price, imageUrl = imageUrl, available = available
+            price = price, imageUrl = imageUrl, available = available,
+            barcode = barcode, sku = sku,
         ))
         val item = response.toDomain()
+        AppLogger.d("ItemRepo", "Saving created item to local DB: id=${item.id}")
         itemDao.insertItem(item.toDbEntity())
+        AppLogger.i("ItemRepo", "Item created: id=${item.id}, name=${item.name}")
         item
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to create item: name=$name", e)
     }
 
     override suspend fun updateItem(
         id: String, categoryId: String?, name: String?,
-        description: String?, price: Double?, imageUrl: String?, available: Boolean?
+        description: String?, price: Double?, imageUrl: String?, available: Boolean?,
+        barcode: String?, sku: String?,
     ): Result<Item> = runCatching {
+        AppLogger.d("ItemRepo", "Updating item: id=$id, name=$name")
         val response = api.updateItem(id, UpdateItemRequest(
             categoryId = categoryId, name = name, description = description,
-            price = price, imageUrl = imageUrl, available = available
+            price = price, imageUrl = imageUrl, available = available,
+            barcode = barcode, sku = sku,
         ))
         val item = response.toDomain()
+        AppLogger.d("ItemRepo", "Saving updated item to local DB: id=${item.id}")
         itemDao.insertItem(item.toDbEntity())
+        AppLogger.i("ItemRepo", "Item updated: id=${item.id}, name=${item.name}")
         item
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to update item: id=$id", e)
     }
 
     override suspend fun deleteItem(id: String): Result<Unit> = runCatching {
+        AppLogger.d("ItemRepo", "Deleting item: id=$id")
         api.deleteItem(id)
+        AppLogger.d("ItemRepo", "Removing item from local DB: id=$id")
         itemDao.deleteItem(id)
+        AppLogger.i("ItemRepo", "Item deleted: id=$id")
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to delete item: id=$id", e)
     }
 
     override suspend fun toggleAvailability(id: String, available: Boolean): Result<Item> = runCatching {
+        AppLogger.d("ItemRepo", "Toggling availability: id=$id, available=$available")
         val response = api.toggleItemAvailability(id, UpdateItemRequest(available = available))
         val item = response.toDomain()
+        AppLogger.d("ItemRepo", "Saving availability change to local DB: id=$id")
         itemDao.insertItem(item.toDbEntity())
+        AppLogger.i("ItemRepo", "Item availability updated: id=$id, available=${item.available}")
         item
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to toggle availability: id=$id, available=$available", e)
     }
 
     override suspend fun updateItemVariants(itemId: String, groups: List<VariantGroup>): Result<Item> = runCatching {
+        AppLogger.d("ItemRepo", "Updating variants for item=$itemId, groups=${groups.size}")
         val request = groups.map { group ->
             CreateVariantGroupRequest(
                 name = group.name,
@@ -163,6 +214,9 @@ class ItemRepositoryImpl constructor(
             // Clear variants if empty
             itemVariantDao.insertVariantGroups(itemId, emptyList(), emptyList())
         }
+        AppLogger.i("ItemRepo", "Variants updated for item=$itemId, groups=${groups.size}")
         item
+    }.onFailure { e ->
+        AppLogger.e("ItemRepo", "Failed to update variants for item=$itemId", e)
     }
 }

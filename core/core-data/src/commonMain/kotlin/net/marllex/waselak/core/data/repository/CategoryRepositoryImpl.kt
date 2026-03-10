@@ -12,6 +12,7 @@ import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.CreateCategoryRequest
 import net.marllex.waselak.core.network.dto.ReorderCategoriesRequest
 import net.marllex.waselak.core.network.dto.UpdateCategoryRequest
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.mapper.toDomain
 
 class CategoryRepositoryImpl constructor(
@@ -26,8 +27,10 @@ class CategoryRepositoryImpl constructor(
         categoryDao.getCategories(vendorId).map { list -> list.map { it.toDomain() } }
 
     override suspend fun refreshCategories(): Result<List<Category>> = runCatching {
+        AppLogger.d("CategoryRepo", "Refreshing categories")
         val response = api.getCategories()
         val categories = response.map { it.toDomain() }
+        AppLogger.i("CategoryRepo", "Fetched ${categories.size} categories")
         categoryDao.deleteAllCategories(vendorId)
         categoryDao.insertCategories(categories.map { it.toDbEntity() })
         categories
@@ -35,14 +38,17 @@ class CategoryRepositoryImpl constructor(
 
     override suspend fun createCategory(name: String, displayOrder: Int): Result<Category> =
         runCatching {
+            AppLogger.d("CategoryRepo", "Creating category: name=$name")
             val response = api.createCategory(CreateCategoryRequest(name, displayOrder))
             val category = response.toDomain()
+            AppLogger.i("CategoryRepo", "Category created: id=${category.id}")
             categoryDao.insertCategory(category.toDbEntity())
             category
         }
 
     override suspend fun updateCategory(id: String, name: String?, displayOrder: Int?): Result<Category> =
         runCatching {
+            AppLogger.d("CategoryRepo", "Updating category: id=$id")
             val response = api.updateCategory(id, UpdateCategoryRequest(name, displayOrder))
             val category = response.toDomain()
             categoryDao.insertCategory(category.toDbEntity())
@@ -50,12 +56,15 @@ class CategoryRepositoryImpl constructor(
         }
 
     override suspend fun deleteCategory(id: String): Result<Unit> = runCatching {
+        AppLogger.d("CategoryRepo", "Deleting category: id=$id")
         api.deleteCategory(id)
         categoryDao.deleteCategory(id)
+        AppLogger.i("CategoryRepo", "Category deleted: id=$id")
     }
 
     override suspend fun reorderCategories(orderedIds: List<String>): Result<List<Category>> =
         runCatching {
+            AppLogger.d("CategoryRepo", "Reordering ${orderedIds.size} categories")
             val response = api.reorderCategories(ReorderCategoriesRequest(orderedIds))
             val categories = response.map { it.toDomain() }
             categoryDao.deleteAllCategories(vendorId)

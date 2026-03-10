@@ -15,6 +15,7 @@ val dataModule = module {
     single<CategoryRepository> { CategoryRepositoryImpl(get(), get(), get()) }
     single<ItemRepository> { ItemRepositoryImpl(get(), get(), get(), get()) }
     single<TableRepository> { TableRepositoryImpl(get(), get(), get()) }
+    single<ReservationRepository> { ReservationRepositoryImpl(get(), get(), get()) }
     single<OrderRepository> { OrderRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<UserManagementRepository> { UserManagementRepositoryImpl(get(), get(), get()) }
     single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
@@ -23,6 +24,7 @@ val dataModule = module {
     single<RecipeRepository> { RecipeRepositoryImpl(get(), get(), get()) }
     single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
+    single<OfferRepository> { OfferRepositoryImpl(get(), get(), get()) }
     single(createdAtStart = true) { AttendanceSyncManager(get(), get(), get(), get()) }
     single { SyncService(get(), get(), get()) }
     single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get()) }

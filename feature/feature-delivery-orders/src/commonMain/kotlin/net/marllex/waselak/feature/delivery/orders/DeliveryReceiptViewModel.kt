@@ -64,6 +64,8 @@ DeliveryReceiptViewModel constructor(
                     isLoading = false
                 )
             }
+            // Auto-generate share link for QR code
+            generateShareLink()
         }
     }
 

@@ -51,3 +51,19 @@ data class DeliveryPerformanceResponse(
     @SerialName("total_revenue") val totalRevenue: Double,
     @SerialName("total_delivery_fees") val totalDeliveryFees: Double
 )
+
+@Serializable
+data class ShiftSummaryResponse(
+    @SerialName("total_revenue") val totalRevenue: Double,
+    @SerialName("total_orders") val totalOrders: Int,
+    @SerialName("cash_revenue") val cashRevenue: Double,
+    @SerialName("wallet_revenue") val walletRevenue: Double,
+    @SerialName("card_revenue") val cardRevenue: Double,
+    @SerialName("cash_orders") val cashOrders: Int,
+    @SerialName("wallet_orders") val walletOrders: Int,
+    @SerialName("card_orders") val cardOrders: Int,
+    @SerialName("cancelled_total") val cancelledTotal: Double,
+    @SerialName("cancelled_count") val cancelledCount: Int,
+    @SerialName("refunded_total") val refundedTotal: Double,
+    @SerialName("refunded_count") val refundedCount: Int,
+)

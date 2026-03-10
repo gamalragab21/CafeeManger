@@ -63,7 +63,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -105,9 +107,11 @@ private fun formatAmount(amount: Double, currency: String = "EGP"): String {
 private fun formatDate(epochMs: Long): String {
     val instant = Instant.fromEpochMilliseconds(epochMs)
     val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+    val h12 = if (dt.hour == 0) 12 else if (dt.hour > 12) dt.hour - 12 else dt.hour
+    val amPm = if (dt.hour < 12) "AM" else "PM"
     return "${dt.year}-${dt.monthNumber.toString().padStart(2, '0')}-${
         dt.dayOfMonth.toString().padStart(2, '0')
-    }  ${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}"
+    }  ${h12.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')} $amPm"
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -195,9 +199,23 @@ fun DeliveryReceiptScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 // Header with Logo
+                                val logoPainter = waslekLogoPainter()
                                 if (!vendor?.logoUrl.isNullOrBlank()) {
                                     AsyncImage(
                                         model = vendor?.logoUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, receiptColors.divider, CircleShape),
+                                        contentScale = ContentScale.Crop,
+                                        placeholder = logoPainter,
+                                        error = logoPainter,
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                } else {
+                                    Image(
+                                        painter = logoPainter,
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(64.dp)
@@ -343,7 +361,7 @@ fun DeliveryReceiptScreen(
                                 DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(12.dp))
                                 Image(
-                                    painter = rememberQrKitPainter(data = order.id),
+                                    painter = rememberQrKitPainter(data = uiState.shareUrl ?: order.id),
                                     contentDescription = "Receipt QR Code",
                                     modifier = Modifier.size(100.dp),
                                 )
@@ -457,7 +475,7 @@ fun DeliveryReceiptScreen(
                         tonalElevation = 2.dp,
                     ) {
                         Image(
-                            painter = rememberQrKitPainter(data = order.id),
+                            painter = rememberQrKitPainter(data = uiState.shareUrl ?: order.id),
                             contentDescription = "QR",
                             modifier = Modifier.fillMaxSize().padding(12.dp),
                         )

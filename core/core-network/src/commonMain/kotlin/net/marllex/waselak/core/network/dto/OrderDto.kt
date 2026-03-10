@@ -34,7 +34,11 @@ data class OrderResponse(
     @SerialName("tax_percent") val taxPercent: Double = 0.0,
     val total: Double,
     val notes: String? = null,
+    @SerialName("offer_id") val offerId: String? = null,
     val items: List<OrderItemResponse> = emptyList(),
+    @SerialName("points_earned") val pointsEarned: Int = 0,
+    @SerialName("points_redeemed") val pointsRedeemed: Int = 0,
+    @SerialName("discount_reason") val discountReason: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null,
     @SerialName("refunded_at") val refundedAt: Long? = null,
@@ -75,8 +79,14 @@ data class CreateOrderRequest(
     @SerialName("payment_timing") val paymentTiming: String = "PAY_NOW",
     @SerialName("delivery_fee") val deliveryFee: Double = 0.0,
     @SerialName("tax_place_id") val taxPlaceId: String? = null,
+    @SerialName("reservation_id") val reservationId: String? = null,
     val notes: String? = null,
-    val items: List<CreateOrderItemRequest>
+    val discount: Double = 0.0,
+    @SerialName("discount_type") val discountType: String = "FIXED",
+    val items: List<CreateOrderItemRequest>,
+    @SerialName("offer_id") val offerId: String? = null,
+    @SerialName("points_redeemed") val pointsRedeemed: Int = 0,
+    @SerialName("discount_reason") val discountReason: String? = null,
 )
 
 @Serializable

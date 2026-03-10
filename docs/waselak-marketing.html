@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>وصّلِك - إدارة المطاعم، الكافيهات والمحلات بسهولة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #E65100;
+            --primary-light: #FF8A50;
+            --primary-dark: #AC1900;
+            --secondary: #1A237E;
+            --secondary-light: #534bae;
+            --accent: #00BFA5;
+            --accent-light: #5df2d6;
+            --dark: #1a1a2e;
+            --dark-2: #16213e;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --success: #2e7d32;
+            --warning: #f57f17;
+            --gradient-primary: linear-gradient(135deg, #E65100, #FF8A50);
+            --gradient-hero: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+            --shadow-xl: 0 16px 48px rgba(0,0,0,0.2);
+            --radius: 16px;
+            --radius-sm: 8px;
+            --radius-lg: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            line-height: 1.8;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 12px 0;
+            transition: all 0.3s ease;
+        }
+
+        .navbar.scrolled {
+            padding: 8px 0;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .nav-logo .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .nav-logo span {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-light);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--gradient-hero);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            padding-top: 80px;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 70%, rgba(230, 81, 0, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 30%, rgba(0, 191, 165, 0.06) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-2%, 2%); }
+        }
+
+        .hero-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 24px;
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(230, 81, 0, 0.15);
+            border: 1px solid rgba(230, 81, 0, 0.3);
+            color: var(--primary-light);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 32px;
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 5vw, 64px);
+            font-weight: 900;
+            color: #fff;
+            line-height: 1.2;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 span {
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            max-width: 700px;
+            margin: 0 auto 48px;
+            line-height: 1.9;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 64px;
+            flex-wrap: wrap;
+        }
+
+        .hero-stat {
+            text-align: center;
+        }
+
+        .hero-stat .number {
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--primary-light);
+            display: block;
+        }
+
+        .hero-stat .label {
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Apps Section */
+        .apps-section {
+            padding: 100px 24px;
+            background: #fff;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-tag {
+            display: inline-block;
+            background: rgba(230, 81, 0, 0.1);
+            color: var(--primary);
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .section-header h2 {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 16px;
+        }
+
+        .section-header p {
+            color: var(--gray);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+
+        .app-card {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 40px 32px;
+            border: 1px solid var(--gray-light);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.4s ease;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .app-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .app-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+
+        .app-icon.manager { background: rgba(230, 81, 0, 0.1); }
+        .app-icon.cashier { background: rgba(0, 191, 165, 0.1); }
+        .app-icon.delivery { background: rgba(26, 35, 126, 0.1); }
+
+        .app-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--dark);
+        }
+
+        .app-card p {
+            color: var(--gray);
+            font-size: 15px;
+            margin-bottom: 20px;
+        }
+
+        .app-features {
+            list-style: none;
+        }
+
+        .app-features li {
+            padding: 6px 0;
+            font-size: 14px;
+            color: var(--dark-2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-features li::before {
+            content: '✓';
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* Features Grid */
+        .features-section {
+            padding: 100px 24px;
+            background: var(--light);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 32px;
+            border: 1px solid var(--gray-light);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .feature-card p {
+            color: var(--gray);
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .feature-card ul {
+            list-style: none;
+            margin-top: 12px;
+        }
+
+        .feature-card ul li {
+            font-size: 13px;
+            color: var(--dark-2);
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-card ul li::before {
+            content: '•';
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        /* Color variants for feature icons */
+        .fi-orange { background: rgba(230, 81, 0, 0.1); }
+        .fi-teal { background: rgba(0, 191, 165, 0.1); }
+        .fi-blue { background: rgba(26, 35, 126, 0.1); }
+        .fi-green { background: rgba(46, 125, 50, 0.1); }
+        .fi-purple { background: rgba(118, 75, 162, 0.1); }
+        .fi-red { background: rgba(198, 40, 40, 0.1); }
+        .fi-amber { background: rgba(245, 127, 23, 0.1); }
+        .fi-indigo { background: rgba(48, 63, 159, 0.1); }
+
+        /* Plans Section */
+        .plans-section {
+            padding: 100px 24px;
+            background: #fff;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .plan-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 40px 32px;
+            border: 2px solid var(--gray-light);
+            position: relative;
+            transition: all 0.4s ease;
+        }
+
+        .plan-card.popular {
+            border-color: var(--primary);
+            transform: scale(1.05);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .plan-card.popular .popular-badge {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gradient-primary);
+            color: #fff;
+            padding: 6px 24px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .plan-card.popular:hover {
+            transform: scale(1.05) translateY(-8px);
+        }
+
+        .plan-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .plan-desc {
+            color: var(--gray);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .plan-price {
+            margin-bottom: 32px;
+        }
+
+        .plan-price .amount {
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .plan-price .currency {
+            font-size: 20px;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        .plan-price .period {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        .plan-limits {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 32px;
+            padding: 20px;
+            background: var(--light);
+            border-radius: var(--radius-sm);
+        }
+
+        .plan-limit {
+            text-align: center;
+        }
+
+        .plan-limit .value {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--dark);
+            display: block;
+        }
+
+        .plan-limit .label {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .plan-features {
+            list-style: none;
+        }
+
+        .plan-features li {
+            padding: 8px 0;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dark-2);
+        }
+
+        .plan-features li.included::before {
+            content: '✓';
+            color: var(--success);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .plan-features li.excluded {
+            color: var(--gray);
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .plan-features li.excluded::before {
+            content: '✕';
+            color: #ccc;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* Analytics Section */
+        .analytics-section {
+            padding: 100px 24px;
+            background: var(--gradient-hero);
+            position: relative;
+        }
+
+        .analytics-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .analytics-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .analytics-header h2 {
+            font-size: 36px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .analytics-header p {
+            color: rgba(255,255,255,0.7);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+        }
+
+        .analytics-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .analytics-card:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-4px);
+        }
+
+        .analytics-card .icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+
+        .analytics-card h4 {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .analytics-card p {
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--dark);
+            padding: 60px 24px 30px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand h3 {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        .footer-brand p {
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .footer-col h4 {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col ul li {
+            padding: 6px 0;
+            font-size: 14px;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 24px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .plans-grid { grid-template-columns: 1fr; }
+            .plan-card.popular { transform: none; }
+            .plan-card.popular:hover { transform: translateY(-8px); }
+            .hero-stats { gap: 24px; }
+        }
+
+        /* Scroll animations */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar" id="navbar">
+    <div class="nav-container">
+        <a href="#" class="nav-logo">
+            <div class="logo-icon">☕</div>
+            <span>وصلك</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="#apps">التطبيقات</a></li>
+            <li><a href="#features">المميزات</a></li>
+            <li><a href="#analytics">التحليلات</a></li>
+            <li><a href="#plans">الباقات</a></li>
+        </ul>
+    </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-container">
+        <div class="hero-container">
+            <div class="hero-badge">
+                🚀 نظام ERP متكامل للمطاعم، الكافيهات المحلات والمخازن والمبيعات
+            </div>
+            <h1>
+                أدر عملك بذكاء مع
+                <br>
+                <span>نظام واصلَك - Waselak</span>
+            </h1>
+        <p>
+            نظام إدارة متكامل يجمع بين نقاط البيع، إدارة الطلبات، المخزون، الموظفين،
+            التوصيل، العروض والخصومات، نقاط الولاء، والتحليلات المتقدمة
+        </p>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="number">3</span>
+                <span class="label">تطبيقات متكاملة</span>
+            </div>
+            <div class="hero-stat">
+                <span class="number">+25</span>
+                <span class="label">وحدة نظام</span>
+            </div>
+            <div class="hero-stat">
+                <span class="number">+19</span>
+                <span class="label">شاشة متخصصة</span>
+            </div>
+            <div class="hero-stat">
+                <span class="number">3</span>
+                <span class="label">منصات (موبايل - ديسكتوب - iOS)</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Apps Section -->
+<section class="apps-section" id="apps">
+    <div class="section-container">
+        <div class="section-header">
+            <div class="section-tag">التطبيقات</div>
+            <h2>ثلاث تطبيقات لكل فريقك</h2>
+            <p>كل عضو في فريقك له تطبيقه الخاص بالصلاحيات المناسبة</p>
+        </div>
+
+        <div class="apps-grid">
+            <!-- Manager App -->
+            <div class="app-card fade-up">
+                <div class="app-icon manager">👔</div>
+                <h3>تطبيق المدير</h3>
+                <p>تحكم كامل في كل تفاصيل مشروعك من مكان واحد</p>
+                <ul class="app-features">
+                    <li>لوحة تحكم شاملة بإحصائيات لحظية</li>
+                    <li>إدارة القائمة والأصناف والفئات</li>
+                    <li>متابعة الطلبات وحالاتها</li>
+                    <li>إدارة الموظفين والحضور والرواتب</li>
+                    <li>إدارة المخزون والمكونات</li>
+                    <li>إدارة العملاء وسجل الطلبات</li>
+                    <li>إدارة الطاولات</li>
+                    <li>تحليلات وتقارير متقدمة</li>
+                    <li>تصدير التقارير (PDF / Excel)</li>
+                </ul>
+            </div>
+
+            <!-- Cashier App -->
+            <div class="app-card fade-up">
+                <div class="app-icon cashier">💳</div>
+                <h3>تطبيق الكاشير</h3>
+                <p>نقطة بيع سريعة وسهلة الاستخدام لتسجيل الطلبات</p>
+                <ul class="app-features">
+                    <li>نقطة بيع (POS) سريعة وذكية</li>
+                    <li>إنشاء طلبات (محلي - تيك أواي - توصيل)</li>
+                    <li>إدارة الطاولات وحالاتها</li>
+                    <li>متابعة الطلبات الحالية</li>
+                    <li>طباعة الإيصالات ومشاركتها</li>
+                    <li>تسجيل الحضور (PIN / QR)</li>
+                    <li>تسجيل الأوفرتايم</li>
+                    <li>ملخص الشيفت اليومي</li>
+                    <li>دعم العمل أوفلاين</li>
+                    <li>لوحة التوصيل</li>
+                </ul>
+            </div>
+
+            <!-- Delivery App -->
+            <div class="app-card fade-up">
+                <div class="app-icon delivery">🛵</div>
+                <h3>تطبيق التوصيل</h3>
+                <p>تطبيق خاص بموظفي التوصيل لإدارة طلباتهم</p>
+                <ul class="app-features">
+                    <li>استقبال طلبات التوصيل</li>
+                    <li>تتبع حالة الطلبات</li>
+                    <li>عرض تفاصيل العميل والعنوان</li>
+                    <li>تحديث حالة التوصيل</li>
+                    <li>سجل الطلبات السابقة</li>
+                    <li>إشعارات فورية</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section" id="features">
+    <div class="section-container">
+        <div class="section-header">
+            <div class="section-tag">المميزات</div>
+            <h2>كل اللي محتاجه في مكان واحد</h2>
+            <p>نظام متكامل يغطي كل جوانب إدارة مقهاك أو مطعمك</p>
+        </div>
+
+        <div class="features-grid">
+            <!-- POS -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-orange">🏪</div>
+                <h3>نقطة البيع (POS)</h3>
+                <p>نظام بيع سريع وذكي مع دعم الأوفلاين</p>
+                <ul>
+                    <li>إنشاء طلبات بضغطة زر</li>
+                    <li>دعم الفاريانت والإضافات</li>
+                    <li>طرق دفع متعددة (كاش - كارت - محفظة)</li>
+                    <li>خصومات يدوية وعروض ونقاط ولاء</li>
+                    <li>دعم الضرائب</li>
+                    <li>العمل بدون إنترنت</li>
+                </ul>
+            </div>
+
+            <!-- Orders -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-teal">📋</div>
+                <h3>إدارة الطلبات</h3>
+                <p>تتبع كل طلب من الإنشاء حتى التسليم</p>
+                <ul>
+                    <li>حالات متعددة (جديد - قيد التحضير - جاهز - مكتمل)</li>
+                    <li>قنوات متعددة (محلي - تيك أواي - توصيل)</li>
+                    <li>استرجاع وإلغاء الطلبات</li>
+                    <li>ربط الطلبات بالطاولات والعملاء</li>
+                </ul>
+            </div>
+
+            <!-- Menu -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-amber">🍽️</div>
+                <h3>إدارة القائمة</h3>
+                <p>تحكم كامل في الأصناف والفئات</p>
+                <ul>
+                    <li>تصنيف الأصناف في فئات</li>
+                    <li>نظام الفاريانت (أحجام - إضافات)</li>
+                    <li>صور الأصناف</li>
+                    <li>التحكم في التوفر</li>
+                    <li>القائمة الرقمية (Digital Menu)</li>
+                </ul>
+            </div>
+
+            <!-- Stock -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-green">📦</div>
+                <h3>إدارة المخزون</h3>
+                <p>تتبع المكونات والمواد الخام بدقة</p>
+                <ul>
+                    <li>إضافة وخصم الكميات</li>
+                    <li>تنبيهات المخزون المنخفض</li>
+                    <li>ربط المكونات بالوصفات</li>
+                    <li>خصم تلقائي عند البيع</li>
+                    <li>سجل حركات المخزون</li>
+                </ul>
+            </div>
+
+            <!-- Recipes -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-red">🧾</div>
+                <h3>الوصفات (BOM)</h3>
+                <p>ربط الأصناف بمكوناتها من المخزون</p>
+                <ul>
+                    <li>إنشاء وصفات لكل صنف</li>
+                    <li>حساب التكلفة التلقائي</li>
+                    <li>التحقق من توفر المكونات</li>
+                    <li>خصم المكونات عند البيع</li>
+                </ul>
+            </div>
+
+            <!-- Workers -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-blue">👷</div>
+                <h3>إدارة الموظفين</h3>
+                <p>إدارة شاملة لكل موظفينك</p>
+                <ul>
+                    <li>بيانات الموظفين والأدوار</li>
+                    <li>تفعيل/تعطيل الموظفين</li>
+                    <li>كروت الموظفين (QR Code)</li>
+                    <li>رقم PIN لكل موظف</li>
+                    <li>ربط الموظف بحساب مستخدم</li>
+                </ul>
+            </div>
+
+            <!-- Attendance -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-purple">⏰</div>
+                <h3>نظام الحضور والانصراف</h3>
+                <p>تتبع حضور موظفينك بدقة</p>
+                <ul>
+                    <li>تسجيل بـ PIN أو QR Code</li>
+                    <li>تسجيل يدوي</li>
+                    <li>حساب ساعات العمل</li>
+                    <li>ملخص الحضور اليومي</li>
+                    <li>دعم العمل أوفلاين</li>
+                </ul>
+            </div>
+
+            <!-- Salary -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-indigo">💰</div>
+                <h3>الرواتب والأوفرتايم</h3>
+                <p>نظام رواتب متكامل مع حساب الأوفرتايم</p>
+                <ul>
+                    <li>رواتب يومية أو شهرية</li>
+                    <li>تسجيل ساعات الأوفرتايم</li>
+                    <li>صرف الرواتب فردي أو جماعي</li>
+                    <li>سجل المدفوعات</li>
+                </ul>
+            </div>
+
+            <!-- Tables -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-teal">🪑</div>
+                <h3>إدارة الطاولات</h3>
+                <p>تنظيم وتتبع حالة الطاولات</p>
+                <ul>
+                    <li>إضافة طاولات مع السعة</li>
+                    <li>حالات (متاحة - مشغولة - محجوزة)</li>
+                    <li>ربط الطلبات بالطاولات</li>
+                    <li>عرض شبكي سهل</li>
+                </ul>
+            </div>
+
+            <!-- Customers -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-orange">👥</div>
+                <h3>إدارة العملاء</h3>
+                <p>بناء قاعدة عملاء قوية</p>
+                <ul>
+                    <li>بيانات العملاء وأرقام الهاتف</li>
+                    <li>عناوين متعددة لكل عميل</li>
+                    <li>سجل طلبات كل عميل</li>
+                    <li>إحصائيات (إجمالي الطلبات والإنفاق)</li>
+                    <li>سجل نقاط الولاء لكل عميل</li>
+                    <li>سجل الخصومات لكل عميل</li>
+                    <li>فلترة حسب حالة النقاط</li>
+                </ul>
+            </div>
+
+            <!-- Loyalty Points -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-amber">⭐</div>
+                <h3>نقاط الولاء</h3>
+                <p>كافئ عملاءك وزوّد ولاءهم</p>
+                <ul>
+                    <li>كسب نقاط تلقائي مع كل طلب</li>
+                    <li>استبدال النقاط كخصم</li>
+                    <li>حد أدنى للاستبدال</li>
+                    <li>سجل كامل لحركات النقاط</li>
+                    <li>تحليلات أداء برنامج الولاء</li>
+                </ul>
+            </div>
+
+            <!-- Manual Discount -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-green">🏷️</div>
+                <h3>الخصومات اليدوية</h3>
+                <p>مرونة كاملة في تطبيق الخصومات</p>
+                <ul>
+                    <li>خصم ثابت أو نسبة مئوية</li>
+                    <li>سبب الخصم (اختياري)</li>
+                    <li>حد أقصى للخصم بدون موافقة</li>
+                    <li>موافقة المدير بـ PIN للخصومات الكبيرة</li>
+                    <li>تحليلات استخدام الخصومات</li>
+                </ul>
+            </div>
+
+            <!-- Offers Management -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-red">🎁</div>
+                <h3>إدارة العروض</h3>
+                <p>أنشئ عروض جذابة لزيادة المبيعات</p>
+                <ul>
+                    <li>عروض خصم ثابت أو نسبة</li>
+                    <li>تحديد تاريخ بداية ونهاية</li>
+                    <li>تطبيق تلقائي أو بكود برومو</li>
+                    <li>تفعيل وإيقاف العروض</li>
+                    <li>تحليلات أداء كل عرض</li>
+                </ul>
+            </div>
+
+            <!-- Delivery -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-green">🚚</div>
+                <h3>نظام التوصيل</h3>
+                <p>إدارة كاملة لعمليات التوصيل</p>
+                <ul>
+                    <li>لوحة تحكم التوصيل</li>
+                    <li>تعيين موظفين للتوصيل</li>
+                    <li>تتبع حالة التوصيل</li>
+                    <li>رسوم التوصيل</li>
+                    <li>تطبيق خاص للسائقين</li>
+                </ul>
+            </div>
+
+            <!-- Receipts -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-purple">🧾</div>
+                <h3>الإيصالات الرقمية</h3>
+                <p>إيصالات احترافية قابلة للمشاركة</p>
+                <ul>
+                    <li>إيصالات رقمية بتصميم احترافي</li>
+                    <li>مشاركة عبر رابط</li>
+                    <li>طباعة الإيصالات</li>
+                    <li>QR Code لكل إيصال</li>
+                </ul>
+            </div>
+
+            <!-- Tax -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-red">🏛️</div>
+                <h3>الضرائب</h3>
+                <p>إدارة مرنة للضرائب</p>
+                <ul>
+                    <li>شرائح ضريبية متعددة</li>
+                    <li>حساب الضريبة التلقائي</li>
+                    <li>ضريبة افتراضية</li>
+                </ul>
+            </div>
+
+            <!-- Announcements -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-amber">📢</div>
+                <h3>الإعلانات والتنبيهات</h3>
+                <p>تواصل مع فريقك بسهولة</p>
+                <ul>
+                    <li>إنشاء إعلانات للموظفين</li>
+                    <li>تتبع القراءة</li>
+                    <li>عدد الإعلانات غير المقروءة</li>
+                </ul>
+            </div>
+
+            <!-- Export -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-indigo">📄</div>
+                <h3>التصدير والتقارير</h3>
+                <p>صدّر بياناتك بالصيغة المناسبة</p>
+                <ul>
+                    <li>تصدير PDF احترافي</li>
+                    <li>تصدير Excel للتحليل</li>
+                    <li>تقارير بفترات زمنية</li>
+                    <li>معاينة قبل التصدير</li>
+                </ul>
+            </div>
+
+            <!-- Multi-platform -->
+            <div class="feature-card fade-up">
+                <div class="feature-icon fi-blue">📱</div>
+                <h3>متعدد المنصات</h3>
+                <p>يعمل على كل الأجهزة</p>
+                <ul>
+                    <li>Android (موبايل وتابلت)</li>
+                    <li>iOS (آيفون وآيباد)</li>
+                    <li>Desktop (ويندوز وماك ولينكس)</li>
+                    <li>بصمة وFace ID</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Analytics Section -->
+<section class="analytics-section" id="analytics">
+    <div class="analytics-container">
+        <div class="analytics-header">
+            <div class="section-tag" style="background: rgba(255,255,255,0.15); color: #fff;">التحليلات</div>
+            <h2>تحليلات متقدمة لقرارات أذكى</h2>
+            <p>اعرف كل حاجة عن مشروعك بالأرقام والرسوم البيانية</p>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="analytics-card fade-up">
+                <div class="icon">💰</div>
+                <h4>ملخص تنفيذي</h4>
+                <p>إيرادات - أرباح - متوسط الطلب - مقارنة بالفترة السابقة</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">📈</div>
+                <h4>تحليل الإيرادات</h4>
+                <p>إيرادات يومية - تقسيم طرق الدفع - إيرادات حسب القناة</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">📊</div>
+                <h4>ذكاء الطلبات</h4>
+                <p>توزيع الطلبات - أوقات الذروة - تحليل القنوات</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">⏱️</div>
+                <h4>أوقات الذروة</h4>
+                <p>تحليل ساعات الذروة لتحسين جدول الموظفين</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">👨‍💼</div>
+                <h4>أداء الكاشير</h4>
+                <p>مقارنة أداء الكاشيرات - عدد الطلبات - الإيرادات</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">🛵</div>
+                <h4>أداء التوصيل</h4>
+                <p>أداء موظفي التوصيل - أوقات التسليم - عدد الطلبات</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">🏆</div>
+                <h4>ذكاء المنتجات</h4>
+                <p>أفضل المنتجات مبيعاً - تحليل الأداء - اتجاهات المبيعات</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">🔔</div>
+                <h4>تنبيهات ذكية</h4>
+                <p>تنبيهات المخزون - تنبيهات الأداء - تنبيهات المبيعات</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">🎁</div>
+                <h4>تحليلات العروض</h4>
+                <p>أداء العروض - عدد الاستخدامات - إجمالي الخصومات - أفضل العروض</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">🏷️</div>
+                <h4>تحليلات الخصومات</h4>
+                <p>توزيع الخصومات (يدوي - عروض - نقاط) - معدل الخصم - الاتجاه اليومي</p>
+            </div>
+            <div class="analytics-card fade-up">
+                <div class="icon">⭐</div>
+                <h4>تحليلات الولاء</h4>
+                <p>نقاط مكتسبة - مستبدلة - معدل الاستبدال - عملاء نشطين</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Plans Section -->
+<section class="plans-section" id="plans">
+    <div class="section-container">
+        <div class="section-header">
+            <div class="section-tag">الباقات</div>
+            <h2>اختار الباقة المناسبة لمشروعك</h2>
+            <p>ثلاث باقات تناسب كل أحجام المشاريع</p>
+        </div>
+
+        <div class="plans-grid">
+            <!-- Starter -->
+            <div class="plan-card fade-up">
+                <div class="plan-name">المبتدئ</div>
+                <div class="plan-desc">مثالي للمقاهي الصغيرة والجديدة</div>
+                <div class="plan-price">
+                    <span class="amount">٢٩٩</span>
+                    <span class="currency">ج.م</span>
+                    <span class="period">/ شهرياً</span>
+                </div>
+                <div class="plan-limits">
+                    <div class="plan-limit">
+                        <span class="value">١</span>
+                        <span class="label">مدير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">١</span>
+                        <span class="label">كاشير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٧٥٠</span>
+                        <span class="label">طلب/شهر</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٥٠</span>
+                        <span class="label">صنف</span>
+                    </div>
+                </div>
+                <ul class="plan-features">
+                    <li class="included">نقطة البيع (POS)</li>
+                    <li class="included">إدارة الطلبات</li>
+                    <li class="included">إدارة القائمة</li>
+                    <li class="included">إدارة الموظفين الأساسية</li>
+                    <li class="excluded">المخزون</li>
+                    <li class="excluded">الحضور والانصراف</li>
+                    <li class="excluded">التوصيل</li>
+                    <li class="excluded">الطاولات</li>
+                    <li class="excluded">العملاء</li>
+                    <li class="excluded">التحليلات</li>
+                    <li class="excluded">نقاط الولاء</li>
+                    <li class="excluded">الخصومات اليدوية</li>
+                    <li class="excluded">إدارة العروض</li>
+                    <li class="excluded">الأوفرتايم</li>
+                    <li class="excluded">الإيصالات الرقمية</li>
+                </ul>
+            </div>
+
+            <!-- Business -->
+            <div class="plan-card popular fade-up">
+                <div class="popular-badge">⭐ الأكثر طلباً</div>
+                <div class="plan-name">الأعمال</div>
+                <div class="plan-desc">للمقاهي والمطاعم المتوسطة</div>
+                <div class="plan-price">
+                    <span class="amount">٥٩٩</span>
+                    <span class="currency">ج.م</span>
+                    <span class="period">/ شهرياً</span>
+                </div>
+                <div class="plan-limits">
+                    <div class="plan-limit">
+                        <span class="value">٢</span>
+                        <span class="label">مدير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٣</span>
+                        <span class="label">كاشير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٣,٥٠٠</span>
+                        <span class="label">طلب/شهر</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٢٠٠</span>
+                        <span class="label">صنف</span>
+                    </div>
+                </div>
+                <ul class="plan-features">
+                    <li class="included">كل مميزات المبتدئ</li>
+                    <li class="included">إدارة المخزون والوصفات</li>
+                    <li class="included">الحضور والانصراف (PIN + QR)</li>
+                    <li class="included">نظام التوصيل الكامل</li>
+                    <li class="included">إدارة الطاولات</li>
+                    <li class="included">إدارة العملاء</li>
+                    <li class="included">الرواتب والمدفوعات</li>
+                    <li class="included">كروت QR للموظفين</li>
+                    <li class="included">التحليلات المتقدمة</li>
+                    <li class="included">تصدير التقارير</li>
+                    <li class="included">نقاط الولاء</li>
+                    <li class="included">الخصومات اليدوية</li>
+                    <li class="included">إدارة العروض</li>
+                    <li class="excluded">الأوفرتايم</li>
+                    <li class="excluded">الإيصالات الرقمية</li>
+                </ul>
+            </div>
+
+            <!-- Enterprise -->
+            <div class="plan-card fade-up">
+                <div class="plan-name">المؤسسات</div>
+                <div class="plan-desc">للسلاسل والمطاعم الكبيرة</div>
+                <div class="plan-price">
+                    <span class="amount">٩٩٩</span>
+                    <span class="currency">ج.م</span>
+                    <span class="period">/ شهرياً</span>
+                </div>
+                <div class="plan-limits">
+                    <div class="plan-limit">
+                        <span class="value">∞</span>
+                        <span class="label">مدير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">∞</span>
+                        <span class="label">كاشير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">∞</span>
+                        <span class="label">طلب/شهر</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">∞</span>
+                        <span class="label">صنف</span>
+                    </div>
+                </div>
+                <ul class="plan-features">
+                    <li class="included">كل مميزات الأعمال</li>
+                    <li class="included">أوفرتايم الموظفين</li>
+                    <li class="included">الإيصالات الرقمية</li>
+                    <li class="included">القائمة الرقمية (Digital Menu)</li>
+                    <li class="included">نقاط الولاء</li>
+                    <li class="included">الخصومات اليدوية</li>
+                    <li class="included">إدارة العروض</li>
+                    <li class="included">حتى ٥ فروع</li>
+                    <li class="included">عدد غير محدود من الموظفين</li>
+                    <li class="included">عدد غير محدود من الطلبات</li>
+                    <li class="included">عدد غير محدود من الأصناف</li>
+                    <li class="included">دعم أولوية</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>☕ وصلك</h3>
+                <p>
+                    نظام إدارة متكامل للمقاهي والمطاعم. صُمم خصيصاً للسوق العربي
+                    بدعم كامل للغة العربية وواجهة سهلة الاستخدام.
+                </p>
+            </div>
+            <div class="footer-col">
+                <h4>التطبيقات</h4>
+                <ul>
+                    <li>تطبيق المدير</li>
+                    <li>تطبيق الكاشير</li>
+                    <li>تطبيق التوصيل</li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>المميزات</h4>
+                <ul>
+                    <li>نقطة البيع</li>
+                    <li>إدارة المخزون</li>
+                    <li>التحليلات</li>
+                    <li>التصدير والتقارير</li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>المنصات</h4>
+                <ul>
+                    <li>Android</li>
+                    <li>iOS</li>
+                    <li>Windows</li>
+                    <li>macOS</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© ٢٠٢٦ وصلك - جميع الحقوق محفوظة | Marllex</p>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Navbar scroll effect
+    window.addEventListener('scroll', () => {
+        const navbar = document.getElementById('navbar');
+        if (window.scrollY > 50) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    });
+
+    // Scroll animation
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+</script>
+
+</body>
+</html>

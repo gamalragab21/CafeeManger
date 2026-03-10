@@ -1,0 +1,52 @@
+# Production Docker Compose
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# Before running, create backend/.env.prod with your production secrets:
+#   cp .env.prod.template .env.prod
+#   # Edit .env.prod with real values
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: waselak-postgres-prod
+    env_file: .env.prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-waselak_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-waselak_prod}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waselak_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build: .
+    container_name: waselak-backend-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env.prod
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-waselak_prod}
+      DATABASE_USER: ${POSTGRES_USER:-waselak_prod}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-waselak}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-waselak-api}
+      HMAC_SECRET: ${HMAC_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:

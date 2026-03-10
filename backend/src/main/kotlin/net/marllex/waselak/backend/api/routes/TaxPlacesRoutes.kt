@@ -13,6 +13,7 @@ import io.ktor.server.routing.route
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.TaxPlacesTable
 import net.marllex.waselak.backend.data.database.OrdersTable
 import org.jetbrains.exposed.sql.ResultRow
@@ -67,20 +68,28 @@ private fun ResultRow.toTaxPlaceDto() = TaxPlaceDto(
 fun Route.taxPlacesRoutes() {
     route("/api/v1/tax-places") {
         get {
+            val trace = call.routeTrace()
+            trace.step("List tax places started")
             val principal = requireRole("MANAGER", "CASHIER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Querying tax places for vendor", mapOf("vendorId" to principal.vendorId))
             val list = transaction {
                 TaxPlacesTable.selectAll()
                     .where { TaxPlacesTable.vendorId eq vendorUUID }
                     .orderBy(TaxPlacesTable.displayOrder)
                     .map { it.toTaxPlaceDto() }
             }
+            trace.step("List tax places result", mapOf("count" to list.size.toString()))
+            trace.step("List tax places completed")
             call.respond(HttpStatusCode.OK, list)
         }
 
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get tax place started")
             val principal = requireRole("MANAGER", "CASHIER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Fetching tax place", mapOf("taxPlaceId" to id))
             val place = transaction {
                 TaxPlacesTable.selectAll()
                     .where {
@@ -88,13 +97,18 @@ fun Route.taxPlacesRoutes() {
                                 (TaxPlacesTable.vendorId eq UUID.fromString(principal.vendorId))
                     }.firstOrNull()?.toTaxPlaceDto()
             } ?: throw NoSuchElementException("Tax place not found")
+            trace.step("Get tax place result", mapOf("taxPlaceId" to place.id, "name" to place.name, "taxPercent" to place.tax_percent.toString()))
+            trace.step("Get tax place completed")
             call.respond(HttpStatusCode.OK, place)
         }
 
         post {
+            val trace = call.routeTrace()
+            trace.step("Create tax place started")
             val principal = requireRole("MANAGER")
             val request = call.receive<CreateTaxPlaceDto>()
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Creating tax place", mapOf("name" to request.name, "taxPercent" to request.tax_percent.toString(), "vendorId" to principal.vendorId))
             val created = transaction {
                 if (request.is_default) {
                     TaxPlacesTable.update(
@@ -114,14 +128,19 @@ fun Route.taxPlacesRoutes() {
                 }
                 TaxPlacesTable.selectAll().where { TaxPlacesTable.id eq id }.first().toTaxPlaceDto()
             }
+            trace.step("Create tax place result", mapOf("taxPlaceId" to created.id, "name" to created.name, "taxPercent" to created.tax_percent.toString()))
+            trace.step("Create tax place completed")
             call.respond(HttpStatusCode.Created, created)
         }
 
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update tax place started")
             val principal = requireRole("MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<UpdateTaxPlaceDto>()
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Updating tax place", mapOf("taxPlaceId" to id, "name" to (request.name ?: "null"), "taxPercent" to (request.tax_percent?.toString() ?: "null"), "vendorId" to principal.vendorId))
             val updated = transaction {
                 if (request.is_default == true) {
                     TaxPlacesTable.update(
@@ -145,13 +164,18 @@ fun Route.taxPlacesRoutes() {
                                 (TaxPlacesTable.vendorId eq vendorUUID)
                     }.firstOrNull()?.toTaxPlaceDto()
             } ?: throw NoSuchElementException("Tax place not found")
+            trace.step("Update tax place result", mapOf("taxPlaceId" to updated.id, "name" to updated.name, "taxPercent" to updated.tax_percent.toString()))
+            trace.step("Update tax place completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete tax place started")
             val principal = requireRole("MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Deleting tax place", mapOf("taxPlaceId" to id, "vendorId" to principal.vendorId))
             transaction {
                 // Unlink orders referencing this tax place
                 OrdersTable.update({
@@ -167,6 +191,8 @@ fun Route.taxPlacesRoutes() {
                 }
                 if (deleted == 0) throw NoSuchElementException("Tax place not found")
             }
+            trace.step("Tax place deleted successfully", mapOf("taxPlaceId" to id))
+            trace.step("Delete tax place completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }

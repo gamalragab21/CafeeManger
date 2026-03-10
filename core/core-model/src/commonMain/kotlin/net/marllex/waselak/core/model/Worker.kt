@@ -10,6 +10,7 @@ data class Worker(
     val fullName: String,
     val phone: String? = null,
     val description: String? = null,
+    val photoUrl: String? = null,
     val role: String,
     val salaryType: SalaryType = SalaryType.DAILY,
     val salaryAmount: Double = 0.0,

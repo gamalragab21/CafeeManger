@@ -27,6 +27,7 @@ rootProject.name = "Waselak"
 include(":app-manager")
 include(":app-cashier")
 include(":app-delivery")
+include(":app-admin")
 include(":backend")
 
 // Core modules
@@ -52,6 +53,9 @@ include(":feature:feature-manager-analytics")
 include(":feature:feature-manager-orders")
 include(":feature:feature-manager-stock")
 include(":feature:feature-manager-customers")
+
+// Feature modules - Manager App (Offers)
+include(":feature:feature-manager-offers")
 
 // Feature modules - Manager App (Staff)
 include(":feature:feature-manager-staff")

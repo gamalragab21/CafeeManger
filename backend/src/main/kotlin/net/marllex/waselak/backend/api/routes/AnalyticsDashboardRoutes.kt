@@ -6,7 +6,10 @@ import io.ktor.server.routing.*
 import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.*
+import net.marllex.waselak.backend.domain.service.PlanService
+import org.koin.java.KoinJavaComponent
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -244,6 +247,84 @@ data class StockOverviewDto(
     val movement_summary: List<StockMovementDto>,
 )
 
+// ── Offers Analytics ───────────────────────────────────────────────
+@Serializable
+data class OfferPerformanceItemDto(
+    val offer_id: String,
+    val offer_name: String,
+    val discount_type: String,
+    val discount_value: Double,
+    val usage_count: Int,
+    val total_discount_given: Double,
+    val total_revenue_from_offer_orders: Double,
+    val promo_code: String? = null,
+    val is_active: Boolean,
+)
+
+@Serializable
+data class DailyOfferUsageDto(
+    val date: String,
+    val usage_count: Int,
+    val discount_amount: Double,
+)
+
+@Serializable
+data class OffersAnalyticsResponseDto(
+    val total_offers: Int,
+    val active_offers: Int,
+    val total_offer_uses: Int,
+    val total_discount_from_offers: Double,
+    val average_discount_per_use: Double,
+    val top_offers: List<OfferPerformanceItemDto>,
+    val offer_usage_trend: List<DailyOfferUsageDto>,
+)
+
+// ── Discount Analytics ─────────────────────────────────────────────
+@Serializable
+data class DiscountBreakdownDto(
+    val type: String,  // MANUAL, OFFER, POINTS
+    val count: Int,
+    val total_amount: Double,
+    val percent_of_total: Double,
+)
+
+@Serializable
+data class DailyDiscountTrendDto(
+    val date: String,
+    val manual_discount: Double,
+    val offer_discount: Double,
+    val points_discount: Double,
+)
+
+@Serializable
+data class DiscountAnalyticsResponseDto(
+    val total_orders_with_discount: Int,
+    val total_discount_given: Double,
+    val average_discount_per_order: Double,
+    val discount_rate: Double,
+    val breakdown: List<DiscountBreakdownDto>,
+    val daily_trend: List<DailyDiscountTrendDto>,
+)
+
+// ── Loyalty Analytics ──────────────────────────────────────────────
+@Serializable
+data class DailyLoyaltyTrendDto(
+    val date: String,
+    val points_earned: Int,
+    val points_redeemed: Int,
+)
+
+@Serializable
+data class LoyaltyAnalyticsResponseDto(
+    val total_points_earned: Long,
+    val total_points_redeemed: Long,
+    val total_points_outstanding: Long,
+    val active_loyalty_customers: Int,
+    val redemption_rate: Double,
+    val points_to_revenue: Double,
+    val daily_trend: List<DailyLoyaltyTrendDto>,
+)
+
 // ══════════════════════════════════════════════════════════════════════
 // Helper: Parse epoch millis from query param
 // ══════════════════════════════════════════════════════════════════════
@@ -268,16 +349,27 @@ private val DAY_NAMES = listOf("", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Su
 // ══════════════════════════════════════════════════════════════════════
 
 fun Route.analyticsDashboardRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     route("/api/v1/analytics/dashboard") {
 
         // ── 1. Executive Summary ─────────────────────────────────────
         get("/executive-summary") {
+            val trace = call.routeTrace()
+            trace.step("Executive summary started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
             val periodMs = to.toEpochMilliseconds() - from.toEpochMilliseconds()
             val prevFrom = Instant.fromEpochMilliseconds(from.toEpochMilliseconds() - periodMs)
             val prevTo = from
+            trace.step("Date range parsed", mapOf(
+                "from" to from.toString(),
+                "to" to to.toString(),
+                "prevFrom" to prevFrom.toString(),
+                "prevTo" to prevTo.toString()
+            ))
 
             val result = transaction {
                 val excludedStatuses = listOf("CANCELED", "CANCELLED", "REFUNDED")
@@ -316,7 +408,15 @@ fun Route.analyticsDashboardRoutes() {
                 }
 
                 val current = metricsForPeriod(from, to)
+                trace.step("Current period metrics computed", mapOf(
+                    "totalOrders" to current.total_orders.toString(),
+                    "totalRevenue" to current.total_revenue.toString()
+                ))
                 val previous = metricsForPeriod(prevFrom, prevTo)
+                trace.step("Previous period metrics computed", mapOf(
+                    "totalOrders" to previous.total_orders.toString(),
+                    "totalRevenue" to previous.total_revenue.toString()
+                ))
 
                 fun pctChange(cur: Double, prev: Double): Double =
                     if (prev == 0.0) if (cur > 0) 100.0 else 0.0
@@ -326,12 +426,14 @@ fun Route.analyticsDashboardRoutes() {
                     (OrdersTable.vendorId eq vendorUUID) and
                             (OrdersTable.status notInList listOf("COMPLETED", "CANCELED", "CANCELLED", "REFUNDED"))
                 }.count().toInt()
+                trace.step("Active orders counted", mapOf("activeOrders" to activeOrders.toString()))
 
                 val todayStr = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
                 val attendanceToday = AttendanceTable.selectAll().where {
                     (AttendanceTable.vendorId eq vendorUUID) and
                             (AttendanceTable.date eq todayStr)
                 }.count().toInt()
+                trace.step("Attendance fetched", mapOf("attendanceToday" to attendanceToday.toString()))
 
                 ExecutiveSummaryDto(
                     current = current,
@@ -343,14 +445,20 @@ fun Route.analyticsDashboardRoutes() {
                     attendance_today = attendanceToday,
                 )
             }
+            trace.step("Executive summary completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 2. Revenue & Profit ──────────────────────────────────────
         get("/revenue-profit") {
+            val trace = call.routeTrace()
+            trace.step("Revenue & profit fetch started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val excludedFromRevenue = listOf("CANCELED", "CANCELLED", "REFUNDED")
@@ -360,6 +468,7 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt lessEq to) and
                             (OrdersTable.status notInList excludedFromRevenue)
                 }.toList()
+                trace.step("Orders fetched for revenue", mapOf("orderCount" to orders.size.toString()))
 
                 // Revenue only from PAID orders
                 val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
@@ -390,6 +499,14 @@ fun Route.analyticsDashboardRoutes() {
                     }
                     .sortedBy { it.date }
 
+                trace.step("Revenue computed", mapOf(
+                    "grossRevenue" to gross.toString(),
+                    "netRevenue" to net.toString(),
+                    "deliveryFees" to deliveryFees.toString(),
+                    "paymentMethodCount" to paymentMethods.size.toString(),
+                    "dailyTrendDays" to dailyTrend.size.toString()
+                ))
+
                 RevenueProfitDto(
                     gross_revenue = gross,
                     total_delivery_fees = deliveryFees,
@@ -398,14 +515,20 @@ fun Route.analyticsDashboardRoutes() {
                     daily_trend = dailyTrend,
                 )
             }
+            trace.step("Revenue & profit fetch completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 3. Orders Intelligence ───────────────────────────────────
         get("/orders-intelligence") {
+            val trace = call.routeTrace()
+            trace.step("Orders intelligence started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val orders = OrdersTable.selectAll().where {
@@ -413,6 +536,7 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to)
                 }.toList()
+                trace.step("Orders fetched", mapOf("orderCount" to orders.size.toString()))
 
                 val total = orders.size
                 val completed = orders.count { it[OrdersTable.status] == "COMPLETED" }
@@ -442,6 +566,14 @@ fun Route.analyticsDashboardRoutes() {
                     )
                 }
 
+                trace.step("Order stats computed", mapOf(
+                    "totalOrders" to total.toString(),
+                    "completedOrders" to completed.toString(),
+                    "cancelledOrders" to cancelled.toString(),
+                    "refundedOrders" to refunded.toString(),
+                    "channelCount" to ordersByChannel.size.toString()
+                ))
+
                 OrdersIntelligenceDto(
                     total_orders = total,
                     completed_orders = completed,
@@ -452,14 +584,20 @@ fun Route.analyticsDashboardRoutes() {
                     channel_breakdown = channelBreakdown,
                 )
             }
+            trace.step("Orders intelligence completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 4. Peak Time Analysis ────────────────────────────────────
         get("/peak-times") {
+            val trace = call.routeTrace()
+            trace.step("Peak time analysis started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val orders = OrdersTable.selectAll().where {
@@ -467,6 +605,7 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to)
                 }.toList()
+                trace.step("Orders fetched for peak times", mapOf("orderCount" to orders.size.toString()))
 
                 val tz = TimeZone.currentSystemDefault()
 
@@ -509,6 +648,11 @@ fun Route.analyticsDashboardRoutes() {
                 }
                 val busiestDay = dayOfWeekData.maxByOrNull { it.order_count }?.name ?: "Mon"
 
+                trace.step("Peak times computed", mapOf(
+                    "busiestHour" to busiestHour.toString(),
+                    "busiestDay" to busiestDay
+                ))
+
                 PeakTimeAnalysisDto(
                     busiest_hour = busiestHour,
                     busiest_day = busiestDay,
@@ -517,25 +661,33 @@ fun Route.analyticsDashboardRoutes() {
                     day_of_week = dayOfWeekData,
                 )
             }
+            trace.step("Peak time analysis completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 5. Cashier Performance V2 ────────────────────────────────
         get("/cashier-performance-v2") {
+            val trace = call.routeTrace()
+            trace.step("Cashier performance V2 started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val cashiers = UsersTable.selectAll().where {
                     (UsersTable.vendorId eq vendorUUID) and (UsersTable.role eq "CASHIER")
                 }.associateBy { it[UsersTable.id] }
+                trace.step("Cashiers fetched", mapOf("cashierCount" to cashiers.size.toString()))
 
                 val orders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to)
                 }.toList()
+                trace.step("Orders fetched for cashier perf", mapOf("orderCount" to orders.size.toString()))
 
                 val groupedByCashier = orders.groupBy { it[OrdersTable.cashierId] }
 
@@ -560,19 +712,27 @@ fun Route.analyticsDashboardRoutes() {
                     )
                 }
             }
+            trace.step("Cashier performance V2 result", mapOf("cashierCount" to result.size.toString()))
+            trace.step("Cashier performance V2 completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 6. Delivery Performance V2 ───────────────────────────────
         get("/delivery-performance-v2") {
+            val trace = call.routeTrace()
+            trace.step("Delivery performance V2 started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val drivers = UsersTable.selectAll().where {
                     (UsersTable.vendorId eq vendorUUID) and (UsersTable.role eq "DELIVERY")
                 }.associateBy { it[UsersTable.id] }
+                trace.step("Delivery drivers fetched", mapOf("driverCount" to drivers.size.toString()))
 
                 val orders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
@@ -581,6 +741,7 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to)
                 }.toList()
+                trace.step("Delivery orders fetched", mapOf("orderCount" to orders.size.toString()))
 
                 val groupedByDriver = orders.groupBy { it[OrdersTable.deliveryUserId]!! }
 
@@ -602,15 +763,22 @@ fun Route.analyticsDashboardRoutes() {
                     )
                 }
             }
+            trace.step("Delivery performance V2 result", mapOf("driverCount" to result.size.toString()))
+            trace.step("Delivery performance V2 completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 7. Product Intelligence ──────────────────────────────────
         get("/product-intelligence") {
+            val trace = call.routeTrace()
+            trace.step("Product intelligence started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 20
+            trace.step("Params parsed", mapOf("from" to from.toString(), "to" to to.toString(), "limit" to limit.toString()))
 
             val result = transaction {
                 val orderIds = OrdersTable.selectAll().where {
@@ -618,8 +786,10 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt greaterEq from) and
                             (OrdersTable.createdAt lessEq to)
                 }.map { it[OrdersTable.id] }
+                trace.step("Order IDs fetched", mapOf("orderIdCount" to orderIds.size.toString()))
 
                 if (orderIds.isEmpty()) {
+                    trace.step("No orders found, returning empty product intelligence")
                     return@transaction ProductIntelligenceDto(
                         top_selling = emptyList(),
                         most_profitable = emptyList(),
@@ -685,6 +855,7 @@ fun Route.analyticsDashboardRoutes() {
                 }
 
                 val allItems = itemMap.values.toList()
+                trace.step("Product items aggregated", mapOf("uniqueItemCount" to allItems.size.toString()))
                 val topSelling = allItems.sortedByDescending { it.qty }.take(limit).map { it.toDto() }
                 val mostProfitable = allItems.sortedByDescending { it.revenue }.take(limit).map { it.toDto() }
                 val leastSelling = allItems.sortedBy { it.qty }.take(limit).map { it.toDto() }
@@ -706,6 +877,13 @@ fun Route.analyticsDashboardRoutes() {
                         )
                     }
 
+                trace.step("Product intelligence computed", mapOf(
+                    "topSellingCount" to topSelling.size.toString(),
+                    "mostProfitableCount" to mostProfitable.size.toString(),
+                    "lowMarginCount" to lowMarginWarnings.size.toString(),
+                    "categoryCount" to revByCategory.size.toString()
+                ))
+
                 ProductIntelligenceDto(
                     top_selling = topSelling,
                     most_profitable = mostProfitable,
@@ -714,14 +892,20 @@ fun Route.analyticsDashboardRoutes() {
                     low_margin_warnings = lowMarginWarnings,
                 )
             }
+            trace.step("Product intelligence completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 8. Customer Intelligence ─────────────────────────────────
         get("/customer-intelligence") {
+            val trace = call.routeTrace()
+            trace.step("Customer intelligence started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val customers = CustomersTable.selectAll().where {
@@ -729,7 +913,9 @@ fun Route.analyticsDashboardRoutes() {
                 }.toList()
 
                 val totalCustomers = customers.size
+                trace.step("Customers fetched", mapOf("totalCustomers" to totalCustomers.toString()))
                 if (totalCustomers == 0) {
+                    trace.step("No customers found, returning empty intelligence")
                     return@transaction CustomerIntelligenceDto(
                         total_customers = 0,
                         new_customers_percent = 0.0,
@@ -778,6 +964,14 @@ fun Route.analyticsDashboardRoutes() {
                     }
                 }
 
+                trace.step("Customer stats computed", mapOf(
+                    "newCustomersPct" to newPct.toString(),
+                    "returningCustomersPct" to returnPct.toString(),
+                    "averageSpend" to avgSpend.toString(),
+                    "lifetimeValue" to ltv.toString(),
+                    "topCustomerCount" to topCustomers.size.toString()
+                ))
+
                 CustomerIntelligenceDto(
                     total_customers = totalCustomers,
                     new_customers_percent = newPct,
@@ -788,14 +982,20 @@ fun Route.analyticsDashboardRoutes() {
                     frequency_buckets = freq,
                 )
             }
+            trace.step("Customer intelligence completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 9. Alerts ────────────────────────────────────────────────
         get("/alerts") {
+            val trace = call.routeTrace()
+            trace.step("Alerts fetch started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
             val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
 
             val result = transaction {
                 val alerts = mutableListOf<AlertDto>()
@@ -815,6 +1015,10 @@ fun Route.analyticsDashboardRoutes() {
                             (OrdersTable.createdAt greaterEq prevFrom) and
                             (OrdersTable.createdAt less from)
                 }.sumOf { it[OrdersTable.total].toDouble() }
+                trace.step("Revenue comparison fetched", mapOf(
+                    "currentRevenue" to currentRevenue.toString(),
+                    "previousRevenue" to previousRevenue.toString()
+                ))
 
                 if (previousRevenue > 0 && currentRevenue < previousRevenue * 0.7) {
                     val dropPct = ((previousRevenue - currentRevenue) / previousRevenue) * 100.0
@@ -872,6 +1076,11 @@ fun Route.analyticsDashboardRoutes() {
                     }
                 }
 
+                trace.step("Order alerts checked", mapOf(
+                    "totalOrders" to totalOrders.toString(),
+                    "cancelledOrders" to cancelledOrders.toString()
+                ))
+
                 // Low stock & out of stock
                 val stockItems = StockTable.selectAll().where {
                     (StockTable.vendorId eq vendorUUID) and (StockTable.alertEnabled eq true)
@@ -908,20 +1117,32 @@ fun Route.analyticsDashboardRoutes() {
                     )
                 }
 
+                trace.step("Stock alerts checked", mapOf(
+                    "outOfStockCount" to outOfStock.size.toString(),
+                    "lowStockCount" to lowStock.size.toString()
+                ))
+
                 AlertsDto(alerts = alerts)
             }
+            trace.step("Alerts result", mapOf("alertCount" to result.alerts.size.toString()))
+            trace.step("Alerts fetch completed")
             call.respond(HttpStatusCode.OK, result)
         }
 
         // ── 10. Stock Overview ───────────────────────────────────────
         get("/stock-overview") {
+            val trace = call.routeTrace()
+            trace.step("Stock overview started")
             val principal = requireRole("MANAGER")
+            // Analytics is available on all plans
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
 
             val result = transaction {
                 val stockItems = StockTable.selectAll().where {
                     StockTable.vendorId eq vendorUUID
                 }.toList()
+                trace.step("Stock items fetched", mapOf("stockItemCount" to stockItems.size.toString()))
 
                 // Item selling prices
                 val menuItemIds = stockItems.mapNotNull { it[StockTable.itemId] }
@@ -1000,6 +1221,15 @@ fun Route.analyticsDashboardRoutes() {
                     }
                     .sortedBy { it.date }
 
+                trace.step("Stock overview computed", mapOf(
+                    "totalStockValue" to totalStockValue.toString(),
+                    "totalSellingValue" to totalSellingValue.toString(),
+                    "potentialProfit" to (totalSellingValue - totalStockValue).toString(),
+                    "lowStockCount" to lowStockItems.size.toString(),
+                    "outOfStockCount" to outOfStockItems.size.toString(),
+                    "deadStockCount" to deadStockItems.size.toString()
+                ))
+
                 StockOverviewDto(
                     total_stock_value = totalStockValue,
                     total_selling_value = totalSellingValue,
@@ -1011,6 +1241,349 @@ fun Route.analyticsDashboardRoutes() {
                     movement_summary = movementSummary,
                 )
             }
+            trace.step("Stock overview completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // ── 11. Offers Analytics ────────────────────────────────────────
+        get("/offers-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Offers analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            planService.checkFeature(vendorUUID, "ANALYTICS")
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
+
+            val result = transaction {
+                // Total and active offers for this vendor
+                val allOffers = OffersTable.selectAll().where {
+                    OffersTable.vendorId eq vendorUUID
+                }.toList()
+                val totalOffers = allOffers.size
+                val activeOffers = allOffers.count { it[OffersTable.active] }
+                trace.step("Offers fetched", mapOf(
+                    "totalOffers" to totalOffers.toString(),
+                    "activeOffers" to activeOffers.toString()
+                ))
+
+                // Orders with an offer applied within date range (exclude cancelled/refunded)
+                val excludedStatuses = listOf("CANCELED", "CANCELLED", "REFUNDED")
+                val offerOrders = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                            (OrdersTable.offerId.isNotNull()) and
+                            (OrdersTable.createdAt greaterEq from) and
+                            (OrdersTable.createdAt lessEq to) and
+                            (OrdersTable.status notInList excludedStatuses)
+                }.toList()
+                trace.step("Offer orders fetched", mapOf("offerOrderCount" to offerOrders.size.toString()))
+
+                // Build offer lookup
+                val offerMap = allOffers.associateBy { it[OffersTable.id].value }
+
+                // Aggregate by offer
+                data class OfferAgg(
+                    val offerId: UUID,
+                    var usageCount: Int = 0,
+                    var totalDiscount: Double = 0.0,
+                    var totalRevenue: Double = 0.0,
+                )
+
+                val offerAggMap = mutableMapOf<UUID, OfferAgg>()
+                for (order in offerOrders) {
+                    val oid = order[OrdersTable.offerId]!!.value
+                    val agg = offerAggMap.getOrPut(oid) { OfferAgg(offerId = oid) }
+                    agg.usageCount++
+                    agg.totalDiscount += order[OrdersTable.discount].toDouble()
+                    agg.totalRevenue += order[OrdersTable.total].toDouble()
+                }
+
+                val totalOfferUses = offerOrders.size
+                val totalDiscountFromOffers = offerOrders.sumOf { it[OrdersTable.discount].toDouble() }
+                val avgDiscountPerUse = if (totalOfferUses > 0) totalDiscountFromOffers / totalOfferUses else 0.0
+
+                // Top offers sorted by usage
+                val topOffers = offerAggMap.values
+                    .sortedByDescending { it.usageCount }
+                    .take(20)
+                    .map { agg ->
+                        val offerRow = offerMap[agg.offerId]
+                        OfferPerformanceItemDto(
+                            offer_id = agg.offerId.toString(),
+                            offer_name = offerRow?.get(OffersTable.name) ?: "Unknown",
+                            discount_type = offerRow?.get(OffersTable.discountType) ?: "FIXED_PRICE",
+                            discount_value = offerRow?.get(OffersTable.discountValue)?.toDouble() ?: 0.0,
+                            usage_count = agg.usageCount,
+                            total_discount_given = agg.totalDiscount,
+                            total_revenue_from_offer_orders = agg.totalRevenue,
+                            promo_code = offerRow?.get(OffersTable.promoCode),
+                            is_active = offerRow?.get(OffersTable.active) ?: false,
+                        )
+                    }
+
+                // Daily usage trend
+                val tz = TimeZone.currentSystemDefault()
+                val offerUsageTrend = offerOrders
+                    .groupBy { it[OrdersTable.createdAt].toLocalDateTime(tz).date.toString() }
+                    .map { (date, rows) ->
+                        DailyOfferUsageDto(
+                            date = date,
+                            usage_count = rows.size,
+                            discount_amount = rows.sumOf { it[OrdersTable.discount].toDouble() },
+                        )
+                    }
+                    .sortedBy { it.date }
+
+                trace.step("Offers analytics computed", mapOf(
+                    "totalOfferUses" to totalOfferUses.toString(),
+                    "totalDiscountFromOffers" to totalDiscountFromOffers.toString(),
+                    "topOffersCount" to topOffers.size.toString(),
+                    "trendDays" to offerUsageTrend.size.toString()
+                ))
+
+                OffersAnalyticsResponseDto(
+                    total_offers = totalOffers,
+                    active_offers = activeOffers,
+                    total_offer_uses = totalOfferUses,
+                    total_discount_from_offers = totalDiscountFromOffers,
+                    average_discount_per_use = avgDiscountPerUse,
+                    top_offers = topOffers,
+                    offer_usage_trend = offerUsageTrend,
+                )
+            }
+            trace.step("Offers analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // ── 12. Discount Analytics ──────────────────────────────────────
+        get("/discount-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Discount analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            planService.checkFeature(vendorUUID, "ANALYTICS")
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
+
+            val result = transaction {
+                val excludedStatuses = listOf("CANCELED", "CANCELLED", "REFUNDED")
+
+                // All orders in date range (for discount rate denominator)
+                val allOrders = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                            (OrdersTable.createdAt greaterEq from) and
+                            (OrdersTable.createdAt lessEq to) and
+                            (OrdersTable.status notInList excludedStatuses)
+                }.toList()
+                val totalOrderCount = allOrders.size
+                trace.step("All orders fetched", mapOf("totalOrderCount" to totalOrderCount.toString()))
+
+                // Orders with discount > 0
+                val discountedOrders = allOrders.filter {
+                    it[OrdersTable.discount].compareTo(java.math.BigDecimal.ZERO) > 0
+                }
+                val totalOrdersWithDiscount = discountedOrders.size
+                val totalDiscountGiven = discountedOrders.sumOf { it[OrdersTable.discount].toDouble() }
+                val avgDiscountPerOrder = if (totalOrdersWithDiscount > 0) totalDiscountGiven / totalOrdersWithDiscount else 0.0
+                val discountRate = if (totalOrderCount > 0) (totalOrdersWithDiscount.toDouble() / totalOrderCount) * 100.0 else 0.0
+
+                trace.step("Discount stats computed", mapOf(
+                    "totalOrdersWithDiscount" to totalOrdersWithDiscount.toString(),
+                    "totalDiscountGiven" to totalDiscountGiven.toString(),
+                    "discountRate" to discountRate.toString()
+                ))
+
+                // Classify: OFFER (offerId != null), POINTS (pointsRedeemed > 0), MANUAL (else)
+                var offerCount = 0; var offerAmount = 0.0
+                var pointsCount = 0; var pointsAmount = 0.0
+                var manualCount = 0; var manualAmount = 0.0
+
+                for (order in discountedOrders) {
+                    val discountVal = order[OrdersTable.discount].toDouble()
+                    when {
+                        order[OrdersTable.offerId] != null -> {
+                            offerCount++; offerAmount += discountVal
+                        }
+                        order[OrdersTable.pointsRedeemed] > 0 -> {
+                            pointsCount++; pointsAmount += discountVal
+                        }
+                        else -> {
+                            manualCount++; manualAmount += discountVal
+                        }
+                    }
+                }
+
+                val breakdown = listOf(
+                    DiscountBreakdownDto(
+                        type = "MANUAL",
+                        count = manualCount,
+                        total_amount = manualAmount,
+                        percent_of_total = if (totalDiscountGiven > 0) (manualAmount / totalDiscountGiven) * 100.0 else 0.0,
+                    ),
+                    DiscountBreakdownDto(
+                        type = "OFFER",
+                        count = offerCount,
+                        total_amount = offerAmount,
+                        percent_of_total = if (totalDiscountGiven > 0) (offerAmount / totalDiscountGiven) * 100.0 else 0.0,
+                    ),
+                    DiscountBreakdownDto(
+                        type = "POINTS",
+                        count = pointsCount,
+                        total_amount = pointsAmount,
+                        percent_of_total = if (totalDiscountGiven > 0) (pointsAmount / totalDiscountGiven) * 100.0 else 0.0,
+                    ),
+                )
+
+                // Daily trend grouped by type
+                val tz = TimeZone.currentSystemDefault()
+                data class DailyDiscountAcc(
+                    var manual: Double = 0.0,
+                    var offer: Double = 0.0,
+                    var points: Double = 0.0,
+                )
+
+                val dailyMap = mutableMapOf<String, DailyDiscountAcc>()
+                for (order in discountedOrders) {
+                    val date = order[OrdersTable.createdAt].toLocalDateTime(tz).date.toString()
+                    val acc = dailyMap.getOrPut(date) { DailyDiscountAcc() }
+                    val discountVal = order[OrdersTable.discount].toDouble()
+                    when {
+                        order[OrdersTable.offerId] != null -> acc.offer += discountVal
+                        order[OrdersTable.pointsRedeemed] > 0 -> acc.points += discountVal
+                        else -> acc.manual += discountVal
+                    }
+                }
+
+                val dailyTrend = dailyMap.entries
+                    .sortedBy { it.key }
+                    .map { (date, acc) ->
+                        DailyDiscountTrendDto(
+                            date = date,
+                            manual_discount = acc.manual,
+                            offer_discount = acc.offer,
+                            points_discount = acc.points,
+                        )
+                    }
+
+                trace.step("Discount analytics computed", mapOf(
+                    "manualCount" to manualCount.toString(),
+                    "offerCount" to offerCount.toString(),
+                    "pointsCount" to pointsCount.toString(),
+                    "trendDays" to dailyTrend.size.toString()
+                ))
+
+                DiscountAnalyticsResponseDto(
+                    total_orders_with_discount = totalOrdersWithDiscount,
+                    total_discount_given = totalDiscountGiven,
+                    average_discount_per_order = avgDiscountPerOrder,
+                    discount_rate = discountRate,
+                    breakdown = breakdown,
+                    daily_trend = dailyTrend,
+                )
+            }
+            trace.step("Discount analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // ── 13. Loyalty Analytics ───────────────────────────────────────
+        get("/loyalty-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Loyalty analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            planService.checkFeature(vendorUUID, "ANALYTICS")
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            val (from, to) = parseDateRange(call)
+            trace.step("Date range parsed", mapOf("from" to from.toString(), "to" to to.toString()))
+
+            val result = transaction {
+                // Points transactions within date range for this vendor
+                val pointsTxs = PointsTransactionsTable.selectAll().where {
+                    (PointsTransactionsTable.vendorId eq vendorUUID) and
+                            (PointsTransactionsTable.createdAt greaterEq from) and
+                            (PointsTransactionsTable.createdAt lessEq to)
+                }.toList()
+                trace.step("Points transactions fetched", mapOf("txCount" to pointsTxs.size.toString()))
+
+                val totalEarned = pointsTxs
+                    .filter { it[PointsTransactionsTable.type] == "EARN" }
+                    .sumOf { it[PointsTransactionsTable.points].toLong() }
+                val totalRedeemed = pointsTxs
+                    .filter { it[PointsTransactionsTable.type] == "REDEEM" }
+                    .sumOf { it[PointsTransactionsTable.points].toLong() }
+
+                // Active loyalty customers: customers with pointsBalance > 0
+                val activeLoyaltyCustomers = CustomersTable.selectAll().where {
+                    (CustomersTable.vendorId eq vendorUUID) and
+                            (CustomersTable.pointsBalance greater 0)
+                }.count().toInt()
+                trace.step("Active loyalty customers counted", mapOf("count" to activeLoyaltyCustomers.toString()))
+
+                // Outstanding points = sum of all customer balances
+                val totalPointsOutstanding = CustomersTable.selectAll().where {
+                    CustomersTable.vendorId eq vendorUUID
+                }.sumOf { it[CustomersTable.pointsBalance].toLong() }
+
+                // Redemption rate
+                val redemptionRate = if (totalEarned > 0) (totalRedeemed.toDouble() / totalEarned) * 100.0 else 0.0
+
+                // Points to revenue: redeemed points * pointsRedeemRate from vendor settings
+                val vendorRow = VendorsTable.selectAll().where {
+                    VendorsTable.id eq vendorUUID
+                }.firstOrNull()
+                val pointsRedeemRate = vendorRow?.get(VendorsTable.pointsRedeemRate)?.toDouble() ?: 0.1
+                val pointsToRevenue = totalRedeemed * pointsRedeemRate
+
+                trace.step("Loyalty metrics computed", mapOf(
+                    "totalEarned" to totalEarned.toString(),
+                    "totalRedeemed" to totalRedeemed.toString(),
+                    "totalOutstanding" to totalPointsOutstanding.toString(),
+                    "redemptionRate" to redemptionRate.toString(),
+                    "pointsToRevenue" to pointsToRevenue.toString()
+                ))
+
+                // Daily trend
+                val tz = TimeZone.currentSystemDefault()
+                data class DailyLoyaltyAcc(
+                    var earned: Int = 0,
+                    var redeemed: Int = 0,
+                )
+
+                val dailyMap = mutableMapOf<String, DailyLoyaltyAcc>()
+                for (tx in pointsTxs) {
+                    val date = tx[PointsTransactionsTable.createdAt].toLocalDateTime(tz).date.toString()
+                    val acc = dailyMap.getOrPut(date) { DailyLoyaltyAcc() }
+                    when (tx[PointsTransactionsTable.type]) {
+                        "EARN" -> acc.earned += tx[PointsTransactionsTable.points]
+                        "REDEEM" -> acc.redeemed += tx[PointsTransactionsTable.points]
+                    }
+                }
+
+                val dailyTrend = dailyMap.entries
+                    .sortedBy { it.key }
+                    .map { (date, acc) ->
+                        DailyLoyaltyTrendDto(
+                            date = date,
+                            points_earned = acc.earned,
+                            points_redeemed = acc.redeemed,
+                        )
+                    }
+
+                trace.step("Loyalty daily trend computed", mapOf("trendDays" to dailyTrend.size.toString()))
+
+                LoyaltyAnalyticsResponseDto(
+                    total_points_earned = totalEarned,
+                    total_points_redeemed = totalRedeemed,
+                    total_points_outstanding = totalPointsOutstanding,
+                    active_loyalty_customers = activeLoyaltyCustomers,
+                    redemption_rate = redemptionRate,
+                    points_to_revenue = pointsToRevenue,
+                    daily_trend = dailyTrend,
+                )
+            }
+            trace.step("Loyalty analytics completed")
             call.respond(HttpStatusCode.OK, result)
         }
     }

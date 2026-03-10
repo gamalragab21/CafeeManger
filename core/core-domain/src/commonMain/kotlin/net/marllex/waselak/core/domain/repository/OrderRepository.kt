@@ -10,6 +10,12 @@ import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.ReceiptShareLink
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 
+data class PaginatedResult<T>(
+    val data: List<T>,
+    val total: Int,
+    val hasMore: Boolean,
+)
+
 interface OrderRepository {
     fun getOrders(status: String? = null, channel: String? = null): Flow<List<Order>>
     fun getOrderById(id: String): Flow<Order?>
@@ -20,10 +26,13 @@ interface OrderRepository {
         channel: String? = null,
         cashierId: String? = null,
         deliveryUserId: String? = null,
+        tableId: String? = null,
         from: Long? = null,
-        to: Long? = null
-    ): Result<List<Order>>
-    suspend fun refreshMyDeliveryOrders(status: String? = null): Result<List<Order>>
+        to: Long? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): Result<PaginatedResult<Order>>
+    suspend fun refreshMyDeliveryOrders(status: String? = null, limit: Int = 50, offset: Int = 0): Result<PaginatedResult<Order>>
     suspend fun getAvailableDeliveryOrders(): Result<List<Order>>
     suspend fun createOrder(
         channel: OrderChannel,
@@ -34,8 +43,14 @@ interface OrderRepository {
         paymentMethod: PaymentMethod,
         paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW,
         taxPlaceId: String?,
+        reservationId: String? = null,
         notes: String?,
-        items: List<CreateOrderItemRequest>
+        items: List<CreateOrderItemRequest>,
+        discount: Double = 0.0,
+        discountType: String = "FIXED",
+        offerId: String? = null,
+        pointsRedeemed: Int = 0,
+        discountReason: String? = null,
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrder(

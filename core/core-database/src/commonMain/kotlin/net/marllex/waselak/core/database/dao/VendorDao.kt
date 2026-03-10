@@ -37,6 +37,12 @@ class VendorDao(private val db: WaselakDatabase) {
             biometric_required = vendor.biometric_required,
             enable_offline_mode = vendor.enable_offline_mode,
             digital_menu_url = vendor.digital_menu_url,
+            loyalty_enabled = vendor.loyalty_enabled,
+            points_earn_rate = vendor.points_earn_rate,
+            points_redeem_rate = vendor.points_redeem_rate,
+            min_points_redeem = vendor.min_points_redeem,
+            max_manual_discount_percent = vendor.max_manual_discount_percent,
+            manual_discount_requires_pin = vendor.manual_discount_requires_pin,
             created_at = vendor.created_at,
             updated_at = vendor.updated_at
         )
@@ -65,6 +71,12 @@ class VendorDao(private val db: WaselakDatabase) {
             biometric_required = vendor.biometric_required,
             enable_offline_mode = vendor.enable_offline_mode,
             digital_menu_url = vendor.digital_menu_url,
+            loyalty_enabled = vendor.loyalty_enabled,
+            points_earn_rate = vendor.points_earn_rate,
+            points_redeem_rate = vendor.points_redeem_rate,
+            min_points_redeem = vendor.min_points_redeem,
+            max_manual_discount_percent = vendor.max_manual_discount_percent,
+            manual_discount_requires_pin = vendor.manual_discount_requires_pin,
             updated_at = vendor.updated_at,
             id = vendor.id
         )

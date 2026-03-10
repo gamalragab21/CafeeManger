@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -344,6 +347,33 @@ private fun ModernItemCard(
                             )
                         }
                     }
+                    if (item.variantGroups.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "${item.variantGroups.size} ${stringResource(Res.string.variants)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    item.barcode?.let { bc ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = bc,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
             
@@ -439,7 +469,7 @@ private fun ItemCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ItemBottomSheet(
     uiState: ItemsViewModel.UiState,
@@ -498,10 +528,49 @@ private fun ItemBottomSheet(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                    ),
                 )
             }
 
-            // Category selector
+            // Barcode
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = uiState.dialogBarcode,
+                        onValueChange = viewModel::updateDialogBarcode,
+                        label = { Text(stringResource(Res.string.barcode)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    IconButton(
+                        onClick = viewModel::toggleBarcodeScanner,
+                    ) {
+                        Icon(
+                            Icons.Filled.QrCodeScanner,
+                            contentDescription = stringResource(Res.string.scan_barcode),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (uiState.showBarcodeScanner) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    net.marllex.waselak.core.ui.components.BarcodeScannerView(
+                        onBarcodeScanned = viewModel::onBarcodeScanResult,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                    )
+                }
+            }
+
+            // Category selector — FlowRow wraps to show all categories visibly
             item {
                 Text(
                     stringResource(Res.string.category),
@@ -509,12 +578,21 @@ private fun ItemBottomSheet(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.categories) { cat ->
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    uiState.categories.forEach { cat ->
                         FilterChip(
                             selected = uiState.dialogCategoryId == cat.id,
                             onClick = { viewModel.updateDialogCategoryId(cat.id) },
-                            label = { Text(cat.name) },
+                            label = {
+                                Text(
+                                    cat.name,
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
+                            modifier = Modifier.height(40.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -670,6 +748,9 @@ private fun VariantGroupCard(
                         label = { Text("+/-") },
                         singleLine = true,
                         modifier = Modifier.width(80.dp),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                        ),
                     )
                     IconButton(
                         onClick = { viewModel.removeVariantOption(group.id, option.id) },

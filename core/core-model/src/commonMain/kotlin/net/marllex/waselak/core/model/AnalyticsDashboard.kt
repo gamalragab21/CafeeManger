@@ -199,3 +199,55 @@ data class StockOverview(
     val deadStockItems: List<StockOverviewItem>,
     val movementSummary: List<StockMovement>,
 )
+
+// ─── Offers Analytics ──────────────────────────────────────────
+data class OfferPerformanceItem(
+    val offerId: String,
+    val offerName: String,
+    val discountType: String,
+    val discountValue: Double,
+    val usageCount: Int,
+    val totalDiscountGiven: Double,
+    val totalRevenueFromOfferOrders: Double,
+    val promoCode: String? = null,
+    val isActive: Boolean,
+)
+data class DailyOfferUsage(val date: String, val usageCount: Int, val discountAmount: Double)
+data class OffersAnalytics(
+    val totalOffers: Int,
+    val activeOffers: Int,
+    val totalOfferUses: Int,
+    val totalDiscountFromOffers: Double,
+    val averageDiscountPerUse: Double,
+    val topOffers: List<OfferPerformanceItem>,
+    val offerUsageTrend: List<DailyOfferUsage>,
+)
+
+// ─── Discount Analytics ────────────────────────────────────────
+data class DiscountBreakdown(
+    val type: String,
+    val count: Int,
+    val totalAmount: Double,
+    val percentOfTotal: Double,
+)
+data class DailyDiscount(val date: String, val manualDiscount: Double, val offerDiscount: Double, val pointsDiscount: Double)
+data class DiscountAnalytics(
+    val totalOrdersWithDiscount: Int,
+    val totalDiscountGiven: Double,
+    val averageDiscountPerOrder: Double,
+    val discountRate: Double,
+    val breakdown: List<DiscountBreakdown>,
+    val dailyTrend: List<DailyDiscount>,
+)
+
+// ─── Loyalty Analytics ─────────────────────────────────────────
+data class DailyLoyalty(val date: String, val pointsEarned: Int, val pointsRedeemed: Int)
+data class LoyaltyAnalytics(
+    val totalPointsEarned: Long,
+    val totalPointsRedeemed: Long,
+    val totalPointsOutstanding: Long,
+    val activeLoyaltyCustomers: Int,
+    val redemptionRate: Double,
+    val pointsToRevenue: Double,
+    val dailyTrend: List<DailyLoyalty>,
+)

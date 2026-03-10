@@ -99,7 +99,13 @@
 
     <!-- Navigation - Cashier -->
     <string name="nav_new_order">New Order</string>
+    <string name="nav_new_prescription">New Rx</string>
+    <string name="nav_new_invoice">New Invoice</string>
+    <string name="nav_orders_prescriptions">Prescriptions</string>
+    <string name="nav_orders_invoices">Invoices</string>
     <string name="nav_tables">Tables</string>
+    <string name="nav_more">More</string>
+    <string name="nav_offers">Offers</string>
 
     <!-- Navigation - Delivery -->
     <string name="nav_my_orders">My Orders</string>
@@ -109,6 +115,7 @@
     <!-- Navigation - Drawer Items -->
     <string name="nav_delivery">Delivery</string>
     <string name="nav_attendance">Attendance</string>
+    <string name="nav_overtime">My Overtime</string>
 
     <!-- Menu Sub-Tabs -->
     <string name="tab_categories">Categories</string>
@@ -168,7 +175,7 @@
     <!-- Offline Mode -->
     <string name="offline_mode">Offline Mode</string>
     <string name="sync_now">Sync Now</string>
-    <string name="items_pending_sync">%d items pending sync</string>
+    <string name="items_pending_sync">%1$d items pending sync</string>
     <string name="order_saved_locally">Order saved locally</string>
     <string name="qr_not_available_offline">QR not available offline</string>
     <string name="store_configuration">Store Configuration</string>
@@ -197,4 +204,124 @@
     <string name="order_payment_sync">Orders &amp; Payments Sync</string>
     <string name="sync_all_now">Sync All Now</string>
     <string name="failed_items">Failed Items</string>
+
+    <!-- Logging -->
+    <string name="upload_logs">Upload Logs</string>
+    <string name="upload_logs_description">Send app logs to help with debugging</string>
+    <string name="uploading_logs">Uploading logs…</string>
+    <string name="logs_uploaded">Logs uploaded successfully</string>
+    <string name="logs_upload_failed">Failed to upload logs</string>
+    <string name="no_logs_available">No logs available</string>
+    <string name="share_logs">Share Logs</string>
+    <string name="clear_logs">Clear Logs</string>
+    <string name="clear_logs_confirm">Are you sure you want to clear all logs?</string>
+    <string name="logs_cleared">Logs cleared</string>
+
+    <!-- Offline Confirmation -->
+    <!-- Plan Gating -->
+    <string name="feature_not_available_message">This feature is not available in your current plan</string>
+    <string name="feature_not_available_title">Feature Not Available</string>
+    <string name="upgrade_plan_subtitle">Upgrade your plan to access this feature. Contact your admin for more details.</string>
+
+    <!-- Shift Summary -->
+    <string name="shift_summary">Shift Summary</string>
+    <string name="shift_summary_for">Shift Summary - %1$s</string>
+    <string name="total_revenue">Total Revenue</string>
+    <string name="orders_count">%1$d orders</string>
+    <string name="cancelled">Cancelled</string>
+    <string name="refunded">Refunded</string>
+    <string name="no_orders_this_shift">No orders during this shift</string>
+
+    <!-- Plan Info -->
+    <string name="plan_info_title">Subscription Plan</string>
+    <string name="egp_month">%1$d EGP/month</string>
+    <string name="plan_usage">Usage</string>
+    <string name="plan_features_title">Features</string>
+    <string name="plan_managers">Managers</string>
+    <string name="plan_cashiers">Cashiers</string>
+    <string name="plan_delivery_persons">Delivery Persons</string>
+    <string name="plan_orders_month">Orders/Month</string>
+    <string name="plan_menu_items">Menu Items</string>
+    <string name="plan_stock">Stock Management</string>
+    <string name="plan_attendance">Attendance</string>
+    <string name="plan_overtime">Overtime</string>
+    <string name="plan_salaries">Salaries</string>
+    <string name="plan_delivery_module">Delivery Module</string>
+    <string name="plan_customers">Customer Management</string>
+    <string name="plan_analytics">Analytics</string>
+    <string name="plan_digital_menu">Digital Menu</string>
+    <string name="plan_digital_receipt">Digital Receipt</string>
+    <string name="plan_table_reservation">Table &amp; Reservation</string>
+    <string name="plan_worker_qrcode">Worker QR Code</string>
+    <string name="plan_loyalty_points">Loyalty Points</string>
+    <string name="plan_manual_discount">Manual Discount</string>
+    <string name="plan_offers_management">Offers Management</string>
+    <string name="unlimited">Unlimited</string>
+    <string name="usage_format">%1$d / %2$d</string>
+    <string name="usage_unlimited">%1$d / Unlimited</string>
+
+    <!-- Plan Limit -->
+    <string name="plan_limit_reached">Plan Limit Reached</string>
+    <string name="plan_limit_message">You have reached the maximum allowed in your current plan. Please upgrade to add more.</string>
+
+    <!-- Plans Comparison -->
+    <string name="subscription_plans">Subscription Plans</string>
+    <string name="current_plan_badge">Current Plan</string>
+    <string name="contact_admin_upgrade">Contact your admin to change your plan</string>
+    <string name="plan_branches">Branches</string>
+
+    <string name="offline_confirm_title">No Internet Connection</string>
+    <string name="offline_confirm_message">You are offline. Do you want to continue working in offline mode? Orders will be saved locally and synced when back online.</string>
+    <string name="continue_offline">Continue Offline</string>
+
+    <!-- Loyalty & Discounts -->
+    <string name="loyalty_and_discounts">Loyalty &amp; Discounts</string>
+    <string name="loyalty_discounts_screen_desc">Manage loyalty points and discount policies for your store</string>
+    <string name="loyalty_points">Loyalty Points</string>
+    <string name="loyalty_points_desc">Customers earn points on every order</string>
+    <string name="loyalty_points_enable">Enable Loyalty Points</string>
+    <string name="points_earn_rate">Points per 1 EGP</string>
+    <string name="points_earn_rate_desc">How many points customers earn per 1 EGP spent</string>
+    <string name="points_redeem_rate">EGP per Point</string>
+    <string name="points_redeem_rate_desc">Discount value for each redeemed point</string>
+    <string name="min_points_redeem">Min Points to Redeem</string>
+    <string name="min_points_redeem_desc">Minimum points balance required to redeem</string>
+    <string name="manual_discount">Manual Discount</string>
+    <string name="manual_discount_desc">Control how cashiers apply manual discounts at checkout</string>
+    <string name="max_discount_percent">Max Discount %%</string>
+    <string name="max_discount_percent_desc">Maximum manual discount cashiers can apply</string>
+    <string name="require_manager_pin">Require Manager PIN</string>
+    <string name="require_manager_pin_desc">Large discounts require manager PIN approval</string>
+    <string name="save_settings">Save Settings</string>
+    <string name="points_balance">Points Balance</string>
+    <string name="redeem_points">Redeem Points</string>
+    <string name="points_value">Points Value</string>
+    <string name="enter_manager_pin">Enter Manager PIN</string>
+    <string name="discount">Discount</string>
+    <string name="discount_reason">Discount Reason</string>
+    <string name="points_earned">Points Earned</string>
+    <string name="points_redeemed">Points Redeemed</string>
+    <string name="promo_code">Promo Code</string>
+    <string name="apply_promo">Apply</string>
+    <string name="promo_code_invalid">Invalid promo code</string>
+    <string name="promo_code_applied">Promo code applied</string>
+
+    <!-- Vendor Type Labels -->
+    <string name="vendor_type_restaurant">Restaurant</string>
+    <string name="vendor_type_cafe">Café</string>
+    <string name="vendor_type_pharmacy">Pharmacy</string>
+    <string name="vendor_type_bakery">Bakery</string>
+    <string name="vendor_type_supermarket">Supermarket</string>
+    <string name="vendor_type_grocery">Grocery</string>
+    <string name="vendor_type_retail">Retail</string>
+    <string name="vendor_type_juice_bar">Juice Bar</string>
+
+    <!-- Vendor-specific order type labels -->
+    <string name="order_label_default">Order</string>
+    <string name="order_label_prescription">Prescription</string>
+    <string name="order_label_invoice">Invoice</string>
+    <string name="orders_label_default">Orders</string>
+    <string name="orders_label_prescriptions">Prescriptions</string>
+    <string name="orders_label_invoices">Invoices</string>
+    <string name="order_number_label">%1$s #%2$s</string>
 </resources>

@@ -4,6 +4,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
@@ -11,6 +13,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import net.marllex.waselak.core.network.dto.*
 
@@ -35,6 +39,12 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun getMyVendor(): VendorResponse =
         client.get("api/v1/vendors/me").body()
+
+    suspend fun getMyPlan(): PlanFeaturesResponse =
+        client.get("api/v1/vendors/me/plan").body()
+
+    suspend fun getAllPlans(): List<PlanSummaryDto> =
+        client.get("api/v1/vendors/plans").body()
 
     suspend fun updateMyVendor(request: UpdateVendorRequest): VendorResponse =
         client.put("api/v1/vendors/me") {
@@ -128,6 +138,40 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    // ─── Reservations ────────────────────────────────────────────
+
+    suspend fun getReservations(
+        date: String? = null,
+        tableId: String? = null,
+        status: String? = null,
+    ): List<ReservationResponse> =
+        client.get("api/v1/reservations") {
+            parameter("date", date)
+            parameter("table_id", tableId)
+            parameter("status", status)
+        }.body()
+
+    suspend fun getReservation(id: String): ReservationResponse =
+        client.get("api/v1/reservations/$id").body()
+
+    suspend fun createReservation(request: CreateReservationRequest): ReservationResponse =
+        client.post("api/v1/reservations") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateReservation(id: String, request: UpdateReservationRequest): ReservationResponse =
+        client.put("api/v1/reservations/$id") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateReservationStatus(id: String, request: UpdateReservationStatusRequest): ReservationResponse =
+        client.patch("api/v1/reservations/$id/status") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteReservation(id: String): ApiSuccessResponse =
+        client.delete("api/v1/reservations/$id").body()
+
     // ─── Users (Manager only) ────────────────────────────────────
 
     suspend fun getUsers(role: String? = null): List<UserResponse> =
@@ -163,6 +207,7 @@ class WaselakApiClient(private val client: HttpClient) {
         channel: String? = null,
         cashierId: String? = null,
         deliveryUserId: String? = null,
+        tableId: String? = null,
         from: Long? = null,
         to: Long? = null,
         limit: Int = 50,
@@ -173,6 +218,7 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("channel", channel)
             parameter("cashier_id", cashierId)
             parameter("delivery_user_id", deliveryUserId)
+            parameter("table_id", tableId)
             parameter("from", from)
             parameter("to", to)
             parameter("limit", limit)
@@ -218,9 +264,11 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getDeliveryDashboard(): List<DeliveryDashboardItemResponse> =
         client.get("api/v1/orders/delivery-dashboard").body()
 
-    suspend fun getMyDeliveryOrders(status: String? = null): List<OrderResponse> =
+    suspend fun getMyDeliveryOrders(status: String? = null, limit: Int = 50, offset: Int = 0): PaginatedOrdersResponse =
         client.get("api/v1/orders/delivery/mine") {
             parameter("status", status)
+            parameter("limit", limit)
+            parameter("offset", offset)
         }.body()
 
     suspend fun getAvailableDeliveryOrders(): List<OrderResponse> =
@@ -288,6 +336,16 @@ class WaselakApiClient(private val client: HttpClient) {
         client.get("api/v1/analytics/daily") {
             parameter("from", from)
             parameter("to", to)
+        }.body()
+
+    suspend fun getMyShiftSummary(from: Long? = null): ShiftSummaryResponse =
+        client.get("api/v1/orders/my-shift-summary") {
+            parameter("from", from)
+        }.body()
+
+    suspend fun getUserShiftSummary(userId: String, from: Long? = null): ShiftSummaryResponse =
+        client.get("api/v1/orders/shift-summary/$userId") {
+            parameter("from", from)
         }.body()
 
     suspend fun getCashierPerformance(
@@ -392,6 +450,33 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun getStockOverview(): StockOverviewResponse =
         client.get("api/v1/analytics/dashboard/stock-overview").body()
+
+    suspend fun getOffersAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): OffersAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/offers-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getDiscountAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): DiscountAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/discount-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getLoyaltyAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): LoyaltyAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/loyalty-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
 
     // ─── Export (streaming) ──────────────────────────────────────
 
@@ -656,6 +741,11 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    suspend fun updateOvertime(id: String, request: UpdateOvertimeRequest): OvertimeResponse =
+        client.patch("api/v1/overtime/$id") {
+            setBody(request)
+        }.body()
+
     suspend fun deleteOvertime(id: String): ApiSuccessResponse =
         client.delete("api/v1/overtime/$id").body()
 
@@ -753,6 +843,55 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("limit", limit)
         }.body()
 
+    suspend fun getCustomerPointsHistory(customerId: String): List<PointsTransactionResponse> =
+        client.get("api/v1/customers/$customerId/points-history").body()
+
+    suspend fun getCustomerDiscountOrders(
+        customerId: String,
+        limit: Int = 20,
+    ): List<OrderResponse> =
+        client.get("api/v1/customers/$customerId/discount-orders") {
+            parameter("limit", limit)
+        }.body()
+
+    // ─── Offers ──────────────────────────────────────────────────
+
+    suspend fun getOffers(active: Boolean? = null): List<OfferResponse> =
+        client.get("api/v1/offers") {
+            parameter("active", active)
+        }.body()
+
+    suspend fun getOffer(id: String): OfferResponse =
+        client.get("api/v1/offers/$id").body()
+
+    suspend fun createOffer(request: CreateOfferRequest): OfferResponse =
+        client.post("api/v1/offers") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateOffer(id: String, request: UpdateOfferRequest): OfferResponse =
+        client.put("api/v1/offers/$id") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteOffer(id: String): ApiSuccessResponse =
+        client.delete("api/v1/offers/$id").body()
+
+    suspend fun toggleOffer(id: String): OfferResponse =
+        client.patch("api/v1/offers/$id/toggle").body()
+
+    suspend fun applyPromoCode(code: String): OfferResponse =
+        client.post("api/v1/offers/apply-promo") {
+            setBody(mapOf("code" to code))
+        }.body()
+
+    // ─── Manager PIN Verify ─────────────────────────────────────────
+
+    suspend fun verifyManagerPin(pin: String): ApiSuccessResponse =
+        client.post("api/v1/workers/verify-manager-pin") {
+            setBody(mapOf("pin" to pin))
+        }.body()
+
     // ─── Chatbot ─────────────────────────────────────────────────
 
     suspend fun sendChatbotQuery(request: ChatbotQueryRequest): ChatbotQueryResponse =
@@ -762,4 +901,34 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun getChatbotSuggestions(): ChatbotSuggestionsResponse =
         client.get("api/v1/chatbot/suggestions").body()
+
+    // ─── File Upload ──────────────────────────────────────────────
+
+    suspend fun uploadImage(imageBytes: ByteArray, fileName: String): UploadResponse =
+        client.submitFormWithBinaryData(
+            url = "api/v1/upload",
+            formData = formData {
+                append("file", imageBytes, Headers.build {
+                    append(HttpHeaders.ContentType, "image/${fileName.substringAfterLast('.', "jpg")}")
+                    append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                })
+            }
+        ).body()
+
+    // ─── Log Upload ──────────────────────────────────────────────
+
+    suspend fun uploadLogFile(logBytes: ByteArray, fileName: String): LogUploadResponse {
+        // Extract system name from filename like "waselak_manager.log" -> "manager"
+        val systemName = fileName.removePrefix("waselak_").removeSuffix(".log")
+        return client.submitFormWithBinaryData(
+            url = "api/v1/logs/upload",
+            formData = formData {
+                append("system_name", systemName)
+                append("file", logBytes, Headers.build {
+                    append(HttpHeaders.ContentType, "text/plain")
+                    append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                })
+            }
+        ).body()
+    }
 }

@@ -28,6 +28,12 @@ fun VendorResponse.toDomain() = Vendor(
     biometricRequired = biometricRequired,
     enableOfflineMode = enableOfflineMode,
     digitalMenuUrl = digitalMenuUrl,
+    loyaltyEnabled = loyaltyEnabled,
+    pointsEarnRate = pointsEarnRate,
+    pointsRedeemRate = pointsRedeemRate,
+    minPointsRedeem = minPointsRedeem,
+    maxManualDiscountPercent = maxManualDiscountPercent,
+    manualDiscountRequiresPin = manualDiscountRequiresPin,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -40,6 +46,7 @@ fun UserResponse.toDomain() = User(
     name = name,
     phone = phone,
     email = email,
+    photoUrl = photoUrl,
     active = active,
     createdAt = createdAt
 )
@@ -100,6 +107,55 @@ fun TableResponse.toDomain() = Table(
     updatedAt = updatedAt
 )
 
+// ─── Reservation Mappers ────────────────────────────────────────
+fun ReservationResponse.toDomain() = Reservation(
+    id = id,
+    vendorId = vendorId,
+    tableId = tableId,
+    tableNumber = tableNumber,
+    clientName = clientName,
+    clientPhone = clientPhone,
+    reservationDate = reservationDate,
+    reservationTime = reservationTime,
+    numberOfGuests = numberOfGuests,
+    notes = notes,
+    status = ReservationStatus.valueOf(status),
+    orderId = orderId,
+    createdBy = createdBy,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+// ─── Offer Mappers ──────────────────────────────────────────────
+fun OfferResponse.toDomain() = Offer(
+    id = id,
+    vendorId = vendorId,
+    name = name,
+    description = description,
+    imageUrl = imageUrl,
+    discountType = discountType,
+    discountValue = discountValue,
+    active = active,
+    expiresAt = expiresAt,
+    promoCode = promoCode,
+    maxUses = maxUses,
+    usedCount = usedCount,
+    startsAt = startsAt,
+    displayOrder = displayOrder,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun OfferItemResponse.toDomain() = OfferItem(
+    id = id,
+    offerId = offerId,
+    itemId = itemId,
+    itemName = itemName,
+    itemPrice = itemPrice,
+    quantity = quantity,
+)
+
 // ─── Order Mappers ───────────────────────────────────────────────
 fun OrderResponse.toDomain() = Order(
     id = id,
@@ -131,7 +187,11 @@ fun OrderResponse.toDomain() = Order(
     taxPercent = taxPercent,
     total = total,
     notes = notes,
+    offerId = offerId,
     items = items.map { it.toDomain() },
+    pointsEarned = pointsEarned,
+    pointsRedeemed = pointsRedeemed,
+    discountReason = discountReason,
     createdAt = createdAt,
     updatedAt = updatedAt,
     refundedAt = refundedAt,
@@ -483,10 +543,84 @@ fun StockOverviewResponse.toDomain() = StockOverview(
     movementSummary = movementSummary.map { it.toDomain() },
 )
 
+// ─── Offers Analytics Mappers ───────────────────────────────────
+
+fun OfferPerformanceItemResponse.toDomain() = OfferPerformanceItem(
+    offerId = offerId,
+    offerName = offerName,
+    discountType = discountType,
+    discountValue = discountValue,
+    usageCount = usageCount,
+    totalDiscountGiven = totalDiscountGiven,
+    totalRevenueFromOfferOrders = totalRevenueFromOfferOrders,
+    promoCode = promoCode,
+    isActive = isActive,
+)
+
+fun DailyOfferUsageResponse.toDomain() = DailyOfferUsage(
+    date = date,
+    usageCount = usageCount,
+    discountAmount = discountAmount,
+)
+
+fun OffersAnalyticsResponse.toDomain() = OffersAnalytics(
+    totalOffers = totalOffers,
+    activeOffers = activeOffers,
+    totalOfferUses = totalOfferUses,
+    totalDiscountFromOffers = totalDiscountFromOffers,
+    averageDiscountPerUse = averageDiscountPerUse,
+    topOffers = topOffers.map { it.toDomain() },
+    offerUsageTrend = offerUsageTrend.map { it.toDomain() },
+)
+
+// ─── Discount Analytics Mappers ─────────────────────────────────
+
+fun DiscountBreakdownResponse.toDomain() = DiscountBreakdown(
+    type = type,
+    count = count,
+    totalAmount = totalAmount,
+    percentOfTotal = percentOfTotal,
+)
+
+fun DailyDiscountResponse.toDomain() = DailyDiscount(
+    date = date,
+    manualDiscount = manualDiscount,
+    offerDiscount = offerDiscount,
+    pointsDiscount = pointsDiscount,
+)
+
+fun DiscountAnalyticsResponse.toDomain() = DiscountAnalytics(
+    totalOrdersWithDiscount = totalOrdersWithDiscount,
+    totalDiscountGiven = totalDiscountGiven,
+    averageDiscountPerOrder = averageDiscountPerOrder,
+    discountRate = discountRate,
+    breakdown = breakdown.map { it.toDomain() },
+    dailyTrend = dailyTrend.map { it.toDomain() },
+)
+
+// ─── Loyalty Analytics Mappers ──────────────────────────────────
+
+fun DailyLoyaltyResponse.toDomain() = DailyLoyalty(
+    date = date,
+    pointsEarned = pointsEarned,
+    pointsRedeemed = pointsRedeemed,
+)
+
+fun LoyaltyAnalyticsResponse.toDomain() = LoyaltyAnalytics(
+    totalPointsEarned = totalPointsEarned,
+    totalPointsRedeemed = totalPointsRedeemed,
+    totalPointsOutstanding = totalPointsOutstanding,
+    activeLoyaltyCustomers = activeLoyaltyCustomers,
+    redemptionRate = redemptionRate,
+    pointsToRevenue = pointsToRevenue,
+    dailyTrend = dailyTrend.map { it.toDomain() },
+)
+
 // ─── Worker Mappers ──────────────────────────────────────────────
 fun WorkerResponse.toDomain() = Worker(
     id = id, vendorId = vendorId, workerId = workerId,
     fullName = fullName, phone = phone, description = description,
+    photoUrl = photoUrl,
     role = role, salaryType = SalaryType.valueOf(salaryType),
     salaryAmount = salaryAmount, active = active,
     userId = userId, isLoginEnabled = isLoginEnabled,
@@ -543,6 +677,7 @@ fun CustomerResponse.toDomain() = Customer(
     notes = notes,
     orderCount = orderCount,
     totalSpent = totalSpent,
+    pointsBalance = pointsBalance,
     lastOrderAt = lastOrderAt,
     addresses = addresses.map { it.toDomain() },
     createdAt = createdAt,

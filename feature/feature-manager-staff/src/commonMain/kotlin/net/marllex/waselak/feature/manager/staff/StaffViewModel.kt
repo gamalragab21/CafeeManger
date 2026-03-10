@@ -5,11 +5,17 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.*
+import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.isPlanLimitExceeded
+import net.marllex.waselak.core.ui.components.ShiftSummaryUiModel
 
 class StaffViewModel constructor(
     private val workerRepository: WorkerRepository,
+    private val apiClient: WaselakApiClient,
 ) : ViewModel() {
 
     data class UiState(
@@ -34,6 +40,10 @@ class StaffViewModel constructor(
         val overtimeHours: String = "",
         val overtimeRatePerHour: String = "",
         val overtimeNote: String = "",
+        // Edit Rate dialog (Manager)
+        val showEditRateDialog: Boolean = false,
+        val editRateOvertimeId: String? = null,
+        val editRateValue: String = "",
 
         // Add Worker Dialog - Multi-Step
         val showAddWorkerDialog: Boolean = false,
@@ -42,6 +52,7 @@ class StaffViewModel constructor(
         val dialogName: String = "",
         val dialogPhone: String = "",
         val dialogDescription: String = "",
+        val dialogPhotoUrl: String? = null,
         val dialogRole: String = "",
         val dialogWorkerType: WorkerType = WorkerType.NORMAL, // NEW: Normal or Main Worker
         val dialogSalaryType: SalaryType = SalaryType.DAILY,
@@ -55,6 +66,10 @@ class StaffViewModel constructor(
         val showDialogPin: Boolean = false,
         val showDialogPinConfirm: Boolean = false,
         val isSaving: Boolean = false,
+        val showPlanLimitDialog: Boolean = false,
+        val planLimitMessage: String = "",
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
 
         // Add Role Dialog
         val showAddRoleDialog: Boolean = false,
@@ -77,6 +92,13 @@ class StaffViewModel constructor(
         val showBatchPayDialog: Boolean = false,
         val batchPayNote: String = "",
 
+        // Shift Summary (per worker)
+        val showShiftSummary: Boolean = false,
+        val shiftSummaryData: ShiftSummaryUiModel? = null,
+        val shiftSummaryLoading: Boolean = false,
+        val shiftSummaryError: String? = null,
+        val shiftSummaryWorkerName: String = "",
+
         // Attendance filters
         val attendanceWorkerFilter: String? = null,
         val attendancePeriod: AttendancePeriod = AttendancePeriod.TODAY,
@@ -84,6 +106,7 @@ class StaffViewModel constructor(
         val attendanceToDate: String = "",
         val attendanceStatusFilter: String? = null, // "PRESENT", "ABSENT", or null for all
         val attendanceRoleFilter: String? = null, // "Cashier", "Delivery", or null for all
+
     )
 
     // Worker Type Enum
@@ -101,9 +124,22 @@ class StaffViewModel constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
+        // Initialize attendance dates to today BEFORE loading data
+        initAttendanceDates()
         loadData()
         observeWorkers()
         observeSalaryPayments()
+    }
+
+    private fun initAttendanceDates() {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+        _uiState.update {
+            it.copy(
+                attendancePeriod = AttendancePeriod.TODAY,
+                attendanceFromDate = today,
+                attendanceToDate = today,
+            )
+        }
     }
 
     private fun observeWorkers() {
@@ -126,21 +162,49 @@ class StaffViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                AppLogger.d("Staff", "Loading staff data")
                 workerRepository.refreshWorkers()
                 workerRepository.refreshWorkerRoles().onSuccess { roles ->
                     _uiState.update { it.copy(workerRoles = roles) }
                 }
+            } catch (e: Exception) {
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    AppLogger.d("Staff", "Workers feature not available (gated at UI level)")
+                    _uiState.update { it.copy(isLoading = false) }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
+                return@launch
+            }
+
+            try {
                 workerRepository.getTodayAttendance().onSuccess { summary ->
                     _uiState.update { it.copy(todaySummary = summary) }
                 }
-                //workerRepository.refreshAttendance()
-                refreshAttendance()
-                workerRepository.refreshSalaryPayments()
-                workerRepository.refreshOvertime()
-                _uiState.update { it.copy(isLoading = false) }
+                applyAttendanceFilters()
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    AppLogger.d("Staff", "Attendance feature not available (gated at UI level)")
+                }
             }
+
+            try {
+                workerRepository.refreshSalaryPayments()
+            } catch (e: Exception) {
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    AppLogger.d("Staff", "Salary feature not available (gated at UI level)")
+                }
+            }
+
+            try {
+                workerRepository.refreshOvertime()
+            } catch (e: Exception) {
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    AppLogger.d("Staff", "Overtime feature not available (gated at UI level)")
+                }
+            }
+
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -164,6 +228,7 @@ class StaffViewModel constructor(
     // ─── Worker CRUD ─────────────────────────────────────────────
 
     fun showAddWorkerDialog(worker: Worker? = null) {
+        AppLogger.i("Staff", "User action: open ${if (worker != null) "edit" else "add"} worker dialog${if (worker != null) " for id=${worker.id}" else ""}")
         val current = _uiState.value
         if (worker != null) {
             // Edit mode: always populate from the worker being edited
@@ -175,6 +240,7 @@ class StaffViewModel constructor(
                     dialogName = worker.fullName,
                     dialogPhone = worker.phone ?: "",
                     dialogDescription = worker.description ?: "",
+                    dialogPhotoUrl = worker.photoUrl,
                     dialogRole = worker.role,
                     dialogWorkerType = if (worker.isLoginEnabled) WorkerType.MAIN else WorkerType.NORMAL,
                     dialogSalaryType = worker.salaryType,
@@ -202,6 +268,7 @@ class StaffViewModel constructor(
                     dialogName = "",
                     dialogPhone = "",
                     dialogDescription = "",
+                    dialogPhotoUrl = null,
                     dialogRole = "",
                     dialogWorkerType = WorkerType.NORMAL,
                     dialogSalaryType = SalaryType.DAILY,
@@ -233,6 +300,7 @@ class StaffViewModel constructor(
                 dialogName = "",
                 dialogPhone = "",
                 dialogDescription = "",
+                dialogPhotoUrl = null,
                 dialogRole = "",
                 dialogWorkerType = WorkerType.NORMAL,
                 dialogSalaryType = SalaryType.DAILY,
@@ -287,6 +355,21 @@ class StaffViewModel constructor(
     fun updateDialogName(v: String) = _uiState.update { it.copy(dialogName = v) }
     fun updateDialogPhone(v: String) = _uiState.update { it.copy(dialogPhone = v) }
     fun updateDialogDescription(v: String) = _uiState.update { it.copy(dialogDescription = v) }
+    fun updateDialogPhotoUrl(v: String?) = _uiState.update { it.copy(dialogPhotoUrl = v) }
+    fun uploadWorkerPhoto(imageBytes: ByteArray) {
+        AppLogger.d("Staff", "Uploading worker photo")
+        viewModelScope.launch {
+            workerRepository.uploadImage(imageBytes, "worker_${Clock.System.now().toEpochMilliseconds()}.jpg")
+                .onSuccess { url ->
+                    AppLogger.i("Staff", "Worker photo uploaded")
+                    _uiState.update { it.copy(dialogPhotoUrl = url) }
+                }
+                .onFailure { e ->
+                    AppLogger.e("Staff", "Failed to upload worker photo", e)
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
     fun updateDialogRole(v: String) = _uiState.update { it.copy(dialogRole = v) }
     fun updateDialogWorkerType(v: WorkerType) = _uiState.update { 
         it.copy(
@@ -339,6 +422,7 @@ class StaffViewModel constructor(
 
     fun saveWorker() {
         val s = _uiState.value
+        AppLogger.d("Staff", "Saving worker: name=${s.dialogName}, editing=${s.editingWorker != null}")
         if (s.dialogName.isBlank() || s.dialogRole.isBlank()) return
 
         // Salary is mandatory
@@ -367,16 +451,19 @@ class StaffViewModel constructor(
                     fullName = s.dialogName,
                     phone = s.dialogPhone.ifBlank { null },
                     description = s.dialogDescription.ifBlank { null },
+                    photoUrl = s.dialogPhotoUrl,
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType.name,
                     salaryAmount = amount,
                     pin = s.dialogPin.ifBlank { null }, // Only send PIN if not empty
                     active = null
                 ).onSuccess {
+                    AppLogger.i("Staff", "Worker updated successfully")
                     _uiState.update { it.copy(isSaving = false) }
                     clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Staff", "Failed to update worker", e)
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
             } else {
@@ -384,6 +471,7 @@ class StaffViewModel constructor(
                     fullName = s.dialogName,
                     phone = s.dialogPhone.ifBlank { null },
                     description = s.dialogDescription.ifBlank { null },
+                    photoUrl = s.dialogPhotoUrl,
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType,
                     salaryAmount = amount,
@@ -392,17 +480,32 @@ class StaffViewModel constructor(
                     loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null,
                     pin = s.dialogPin
                 ).onSuccess {
+                    AppLogger.i("Staff", "Worker created successfully")
                     _uiState.update { it.copy(isSaving = false) }
                     clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
-                    _uiState.update { it.copy(isSaving = false, error = e.message) }
+                    AppLogger.e("Staff", "Failed to create worker", e)
+                    when {
+                        e.isPlanLimitExceeded() -> _uiState.update { it.copy(
+                            isSaving = false,
+                            showPlanLimitDialog = true,
+                            planLimitMessage = e.message ?: "",
+                        ) }
+                        e.isFeatureNotAvailableOrOffline() -> _uiState.update { it.copy(
+                            isSaving = false,
+                            showFeatureNotAvailable = true,
+                            featureNotAvailableMessage = e.message ?: "",
+                        ) }
+                        else -> _uiState.update { it.copy(isSaving = false, error = e.message) }
+                    }
                 }
             }
         }
     }
 
     fun toggleWorkerActive(worker: Worker) {
+        AppLogger.d("Staff", "Toggling worker active: id=${worker.id}, active=${!worker.active}")
         viewModelScope.launch {
             workerRepository.updateWorker(
                 id = worker.id, fullName = null, phone = null,
@@ -413,6 +516,7 @@ class StaffViewModel constructor(
     }
 
     fun showDeleteWorkerConfirm(worker: Worker) {
+        AppLogger.i("Staff", "User action: open delete worker confirmation for id=${worker.id}")
         _uiState.update { it.copy(showDeleteWorkerDialog = true, workerToDelete = worker) }
     }
 
@@ -423,23 +527,28 @@ class StaffViewModel constructor(
     fun confirmDeleteWorker() {
         val worker = _uiState.value.workerToDelete ?: return
         viewModelScope.launch {
+            AppLogger.d("Staff", "Deleting worker: id=${worker.id}")
             workerRepository.deleteWorker(worker.id)
                 .onSuccess {
+                    AppLogger.i("Staff", "Worker deleted")
                     _uiState.update { it.copy(showDeleteWorkerDialog = false, workerToDelete = null) }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Staff", "Failed to delete worker", e)
                     _uiState.update { it.copy(showDeleteWorkerDialog = false, error = e.message) }
                 }
         }
     }
 
     fun filterByRole(role: String?) {
+        AppLogger.d("Staff", "Filter by role: $role")
         _uiState.update { it.copy(selectedRoleFilter = role) }
     }
 
     // ─── Roles ───────────────────────────────────────────────────
 
     fun showAddRoleDialog() {
+        AppLogger.i("Staff", "User action: open add role dialog")
         _uiState.update { it.copy(showAddRoleDialog = true, dialogRoleName = "", dialogRoleDescription = "") }
     }
 
@@ -454,20 +563,24 @@ class StaffViewModel constructor(
         val s = _uiState.value
         if (s.dialogRoleName.isBlank()) return
         viewModelScope.launch {
+            AppLogger.d("Staff", "Saving role: name=${s.dialogRoleName}")
             _uiState.update { it.copy(isSaving = true) }
             workerRepository.createWorkerRole(s.dialogRoleName, s.dialogRoleDescription.ifBlank { null })
                 .onSuccess {
+                    AppLogger.i("Staff", "Role created")
                     _uiState.update { it.copy(isSaving = false, showAddRoleDialog = false) }
                     workerRepository.refreshWorkerRoles().onSuccess { roles ->
                         _uiState.update { it.copy(workerRoles = roles) }
                     }
                 }.onFailure { e ->
+                    AppLogger.e("Staff", "Failed to create role", e)
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
         }
     }
 
     fun showDeleteRoleConfirm(role: WorkerRole) {
+        AppLogger.i("Staff", "User action: open delete role confirmation for id=${role.id}")
         _uiState.update { it.copy(showDeleteRoleDialog = true, roleToDelete = role) }
     }
 
@@ -477,9 +590,11 @@ class StaffViewModel constructor(
 
     fun confirmDeleteRole() {
         val role = _uiState.value.roleToDelete ?: return
+        AppLogger.d("Staff", "Deleting role: id=${role.id}")
         viewModelScope.launch {
             workerRepository.deleteWorkerRole(role.id)
                 .onSuccess {
+                    AppLogger.i("Staff", "Role deleted: id=${role.id}")
                     _uiState.update { it.copy(showDeleteRoleDialog = false, roleToDelete = null) }
                     workerRepository.refreshWorkerRoles().onSuccess { roles ->
                         _uiState.update { it.copy(workerRoles = roles) }
@@ -491,6 +606,7 @@ class StaffViewModel constructor(
     // ─── Salary ──────────────────────────────────────────────────
 
     fun selectWorkerForSalary(workerId: String?) {
+        AppLogger.d("Staff", "Selected worker for salary: workerId=$workerId")
         _uiState.update {
             it.copy(
                 selectedSalaryWorkerId = workerId,
@@ -520,23 +636,27 @@ class StaffViewModel constructor(
     fun batchPay() {
         val s = _uiState.value
         if (s.selectedPaymentIds.isEmpty()) return
+        AppLogger.d("Staff", "Batch paying ${s.selectedPaymentIds.size} payments")
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             workerRepository.batchPaySalaries(
                 paymentIds = s.selectedPaymentIds.toList(),
                 note = s.batchPayNote.ifBlank { null }
             ).onSuccess {
+                AppLogger.i("Staff", "Batch pay completed")
                 _uiState.update {
                     it.copy(isSaving = false, showBatchPayDialog = false, selectedPaymentIds = emptySet())
                 }
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
+                AppLogger.e("Staff", "Batch pay failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
     }
 
     fun markUnpaid(payment: SalaryPayment) {
+        AppLogger.d("Staff", "Marking unpaid: paymentId=${payment.id}")
         viewModelScope.launch {
             workerRepository.markUnpaid(payment.id)
                 .onSuccess { workerRepository.refreshSalaryPayments() }
@@ -639,13 +759,92 @@ class StaffViewModel constructor(
             }
         }
 
+    fun dismissPlanLimitDialog() {
+        _uiState.update { it.copy(showPlanLimitDialog = false, planLimitMessage = "") }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    // ─── Shift Summary (per worker) ─────────────────────────────────
+
+    fun fetchShiftSummary(worker: Worker) {
+        val userId = worker.userId ?: return
+        AppLogger.d("Staff", "Fetching shift summary for worker: ${worker.fullName}, userId=$userId")
+        _uiState.update {
+            it.copy(
+                showShiftSummary = true,
+                shiftSummaryLoading = true,
+                shiftSummaryError = null,
+                shiftSummaryData = null,
+                shiftSummaryWorkerName = worker.fullName,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val response = apiClient.getUserShiftSummary(userId)
+                _uiState.update {
+                    it.copy(
+                        shiftSummaryLoading = false,
+                        shiftSummaryData = ShiftSummaryUiModel(
+                            totalRevenue = response.totalRevenue,
+                            totalOrders = response.totalOrders,
+                            cashRevenue = response.cashRevenue,
+                            walletRevenue = response.walletRevenue,
+                            cardRevenue = response.cardRevenue,
+                            cashOrders = response.cashOrders,
+                            walletOrders = response.walletOrders,
+                            cardOrders = response.cardOrders,
+                            cancelledTotal = response.cancelledTotal,
+                            cancelledCount = response.cancelledCount,
+                            refundedTotal = response.refundedTotal,
+                            refundedCount = response.refundedCount,
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                AppLogger.e("Staff", "Failed to fetch shift summary", e)
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    _uiState.update {
+                        it.copy(
+                            showShiftSummary = false,
+                            shiftSummaryLoading = false,
+                            showFeatureNotAvailable = true,
+                            featureNotAvailableMessage = e.message ?: "",
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            shiftSummaryLoading = false,
+                            shiftSummaryError = e.message,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun dismissShiftSummary() {
+        _uiState.update {
+            it.copy(
+                showShiftSummary = false,
+                shiftSummaryData = null,
+                shiftSummaryError = null,
+                shiftSummaryWorkerName = "",
+            )
+        }
     }
 
     // ─── Overtime ─────────────────────────────────────────────────
 
     fun showAddOvertimeDialog(workerId: String) {
+        AppLogger.i("Staff", "User action: open add overtime dialog for workerId=$workerId")
         _uiState.update {
             it.copy(
                 showAddOvertimeDialog = true,
@@ -672,9 +871,11 @@ class StaffViewModel constructor(
         val s = _uiState.value
         val workerId = s.overtimeWorkerId ?: return
         val hours = s.overtimeHours.toDoubleOrNull() ?: return
-        val rate = s.overtimeRatePerHour.toDoubleOrNull() ?: return
-        if (hours <= 0 || rate <= 0 || s.overtimeDate.isBlank()) return
+        if (hours <= 0 || s.overtimeDate.isBlank()) return
+        // Rate is optional: cashier sends 0, manager may provide a rate
+        val rate = s.overtimeRatePerHour.toDoubleOrNull() ?: 0.0
 
+        AppLogger.d("Staff", "Submitting overtime: workerId=$workerId, hours=$hours")
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             workerRepository.createOvertime(
@@ -684,16 +885,61 @@ class StaffViewModel constructor(
                 ratePerHour = rate,
                 note = s.overtimeNote.ifBlank { null }
             ).onSuccess {
+                AppLogger.i("Staff", "Overtime submitted")
                 _uiState.update { it.copy(isSaving = false, showAddOvertimeDialog = false) }
                 refreshOvertimeForWorker(workerId)
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
+                AppLogger.e("Staff", "Failed to submit overtime", e)
+                _uiState.update { it.copy(isSaving = false, error = e.message) }
+            }
+        }
+    }
+
+    // ─── Edit Rate (Manager only) ────────────────────────────────────
+
+    fun showEditRateDialog(overtimeId: String, currentRate: Double) {
+        AppLogger.i("Staff", "User action: open edit rate dialog for overtimeId=$overtimeId, currentRate=$currentRate")
+        _uiState.update {
+            it.copy(
+                showEditRateDialog = true,
+                editRateOvertimeId = overtimeId,
+                editRateValue = if (currentRate > 0) currentRate.toInt().toString() else "",
+            )
+        }
+    }
+
+    fun dismissEditRateDialog() {
+        _uiState.update { it.copy(showEditRateDialog = false, editRateOvertimeId = null) }
+    }
+
+    fun updateEditRateValue(v: String) = _uiState.update { it.copy(editRateValue = v) }
+
+    fun submitEditRate() {
+        val s = _uiState.value
+        val overtimeId = s.editRateOvertimeId ?: return
+        val rate = s.editRateValue.toDoubleOrNull() ?: return
+        if (rate <= 0) return
+
+        AppLogger.d("Staff", "Editing overtime rate: overtimeId=$overtimeId, rate=$rate")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            workerRepository.updateOvertime(id = overtimeId, ratePerHour = rate).onSuccess {
+                AppLogger.i("Staff", "Overtime rate updated")
+                _uiState.update { it.copy(isSaving = false, showEditRateDialog = false) }
+                // Refresh the overtime list for the current worker
+                val workerId = s.overtimeWorkerId
+                if (workerId != null) refreshOvertimeForWorker(workerId)
+                workerRepository.refreshSalaryPayments()
+            }.onFailure { e ->
+                AppLogger.e("Staff", "Failed to update overtime rate", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
     }
 
     fun deleteOvertime(overtimeId: String) {
+        AppLogger.d("Staff", "Deleting overtime: id=$overtimeId")
         viewModelScope.launch {
             workerRepository.deleteOvertime(overtimeId).onSuccess {
                 workerRepository.refreshOvertime()
@@ -703,6 +949,7 @@ class StaffViewModel constructor(
     }
 
     fun refreshOvertimeForWorker(workerId: String) {
+        _uiState.update { it.copy(overtimeWorkerId = workerId) }
         viewModelScope.launch {
             workerRepository.refreshOvertime(workerId = workerId).onSuccess { entries ->
                 _uiState.update { it.copy(overtimeEntries = entries) }

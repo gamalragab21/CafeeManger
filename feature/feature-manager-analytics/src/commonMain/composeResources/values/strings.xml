@@ -230,6 +230,36 @@
     <string name="retry">Retry</string>
     <string name="refresh">Refresh</string>
 
+    <!-- Offers Analytics -->
+    <string name="offers_analytics">Offers Performance</string>
+    <string name="total_offers_count">Total Offers</string>
+    <string name="active_offers_count">Active</string>
+    <string name="total_offer_uses">Total Uses</string>
+    <string name="avg_discount_per_use">Avg Discount/Use</string>
+    <string name="top_offers">Top Offers</string>
+    <string name="offer_usage_trend">Usage Trend</string>
+    <string name="uses_label">uses</string>
+    <!-- Discount Analytics -->
+    <string name="discount_analytics">Discount Analytics</string>
+    <string name="orders_with_discount">Discounted Orders</string>
+    <string name="total_discount_given">Total Discount</string>
+    <string name="avg_discount_per_order">Avg/Order</string>
+    <string name="discount_rate_label">Discount Rate</string>
+    <string name="discount_breakdown">Breakdown</string>
+    <string name="discount_type_manual">Manual</string>
+    <string name="discount_type_offer">Offer</string>
+    <string name="discount_type_points">Points</string>
+    <string name="discount_daily_trend">Daily Trend</string>
+    <!-- Loyalty Analytics -->
+    <string name="loyalty_analytics">Loyalty Analytics</string>
+    <string name="total_points_earned">Total Earned</string>
+    <string name="total_points_redeemed">Total Redeemed</string>
+    <string name="outstanding_points">Outstanding</string>
+    <string name="active_loyalty_customers">Active Customers</string>
+    <string name="redemption_rate_label">Redemption Rate</string>
+    <string name="points_revenue_label">Points Revenue</string>
+    <string name="loyalty_trend">Points Trend</string>
+
     <!-- Day abbreviations for charts -->
     <string name="day_mon">Mon</string>
     <string name="day_tue">Tue</string>

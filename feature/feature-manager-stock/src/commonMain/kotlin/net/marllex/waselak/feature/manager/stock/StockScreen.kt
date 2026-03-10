@@ -104,6 +104,7 @@ import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.ui.components.ErrorView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -192,6 +193,9 @@ fun StockScreen(
         },
     ) { padding ->
         when {
+            uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
+                message = uiState.featureNotAvailableMessage,
+            )
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.stockItems.isEmpty() -> ErrorView(
                 message = uiState.error!!,
@@ -221,6 +225,7 @@ fun StockScreen(
         if (uiState.showRecipeSheet) {
             AddEditRecipeBottomSheet(uiState = uiState, viewModel = viewModel)
         }
+
     }
 }
 
@@ -1770,7 +1775,7 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 // Format date
-                val dateStr = transaction.createdAt.formatEpochMs("MMM dd, HH:mm")
+                val dateStr = transaction.createdAt.formatEpochMs("MMM dd, hh:mm a")
                 Text(
                     text = dateStr,
                     style = MaterialTheme.typography.labelSmall,

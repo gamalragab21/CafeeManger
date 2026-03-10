@@ -23,6 +23,9 @@ class ItemDao(private val db: WaselakDatabase) {
     fun getItemById(id: String): Flow<Items?> =
         queries.getItemById(id).asFlow().mapToOneOrNull(Dispatchers.Default)
 
+    fun getItemByBarcode(vendorId: String, barcode: String): Flow<Items?> =
+        queries.getItemByBarcode(vendorId, barcode).asFlow().mapToOneOrNull(Dispatchers.Default)
+
     suspend fun insertItems(items: List<Items>) {
         db.transaction {
             items.forEach { item ->

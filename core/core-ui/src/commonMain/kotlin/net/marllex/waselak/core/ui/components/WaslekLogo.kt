@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import org.jetbrains.compose.resources.painterResource
 import waselak.core.core_ui.generated.resources.Res
@@ -30,3 +31,7 @@ fun WaslekLogo(
         contentScale = ContentScale.Crop,
     )
 }
+
+/** Returns the app logo as a Painter — use for AsyncImage placeholder/error. */
+@Composable
+fun waslekLogoPainter(): Painter = painterResource(Res.drawable.waslek_logo)

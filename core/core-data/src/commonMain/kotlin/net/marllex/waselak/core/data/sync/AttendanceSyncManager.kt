@@ -16,6 +16,7 @@ import net.marllex.waselak.core.network.dto.CheckInRequest
 import net.marllex.waselak.core.network.dto.CheckOutRequest
 import net.marllex.waselak.core.network.mapper.toDomain
 import net.marllex.waselak.core.database.mapper.toDbEntity
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class AttendanceSyncManager(
     private val networkMonitor: NetworkMonitor,
@@ -55,11 +56,16 @@ class AttendanceSyncManager(
 
         try {
             val pending = workerDao.getAllPendingAttendance()
+            AppLogger.i("AttendanceSync", "syncPendingRecords: ${pending.size} pending records")
             if (pending.isEmpty()) return
 
             for (record in pending) {
-                if (record.retry_count >= MAX_RETRIES) continue
+                if (record.retry_count >= MAX_RETRIES) {
+                    AppLogger.w("AttendanceSync", "Skipping record ${record.id}: max retries (${record.retry_count}) reached")
+                    continue
+                }
 
+                AppLogger.d("AttendanceSync", "Processing: action=${record.action}, workerId=${record.worker_id}, id=${record.id}, retries=${record.retry_count}")
                 try {
                     when (record.action) {
                         "CHECK_IN" -> {
@@ -70,7 +76,7 @@ class AttendanceSyncManager(
                                 )
                             )
                             val attendance = response.toDomain()
-                            // Update local attendance record with server ID
+                            AppLogger.i("AttendanceSync", "CHECK_IN synced: workerId=${record.worker_id}, serverId=${attendance.id}")
                             record.linked_attendance_id?.let { localId ->
                                 workerDao.deleteAttendance(localId)
                             }
@@ -78,23 +84,23 @@ class AttendanceSyncManager(
                             workerDao.deletePendingAttendance(record.id)
                         }
                         "CHECK_OUT" -> {
-                            // For check-out, we need the server attendance ID
-                            // If the check-in was also offline, it may have already been synced
-                            // and the local ID replaced. Try to find the server record.
                             val attendanceId = record.linked_attendance_id ?: continue
+                            AppLogger.d("AttendanceSync", "Syncing CHECK_OUT: attendanceId=$attendanceId")
                             val response = api.checkOut(
                                 attendanceId,
                                 CheckOutRequest(note = record.note),
                             )
                             val attendance = response.toDomain()
+                            AppLogger.i("AttendanceSync", "CHECK_OUT synced: attendanceId=$attendanceId")
                             workerDao.insertAttendance(attendance.toDbEntity())
                             workerDao.deletePendingAttendance(record.id)
                         }
                     }
                 } catch (e: Exception) {
                     val statusCode = extractStatusCode(e)
+                    AppLogger.e("AttendanceSync", "Sync FAILED: action=${record.action}, id=${record.id}, statusCode=$statusCode", e)
                     if (statusCode == 409 || statusCode == 400) {
-                        // Conflict or bad request - record already exists or invalid
+                        AppLogger.w("AttendanceSync", "Removing conflicting record ${record.id} (status=$statusCode)")
                         workerDao.deletePendingAttendance(record.id)
                     } else {
                         workerDao.incrementPendingRetryCount(record.id)
@@ -104,12 +110,14 @@ class AttendanceSyncManager(
 
             // Refresh attendance from server to get clean state
             try {
+                AppLogger.d("AttendanceSync", "Refreshing attendance from server")
                 val response = api.getAttendance(null, null, null, null)
                 val records = response.map { it.toDomain() }
                 workerDao.deleteAllAttendance(vendorId)
                 workerDao.insertAttendanceRecords(records.map { it.toDbEntity() })
-            } catch (_: Exception) {
-                // Non-critical: UI will still show local data
+                AppLogger.i("AttendanceSync", "Attendance refreshed: ${records.size} records from server")
+            } catch (e: Exception) {
+                AppLogger.w("AttendanceSync", "Attendance refresh failed (non-critical): ${e.message}")
             }
         } finally {
             _isSyncing.value = false

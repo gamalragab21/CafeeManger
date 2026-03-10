@@ -14,6 +14,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:core-model"))
+            implementation(project(":core:core-common"))
             implementation(libs.kotlinx.datetime)
             api(libs.coil.compose)
             api(libs.coil.network.ktor)
@@ -21,8 +22,13 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.appcompat)
             implementation(libs.androidx.core.ktx)
+            implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.print)
             implementation(libs.zxing.core)
+            implementation(libs.mlkit.barcode.scanning)
+            implementation(libs.camerax.camera2)
+            implementation(libs.camerax.lifecycle)
+            implementation(libs.camerax.view)
         }
         val desktopMain by getting
         desktopMain.dependencies {

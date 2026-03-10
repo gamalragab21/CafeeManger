@@ -20,10 +20,13 @@ import net.marllex.waselak.feature.manager.orders.OrdersViewModel
 import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
 import net.marllex.waselak.feature.manager.staff.DeliveryDashboardViewModel
 import net.marllex.waselak.feature.manager.staff.StaffViewModel
+import net.marllex.waselak.feature.manager.staff.WorkerQrCodeViewModel
 import net.marllex.waselak.feature.manager.stock.StockViewModel
 import net.marllex.waselak.feature.manager.tables.TablesViewModel
 import net.marllex.waselak.feature.manager.users.UsersViewModel
+import net.marllex.waselak.manager.navigation.PlansComparisonViewModel
 import net.marllex.waselak.manager.navigation.RestaurantProfileViewModel
+import net.marllex.waselak.feature.manager.offers.OffersViewModel
 import net.marllex.waselak.manager.offline.OfflineSettingsViewModel
 import net.marllex.waselak.manager.taxplaces.TaxPlacesViewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -59,12 +62,15 @@ private val managerAppModule = module {
     viewModelOf(::TablesViewModel)
     viewModelOf(::UsersViewModel)
     viewModelOf(::StaffViewModel)
+    viewModelOf(::WorkerQrCodeViewModel)
     viewModelOf(::AnnouncementsViewModel)
     viewModelOf(::DeliveryDashboardViewModel)
     viewModelOf(::AnalyticsViewModel)
     viewModelOf(::RestaurantProfileViewModel)
+    viewModelOf(::PlansComparisonViewModel)
     viewModelOf(::TaxPlacesViewModel)
     viewModelOf(::ReceiptViewModel)
     viewModelOf(::CustomersViewModel)
     viewModelOf(::OfflineSettingsViewModel)
+    viewModelOf(::OffersViewModel)
 }

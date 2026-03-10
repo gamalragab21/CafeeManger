@@ -12,6 +12,8 @@
     <string name="back">Back</string>
     <string name="restaurant_fallback">Store</string>
     <string name="order_number_receipt">Order #</string>
+    <string name="order_number_prescription">Prescription #</string>
+    <string name="order_number_invoice">Invoice #</string>
     <string name="channel">Channel</string>
     <string name="payment">Payment</string>
     <string name="date">Date</string>

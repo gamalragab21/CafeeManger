@@ -12,6 +12,7 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.AnnouncementReadsTable
 import net.marllex.waselak.backend.data.database.AnnouncementsTable
 import net.marllex.waselak.backend.data.database.UsersTable
@@ -57,9 +58,12 @@ fun Route.announcementRoutes() {
 
         // Create announcement (MANAGER only)
         post {
+            val trace = call.routeTrace()
+            trace.step("Create announcement started")
             val principal = requireRole("MANAGER")
             val request = call.receive<CreateAnnouncementRequest>()
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Creating announcement", mapOf("title" to request.title, "targetType" to request.target_type, "priority" to request.priority, "vendorId" to vendorUUID.toString()))
 
             val announcement = transaction {
                 val id = AnnouncementsTable.insertAndGetId {
@@ -97,14 +101,19 @@ fun Route.announcementRoutes() {
                     created_at = row[AnnouncementsTable.createdAt].toEpochMilliseconds(),
                 )
             }
+            trace.step("Announcement created", mapOf("id" to announcement.id, "title" to announcement.title))
+            trace.step("Create announcement completed")
             call.respond(HttpStatusCode.Created, announcement)
         }
 
         // List announcements (filtered by user's role)
         get {
+            val trace = call.routeTrace()
+            trace.step("List announcements started")
             val principal = currentUser()
             val vendorUUID = UUID.fromString(principal.vendorId)
             val userUUID = UUID.fromString(principal.userId)
+            trace.step("Querying announcements", mapOf("vendorId" to vendorUUID.toString(), "role" to principal.role))
 
             val announcements = transaction {
                 val rows = AnnouncementsTable.selectAll()
@@ -159,14 +168,19 @@ fun Route.announcementRoutes() {
                     )
                 }
             }
+            trace.step("Announcements retrieved", mapOf("count" to announcements.size.toString()))
+            trace.step("List announcements completed")
             call.respond(HttpStatusCode.OK, announcements)
         }
 
         // Get unread count
         get("/unread-count") {
+            val trace = call.routeTrace()
+            trace.step("Get unread count started")
             val principal = currentUser()
             val vendorUUID = UUID.fromString(principal.vendorId)
             val userUUID = UUID.fromString(principal.userId)
+            trace.step("Querying unread count", mapOf("vendorId" to vendorUUID.toString(), "userId" to userUUID.toString()))
 
             val count = transaction {
                 val allAnnouncements = AnnouncementsTable.selectAll()
@@ -195,15 +209,20 @@ fun Route.announcementRoutes() {
 
                 filtered.count { it[AnnouncementsTable.id].value !in readIds }
             }
+            trace.step("Unread count result", mapOf("count" to count.toString()))
+            trace.step("Get unread count completed")
             call.respond(HttpStatusCode.OK, UnreadCountDto(count))
         }
 
         // Mark as read
         post("/{id}/read") {
+            val trace = call.routeTrace()
+            trace.step("Mark announcement as read started")
             val principal = currentUser()
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val announcementUUID = UUID.fromString(id)
             val userUUID = UUID.fromString(principal.userId)
+            trace.step("Marking announcement as read", mapOf("announcementId" to id, "userId" to userUUID.toString()))
 
             transaction {
                 // Check if not already read
@@ -220,14 +239,18 @@ fun Route.announcementRoutes() {
                     }
                 }
             }
+            trace.step("Mark as read completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
 
         // Delete announcement (MANAGER only)
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete announcement started")
             val principal = requireRole("MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val announcementUUID = UUID.fromString(id)
+            trace.step("Deleting announcement", mapOf("announcementId" to id, "vendorId" to principal.vendorId))
 
             transaction {
                 // Delete reads first
@@ -240,6 +263,8 @@ fun Route.announcementRoutes() {
                     (vendorId eq UUID.fromString(principal.vendorId))
                 }
             }
+            trace.step("Announcement deleted", mapOf("announcementId" to id))
+            trace.step("Delete announcement completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }

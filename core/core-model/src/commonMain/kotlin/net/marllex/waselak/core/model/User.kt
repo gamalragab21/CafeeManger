@@ -10,6 +10,7 @@ data class User(
     val name: String,
     val phone: String,
     val email: String? = null,
+    val photoUrl: String? = null,
     val active: Boolean = true,
     val createdAt: Long? = null,
     val updatedAt: Long? = null

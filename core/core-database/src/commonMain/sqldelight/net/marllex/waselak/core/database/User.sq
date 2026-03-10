@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
     email TEXT,
+    photo_url TEXT,
     active INTEGER AS kotlin.Boolean NOT NULL,
     created_at INTEGER
 );
@@ -19,8 +20,8 @@ getUserById:
 SELECT * FROM users WHERE id = ?;
 
 insertUser:
-INSERT OR REPLACE INTO users(id, vendor_id, role, name, phone, email, active, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO users(id, vendor_id, role, name, phone, email, photo_url, active, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteUser:
 DELETE FROM users WHERE id = ?;

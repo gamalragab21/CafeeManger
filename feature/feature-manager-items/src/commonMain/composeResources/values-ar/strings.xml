@@ -24,4 +24,6 @@
     <string name="price_adjustment">تعديل السعر</string>
     <string name="no_variants">مفيش خيارات</string>
     <string name="no_items">مفيش أصناف لسه</string>
+    <string name="barcode">باركود</string>
+    <string name="scan_barcode">مسح الباركود</string>
 </resources>

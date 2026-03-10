@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS orders (
     tax_percent REAL NOT NULL DEFAULT 0.0,
     total REAL NOT NULL,
     notes TEXT,
+    offer_id TEXT,
+    points_earned INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    points_redeemed INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    discount_reason TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER,
     refunded_at INTEGER,
@@ -52,8 +56,8 @@ getOrderById:
 SELECT * FROM orders WHERE id = ?;
 
 insertOrder:
-INSERT OR REPLACE INTO orders(id, vendor_id, channel, status, table_id, table_number, cashier_id, cashier_name, delivery_user_id, delivery_user_name, client_name, client_phone, client_address, customer_id, geo_lat, geo_lng, payment_method, payment_status, payment_timing, payment_confirmed_at, payment_confirmed_by, subtotal, delivery_fee, discount, discount_type, tax, tax_percent, total, notes, created_at, updated_at, refunded_at, refunded_by, refund_reason, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO orders(id, vendor_id, channel, status, table_id, table_number, cashier_id, cashier_name, delivery_user_id, delivery_user_name, client_name, client_phone, client_address, customer_id, geo_lat, geo_lng, payment_method, payment_status, payment_timing, payment_confirmed_at, payment_confirmed_by, subtotal, delivery_fee, discount, discount_type, tax, tax_percent, total, notes, offer_id, points_earned, points_redeemed, discount_reason, created_at, updated_at, refunded_at, refunded_by, refund_reason, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getPendingSyncOrders:
 SELECT * FROM orders WHERE sync_status = 'PENDING_SYNC' ORDER BY created_at ASC;

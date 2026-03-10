@@ -6,7 +6,10 @@ import io.ktor.server.routing.*
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.OrderItemsTable
+import net.marllex.waselak.backend.domain.service.PlanService
+import org.koin.java.KoinJavaComponent
 import net.marllex.waselak.backend.data.database.OrdersTable
 import net.marllex.waselak.backend.data.database.UsersTable
 import org.jetbrains.exposed.sql.*
@@ -140,49 +143,86 @@ private fun buildSummaryFromOrders(orders: List<ResultRow>, vendorUUID: UUID): A
 }
 
 fun Route.analyticsRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     route("/api/v1/analytics") {
         get("/summary") {
+            val trace = call.routeTrace()
+            trace.step("Analytics summary started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
+            trace.step("Date range parsed", mapOf("from" to (from?.toString() ?: "null"), "to" to (to?.toString() ?: "null")))
 
             val summary = transaction {
                 val orders = buildOrderQuery(vendorUUID, null, null, null, null, from, to).toList()
+                trace.step("Orders fetched", mapOf("orderCount" to orders.size.toString()))
                 buildSummaryFromOrders(orders, vendorUUID)
             }
+            trace.step("Summary built", mapOf("totalOrders" to summary.total_orders.toString(), "totalRevenue" to summary.total_revenue.toString()))
+            trace.step("Analytics summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
 
         get("/filtered-summary") {
+            val trace = call.routeTrace()
+            trace.step("Filtered analytics summary started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
             val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
             val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
+            trace.step("Filters parsed", mapOf(
+                "status" to (status ?: "null"),
+                "channel" to (channel ?: "null"),
+                "cashierId" to (cashierId?.toString() ?: "null"),
+                "deliveryUserId" to (deliveryUserId?.toString() ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null")
+            ))
 
             val summary = transaction {
                 val orders = buildOrderQuery(vendorUUID, status, channel, cashierId, deliveryUserId, from, to).toList()
+                trace.step("Filtered orders fetched", mapOf("orderCount" to orders.size.toString()))
                 buildSummaryFromOrders(orders, vendorUUID)
             }
+            trace.step("Filtered summary built", mapOf("totalOrders" to summary.total_orders.toString(), "totalRevenue" to summary.total_revenue.toString()))
+            trace.step("Filtered analytics summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
 
         get("/settlements") {
+            val trace = call.routeTrace()
+            trace.step("Settlements fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
             val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
             val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
+            trace.step("Filters parsed", mapOf(
+                "status" to (status ?: "null"),
+                "channel" to (channel ?: "null"),
+                "cashierId" to (cashierId?.toString() ?: "null"),
+                "deliveryUserId" to (deliveryUserId?.toString() ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null")
+            ))
 
             val settlements = transaction {
                 val orders = buildOrderQuery(vendorUUID, status, channel, cashierId, deliveryUserId, from, to).toList()
+                trace.step("Orders fetched for settlements", mapOf("orderCount" to orders.size.toString()))
                 val byPayment = orders
                     .groupBy { it[OrdersTable.paymentMethod] }
                     .mapValues { (_, rows) ->
@@ -193,18 +233,30 @@ fun Route.analyticsRoutes() {
                             total_subtotal = rows.sumOf { it[OrdersTable.subtotal].toDouble() }
                         )
                     }
+                trace.step("Settlements grouped by payment method", mapOf("paymentMethodCount" to byPayment.size.toString()))
                 SettlementsDto(by_payment_method = byPayment)
             }
+            trace.step("Settlements fetch completed")
             call.respond(HttpStatusCode.OK, settlements)
         }
 
         get("/delivery-performance") {
+            val trace = call.routeTrace()
+            trace.step("Delivery performance fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val status = call.parameters["status"]
             val cashierId = call.parameters["cashier_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
+            trace.step("Filters parsed", mapOf(
+                "status" to (status ?: "null"),
+                "cashierId" to (cashierId?.toString() ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null")
+            ))
 
             val performance = transaction {
                 // Fetch all delivery users for this vendor so filters never appear empty
@@ -215,10 +267,12 @@ fun Route.analyticsRoutes() {
                                 (UsersTable.role eq "DELIVERY")
                     }
                     .associateBy { it[UsersTable.id] }
+                trace.step("Delivery users fetched", mapOf("deliveryUserCount" to deliveryUsers.size.toString()))
 
                 val orders = buildOrderQuery(vendorUUID, status, "DELIVERY", cashierId, null, from, to)
                     .andWhere { OrdersTable.deliveryUserId.isNotNull() }
                     .toList()
+                trace.step("Delivery orders fetched", mapOf("orderCount" to orders.size.toString()))
 
                 val groupedByDelivery = orders.groupBy { it[OrdersTable.deliveryUserId]!! }
 
@@ -235,17 +289,30 @@ fun Route.analyticsRoutes() {
                     )
                 }
             }
+            trace.step("Delivery performance result", mapOf("driverCount" to performance.size.toString()))
+            trace.step("Delivery performance fetch completed")
             call.respond(HttpStatusCode.OK, performance)
         }
 
         get("/cashier-performance") {
+            val trace = call.routeTrace()
+            trace.step("Cashier performance fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
             val deliveryUserId = call.parameters["delivery_user_id"]?.let { java.util.UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
+            trace.step("Filters parsed", mapOf(
+                "status" to (status ?: "null"),
+                "channel" to (channel ?: "null"),
+                "deliveryUserId" to (deliveryUserId?.toString() ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null")
+            ))
 
             val performance = transaction {
                 // Fetch all cashiers for this vendor so filters never appear empty
@@ -256,8 +323,10 @@ fun Route.analyticsRoutes() {
                                 (UsersTable.role eq "CASHIER")
                     }
                     .associateBy { it[UsersTable.id] }
+                trace.step("Cashiers fetched", mapOf("cashierCount" to cashiers.size.toString()))
 
                 val orders = buildOrderQuery(vendorUUID, status, channel, null, deliveryUserId, from, to).toList()
+                trace.step("Orders fetched for cashier performance", mapOf("orderCount" to orders.size.toString()))
                 val groupedByCashier = orders.groupBy { it[OrdersTable.cashierId] }
 
                 cashiers.values.map { userRow ->
@@ -272,16 +341,23 @@ fun Route.analyticsRoutes() {
                     )
                 }
             }
+            trace.step("Cashier performance result", mapOf("cashierCount" to performance.size.toString()))
+            trace.step("Cashier performance fetch completed")
             call.respond(HttpStatusCode.OK, performance)
         }
 
         get("/daily") {
+            val trace = call.routeTrace()
+            trace.step("Daily analytics fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val days = call.parameters["days"]?.toIntOrNull() ?: 30
+            trace.step("Period parsed", mapOf("days" to days.toString()))
 
             val dailyData = transaction {
-                OrdersTable
+                val result = OrdersTable
                     .select(
                         OrdersTable.createdAt.date(),
                         OrdersTable.id.count(),
@@ -297,15 +373,26 @@ fun Route.analyticsRoutes() {
                             total_revenue = it[OrdersTable.total.sum()]?.toDouble() ?: 0.0
                         )
                     }
+                trace.step("Daily data fetched", mapOf("dayCount" to result.size.toString()))
+                result
             }
+            trace.step("Daily analytics fetch completed")
             call.respond(HttpStatusCode.OK, dailyData)
         }
 
         get("/orders/count") {
+            val trace = call.routeTrace()
+            trace.step("Order count fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
+            trace.step("Filters parsed", mapOf(
+                "status" to (status ?: "null"),
+                "channel" to (channel ?: "null")
+            ))
 
             val count = transaction {
                 var query = OrdersTable.selectAll()
@@ -314,14 +401,21 @@ fun Route.analyticsRoutes() {
                 status?.let { query = query.andWhere { OrdersTable.status eq it } }
                 channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
 
-                query.count().toInt()
+                val result = query.count().toInt()
+                trace.step("Order count result", mapOf("count" to result.toString()))
+                result
             }
+            trace.step("Order count fetch completed")
             call.respond(HttpStatusCode.OK, mapOf("count" to count))
         }
 
         get("/revenue") {
+            val trace = call.routeTrace()
+            trace.step("Revenue stats fetch started")
             val principal = requireRole("MANAGER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Vendor resolved", mapOf("vendorId" to vendorUUID.toString()))
+            planService.checkFeature(vendorUUID, "ANALYTICS")
 
             val revenue = transaction {
                 val completedOrders = OrdersTable.selectAll()
@@ -329,6 +423,7 @@ fun Route.analyticsRoutes() {
                         (OrdersTable.vendorId eq vendorUUID) and
                                 (OrdersTable.status eq "COMPLETED")
                     }
+                trace.step("Completed orders fetched")
 
                 val totalRevenue = completedOrders
                     .sumOf { it[OrdersTable.total].toDouble() }
@@ -338,12 +433,19 @@ fun Route.analyticsRoutes() {
                     .filter { it[OrdersTable.createdAt].toString().startsWith(todayStr) }
                     .sumOf { it[OrdersTable.total].toDouble() }
 
+                trace.step("Revenue calculated", mapOf(
+                    "totalRevenue" to totalRevenue.toString(),
+                    "todayRevenue" to todayRevenue.toString(),
+                    "todayDate" to todayStr
+                ))
+
                 mapOf(
                     "total_revenue" to totalRevenue,
                     "today_revenue" to todayRevenue,
                     "completed_orders" to completedOrders.count().toInt()
                 )
             }
+            trace.step("Revenue stats fetch completed")
             call.respond(HttpStatusCode.OK, revenue)
         }
     }

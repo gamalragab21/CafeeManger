@@ -12,6 +12,7 @@ import net.marllex.waselak.core.model.DeliveryOrderSummary
 import net.marllex.waselak.core.model.DeliveryPersonStatus
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 
 class DeliveryDashboardViewModel constructor(
     private val api: WaselakApiClient,
@@ -21,6 +22,8 @@ class DeliveryDashboardViewModel constructor(
         val deliveryPersons: List<DeliveryPersonStatus> = emptyList(),
         val isLoading: Boolean = true,
         val error: String? = null,
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -64,8 +67,16 @@ class DeliveryDashboardViewModel constructor(
                 }
                 _uiState.update { it.copy(deliveryPersons = persons, isLoading = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
             }
         }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
     }
 }

@@ -21,4 +21,18 @@
     <string name="default_address">Default</string>
     <string name="order_number">Order #%1$s</string>
     <string name="close">Close</string>
+    <string name="tab_info">Info</string>
+    <string name="tab_points">Points</string>
+    <string name="tab_discounts">Discounts</string>
+    <string name="loyalty_points_history">Loyalty Points History</string>
+    <string name="discount_history">Discount History</string>
+    <string name="points_earned_label">Earned</string>
+    <string name="points_redeemed_label">Redeemed</string>
+    <string name="points_balance_label">Points Balance</string>
+    <string name="no_points_history">No points transactions yet</string>
+    <string name="no_discount_history">No discount orders yet</string>
+    <string name="filter_all">All</string>
+    <string name="filter_has_points">Has Points</string>
+    <string name="filter_no_points">No Points</string>
+    <string name="discount_amount_label">Discount: -%1$s</string>
 </resources>

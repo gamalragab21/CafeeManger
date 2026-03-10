@@ -30,6 +30,7 @@ data class UserResponse(
     val name: String,
     val phone: String,
     val email: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
     val active: Boolean = true,
     @SerialName("created_at") val createdAt: Long? = null
 )

@@ -1,0 +1,37 @@
+CREATE TABLE IF NOT EXISTS offers (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    discount_type TEXT NOT NULL,
+    discount_value REAL NOT NULL,
+    active INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    expires_at INTEGER,
+    promo_code TEXT,
+    max_uses INTEGER AS kotlin.Int,
+    used_count INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    starts_at INTEGER,
+    display_order INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
+    created_at INTEGER,
+    updated_at INTEGER
+);
+
+getOffers:
+SELECT * FROM offers WHERE vendor_id = ? ORDER BY display_order ASC, created_at DESC;
+
+getActiveOffers:
+SELECT * FROM offers WHERE vendor_id = ? AND active = 1 AND (expires_at IS NULL OR expires_at > ?) AND (starts_at IS NULL OR starts_at <= ?) AND (max_uses IS NULL OR used_count < max_uses) ORDER BY display_order ASC;
+
+getOfferById:
+SELECT * FROM offers WHERE id = ?;
+
+insertOffer:
+INSERT OR REPLACE INTO offers(id, vendor_id, name, description, image_url, discount_type, discount_value, active, expires_at, promo_code, max_uses, used_count, starts_at, display_order, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteOffer:
+DELETE FROM offers WHERE id = ?;
+
+deleteAllOffers:
+DELETE FROM offers WHERE vendor_id = ?;

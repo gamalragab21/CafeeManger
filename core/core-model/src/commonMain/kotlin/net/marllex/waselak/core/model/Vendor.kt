@@ -26,6 +26,12 @@ data class Vendor(
     val biometricRequired: Boolean = false,
     val enableOfflineMode: Boolean = false,
     val digitalMenuUrl: String? = null,
+    val loyaltyEnabled: Boolean = false,
+    val pointsEarnRate: Double = 1.0,
+    val pointsRedeemRate: Double = 0.1,
+    val minPointsRedeem: Int = 100,
+    val maxManualDiscountPercent: Double = 100.0,
+    val manualDiscountRequiresPin: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long? = null
 )

@@ -29,7 +29,7 @@
     <string name="main_worker_desc">مستخدم نظام عنده دخول للتطبيق وحضور تلقائي</string>
     <string name="no_app_access">من غير دخول للتطبيق</string>
     <string name="has_app_access">عنده دخول للتطبيق</string>
-    <string name="role_auto_set">دور العامل هيتحدد تلقائي: %s</string>
+    <string name="role_auto_set">دور العامل هيتحدد تلقائي: %1$s</string>
     <string name="main_worker_role_info">الدور هيتحدد تلقائي بناءً على صلاحيات التطبيق في الخطوة الجاية</string>
     <string name="basic_info">المعلومات الأساسية</string>
     <string name="system_access">الوصول للنظام</string>
@@ -89,11 +89,11 @@
     <string name="weekly_view">أسبوعي</string>
     <string name="monthly_view">شهري</string>
     <string name="who_is_working">مين شغّال النهارده</string>
-    <string name="present_count">%d حاضر</string>
-    <string name="absent_count">%d غايب</string>
+    <string name="present_count">%1$d حاضر</string>
+    <string name="absent_count">%1$d غايب</string>
     <string name="attendance_history">سجل الحضور</string>
     <string name="no_attendance_records">مفيش سجلات حضور.</string>
-    <string name="total_days">إجمالي الأيام: %d</string>
+    <string name="total_days">إجمالي الأيام: %1$d</string>
     <string name="total_hours">إجمالي الساعات: %s</string>
     <string name="filter_by_worker">فلتر حسب العامل</string>
     <string name="all_workers">كل العمال</string>
@@ -110,7 +110,7 @@
 
     <!-- Salary -->
     <string name="salary_payments">مدفوعات المرتبات</string>
-    <string name="worked_days">أيام الشغل: %d</string>
+    <string name="worked_days">أيام الشغل: %1$d</string>
     <string name="salary_amount_label">المبلغ: %s ج.م</string>
     <string name="paid">مدفوع</string>
     <string name="unpaid">مش مدفوع</string>
@@ -118,8 +118,8 @@
     <string name="no_salary_records">مفيش سجلات مرتبات.</string>
     <string name="payment_note">ملاحظة الدفع (اختياري)</string>
     <string name="unpaid_balance">الرصيد اللي مش مدفوع</string>
-    <string name="unpaid_records_count">%d مش مدفوع</string>
-    <string name="pay_selected">ادفع %d</string>
+    <string name="unpaid_records_count">%1$d مش مدفوع</string>
+    <string name="pay_selected">ادفع %1$d</string>
     <string name="back">رجوع</string>
 
     <!-- Common -->
@@ -127,6 +127,7 @@
     <string name="cancel">إلغاء</string>
     <string name="delete">مسح</string>
     <string name="confirm">تأكيد</string>
+    <string name="ok">تمام</string>
     <string name="saving">بيحفظ…</string>
     <string name="loading">بيحمّل…</string>
     <string name="error_occurred">حصلت مشكلة</string>
@@ -139,7 +140,7 @@
     <string name="delivery_dashboard">التوصيل</string>
     <string name="available">متاح</string>
     <string name="busy">مشغول</string>
-    <string name="active_orders_count">%d طلبات نشطة</string>
+    <string name="active_orders_count">%1$d طلبات نشطة</string>
     <string name="no_active_orders">مفيش طلبات نشطة</string>
     <string name="no_delivery_persons">مفيش مناديب توصيل</string>
 
@@ -211,4 +212,14 @@
     <string name="no_overtime">مفيش سجلات أوفرتايم</string>
     <string name="delete_overtime">مسح الأوفرتايم</string>
     <string name="overtime_entry">%1$s ساعة @ %2$s ج.م/ساعة = %3$s ج.م</string>
+    <string name="pending_rate">في انتظار السعر</string>
+    <string name="edit_rate">تعديل السعر</string>
+    <string name="set_rate">حدد السعر</string>
+    <string name="set_rate_per_hour">حدد سعر الساعة</string>
+    <string name="overtime_hours_only">%1$s ساعة</string>
+    <string name="rate_not_set">السعر مش محدد لسه</string>
+
+    <!-- Plan Limit -->
+    <string name="plan_limit_reached">وصلت لحد الباقة</string>
+    <string name="plan_limit_message">وصلت لأقصى عدد في باقتك الحالية. من فضلك ارفع باقتك عشان تقدر تضيف أكتر.</string>
 </resources>

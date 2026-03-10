@@ -15,5 +15,10 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:core-data"))
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.mockk)
+            }
+        }
     }
 }

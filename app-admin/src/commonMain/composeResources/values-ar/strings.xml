@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">وصلك ادمن</string>
+    <string name="super_admin">السوبر ادمن</string>
+    <string name="app_subtitle">لوحة التحكم والاداره</string>
+
+    <!-- Login -->
+    <string name="login_title">لوحة السوبر ادمن</string>
+    <string name="login_subtitle">سجل دخول عشان تدير النظام</string>
+    <string name="email">الايميل</string>
+    <string name="password">كلمة السر</string>
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="login_error">الايميل او كلمة السر غلط</string>
+    <string name="enter_email_password">ادخل الايميل وكلمة السر</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">الرئيسيه</string>
+    <string name="nav_vendors">المحلات</string>
+    <string name="nav_plans">الباقات</string>
+    <string name="nav_analytics">التحليلات</string>
+    <string name="nav_settings">الاعدادات</string>
+
+    <!-- Home / Dashboard -->
+    <string name="dashboard">لوحة التحكم</string>
+    <string name="total_vendors">اجمالي المحلات</string>
+    <string name="active">نشط</string>
+    <string name="suspended">موقوف</string>
+    <string name="orders_today">طلبات النهارده</string>
+    <string name="orders_this_month">طلبات الشهر ده</string>
+    <string name="revenue_today">ايراد النهارده</string>
+    <string name="revenue_this_month">ايراد الشهر ده</string>
+    <string name="users">المستخدمين</string>
+    <string name="workers">العمال</string>
+    <string name="plan_distribution">توزيع الباقات</string>
+    <string name="loading">جاري التحميل...</string>
+    <string name="retry">اعادة المحاوله</string>
+    <string name="no_data">مفيش بيانات</string>
+
+    <!-- Vendors -->
+    <string name="vendors">المحلات</string>
+    <string name="search_vendors">بحث عن محل...</string>
+    <string name="create_vendor">اضافة محل جديد</string>
+    <string name="edit_vendor">تعديل المحل</string>
+    <string name="delete_vendor">حذف المحل</string>
+    <string name="suspend_vendor">ايقاف</string>
+    <string name="activate_vendor">تفعيل</string>
+    <string name="vendor_suspended">المحل اتوقف</string>
+    <string name="vendor_activated">المحل اتفعل</string>
+    <string name="vendor_deleted">المحل اتحذف</string>
+    <string name="confirm_delete">تأكيد الحذف</string>
+    <string name="confirm_delete_message">انت متأكد انك عايز تحذف المحل ده؟ العمليه دي مش هترجع وهتشيل كل البيانات.</string>
+    <string name="cancel">الغاء</string>
+    <string name="delete">حذف</string>
+    <string name="no_vendors">مفيش محلات لسه</string>
+    <string name="no_search_match">مفيش محلات بتطابق البحث</string>
+    <string name="no_plan">مفيش باقه</string>
+    <string name="change_plan">تغيير الباقه</string>
+    <string name="vendor_updated">المحل اتحدث بنجاح</string>
+    <string name="vendor_update_failed">فشل تحديث المحل</string>
+    <string name="delivery_fee">رسوم التوصيل</string>
+    <string name="save_changes">حفظ التعديلات</string>
+    <string name="edit_mode">تعديل</string>
+    <string name="cancel_edit">الغاء</string>
+    <string name="contact_settings">بيانات التواصل والاعدادات</string>
+
+    <!-- Create Vendor -->
+    <string name="vendor_info">بيانات المحل</string>
+    <string name="vendor_name">اسم المحل</string>
+    <string name="vendor_address">العنوان</string>
+    <string name="vendor_phone">التليفون</string>
+    <string name="wallet_phone">رقم المحفظه</string>
+    <string name="store_type">نوع المحل</string>
+    <string name="business_type">نوع النشاط</string>
+    <string name="manager_info">بيانات المدير</string>
+    <string name="manager_name">اسم المدير</string>
+    <string name="manager_phone">تليفون المدير</string>
+    <string name="manager_email">ايميل المدير</string>
+    <string name="manager_password">باسورد المدير</string>
+    <string name="select_plan">اختار الباقه</string>
+    <string name="channel_config">اعدادات القنوات</string>
+    <string name="enable_tables">تفعيل الطاولات</string>
+    <string name="enable_dine_in">تفعيل الاكل في المحل</string>
+    <string name="enable_delivery">تفعيل التوصيل</string>
+    <string name="enable_takeaway">تفعيل التيك اواي</string>
+    <string name="enable_in_store">تفعيل الشراء من المحل</string>
+    <string name="enable_pickup_later">تفعيل الاستلام لاحقا</string>
+    <string name="tax_and_stock">الضرائب والمخزن</string>
+    <string name="tax_enabled">تفعيل الضريبه</string>
+    <string name="tax_percent">نسبة الضريبه</string>
+    <string name="stock_mode">وضع المخزن</string>
+    <string name="create">انشاء</string>
+    <string name="back">رجوع</string>
+    <string name="required_fields">كمل الحقول المطلوبه</string>
+
+    <!-- Plans -->
+    <string name="plans">باقات الاشتراك</string>
+    <string name="edit_plan">تعديل الباقه</string>
+    <string name="plan_name">اسم الباقه</string>
+    <string name="display_name">الاسم المعروض</string>
+    <string name="price">السعر</string>
+    <string name="egp_month">جنيه/شهر</string>
+    <string name="max_managers">اقصى عدد مديرين</string>
+    <string name="max_cashiers">اقصى عدد كاشير</string>
+    <string name="max_delivery">اقصى عدد توصيل</string>
+    <string name="max_orders">اقصى عدد طلبات/شهر</string>
+    <string name="max_items">اقصى عدد اصناف</string>
+    <string name="max_branches">اقصى عدد فروع</string>
+    <string name="stock_management">اداره المخزن</string>
+    <string name="worker_attendance">حضور العمال</string>
+    <string name="delivery_module">نظام التوصيل</string>
+    <string name="overtime">الاوفر تايم</string>
+    <string name="salaries">المرتبات</string>
+    <string name="customer_management">اداره العملاء</string>
+    <string name="table_management">اداره الطاولات</string>
+    <string name="digital_receipt">الايصال الرقمي</string>
+    <string name="worker_qrcode">كارت العامل QR</string>
+    <string name="loyalty_points">نقاط الولاء</string>
+    <string name="manual_discount">الخصم اليدوي</string>
+    <string name="offers_management">اداره العروض</string>
+    <string name="analytics_level">التحليلات</string>
+    <string name="digital_menu_level">المنيو الديجيتال</string>
+    <string name="unlimited">غير محدود</string>
+    <string name="save">حفظ التغييرات</string>
+    <string name="no_plans">مفيش باقات</string>
+    <string name="plan_updated">الباقه اتحدثت بنجاح</string>
+
+    <!-- Analytics -->
+    <string name="analytics_overview">نظرة عامه على التحليلات</string>
+    <string name="summary">ملخص</string>
+    <string name="vendor_breakdown">تفاصيل المحلات</string>
+    <string name="vendor">المحل</string>
+    <string name="status">الحاله</string>
+    <string name="revenue_month">ايراد (الشهر)</string>
+
+    <!-- Logs Dashboard -->
+    <string name="nav_logs">السجلات</string>
+    <string name="logs_dashboard">لوحة سجلات API</string>
+    <string name="total_requests">اجمالي الطلبات</string>
+    <string name="error_count">الاخطاء</string>
+    <string name="error_rate">نسبة الاخطاء</string>
+    <string name="avg_duration">متوسط المده</string>
+    <string name="status_breakdown">توزيع الحاله</string>
+    <string name="top_endpoints">اكثر النقاط استخدام</string>
+    <string name="slowest_endpoints">ابطأ النقاط</string>
+    <string name="error_endpoints">نقاط الاخطاء</string>
+    <string name="all_logs">كل السجلات</string>
+    <string name="filter_vendor">المحل</string>
+    <string name="filter_method">الطريقه</string>
+    <string name="filter_status">الحاله</string>
+    <string name="filter_path">بحث المسار</string>
+    <string name="all">الكل</string>
+    <string name="previous_page">السابق</string>
+    <string name="next_page">التالي</string>
+    <string name="page_info">صفحه %1$d من %2$d</string>
+    <string name="request_body">محتوى الطلب</string>
+    <string name="response_body">محتوى الرد</string>
+    <string name="no_logs">مفيش سجلات</string>
+    <string name="cleanup_logs">تنظيف السجلات القديمه</string>
+    <string name="cleanup_confirm">حذف السجلات الاقدم من %1$d يوم؟</string>
+    <string name="cleanup_success">السجلات القديمه اتنظفت</string>
+    <string name="requests">طلبات</string>
+    <string name="ms">مللي ثانيه</string>
+    <string name="resource_breakdown">تفاصيل الموارد</string>
+    <string name="action_breakdown">تفاصيل العمليات</string>
+    <string name="live_monitoring">المراقبه المباشره</string>
+    <string name="monitoring_on">المراقبه شغاله</string>
+    <string name="monitoring_off">المراقبه متوقفه</string>
+    <string name="requests_per_min">طلب/دقيقه</string>
+    <string name="p95_duration">مده P95</string>
+    <string name="active_resources">الموارد النشطه</string>
+    <string name="recent_errors">الاخطاء الاخيره</string>
+    <string name="filter_resource">المورد</string>
+    <string name="tags">التاجات</string>
+    <string name="resource">المورد</string>
+    <string name="action">العمليه</string>
+
+    <!-- Settings -->
+    <string name="settings">الاعدادات</string>
+    <string name="profile">الملف الشخصي</string>
+    <string name="name">الاسم</string>
+    <string name="last_login">اخر تسجيل دخول</string>
+    <string name="never">ابدا</string>
+    <string name="account_status">حالة الحساب</string>
+    <string name="inactive">غير نشط</string>
+    <string name="change_password">تغيير كلمة السر</string>
+    <string name="current_password">كلمة السر الحاليه</string>
+    <string name="new_password">كلمة السر الجديده</string>
+    <string name="confirm_password">تأكيد كلمة السر الجديده</string>
+    <string name="password_changed">كلمة السر اتغيرت بنجاح</string>
+    <string name="password_incorrect">كلمة السر الحاليه غلط</string>
+    <string name="password_min_length">كلمة السر لازم تكون 6 حروف على الاقل</string>
+    <string name="passwords_not_match">كلمات السر مش متطابقه</string>
+    <string name="appearance">المظهر</string>
+    <string name="dark_mode">الوضع الليلي</string>
+    <string name="use_system_theme">استخدام ثيم النظام</string>
+    <string name="language">اللغه</string>
+    <string name="logout">تسجيل الخروج</string>
+</resources>

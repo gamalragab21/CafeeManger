@@ -13,6 +13,7 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 
 class ReceiptViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -28,6 +29,7 @@ class ReceiptViewModel constructor(
         val isSharing: Boolean = false,
         val shareUrl: String? = null,
         val shareExpiresAt: Long? = null,
+        val digitalReceiptEnabled: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -63,6 +65,8 @@ class ReceiptViewModel constructor(
                     isLoading = false
                 )
             }
+            // Auto-generate share link for QR code
+            generateShareLink()
         }
     }
 
@@ -82,8 +86,19 @@ class ReceiptViewModel constructor(
                     }
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isSharing = false, error = e.message) }
+                    if (e.isFeatureNotAvailableOrOffline()) {
+                        // Silently hide QR/Share buttons — no bottom sheet
+                        _uiState.update {
+                            it.copy(
+                                isSharing = false,
+                                digitalReceiptEnabled = false,
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(isSharing = false, error = e.message) }
+                    }
                 }
         }
     }
+
 }

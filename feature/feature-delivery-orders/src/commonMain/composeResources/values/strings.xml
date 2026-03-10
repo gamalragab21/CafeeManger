@@ -14,7 +14,7 @@
     <string name="pick_up_order">Pick Up Order</string>
     <string name="complete">Complete</string>
     <string name="view_receipt">View Receipt</string>
-    <string name="items_count">%d items</string>
+    <string name="items_count">%1$d items</string>
     <string name="items_count_total">%1$d items • %2$s</string>
     <string name="order_items">Order Items</string>
     <string name="completed_orders">Completed Orders</string>
@@ -57,4 +57,5 @@
     <string name="payment_wallet">Wallet</string>
     <string name="payment_card">Card</string>
     <string name="confirm_payment">Confirm Payment</string>
+    <string name="load_more">Load More</string>
 </resources>

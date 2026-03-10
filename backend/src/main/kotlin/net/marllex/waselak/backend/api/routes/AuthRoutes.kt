@@ -1,6 +1,7 @@
 package net.marllex.waselak.backend.api.routes
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -26,6 +27,7 @@ import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import net.marllex.waselak.backend.plugins.routeTrace
 import org.koin.java.KoinJavaComponent.inject
 import java.math.BigDecimal
 import java.util.UUID
@@ -55,6 +57,7 @@ data class AuthUserDto(
     val name: String,
     val phone: String,
     val email: String? = null,
+    val photo_url: String? = null,
     val active: Boolean = true
 )
 
@@ -152,11 +155,21 @@ fun Route.authRoutes() {
 
     route("/api/v1/auth") {
         post("/login") {
+            val trace = call.routeTrace()
+            trace.step("Login started")
+
             val request = call.receive<LoginRequest>()
             require(request.phone.isNotBlank()) { "Phone is required" }
             require(request.password.isNotBlank()) { "Password is required" }
+            trace.step("Request validated", mapOf("phone" to request.phone, "appType" to request.appType))
 
             val result = authService.login(request.phone, request.password)
+            trace.step("Authentication successful", mapOf(
+                "userId" to result.userId,
+                "vendorId" to result.vendorId,
+                "role" to result.role,
+                "name" to result.name
+            ))
 
             // Enforce role-to-app access: users can only login to their matching app
             val appType = request.appType
@@ -169,17 +182,25 @@ fun Route.authRoutes() {
                     else -> true
                 }
                 if (!allowed) {
+                    trace.step("Access denied — role mismatch", mapOf("userRole" to userRole, "appType" to appType))
                     call.respond(
                         HttpStatusCode.Forbidden,
                         mapOf("error" to "Your account role ($userRole) does not have permission to access the $appType app")
                     )
                     return@post
                 }
+                trace.step("Role-to-app access verified", mapOf("userRole" to userRole, "appType" to appType))
             }
 
             // Auto check-in on login (and re-open if previously checked out)
+            trace.step("Running auto check-in")
             autoCheckIn(result.userId, result.vendorId)
+            trace.step("Auto check-in completed")
 
+            val loginHost = call.request.header("Host") ?: "localhost:8080"
+            val loginScheme = call.request.header("X-Forwarded-Proto") ?: "http"
+
+            trace.step("Login completed — responding with tokens", mapOf("userId" to result.userId))
             call.respond(
                 HttpStatusCode.OK, AuthResponse(
                     access_token = result.accessToken,
@@ -190,7 +211,8 @@ fun Route.authRoutes() {
                         role = result.role,
                         name = result.name,
                         phone = result.phone,
-                        email = result.email
+                        email = result.email,
+                        photo_url = rewriteUploadUrl(result.photoUrl, loginHost, loginScheme)
                     )
                 )
             )
@@ -198,6 +220,8 @@ fun Route.authRoutes() {
 
         // Registration is disabled — only admin can create vendors via /api/v1/admin/vendors
         post("/register") {
+            val trace = call.routeTrace()
+            trace.step("Register attempt — endpoint disabled")
             call.respond(
                 HttpStatusCode.Gone,
                 mapOf("error" to "Public registration is no longer available. Contact admin to create a vendor.")
@@ -205,15 +229,30 @@ fun Route.authRoutes() {
         }
 
         post("/refresh") {
+            val trace = call.routeTrace()
+            trace.step("Token refresh started")
+
             val request = call.receive<RefreshTokenRequest>()
             require(request.refresh_token.isNotBlank()) { "Refresh token is required" }
+            trace.step("Refresh token received")
 
             try {
                 val result = authService.refreshToken(request.refresh_token)
+                trace.step("Token refreshed successfully", mapOf(
+                    "userId" to result.userId,
+                    "vendorId" to result.vendorId,
+                    "role" to result.role
+                ))
 
                 // Auto check-in on token refresh (app may re-enter via refresh, not login)
+                trace.step("Running auto check-in on refresh")
                 autoCheckIn(result.userId, result.vendorId)
+                trace.step("Auto check-in completed")
 
+                val refreshHost = call.request.header("Host") ?: "localhost:8080"
+                val refreshScheme = call.request.header("X-Forwarded-Proto") ?: "http"
+
+                trace.step("Refresh completed — responding with new tokens")
                 call.respond(
                     HttpStatusCode.OK, AuthResponse(
                         access_token = result.accessToken,
@@ -224,12 +263,14 @@ fun Route.authRoutes() {
                             role = result.role,
                             name = result.name,
                             phone = result.phone,
-                            email = result.email
+                            email = result.email,
+                            photo_url = rewriteUploadUrl(result.photoUrl, refreshHost, refreshScheme)
                         )
                     )
                 )
             } catch (e: SecurityException) {
                 // Session was invalidated (user logged in on another device)
+                trace.step("Refresh failed — session invalidated", mapOf("error" to (e.message ?: "unknown")))
                 call.respond(
                     HttpStatusCode.Unauthorized,
                     mapOf("error" to (e.message ?: "Session expired. Please login again."))
@@ -238,6 +279,8 @@ fun Route.authRoutes() {
         }
 
         post("/logout") {
+            val trace = call.routeTrace()
+            trace.step("Logout started")
             // Auto check-out: try to parse JWT from header
             try {
                 val authHeader = call.request.headers["Authorization"]
@@ -289,6 +332,7 @@ fun Route.authRoutes() {
             } catch (_: Exception) {
                 // Don't fail logout if attendance auto-record fails
             }
+            trace.step("Auto check-out processed")
 
             // Invalidate all refresh tokens for this user (end all sessions)
             try {
@@ -311,7 +355,9 @@ fun Route.authRoutes() {
             } catch (_: Exception) {
                 // Don't fail logout if token invalidation fails
             }
+            trace.step("Refresh tokens invalidated")
 
+            trace.step("Logout completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }

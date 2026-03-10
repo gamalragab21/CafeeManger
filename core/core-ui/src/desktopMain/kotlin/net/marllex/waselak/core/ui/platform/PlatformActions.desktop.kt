@@ -57,6 +57,20 @@ actual class PlatformActions {
         return file.absolutePath
     }
 
+    actual fun shareFile(bytes: ByteArray, fileName: String, mimeType: String) {
+        try {
+            val tmpDir = File(System.getProperty("java.io.tmpdir"), "waselak_logs")
+            tmpDir.mkdirs()
+            val file = File(tmpDir, fileName)
+            file.writeBytes(bytes)
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(file)
+            }
+        } catch (e: Exception) {
+            println("Failed to share file: ${e.message}")
+        }
+    }
+
     actual fun shareHtmlAsImage(htmlContent: String, fileName: String) {
         SwingUtilities.invokeLater {
             try {

@@ -177,6 +177,31 @@ actual class PlatformActions(private val context: Context) {
         return file.absolutePath
     }
 
+    actual fun shareFile(bytes: ByteArray, fileName: String, mimeType: String) {
+        try {
+            val cacheDir = File(context.cacheDir, "shared_logs")
+            cacheDir.mkdirs()
+            val file = File(cacheDir, fileName)
+            FileOutputStream(file).use { it.write(bytes) }
+
+            val authority = "${context.packageName}.fileprovider"
+            val fileUri = FileProvider.getUriForFile(context, authority, file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, fileUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(
+                Intent.createChooser(shareIntent, "Share Logs").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("PlatformActions", "Failed to share file", e)
+        }
+    }
+
     private fun Context.findActivity(): android.app.Activity? {
         var ctx = this
         while (ctx is android.content.ContextWrapper) {

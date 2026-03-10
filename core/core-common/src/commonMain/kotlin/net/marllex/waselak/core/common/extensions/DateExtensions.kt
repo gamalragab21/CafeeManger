@@ -14,6 +14,16 @@ fun Instant.toLocalDateTimeKt(timeZone: TimeZone = TimeZone.currentSystemDefault
     return toLocalDateTime(timeZone)
 }
 
+/** Returns today's date as a "yyyy-MM-dd" string in the system default timezone. */
+fun todayDateString(): String =
+    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+
+/** Returns the current time as an "HH:mm" string in the system default timezone. */
+fun currentTimeString(): String {
+    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    return "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
+}
+
 fun LocalDateTime.formatAsDateTime(): String {
     val month = monthNumber.toString().padStart(2, '0')
     val day = dayOfMonth.toString().padStart(2, '0')
@@ -98,7 +108,9 @@ fun formatLocalDateTime(dt: LocalDateTime, pattern: String): String {
         "MMM dd" -> "$monthShort $day2"
         "MMM dd, yyyy" -> "$monthShort $day2, ${dt.year}"
         "MMM dd, HH:mm" -> "$monthShort $day2, $h24:$min2"
+        "MMM dd, hh:mm a" -> "$monthShort $day2, ${h12.toString().padStart(2, '0')}:$min2 $amPm"
         "MMM dd, yyyy HH:mm" -> "$monthShort $day2, ${dt.year} $h24:$min2"
+        "MMM dd, yyyy hh:mm a" -> "$monthShort $day2, ${dt.year} ${h12.toString().padStart(2, '0')}:$min2 $amPm"
         "EEEE" -> dayOfWeekName
         else -> "${dt.year}-$month2-$day2 $h24:$min2"
     }

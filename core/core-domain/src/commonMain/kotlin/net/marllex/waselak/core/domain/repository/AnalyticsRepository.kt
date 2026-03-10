@@ -47,6 +47,11 @@ interface AnalyticsRepository {
     suspend fun getAnalyticsAlerts(from: Long?, to: Long?): Result<List<AnalyticsAlert>>
     suspend fun getStockOverview(): Result<StockOverview>
 
+    // Offers / Discount / Loyalty analytics
+    suspend fun getOffersAnalytics(from: Long?, to: Long?): Result<OffersAnalytics>
+    suspend fun getDiscountAnalytics(from: Long?, to: Long?): Result<DiscountAnalytics>
+    suspend fun getLoyaltyAnalytics(from: Long?, to: Long?): Result<LoyaltyAnalytics>
+
     // Export methods
     suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray>
     suspend fun exportOrdersExcel(fromDate: Long, toDate: Long): Result<ByteArray>

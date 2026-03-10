@@ -73,6 +73,22 @@ actual class PlatformActions {
     }
 
     @OptIn(ExperimentalForeignApi::class)
+    actual fun shareFile(bytes: ByteArray, fileName: String, mimeType: String) {
+        val rootVC = UIApplication.sharedApplication.keyWindow?.rootViewController ?: return
+        val path = NSTemporaryDirectory() + fileName
+        val data = bytes.usePinned { pinned ->
+            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+        }
+        data.writeToFile(path, atomically = true)
+        val fileUrl = NSURL.fileURLWithPath(path)
+        val activityVC = UIActivityViewController(
+            activityItems = listOf(fileUrl),
+            applicationActivities = null
+        )
+        rootVC.presentViewController(activityVC, animated = true, completion = null)
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
     actual fun shareHtmlAsImage(htmlContent: String, fileName: String) {
         val rootVC = UIApplication.sharedApplication.keyWindow?.rootViewController ?: return
 

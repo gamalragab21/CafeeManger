@@ -17,21 +17,29 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
 import net.marllex.waselak.backend.data.database.CustomerAddressesTable
 import net.marllex.waselak.backend.data.database.CustomersTable
 import net.marllex.waselak.backend.data.database.ItemsTable
+import net.marllex.waselak.backend.data.database.OffersTable
 import net.marllex.waselak.backend.data.database.OrderItemsTable
 import net.marllex.waselak.backend.data.database.OrdersTable
 import net.marllex.waselak.backend.data.database.StockTable
 import net.marllex.waselak.backend.data.database.StockTransactionsTable
 import net.marllex.waselak.backend.data.database.RecipesTable
 import net.marllex.waselak.backend.data.database.RecipeIngredientsTable
+import net.marllex.waselak.backend.data.database.PointsTransactionsTable
 import net.marllex.waselak.backend.data.database.TaxPlacesTable
+import net.marllex.waselak.backend.data.database.WorkersTable
+import net.marllex.waselak.backend.data.database.AttendanceTable
+import org.jetbrains.exposed.sql.or
 import net.marllex.waselak.backend.data.database.VendorsTable
+import net.marllex.waselak.backend.data.database.ReservationsTable
 import net.marllex.waselak.backend.data.database.TablesTable
 import net.marllex.waselak.backend.data.database.UsersTable
 import net.marllex.waselak.backend.domain.service.OrderService
+import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.config.JwtConfig
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -72,8 +80,12 @@ data class CreateOrderDto(
     val discount: Double = 0.0,
     val discount_type: String = "FIXED", // FIXED or PERCENT
     val tax_place_id: String? = null,
+    val reservation_id: String? = null,
     val notes: String? = null,
-    val items: List<CreateOrderItemDto>
+    val items: List<CreateOrderItemDto>,
+    val offer_id: String? = null,
+    val points_redeemed: Int = 0,
+    val discount_reason: String? = null,
 )
 
 @Serializable
@@ -124,6 +136,22 @@ data class ShareReceiptResponseDto(
 )
 
 @Serializable
+data class ShiftSummaryDto(
+    val total_revenue: Double,
+    val total_orders: Int,
+    val cash_revenue: Double,
+    val wallet_revenue: Double,
+    val card_revenue: Double,
+    val cash_orders: Int,
+    val wallet_orders: Int,
+    val card_orders: Int,
+    val cancelled_total: Double,
+    val cancelled_count: Int,
+    val refunded_total: Double,
+    val refunded_count: Int,
+)
+
+@Serializable
 data class OrderDto(
     val id: String,
     val vendor_id: String,
@@ -154,9 +182,13 @@ data class OrderDto(
     val tax_percent: Double = 0.0,
     val total: Double,
     val notes: String? = null,
+    val offer_id: String? = null,
     val items: List<OrderItemDto> = emptyList(),
     val created_at: Long,
     val updated_at: Long? = null,
+    val points_earned: Int = 0,
+    val points_redeemed: Int = 0,
+    val discount_reason: String? = null,
     val refunded_at: Long? = null,
     val refunded_by: String? = null,
     val refund_reason: String? = null,
@@ -203,14 +235,21 @@ fun Route.orderRoutes() {
     val orderService by KoinJavaComponent.inject<OrderService>(
         clazz = OrderService::class.java
     )
+    val planService by KoinJavaComponent.inject<PlanService>(
+        clazz = PlanService::class.java
+    )
     val jwtConfig by lazy { JwtConfig(this.application.environment.config) }
 
     route("/api/v1/orders") {
         // IMPORTANT: specific paths MUST come before /{id} to avoid route conflict
 
         get("/delivery-dashboard") {
+            val trace = call.routeTrace()
+            trace.step("Delivery dashboard started")
             val principal = requireRole("MANAGER", "CASHIER")
             val vendorUUID = UUID.fromString(principal.vendorId)
+            planService.checkFeature(vendorUUID, "DELIVERY")
+            trace.step("Feature check passed", mapOf("vendorId" to vendorUUID.toString()))
 
             val dashboard = transaction {
                 val deliveryUsers = UsersTable.selectAll().where {
@@ -246,10 +285,14 @@ fun Route.orderRoutes() {
                     )
                 }
             }
+            trace.step("Dashboard built", mapOf("deliveryUsersCount" to dashboard.size.toString()))
+            trace.step("Delivery dashboard completed")
             call.respond(HttpStatusCode.OK, dashboard)
         }
 
         get("/delivery/available") {
+            val trace = call.routeTrace()
+            trace.step("List available delivery orders started")
             val principal = requireRole("DELIVERY")
 
             val orders = transaction {
@@ -269,14 +312,21 @@ fun Route.orderRoutes() {
                     orderRow.toOrderDto(items, usersMap)
                 }
             }
+            trace.step("Available orders fetched", mapOf("count" to orders.size.toString()))
+            trace.step("List available delivery orders completed")
             call.respond(HttpStatusCode.OK, orders)
         }
 
         get("/delivery/mine") {
+            val trace = call.routeTrace()
+            trace.step("List my delivery orders started")
             val principal = requireRole("DELIVERY")
             val status = call.parameters["status"]
+            val limit = call.parameters["limit"]?.toIntOrNull() ?: 50
+            val offset = call.parameters["offset"]?.toIntOrNull() ?: 0
+            trace.step("Filters applied", mapOf("status" to (status ?: "null"), "limit" to limit.toString(), "offset" to offset.toString()))
 
-            val orders = transaction {
+            val (orders, total) = transaction {
                 var query = OrdersTable.selectAll().where {
                     (OrdersTable.deliveryUserId eq UUID.fromString(principal.userId)) and (OrdersTable.vendorId eq UUID.fromString(
                         principal.vendorId
@@ -285,35 +335,50 @@ fun Route.orderRoutes() {
 
                 status?.let { query = query.andWhere { OrdersTable.status eq it } }
 
-                val orderRows = query.orderBy(OrdersTable.createdAt, SortOrder.DESC).toList()
+                val totalCount = query.count().toInt()
+                val orderRows = query.orderBy(OrdersTable.createdAt, SortOrder.DESC)
+                    .limit(limit).offset(offset.toLong()).toList()
                 val userIds = orderRows.flatMap { listOf(it[OrdersTable.cashierId], it[OrdersTable.deliveryUserId]) }
                     .filterNotNull().distinct()
                 val usersMap = if (userIds.isEmpty()) emptyMap() else {
                     UsersTable.selectAll().where { UsersTable.id inList userIds }
                         .associate { it[UsersTable.id].value to it[UsersTable.name] }
                 }
-                orderRows.map { orderRow ->
+                val results = orderRows.map { orderRow ->
                     val items =
                         OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq orderRow[OrdersTable.id] }
                             .map { it.toOrderItemDto() }
                     orderRow.toOrderDto(items, usersMap)
                 }
+                results to totalCount
             }
-            call.respond(HttpStatusCode.OK, orders)
+            trace.step("My delivery orders fetched", mapOf("count" to orders.size.toString(), "total" to total.toString()))
+            trace.step("List my delivery orders completed")
+            call.respond(HttpStatusCode.OK, PaginatedOrders(orders, total, offset + limit < total))
         }
 
         get {
+            val trace = call.routeTrace()
+            trace.step("List orders started")
             val principal = currentUser()
-            println("principal== ${principal.role}")
             val status = call.parameters["status"]
             val channel = call.parameters["channel"]
             val cashierId = call.parameters["cashier_id"]?.let { UUID.fromString(it) }
             val deliveryUserId = call.parameters["delivery_user_id"]?.let { UUID.fromString(it) }
+            val tableId = call.parameters["table_id"]?.let { UUID.fromString(it) }
             val from = call.parameters["from"]?.toLongOrNull()
             val to = call.parameters["to"]?.toLongOrNull()
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 50
             val offset = call.parameters["offset"]?.toIntOrNull() ?: 0
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Filters applied", mapOf(
+                "status" to (status ?: "null"),
+                "channel" to (channel ?: "null"),
+                "from" to (from?.toString() ?: "null"),
+                "to" to (to?.toString() ?: "null"),
+                "limit" to limit.toString(),
+                "offset" to offset.toString()
+            ))
 
             val (orders, total) = transaction {
                 var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
@@ -321,6 +386,7 @@ fun Route.orderRoutes() {
                 channel?.let { query = query.andWhere { OrdersTable.channel eq it } }
                 cashierId?.let { query = query.andWhere { OrdersTable.cashierId eq it } }
                 deliveryUserId?.let { query = query.andWhere { OrdersTable.deliveryUserId eq it } }
+                tableId?.let { query = query.andWhere { OrdersTable.tableId eq it } }
                 from?.let { ts ->
                     query = query.andWhere {
                         OrdersTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(ts)
@@ -354,12 +420,181 @@ fun Route.orderRoutes() {
                 }
                 results to totalCount
             }
+            trace.step("Orders fetched", mapOf("count" to orders.size.toString(), "total" to total.toString()))
+            trace.step("List orders completed")
             call.respond(HttpStatusCode.OK, PaginatedOrders(orders, total, offset + limit < total))
         }
 
+        route("my-shift-summary") {
+            get {
+                val trace = call.routeTrace()
+                trace.step("My shift summary started")
+                val principal = requireRole("CASHIER", "DELIVERY", "MANAGER")
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val userUUID = UUID.fromString(principal.userId)
+                trace.step("User identified", mapOf("userId" to userUUID.toString(), "role" to principal.role))
+                val from = call.parameters["from"]?.toLongOrNull()
+
+                val summary = transaction {
+                    var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
+
+                    // Scope to the authenticated user based on role
+                    when (principal.role) {
+                        "CASHIER" -> query = query.andWhere { OrdersTable.cashierId eq userUUID }
+                        "DELIVERY" -> query = query.andWhere { OrdersTable.deliveryUserId eq userUUID }
+                        // MANAGER sees all orders
+                    }
+
+                    from?.let { ts ->
+                        query = query.andWhere {
+                            OrdersTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(ts)
+                        }
+                    }
+
+                    val allOrders = query.toList()
+
+                    val completed = allOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+                    val cancelled = allOrders.filter { it[OrdersTable.status] == "CANCELED" }
+                    val refunded = allOrders.filter { it[OrdersTable.status] == "REFUNDED" }
+
+                    val cashCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CASH" }
+                    val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
+                    val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
+
+                    ShiftSummaryDto(
+                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() },
+                        total_orders = completed.size,
+                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        cash_orders = cashCompleted.size,
+                        wallet_orders = walletCompleted.size,
+                        card_orders = cardCompleted.size,
+                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() },
+                        cancelled_count = cancelled.size,
+                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() },
+                        refunded_count = refunded.size,
+                    )
+                }
+                trace.step("Summary calculated", mapOf(
+                    "totalRevenue" to summary.total_revenue.toString(),
+                    "totalOrders" to summary.total_orders.toString(),
+                    "cancelledCount" to summary.cancelled_count.toString(),
+                    "refundedCount" to summary.refunded_count.toString()
+                ))
+                trace.step("My shift summary completed")
+                call.respond(HttpStatusCode.OK, summary)
+            }
+        }
+
+        // Manager-only: get shift summary for a specific user (cashier/delivery)
+        route("shift-summary/{userId}") {
+            get {
+                val trace = call.routeTrace()
+                trace.step("User shift summary started")
+                val principal = requireRole("MANAGER")
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val targetUserId = call.parameters["userId"] ?: throw IllegalArgumentException("userId required")
+                val targetUserUUID = UUID.fromString(targetUserId)
+                trace.step("Target user identified", mapOf("targetUserId" to targetUserId))
+                val from = call.parameters["from"]?.toLongOrNull()
+
+                val summary = transaction {
+                    // Look up the target user's role to apply the correct filter
+                    val userRole = UsersTable.selectAll()
+                        .where { UsersTable.id eq targetUserUUID }
+                        .firstOrNull()?.get(UsersTable.role)
+                        ?: throw NoSuchElementException("User not found")
+
+                    var query = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }
+
+                    // Filter by the correct column based on user role
+                    when (userRole) {
+                        "DELIVERY" -> query = query.andWhere { OrdersTable.deliveryUserId eq targetUserUUID }
+                        else -> query = query.andWhere { OrdersTable.cashierId eq targetUserUUID }
+                    }
+
+                    // If no 'from' provided, auto-detect shift start from latest attendance check-in today
+                    val effectiveFrom = if (from != null) {
+                        kotlinx.datetime.Instant.fromEpochMilliseconds(from)
+                    } else {
+                        // Find the worker record linked to this user
+                        val workerRow = WorkersTable.selectAll()
+                            .where { WorkersTable.userId eq targetUserUUID }
+                            .firstOrNull()
+
+                        val today = java.time.LocalDate.now().toString() // YYYY-MM-DD
+
+                        if (workerRow != null) {
+                            // Get the latest check-in for this worker today
+                            AttendanceTable.selectAll().where {
+                                (AttendanceTable.workerId eq workerRow[WorkersTable.id]) and
+                                    (AttendanceTable.date eq today)
+                            }.orderBy(AttendanceTable.checkIn, SortOrder.DESC)
+                                .firstOrNull()?.get(AttendanceTable.checkIn)
+                        } else {
+                            null
+                        }
+                    }
+
+                    // Always filter: if no shift check-in found, default to start of today
+                    val filterFrom = effectiveFrom ?: kotlinx.datetime.Instant.fromEpochMilliseconds(
+                        java.time.LocalDate.now()
+                            .atStartOfDay(java.time.ZoneId.systemDefault())
+                            .toInstant().toEpochMilli()
+                    )
+
+                    query = query.andWhere {
+                        OrdersTable.createdAt greaterEq filterFrom
+                    }
+
+                    val allOrders = query.toList()
+
+                    val completed = allOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+                    val cancelled = allOrders.filter { it[OrdersTable.status] == "CANCELED" }
+                    val refunded = allOrders.filter { it[OrdersTable.status] == "REFUNDED" }
+
+                    val cashCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CASH" }
+                    val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
+                    val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
+
+                    ShiftSummaryDto(
+                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() },
+                        total_orders = completed.size,
+                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        cash_orders = cashCompleted.size,
+                        wallet_orders = walletCompleted.size,
+                        card_orders = cardCompleted.size,
+                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() },
+                        cancelled_count = cancelled.size,
+                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() },
+                        refunded_count = refunded.size,
+                    )
+                }
+                trace.step("Summary calculated", mapOf(
+                    "totalRevenue" to summary.total_revenue.toString(),
+                    "totalOrders" to summary.total_orders.toString(),
+                    "cancelledCount" to summary.cancelled_count.toString(),
+                    "refundedCount" to summary.refunded_count.toString()
+                ))
+                trace.step("User shift summary completed")
+                call.respond(HttpStatusCode.OK, summary)
+            }
+        }
+
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get order started")
             val principal = currentUser()
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Order ID parsed", mapOf("orderId" to id))
+            try {
+                UUID.fromString(id)
+            } catch (_: IllegalArgumentException) {
+                throw NoSuchElementException("Order not found")
+            }
 
             val order = transaction {
                 val orderRow = OrdersTable.selectAll().where {
@@ -381,13 +616,22 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 orderRow.toOrderDto(items, usersMap, tablesMap)
             }
+            trace.step("Order found", mapOf("status" to order.status, "total" to order.total.toString()))
+            trace.step("Get order completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
         // Generate a temporary shareable receipt URL (30 minutes)
         post("/{id}/share") {
+            val trace = call.routeTrace()
+            trace.step("Share receipt started")
             val principal = currentUser()
             val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Order ID parsed", mapOf("orderId" to orderId))
+
+            // Plan gate: digital receipt
+            planService.checkFeature(UUID.fromString(principal.vendorId), "DIGITAL_RECEIPT")
+            trace.step("Feature check passed")
 
             transaction {
                 OrdersTable.selectAll().where {
@@ -396,6 +640,7 @@ fun Route.orderRoutes() {
                     ))
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
             }
+            trace.step("Order verified")
 
             val expiresMs = 30 * 60 * 1000 // 30 minutes
             val token = generateReceiptToken(jwtConfig, orderId, principal.vendorId, expiresMs)
@@ -405,6 +650,8 @@ fun Route.orderRoutes() {
                 else -> ":${origin.serverPort}"
             }
             val url = "${origin.scheme}://${origin.serverHost}$portPart/public/receipts/$orderId?token=$token"
+            trace.step("Receipt URL generated", mapOf("expiresMs" to expiresMs.toString()))
+            trace.step("Share receipt completed")
             call.respond(
                 ShareReceiptResponseDto(
                     url = url, token = token, expires_at = System.currentTimeMillis() + expiresMs
@@ -413,21 +660,64 @@ fun Route.orderRoutes() {
         }
 
         post {
+            val trace = call.routeTrace()
+            trace.step("Create order started")
             val principal = requireRole("CASHIER", "MANAGER")
             val request = call.receive<CreateOrderDto>()
             require(request.items.isNotEmpty()) { "Order must have at least one item" }
+            trace.step("Request parsed", mapOf(
+                "channel" to request.channel,
+                "itemsCount" to request.items.size.toString(),
+                "paymentMethod" to request.payment_method,
+                "paymentTiming" to request.payment_timing
+            ))
 
             // Validate channel value
             val validChannels = listOf("DINE_IN", "DELIVERY", "TAKEAWAY", "IN_STORE", "PICKUP_LATER")
             require(request.channel in validChannels) { "Invalid channel. Must be one of: ${validChannels.joinToString()}" }
 
+            // ─── Plan limit checks ────────────────────────
+            val vendorUuidForPlan = UUID.fromString(principal.vendorId)
+            planService.checkOrderCreation(vendorUuidForPlan)
+            if (request.channel == "DELIVERY") {
+                planService.checkDeliveryChannel(vendorUuidForPlan)
+            }
+            if (request.points_redeemed > 0) {
+                planService.checkFeature(vendorUuidForPlan, "LOYALTY")
+            }
+            if (!request.discount_reason.isNullOrBlank() && request.discount > 0) {
+                planService.checkFeature(vendorUuidForPlan, "MANUAL_DISCOUNT")
+            }
+            trace.step("Plan limits checked", mapOf("vendorId" to vendorUuidForPlan.toString()))
+
             // Validate table for DINE_IN orders
+            var resolvedTableId = request.table_id
             if (request.channel == "DINE_IN" && request.table_id != null) {
                 transaction {
                     val table = TablesTable.selectAll().where {
                         (TablesTable.id eq UUID.fromString(request.table_id)) and
                         (TablesTable.vendorId eq UUID.fromString(principal.vendorId))
                     }.firstOrNull() ?: throw NoSuchElementException("Table not found")
+                }
+            }
+
+            // Validate reservation if provided
+            if (request.reservation_id != null) {
+                transaction {
+                    val reservation = ReservationsTable.selectAll().where {
+                        (ReservationsTable.id eq UUID.fromString(request.reservation_id)) and
+                        (ReservationsTable.vendorId eq UUID.fromString(principal.vendorId))
+                    }.firstOrNull() ?: throw NoSuchElementException("Reservation not found")
+
+                    val resStatus = reservation[ReservationsTable.status]
+                    require(resStatus in listOf("PENDING", "CONFIRMED")) {
+                        "Reservation is $resStatus and cannot be linked to a new order"
+                    }
+
+                    // Auto-resolve table_id from reservation if not provided
+                    if (resolvedTableId == null) {
+                        resolvedTableId = reservation[ReservationsTable.tableId].value.toString()
+                    }
                 }
             }
 
@@ -557,12 +847,20 @@ fun Route.orderRoutes() {
                     }
                 }
                 val total = afterDiscount + deliveryFeeAmount + taxAmount
+                trace.step("Tax calculated", mapOf(
+                    "subtotal" to subtotal.toPlainString(),
+                    "discount" to discountAmount.toPlainString(),
+                    "taxAmount" to taxAmount.toPlainString(),
+                    "taxPercent" to taxPercentValue.toPlainString(),
+                    "deliveryFee" to deliveryFeeAmount.toPlainString(),
+                    "total" to total.toPlainString()
+                ))
 
                 val orderId = OrdersTable.insertAndGetId { stmt ->
                     stmt[OrdersTable.vendorId] = vendorUUID
                     stmt[channel] = request.channel
                     stmt[status] = "CREATED"
-                    request.table_id?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
+                    resolvedTableId?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
                     stmt[cashierId] = UUID.fromString(principal.userId)
                     stmt[OrdersTable.deliveryUserId] = null
                     request.customer_id?.let { cid -> stmt[OrdersTable.customerId] = UUID.fromString(cid) }
@@ -589,8 +887,19 @@ fun Route.orderRoutes() {
                     stmt[OrdersTable.taxPercent] = taxPercentValue
                     stmt[OrdersTable.total] = total
                     stmt[notes] = request.notes
+                    request.offer_id?.let { oid -> stmt[OrdersTable.offerId] = UUID.fromString(oid) }
                     stmt[createdAt] = Clock.System.now()
                     stmt[updatedAt] = Clock.System.now()
+                }
+
+                // Increment offer used_count if an offer was applied
+                request.offer_id?.let { oid ->
+                    val offerUUID = UUID.fromString(oid)
+                    OffersTable.update({ OffersTable.id eq offerUUID }) { stmt ->
+                        with(SqlExpressionBuilder) {
+                            stmt[usedCount] = usedCount + 1
+                        }
+                    }
                 }
 
                 // Insert order items
@@ -620,6 +929,7 @@ fun Route.orderRoutes() {
                         variant_options_snapshot = variantSnapshot
                     )
                 }
+                trace.step("Order items processed", mapOf("count" to orderItems.size.toString()))
 
                 // Deduct stock for each item in the order — branches on stockBehavior
                 // In WARN mode, allow negative stock (no coerceAtLeast). In ENFORCE/NONE, clamp to zero.
@@ -698,14 +1008,26 @@ fun Route.orderRoutes() {
                         // "NONE" -> skip stock deduction
                     }
                 }
+                trace.step("Stock deducted", mapOf("stockMode" to vendorStockMode))
 
                 // Auto-set table to OCCUPIED for dine-in orders
-                if (request.channel == "DINE_IN" && request.table_id != null) {
+                if (request.channel == "DINE_IN" && resolvedTableId != null) {
                     TablesTable.update({
-                        TablesTable.id eq UUID.fromString(request.table_id)
+                        TablesTable.id eq UUID.fromString(resolvedTableId)
                     }) {
                         it[TablesTable.status] = "OCCUPIED"
                         it[updatedAt] = Clock.System.now()
+                    }
+                }
+
+                // Auto-link reservation to order
+                if (request.reservation_id != null) {
+                    ReservationsTable.update({
+                        ReservationsTable.id eq UUID.fromString(request.reservation_id)
+                    }) {
+                        it[ReservationsTable.orderId] = orderId
+                        it[ReservationsTable.status] = "CONFIRMED"
+                        it[ReservationsTable.updatedAt] = Clock.System.now()
                     }
                 }
 
@@ -728,6 +1050,69 @@ fun Route.orderRoutes() {
                         }
                         stmt[lastOrderAt] = Clock.System.now()
                         stmt[updatedAt] = Clock.System.now()
+                    }
+
+                    // ─── Loyalty Points: Redeem ────────────────────────
+                    if (request.points_redeemed > 0 && vendor[VendorsTable.loyaltyEnabled]) {
+                        val customerRow = CustomersTable.selectAll()
+                            .where { CustomersTable.id eq customerUUID }
+                            .first()
+                        val currentBalance = customerRow[CustomersTable.pointsBalance]
+                        val pointsToRedeem = request.points_redeemed.coerceAtMost(currentBalance)
+                        if (pointsToRedeem > 0) {
+                            // Deduct points from customer balance
+                            CustomersTable.update({ CustomersTable.id eq customerUUID }) { stmt ->
+                                with(SqlExpressionBuilder) {
+                                    stmt[pointsBalance] = pointsBalance - pointsToRedeem
+                                }
+                            }
+                            // Record redemption transaction
+                            PointsTransactionsTable.insert {
+                                it[PointsTransactionsTable.customerId] = customerUUID
+                                it[PointsTransactionsTable.vendorId] = vendorUUID
+                                it[PointsTransactionsTable.orderId] = orderId
+                                it[type] = "REDEEM"
+                                it[points] = pointsToRedeem
+                                it[description] = "Points redeemed on order"
+                                it[createdAt] = Clock.System.now()
+                            }
+                            // Store on order
+                            OrdersTable.update({ OrdersTable.id eq orderId }) { stmt ->
+                                stmt[pointsRedeemed] = pointsToRedeem
+                            }
+                        }
+                    }
+
+                    // ─── Loyalty Points: Earn ──────────────────────────
+                    if (vendor[VendorsTable.loyaltyEnabled]) {
+                        val earnRate = vendor[VendorsTable.pointsEarnRate].toDouble()
+                        val earned = kotlin.math.floor(total.toDouble() * earnRate).toInt()
+                        if (earned > 0) {
+                            CustomersTable.update({ CustomersTable.id eq customerUUID }) { stmt ->
+                                with(SqlExpressionBuilder) {
+                                    stmt[pointsBalance] = pointsBalance + earned
+                                }
+                            }
+                            PointsTransactionsTable.insert {
+                                it[PointsTransactionsTable.customerId] = customerUUID
+                                it[PointsTransactionsTable.vendorId] = vendorUUID
+                                it[PointsTransactionsTable.orderId] = orderId
+                                it[type] = "EARN"
+                                it[points] = earned
+                                it[description] = "Points earned from order"
+                                it[createdAt] = Clock.System.now()
+                            }
+                            OrdersTable.update({ OrdersTable.id eq orderId }) { stmt ->
+                                stmt[pointsEarned] = earned
+                            }
+                        }
+                    }
+
+                    // Store discount reason on order
+                    if (!request.discount_reason.isNullOrBlank()) {
+                        OrdersTable.update({ OrdersTable.id eq orderId }) { stmt ->
+                            stmt[discountReason] = request.discount_reason
+                        }
                     }
 
                     // Auto-save delivery address if not already stored
@@ -756,6 +1141,13 @@ fun Route.orderRoutes() {
                     }
                 }
 
+                // Store discount reason even without customer
+                if (request.customer_id == null && !request.discount_reason.isNullOrBlank()) {
+                    OrdersTable.update({ OrdersTable.id eq orderId }) { stmt ->
+                        stmt[discountReason] = request.discount_reason
+                    }
+                }
+
                 val orderRow = OrdersTable.selectAll().where { OrdersTable.id eq orderId }.first()
                 val userIds =
                     listOf(orderRow[OrdersTable.cashierId], orderRow[OrdersTable.deliveryUserId]).filterNotNull()
@@ -770,13 +1162,27 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 orderRow.toOrderDto(orderItems, usersMap, tablesMap)
             }
+            trace.step("Order created", mapOf(
+                "orderId" to order.id,
+                "total" to order.total.toString(),
+                "channel" to order.channel
+            ))
+            trace.step("Create order completed")
             call.respond(HttpStatusCode.Created, order)
         }
 
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update order started")
             val principal = requireRole("CASHIER", "MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<UpdateOrderDto>()
+            trace.step("Request parsed", mapOf(
+                "orderId" to id,
+                "hasItems" to (request.items != null).toString(),
+                "hasClientName" to (request.client_name != null).toString(),
+                "hasPaymentMethod" to (request.payment_method != null).toString()
+            ))
 
             val order = transaction {
                 val current = OrdersTable.selectAll().where {
@@ -785,6 +1191,7 @@ fun Route.orderRoutes() {
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
                 val currentStatus = current[OrdersTable.status]
+                trace.step("Current order status", mapOf("status" to currentStatus))
                 if (currentStatus in listOf("COMPLETED", "CANCELED", "REFUNDED")) {
                     throw IllegalStateException("Cannot edit a $currentStatus order")
                 }
@@ -988,13 +1395,18 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 updatedRow.toOrderDto(items, usersMap, tablesMap)
             }
+            trace.step("Order updated", mapOf("orderId" to order.id, "total" to order.total.toString()))
+            trace.step("Update order completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
         patch("/{id}/status") {
+            val trace = call.routeTrace()
+            trace.step("Update order status started")
             val principal = currentUser()
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<UpdateStatusDto>()
+            trace.step("Request parsed", mapOf("orderId" to id, "newStatus" to request.status))
 
             val order = transaction {
                 val targetStatus = request.status
@@ -1002,10 +1414,15 @@ fun Route.orderRoutes() {
                     (OrdersTable.id eq UUID.fromString(id)) and (OrdersTable.vendorId eq UUID.fromString(principal.vendorId))
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
+                val currentStatus = current[OrdersTable.status]
+                val currentChannel = current[OrdersTable.channel]
+                trace.step("Current status", mapOf("status" to currentStatus, "channel" to currentChannel))
                 val valid = orderService.validateStatusTransition(
-                    current[OrdersTable.status], targetStatus, current[OrdersTable.channel], principal.role
+                    currentStatus, targetStatus, currentChannel, principal.role
                 )
-                if (!valid) throw IllegalStateException("Invalid status transition")
+                if (!valid) throw IllegalStateException(
+                    "Invalid status transition from $currentStatus to $targetStatus (channel=$currentChannel, role=${principal.role})"
+                )
 
                 // Block completion without payment
                 if (targetStatus == "COMPLETED") {
@@ -1037,6 +1454,7 @@ fun Route.orderRoutes() {
                     val orderItems = OrderItemsTable.selectAll()
                         .where { OrderItemsTable.orderId eq UUID.fromString(id) }.toList()
                     restoreStockForOrderItems(vendorUUID, UUID.fromString(id), orderItems)
+                    trace.step("Stock restored for cancelled order", mapOf("itemCount" to orderItems.size.toString()))
 
                     // Also free table if dine-in
                     if (current[OrdersTable.channel] == "DINE_IN") {
@@ -1074,15 +1492,20 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 updatedRow.toOrderDto(items, usersMap, tablesMap)
             }
+            trace.step("Status updated", mapOf("orderId" to order.id, "newStatus" to order.status))
+            trace.step("Update order status completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
         // Refund a completed order (restore stock, update customer stats)
         post("/{id}/refund") {
+            val trace = call.routeTrace()
+            trace.step("Refund started")
             val principal = requireRole("MANAGER", "CASHIER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<RefundOrderDto>()
             require(request.reason.isNotBlank()) { "Refund reason is required" }
+            trace.step("Refund request parsed", mapOf("orderId" to id, "reason" to request.reason))
 
             val order = transaction {
                 val current = OrdersTable.selectAll().where {
@@ -1113,6 +1536,7 @@ fun Route.orderRoutes() {
                 val orderItems = OrderItemsTable.selectAll()
                     .where { OrderItemsTable.orderId eq UUID.fromString(id) }.toList()
                 restoreStockForOrderItems(vendorUUID, UUID.fromString(id), orderItems)
+                trace.step("Stock restored", mapOf("itemCount" to orderItems.size.toString()))
 
                 // Decrement customer stats
                 val customerId = current[OrdersTable.customerId]
@@ -1163,14 +1587,23 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 updatedRow.toOrderDto(items, usersMap, tablesMap)
             }
+            trace.step("Refund processed", mapOf("orderId" to order.id, "total" to order.total.toString()))
+            trace.step("Refund completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
         // Update payment status independently from order status
         patch("/{id}/payment-status") {
+            val trace = call.routeTrace()
+            trace.step("Update payment status started")
             val principal = requireRole("MANAGER", "CASHIER", "DELIVERY")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<UpdatePaymentStatusDto>()
+            trace.step("Request parsed", mapOf(
+                "orderId" to id,
+                "paymentStatus" to request.payment_status,
+                "paymentMethod" to (request.payment_method ?: "null")
+            ))
 
             val validStatuses = listOf("PENDING", "PAID", "PARTIALLY_PAID", "REFUNDED", "FAILED")
             require(request.payment_status in validStatuses) {
@@ -1234,13 +1667,26 @@ fun Route.orderRoutes() {
                 } ?: emptyMap()
                 updatedRow.toOrderDto(items, usersMap, tablesMap)
             }
+            trace.step("Payment updated", mapOf(
+                "orderId" to order.id,
+                "paymentStatus" to order.payment_status,
+                "paymentMethod" to order.payment_method
+            ))
+            trace.step("Update payment status completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
         // Generate a temporary shareable receipt URL (30 minutes)
         post("/{id}/share") {
+            val trace = call.routeTrace()
+            trace.step("Share receipt started")
             val principal = currentUser()
             val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Order ID parsed", mapOf("orderId" to orderId))
+
+            // Plan gate: digital receipt
+            planService.checkFeature(UUID.fromString(principal.vendorId), "DIGITAL_RECEIPT")
+            trace.step("Feature check passed")
 
             transaction {
                 OrdersTable.selectAll().where {
@@ -1249,6 +1695,7 @@ fun Route.orderRoutes() {
                     ))
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
             }
+            trace.step("Order verified")
 
             val expiresMs = 30 * 60 * 1000 // 30 minutes
             val token = generateReceiptToken(jwtConfig, orderId, principal.vendorId, expiresMs)
@@ -1258,6 +1705,8 @@ fun Route.orderRoutes() {
                 else -> ":${origin.serverPort}"
             }
             val url = "${origin.scheme}://${origin.serverHost}$portPart/public/receipts/$orderId?token=$token"
+            trace.step("Receipt URL generated", mapOf("expiresMs" to expiresMs.toString()))
+            trace.step("Share receipt completed")
             call.respond(
                 ShareReceiptResponseDto(
                     url = url, token = token, expires_at = System.currentTimeMillis() + expiresMs
@@ -1266,9 +1715,12 @@ fun Route.orderRoutes() {
         }
 
         patch("/{id}/assign") {
+            val trace = call.routeTrace()
+            trace.step("Assign delivery started")
             val principal = requireRole("MANAGER", "CASHIER", "DELIVERY")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<AssignDeliveryDto>()
+            trace.step("Request parsed", mapOf("orderId" to id))
 
             // Delivery users can only self-assign
             val deliveryUserId = if (principal.role == "DELIVERY") {
@@ -1316,6 +1768,8 @@ fun Route.orderRoutes() {
                 }
                 updatedRow.toOrderDto(items, usersMap)
             }
+            trace.step("Delivery user assigned", mapOf("orderId" to order.id, "deliveryUserId" to (order.delivery_user_id ?: "null")))
+            trace.step("Assign delivery completed")
             call.respond(HttpStatusCode.OK, order)
         }
 
@@ -1447,7 +1901,11 @@ private fun ResultRow.toOrderDto(
     tax_percent = this[OrdersTable.taxPercent].toDouble(),
     total = this[OrdersTable.total].toDouble(),
     notes = this[OrdersTable.notes],
+    offer_id = this[OrdersTable.offerId]?.toString(),
     items = items,
+    points_earned = this[OrdersTable.pointsEarned],
+    points_redeemed = this[OrdersTable.pointsRedeemed],
+    discount_reason = this[OrdersTable.discountReason],
     created_at = this[OrdersTable.createdAt].toEpochMilliseconds(),
     updated_at = this[OrdersTable.updatedAt].toEpochMilliseconds(),
     refunded_at = this[OrdersTable.refundedAt]?.toEpochMilliseconds(),
@@ -1472,8 +1930,11 @@ fun Route.orderSharePublicRoutes() {
 
     route("/public/receipts") {
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Public receipt view started")
             val orderId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val token = call.request.queryParameters["token"] ?: throw IllegalArgumentException("token required")
+            trace.step("Receipt request parsed", mapOf("orderId" to orderId))
 
             val verifier = JWT.require(Algorithm.HMAC256(jwtConfig.secret)).withIssuer(jwtConfig.issuer)
                 .withAudience(jwtConfig.audience).withClaim("type", "receipt").build()
@@ -1485,9 +1946,13 @@ fun Route.orderSharePublicRoutes() {
             }
 
             if (decoded.subject != orderId) throw IllegalArgumentException("Token/order mismatch")
+            trace.step("Token verified")
             val vendorIdFromToken = decoded.getClaim("vendor_id").asString()
 
-            val (order, vendorName, vendorAddress, vendorPhone) = transaction {
+            val host = call.request.header("Host") ?: "localhost:8080"
+            val scheme = call.request.header("X-Forwarded-Proto") ?: call.request.origin.scheme
+
+            val (order, vendorName, vendorAddress, vendorPhone, vendorLogoUrl) = transaction {
                 val orderRow =
                     OrdersTable.selectAll().where { OrdersTable.id eq UUID.fromString(orderId) }.firstOrNull()
                         ?: throw NoSuchElementException("Order not found")
@@ -1510,11 +1975,14 @@ fun Route.orderSharePublicRoutes() {
                     order = orderRow.toOrderDto(items, usersMap),
                     vendorName = vendor[VendorsTable.name],
                     vendorAddress = vendor[VendorsTable.address],
-                    vendorPhone = vendor[VendorsTable.contactPhone]
+                    vendorPhone = vendor[VendorsTable.contactPhone],
+                    vendorLogoUrl = rewriteUploadUrl(vendor[VendorsTable.logoUrl], host, scheme),
                 )
             }
 
-            val html = buildReceiptHtml(order, vendorName, vendorAddress, vendorPhone)
+            val html = buildReceiptHtml(order, vendorName, vendorAddress, vendorPhone, vendorLogoUrl)
+            trace.step("Receipt HTML generated", mapOf("orderId" to orderId))
+            trace.step("Public receipt view completed")
             call.respondText(html, ContentType.Text.Html)
         }
     }
@@ -1531,109 +1999,163 @@ private data class ReceiptContext(
     val vendorName: String?,
     val vendorAddress: String?,
     val vendorPhone: String?,
+    val vendorLogoUrl: String?,
 )
 
 private fun buildReceiptHtml(
-    order: OrderDto, vendorName: String?, vendorAddress: String?, vendorPhone: String?
+    order: OrderDto, vendorName: String?, vendorAddress: String?, vendorPhone: String?, vendorLogoUrl: String? = null
 ): String {
-    val itemsHtml = order.items.joinToString("") { item ->
-        """
-        <tr>
-          <td class="item-desc">
-            <span class="qty">${item.quantity}x</span> ${item.item_name_snapshot}
-          </td>
-          <td class="item-price">${"%.2f".format(item.item_price_snapshot * item.quantity)}</td>
-        </tr>
-        """.trimIndent()
+    fun String.esc() = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    fun fmt(amount: Double) = "%.2f".format(amount)
+
+    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm").format(java.util.Date(order.created_at))
+    val channelLabel = when (order.channel) {
+        "DINE_IN" -> "Dine In"; "DELIVERY" -> "Delivery"; "TAKEAWAY" -> "Takeaway"
+        "IN_STORE" -> "In-Store"; "PICKUP_LATER" -> "Pickup Later"; else -> order.channel
+    }
+    val paymentLabel = when (order.payment_method) {
+        "CASH" -> "Cash"; "WALLET" -> "Wallet"; "CARD" -> "Card"; else -> order.payment_method
     }
 
-    return """
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            background-color: #f4f4f7; 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            display: flex; 
-            justify-content: center;
-          }
-          .receipt-card { 
-            background: #ffffff; 
-            max-width: 400px; 
-            width: 100%; 
-            padding: 30px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-            border-radius: 8px;
-          }
-          header { text-align: center; margin-bottom: 20px; }
-          .vendor-name { font-size: 22px; font-weight: bold; margin: 0; color: #1a1a1a; }
-          .vendor-info { font-size: 13px; color: #717171; margin-top: 4px; }
-          
-          .divider { 
-            border-top: 2px dashed #eeeeee; 
-            margin: 20px 0; 
-          }
-          
-          .order-meta { font-size: 13px; color: #444; margin-bottom: 15px; }
-          .meta-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-          .label { color: #888; }
-          
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          .item-desc { font-size: 15px; padding: 8px 0; color: #2d2d2d; }
-          .qty { color: #888; font-weight: bold; margin-right: 5px; }
-          .item-price { text-align: right; font-family: monospace; font-size: 15px; color: #1a1a1a; }
-          
-          .totals-section { border-top: 1px solid #f0f0f0; padding-top: 15px; }
-          .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
-          .grand-total { 
-            font-size: 18px; 
-            font-weight: bold; 
-            color: #2e7d32; 
-            margin-top: 10px; 
-            padding-top: 10px; 
-            border-top: 2px solid #f0f0f0;
-          }
-          
-          footer { text-align: center; margin-top: 30px; font-size: 12px; color: #aaaaaa; }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-card">
-          <header>
-            <div class="vendor-name">${vendorName ?: "Our Store"}</div>
-            <div class="vendor-info">${vendorAddress ?: ""}</div>
-            <div class="vendor-info">${vendorPhone ?: ""}</div>
-          </header>
+    val itemsHtml = order.items.joinToString("") { item ->
+        val lineTotal = item.item_price_snapshot * item.quantity
+        """<tr>
+            <td class="name">${item.item_name_snapshot.esc()}</td>
+            <td class="qty">${item.quantity}</td>
+            <td class="price">${fmt(lineTotal)} EGP</td>
+        </tr>"""
+    }
 
-          <div class="order-meta">
-            <div class="meta-row"><span class="label">Order ID:</span> <span>#${order.id.takeLast(8).uppercase()}</span></div>
-            <div class="meta-row"><span class="label">Date:</span> <span>${java.text.SimpleDateFormat("MMM dd, yyyy HH:mm").format(java.util.Date(order.created_at))}</span></div>
-            <div class="meta-row"><span class="label">Payment:</span> <span>${order.payment_method}</span></div>
-          </div>
+    val logoHtml = if (!vendorLogoUrl.isNullOrBlank()) {
+        """<img src="${vendorLogoUrl.esc()}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;" alt="Logo"><br>"""
+    } else ""
 
-          <div class="divider"></div>
+    val clientHtml = buildString {
+        if (order.client_name != null || order.client_phone != null || order.client_address != null) {
+            append("""<div class="info-section">""")
+            order.client_name?.let { append("""<div class="info-row"><span class="label">Client</span><span class="value">${it.esc()}</span></div>""") }
+            order.client_phone?.let { append("""<div class="info-row"><span class="label">Phone</span><span class="value">${it.esc()}</span></div>""") }
+            order.client_address?.let { append("""<div class="info-row"><span class="label">Address</span><span class="value">${it.esc()}</span></div>""") }
+            append("</div>")
+        }
+    }
 
-          <table>
-            $itemsHtml
-          </table>
+    val notesHtml = order.notes?.let {
+        """<div class="notes"><div class="title">Notes</div><div class="text">${it.esc()}</div></div>"""
+    } ?: ""
 
-          <div class="totals-section">
-            <div class="total-row"><span class="label">Subtotal</span> <span>${"%.2f".format(order.subtotal)} EGP</span></div>
-            <div class="total-row"><span class="label">Delivery Fee</span> <span>${"%.2f".format(order.delivery_fee + order.tax)} EGP</span></div>
-            <div class="total-row grand-total"><span>Total</span> <span>${"%.2f".format(order.total)} EGP</span></div>
-          </div>
+    val taxHtml = if (order.tax > 0) """<div class="info-row"><span class="label">Tax</span><span class="value">${fmt(order.tax)} EGP</span></div>""" else ""
+    val deliveryFeeHtml = if (order.delivery_fee > 0) """<div class="info-row"><span class="label">Delivery Fee</span><span class="value">${fmt(order.delivery_fee)} EGP</span></div>""" else ""
 
-          <footer>
-            <p>Thank you for choosing us!</p>
-            <p>Generated at ${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date())}</p>
-          </footer>
-        </div>
-      </body>
-    </html>
-    """.trimIndent()
+    return """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: #1C1917;
+    background: #f4f4f7;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  .receipt-card {
+    background: #fff;
+    max-width: 420px;
+    width: 100%;
+    padding: 28px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .header { text-align: center; margin-bottom: 16px; }
+  .header h1 { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
+  .header p { font-size: 12px; color: #78716C; }
+  .divider { border: none; border-top: 1px dashed #D6D3D1; margin: 14px 0; }
+  .info-section {
+    background: #FAFAF9;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+  .info-row .label { color: #78716C; }
+  .info-row .value { font-weight: 500; }
+  .info-row .value.bold { font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  th { font-size: 11px; color: #78716C; font-weight: 500; text-align: left; padding: 6px 4px; border-bottom: 1px solid #E7E5E4; }
+  th.qty, td.qty { text-align: center; width: 40px; }
+  th.price, td.price { text-align: right; width: 80px; }
+  td { font-size: 12px; padding: 6px 4px; vertical-align: middle; }
+  td.name { font-weight: 500; }
+  .totals { margin-top: 10px; }
+  .totals .info-row { font-size: 13px; }
+  .grand-total {
+    background: #F0FDFA;
+    border: 1px solid #CCFBF1;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .grand-total .label { font-size: 16px; font-weight: 700; }
+  .grand-total .value { font-size: 16px; font-weight: 700; color: #0D9488; }
+  .notes { background: #FAFAF9; border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
+  .notes .title { font-size: 11px; color: #78716C; margin-bottom: 2px; }
+  .notes .text { font-size: 12px; color: #44403C; }
+  .footer { text-align: center; font-style: italic; color: #A8A29E; font-size: 12px; margin-top: 20px; padding-bottom: 8px; }
+  @media print {
+    body { padding: 0; background: #fff; }
+    .receipt-card { box-shadow: none; max-width: 100%; }
+    img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="receipt-card">
+  <div class="header">
+    $logoHtml
+    <h1>${(vendorName ?: "Restaurant").esc()}</h1>
+    ${vendorAddress?.let { "<p>${it.esc()}</p>" } ?: ""}
+    ${vendorPhone?.let { "<p>${it.esc()}</p>" } ?: ""}
+  </div>
+  <hr class="divider">
+  <div class="info-section">
+    <div class="info-row"><span class="label">Order #</span><span class="value bold">#${order.id.takeLast(8).uppercase()}</span></div>
+    <div class="info-row"><span class="label">Date</span><span class="value">$dateStr</span></div>
+    <div class="info-row"><span class="label">Channel</span><span class="value">$channelLabel</span></div>
+    <div class="info-row"><span class="label">Payment</span><span class="value">$paymentLabel</span></div>
+    ${order.cashier_name?.let { """<div class="info-row"><span class="label">Cashier</span><span class="value">${it.esc()}</span></div>""" } ?: ""}
+  </div>
+  $clientHtml
+  <hr class="divider">
+  <table>
+    <thead><tr><th>Item</th><th class="qty">Qty</th><th class="price">Price</th></tr></thead>
+    <tbody>$itemsHtml</tbody>
+  </table>
+  <hr class="divider">
+  <div class="totals">
+    <div class="info-row"><span class="label">Subtotal</span><span class="value">${fmt(order.subtotal)} EGP</span></div>
+    $taxHtml
+    $deliveryFeeHtml
+  </div>
+  <div class="grand-total">
+    <span class="label">Total</span>
+    <span class="value">${fmt(order.total)} EGP</span>
+  </div>
+  $notesHtml
+  <div class="footer">Thank you for your visit!</div>
+</div>
+</body>
+</html>"""
 }

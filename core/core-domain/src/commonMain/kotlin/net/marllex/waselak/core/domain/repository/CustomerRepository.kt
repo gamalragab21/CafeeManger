@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Order
+import net.marllex.waselak.core.model.PointsTransaction
 
 interface CustomerRepository {
     // ─── Reactive reads (from local DB) ──────────────────────────
@@ -38,4 +39,8 @@ interface CustomerRepository {
 
     // ─── Order history ───────────────────────────────────────────
     suspend fun getCustomerRecentOrders(customerId: String, limit: Int = 3): Result<List<Order>>
+
+    // ─── Points & Discount history ─────────────────────────────
+    suspend fun getCustomerPointsHistory(customerId: String): Result<List<PointsTransaction>>
+    suspend fun getCustomerDiscountOrders(customerId: String, limit: Int = 20): Result<List<Order>>
 }

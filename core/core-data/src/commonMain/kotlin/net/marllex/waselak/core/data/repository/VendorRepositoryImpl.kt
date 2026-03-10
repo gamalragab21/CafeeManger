@@ -8,6 +8,7 @@ import net.marllex.waselak.core.database.mapper.toDbEntity
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.UpdateVendorRequest
 import net.marllex.waselak.core.network.mapper.toDomain
@@ -24,9 +25,11 @@ class VendorRepositoryImpl constructor(
         vendorDao.getVendorById(vendorId).map { it?.toDomain() }
 
     override suspend fun refreshVendor(): Result<Vendor> = runCatching {
+        AppLogger.d(TAG, "Refreshing vendor data")
         val response = api.getMyVendor()
         val vendor = response.toDomain()
         vendorDao.insertVendor(vendor.toDbEntity())
+        AppLogger.i(TAG, "Vendor data refreshed: name=${vendor.name}")
         vendor
     }
 
@@ -37,7 +40,14 @@ class VendorRepositoryImpl constructor(
         enableDelivery: Boolean?,
         biometricRequired: Boolean?,
         enableOfflineMode: Boolean?,
+        loyaltyEnabled: Boolean?,
+        pointsEarnRate: Double?,
+        pointsRedeemRate: Double?,
+        minPointsRedeem: Int?,
+        maxManualDiscountPercent: Double?,
+        manualDiscountRequiresPin: Boolean?,
     ): Result<Vendor> = runCatching {
+        AppLogger.d(TAG, "Updating vendor settings")
         val response = api.updateMyVendor(
             UpdateVendorRequest(
                 name = name, logoUrl = logoUrl, address = address,
@@ -46,10 +56,21 @@ class VendorRepositoryImpl constructor(
                 enableDelivery = enableDelivery,
                 biometricRequired = biometricRequired,
                 enableOfflineMode = enableOfflineMode,
+                loyaltyEnabled = loyaltyEnabled,
+                pointsEarnRate = pointsEarnRate,
+                pointsRedeemRate = pointsRedeemRate,
+                minPointsRedeem = minPointsRedeem,
+                maxManualDiscountPercent = maxManualDiscountPercent,
+                manualDiscountRequiresPin = manualDiscountRequiresPin,
             )
         )
         val vendor = response.toDomain()
         vendorDao.insertVendor(vendor.toDbEntity())
+        AppLogger.i(TAG, "Vendor updated")
         vendor
+    }
+
+    private companion object {
+        const val TAG = "VendorRepo"
     }
 }

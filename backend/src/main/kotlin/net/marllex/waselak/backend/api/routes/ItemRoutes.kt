@@ -8,14 +8,17 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.ItemVariantGroupsTable
 import net.marllex.waselak.backend.data.database.ItemVariantOptionsTable
 import net.marllex.waselak.backend.data.database.CategoriesTable
+import net.marllex.waselak.backend.domain.service.PlanService
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
 import java.util.UUID
 
@@ -101,10 +104,18 @@ data class UpdateItemDto(
 )
 
 fun Route.itemRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+
     route("/api/v1/items") {
         get {
+            val trace = call.routeTrace()
+            trace.step("List items started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val categoryId = call.parameters["category_id"]
+            trace.step("Filter params", mapOf("categoryId" to (categoryId ?: "null")))
+            val h = call.request.header("Host") ?: "localhost:8080"
+            val s = call.request.header("X-Forwarded-Proto") ?: "http"
 
             val items = transaction {
                 var query = ItemsTable.selectAll()
@@ -115,14 +126,22 @@ fun Route.itemRoutes() {
                 }
 
                 query.orderBy(ItemsTable.name)
-                    .map { it.toItemDto() }
+                    .map { it.toItemDto(host = h, scheme = s) }
             }
+            trace.step("Items fetched", mapOf("count" to items.size.toString()))
+            trace.step("List items completed")
             call.respond(HttpStatusCode.OK, items)
         }
 
         get("/available") {
+            val trace = call.routeTrace()
+            trace.step("List available items started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val categoryId = call.parameters["category_id"]
+            trace.step("Filter params", mapOf("categoryId" to (categoryId ?: "null")))
+            val h = call.request.header("Host") ?: "localhost:8080"
+            val s = call.request.header("X-Forwarded-Proto") ?: "http"
 
             val items = transaction {
                 var query = ItemsTable.selectAll()
@@ -136,31 +155,85 @@ fun Route.itemRoutes() {
                 }
 
                 query.orderBy(ItemsTable.name)
-                    .map { it.toItemDto() }
+                    .map { it.toItemDto(host = h, scheme = s) }
             }
+            trace.step("Available items fetched", mapOf("count" to items.size.toString()))
+            trace.step("List available items completed")
             call.respond(HttpStatusCode.OK, items)
         }
 
-        get("/{id}") {
+        // Lookup item by barcode
+        get("/barcode/{barcode}") {
+            val trace = call.routeTrace()
+            trace.step("Lookup item by barcode started")
             val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            val barcode = call.parameters["barcode"] ?: throw IllegalArgumentException("Barcode required")
+            trace.step("Barcode param", mapOf("barcode" to barcode))
+            val h = call.request.header("Host") ?: "localhost:8080"
+            val s = call.request.header("X-Forwarded-Proto") ?: "http"
+
+            val item = transaction {
+                ItemsTable.selectAll()
+                    .where {
+                        (ItemsTable.barcode eq barcode) and
+                        (ItemsTable.vendorId eq UUID.fromString(principal.vendorId))
+                    }.firstOrNull()?.toItemDto(host = h, scheme = s)
+            }
+            if (item != null) {
+                trace.step("Item found", mapOf("itemId" to item.id, "itemName" to item.name))
+                trace.step("Lookup item by barcode completed")
+                call.respond(HttpStatusCode.OK, item)
+            } else {
+                trace.step("Item not found for barcode", mapOf("barcode" to barcode))
+                trace.step("Lookup item by barcode completed")
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Item not found for barcode: $barcode"))
+            }
+        }
+
+        get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get item by ID started")
+            val principal = currentUser()
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Item ID param", mapOf("itemId" to id))
+            val h = call.request.header("Host") ?: "localhost:8080"
+            val s = call.request.header("X-Forwarded-Proto") ?: "http"
 
             val item = transaction {
                 ItemsTable.selectAll()
                     .where {
                         (ItemsTable.id eq UUID.fromString(id)) and
                         (ItemsTable.vendorId eq UUID.fromString(principal.vendorId))
-                    }.firstOrNull()?.toItemDto()
+                    }.firstOrNull()?.toItemDto(host = h, scheme = s)
                     ?: throw NoSuchElementException("Item not found")
             }
+            trace.step("Item found", mapOf("itemName" to item.name, "price" to item.price.toString(), "available" to item.available.toString()))
+            trace.step("Get item by ID completed")
             call.respond(HttpStatusCode.OK, item)
         }
 
         post {
+            val trace = call.routeTrace()
+            trace.step("Create item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val request = call.receive<CreateItemDto>()
+            trace.step("Request received", mapOf(
+                "name" to request.name,
+                "categoryId" to request.category_id,
+                "price" to request.price.toString(),
+                "stockBehavior" to request.stock_behavior,
+                "available" to request.available.toString()
+            ))
             require(request.name.isNotBlank()) { "Item name is required" }
             require(request.price > 0) { "Price must be positive" }
+
+            // ─── Plan limit check ─────────────────────────
+            trace.step("Checking plan item limit")
+            planService.checkItemCreation(UUID.fromString(principal.vendorId))
+            trace.step("Plan limit check passed")
 
             val item = transaction {
                 // Verify category belongs to this vendor
@@ -187,25 +260,53 @@ fun Route.itemRoutes() {
                     it[createdAt] = Clock.System.now()
                     it[updatedAt] = Clock.System.now()
                 }
-                ItemsTable.selectAll().where { ItemsTable.id eq id }.first().toItemDto()
+                val h2 = call.request.header("Host") ?: "localhost:8080"
+                val s2 = call.request.header("X-Forwarded-Proto") ?: "http"
+                ItemsTable.selectAll().where { ItemsTable.id eq id }.first().toItemDto(host = h2, scheme = s2)
             }
+            trace.step("Item created", mapOf("itemId" to item.id, "itemName" to item.name))
+            trace.step("Create item completed")
             call.respond(HttpStatusCode.Created, item)
         }
 
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Item ID param", mapOf("itemId" to id))
             val request = call.receive<UpdateItemDto>()
+            trace.step("Update fields received", mapOf(
+                "name" to (request.name ?: "null"),
+                "categoryId" to (request.category_id ?: "null"),
+                "price" to (request.price?.toString() ?: "null"),
+                "stockBehavior" to (request.stock_behavior ?: "null"),
+                "available" to (request.available?.toString() ?: "null")
+            ))
 
             val updated = transaction {
                 // If changing category, verify it belongs to this vendor
                 request.category_id?.let { catId ->
+                    trace.step("Verifying new category", mapOf("categoryId" to catId))
                     val categoryExists = CategoriesTable.selectAll()
                         .where {
                             (CategoriesTable.id eq UUID.fromString(catId)) and
                             (CategoriesTable.vendorId eq UUID.fromString(principal.vendorId))
                         }.count() > 0
                     if (!categoryExists) throw NoSuchElementException("Category not found")
+                    trace.step("Category verified")
+                }
+
+                // Delete old image file if being replaced
+                if (request.image_url != null) {
+                    val oldImageUrl = ItemsTable.selectAll()
+                        .where { ItemsTable.id eq UUID.fromString(id) }
+                        .firstOrNull()?.get(ItemsTable.imageUrl)
+                    if (oldImageUrl != null && oldImageUrl != request.image_url) {
+                        trace.step("Replacing old image")
+                        deleteUploadedFile(oldImageUrl)
+                    }
                 }
 
                 ItemsTable.update({
@@ -225,19 +326,28 @@ fun Route.itemRoutes() {
                     stmt[updatedAt] = Clock.System.now()
                 }
 
+                val h3 = call.request.header("Host") ?: "localhost:8080"
+                val s3 = call.request.header("X-Forwarded-Proto") ?: "http"
                 ItemsTable.selectAll().where { ItemsTable.id eq UUID.fromString(id) }
-                    .firstOrNull()?.toItemDto() ?: throw NoSuchElementException("Item not found")
+                    .firstOrNull()?.toItemDto(host = h3, scheme = s3) ?: throw NoSuchElementException("Item not found")
             }
+            trace.step("Item updated", mapOf("itemId" to updated.id, "itemName" to updated.name))
+            trace.step("Update item completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         patch("/{id}/availability") {
+            val trace = call.routeTrace()
+            trace.step("Toggle item availability started")
             val principal = requireRole("MANAGER", "CASHIER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Item ID param", mapOf("itemId" to id))
 
             @Serializable
             data class AvailabilityDto(val available: Boolean)
             val request = call.receive<AvailabilityDto>()
+            trace.step("Availability value", mapOf("available" to request.available.toString()))
 
             val updated = transaction {
                 ItemsTable.update({
@@ -247,16 +357,25 @@ fun Route.itemRoutes() {
                     it[available] = request.available
                     it[updatedAt] = Clock.System.now()
                 }
+                val h4 = call.request.header("Host") ?: "localhost:8080"
+                val s4 = call.request.header("X-Forwarded-Proto") ?: "http"
                 ItemsTable.selectAll().where { ItemsTable.id eq UUID.fromString(id) }
-                    .firstOrNull()?.toItemDto() ?: throw NoSuchElementException("Item not found")
+                    .firstOrNull()?.toItemDto(host = h4, scheme = s4) ?: throw NoSuchElementException("Item not found")
             }
+            trace.step("Item availability updated", mapOf("itemId" to updated.id, "itemName" to updated.name, "available" to updated.available.toString()))
+            trace.step("Toggle item availability completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         put("/{id}/variants") {
+            val trace = call.routeTrace()
+            trace.step("Update item variants started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Item ID param", mapOf("itemId" to id))
             val groups = call.receive<List<CreateVariantGroupDto>>()
+            trace.step("Variant groups received", mapOf("groupCount" to groups.size.toString()))
 
             val item = transaction {
                 // Verify item belongs to this vendor
@@ -265,18 +384,21 @@ fun Route.itemRoutes() {
                         (ItemsTable.id eq UUID.fromString(id)) and
                         (ItemsTable.vendorId eq UUID.fromString(principal.vendorId))
                     }.firstOrNull() ?: throw NoSuchElementException("Item not found")
+                trace.step("Item verified", mapOf("itemName" to itemRow[ItemsTable.name]))
 
                 // Delete existing variant options first (due to FK), then groups
                 val existingGroupIds = ItemVariantGroupsTable.selectAll()
                     .where { ItemVariantGroupsTable.itemId eq UUID.fromString(id) }
                     .map { it[ItemVariantGroupsTable.id] }
 
+                trace.step("Deleting old variants", mapOf("existingGroupCount" to existingGroupIds.size.toString()))
                 if (existingGroupIds.isNotEmpty()) {
                     ItemVariantOptionsTable.deleteWhere { groupId inList existingGroupIds }
                 }
                 ItemVariantGroupsTable.deleteWhere { ItemVariantGroupsTable.itemId eq UUID.fromString(id) }
 
                 // Insert new groups and options
+                var totalOptions = 0
                 groups.forEachIndexed { gIndex, group ->
                     val groupId = ItemVariantGroupsTable.insertAndGetId {
                         it[itemId] = UUID.fromString(id)
@@ -294,18 +416,27 @@ fun Route.itemRoutes() {
                             it[displayOrder] = option.display_order.takeIf { it != 0 } ?: oIndex
                             it[createdAt] = Clock.System.now()
                         }
+                        totalOptions++
                     }
                 }
+                trace.step("New variants inserted", mapOf("groupCount" to groups.size.toString(), "totalOptions" to totalOptions.toString()))
 
                 // Return updated item with variants
-                itemRow.toItemDto(loadVariants = true)
+                val h5 = call.request.header("Host") ?: "localhost:8080"
+                val s5 = call.request.header("X-Forwarded-Proto") ?: "http"
+                itemRow.toItemDto(loadVariants = true, host = h5, scheme = s5)
             }
+            trace.step("Update item variants completed")
             call.respond(HttpStatusCode.OK, item)
         }
 
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete item started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Item ID param", mapOf("itemId" to id))
 
             transaction {
                 val deleted = ItemsTable.deleteWhere {
@@ -313,13 +444,15 @@ fun Route.itemRoutes() {
                     (vendorId eq UUID.fromString(principal.vendorId))
                 }
                 if (deleted == 0) throw NoSuchElementException("Item not found")
+                trace.step("Item deleted from database", mapOf("rowsAffected" to deleted.toString()))
             }
+            trace.step("Delete item completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }
 }
 
-private fun ResultRow.toItemDto(loadVariants: Boolean = true): ItemDto {
+private fun ResultRow.toItemDto(loadVariants: Boolean = true, host: String = "localhost:8080", scheme: String = "http"): ItemDto {
     val itemId = this[ItemsTable.id]
     val variantGroups = if (loadVariants) {
         val groups = ItemVariantGroupsTable.selectAll()
@@ -367,7 +500,7 @@ private fun ResultRow.toItemDto(loadVariants: Boolean = true): ItemDto {
         cost_price = this[ItemsTable.costPrice]?.toDouble(),
         sku = this[ItemsTable.sku],
         barcode = this[ItemsTable.barcode],
-        image_url = this[ItemsTable.imageUrl],
+        image_url = rewriteUploadUrl(this[ItemsTable.imageUrl], host, scheme),
         available = this[ItemsTable.available],
         stock_behavior = this[ItemsTable.stockBehavior],
         variant_groups = variantGroups,

@@ -7,6 +7,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.domain.service.ChatbotService
+import net.marllex.waselak.backend.plugins.routeTrace
 import java.util.UUID
 
 @Serializable
@@ -59,23 +60,38 @@ fun Route.chatbotRoutes() {
         
         // POST /api/v1/chatbot/query - Process a chatbot query
         post("/query") {
+            val trace = call.routeTrace()
+            trace.step("Chatbot query started")
             val principal = requireRole("MANAGER")
-            
+
             val request = call.receive<ChatbotQueryRequest>()
             val vendorId = UUID.fromString(principal.vendorId)
-            
+            trace.step("Query received", mapOf(
+                "question" to request.query,
+                "language" to request.language,
+                "vendorId" to vendorId.toString(),
+                "hasContext" to (request.context != null).toString()
+            ))
+
             try {
                 // Process the query
+                trace.step("Processing query with chatbot service")
                 val serviceResponse = chatbotService.processQuery(
                     query = request.query,
                     vendorId = vendorId,
                     language = request.language
                 )
-                
+                trace.step("Query processed", mapOf(
+                    "answerLength" to serviceResponse.answer.length.toString(),
+                    "visualFormat" to serviceResponse.visualFormat,
+                    "suggestionsCount" to serviceResponse.suggestions.size.toString(),
+                    "hasData" to (serviceResponse.data != null).toString()
+                ))
+
                 // Generate or reuse conversation ID
-                val conversationId = request.context?.conversation_id 
+                val conversationId = request.context?.conversation_id
                     ?: UUID.randomUUID().toString()
-                
+
                 // Build response
                 val response = ChatbotQueryResponse(
                     answer = serviceResponse.answer,
@@ -96,10 +112,12 @@ fun Route.chatbotRoutes() {
                     ),
                     timestamp = System.currentTimeMillis()
                 )
-                
+
+                trace.step("Chatbot query completed", mapOf("conversationId" to conversationId))
                 call.respond(HttpStatusCode.OK, response)
-                
+
             } catch (e: Exception) {
+                trace.step("Chatbot query failed", mapOf("error" to (e.message ?: "unknown")))
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     mapOf("error" to (e.message ?: "Failed to process query"))
@@ -109,13 +127,17 @@ fun Route.chatbotRoutes() {
         
         // GET /api/v1/chatbot/suggestions - Get quick suggestions
         get("/suggestions") {
+            val trace = call.routeTrace()
+            trace.step("Get suggestions started")
             val principal = requireRole("MANAGER")
-            
+
             val language = call.request.queryParameters["language"] ?: "en"
-            
+            trace.step("Fetching suggestions", mapOf("language" to language))
+
             try {
                 val suggestions = chatbotService.getQuickSuggestions(language)
-                
+                trace.step("Suggestions fetched", mapOf("count" to suggestions.size.toString()))
+
                 val response = ChatbotSuggestionsResponse(
                     suggestions = suggestions.map { suggestion ->
                         ChatbotSuggestionDto(
@@ -125,10 +147,12 @@ fun Route.chatbotRoutes() {
                         )
                     }
                 )
-                
+
+                trace.step("Get suggestions completed")
                 call.respond(HttpStatusCode.OK, response)
-                
+
             } catch (e: Exception) {
+                trace.step("Get suggestions failed", mapOf("error" to (e.message ?: "unknown")))
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     mapOf("error" to (e.message ?: "Failed to get suggestions"))

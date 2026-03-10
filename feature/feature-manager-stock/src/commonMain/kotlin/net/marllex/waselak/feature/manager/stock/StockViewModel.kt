@@ -18,6 +18,7 @@ import net.marllex.waselak.core.model.Recipe
 import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 
 data class RecipeIngredientForm(
     val stockId: String = "",
@@ -112,6 +113,10 @@ class StockViewModel constructor(
         val recipeIngredients: List<RecipeIngredientForm> = emptyList(),
         val recipeSaving: Boolean = false,
         val recipeError: String? = null,
+
+        // Feature not available
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     ) {
         val filteredStockItems: List<Stock>
             get() = if (searchQuery.isBlank()) stockItems
@@ -179,7 +184,11 @@ class StockViewModel constructor(
                     isLoading = false,
                 )
             }.catch { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
             }.collect { state ->
                 _uiState.value = state
             }
@@ -402,6 +411,10 @@ class StockViewModel constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
     }
 
     // ─── Recipes ─────────────────────────────────────────────────────

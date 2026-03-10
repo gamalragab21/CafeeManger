@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.CategoryRepository
 import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.model.Category
@@ -51,9 +52,11 @@ class ItemsViewModel constructor(
         val dialogPrice: String = "",
         val dialogCategoryId: String = "",
         val dialogImageUrl: String = "",
+        val dialogBarcode: String = "",
         val dialogAvailable: Boolean = true,
         val dialogVariantGroups: List<EditableVariantGroup> = emptyList(),
         val isSaving: Boolean = false,
+        val showBarcodeScanner: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -69,6 +72,7 @@ class ItemsViewModel constructor(
     // Network refresh only — does NOT start a new collection
     fun loadItems() {
         viewModelScope.launch {
+            AppLogger.d("Items", "Loading items and categories")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 itemRepository.refreshItems()
@@ -105,29 +109,34 @@ class ItemsViewModel constructor(
     }
 
     fun filterByCategory(categoryId: String?) {
+        AppLogger.d("Items", "Filter by category: $categoryId")
         _uiState.update { it.copy(selectedCategoryId = categoryId) }
         _selectedCategoryId.value = categoryId
     }
 
     fun showAddDialog() {
+        AppLogger.i("Items", "User action: open add item dialog")
         val firstCategoryId = _uiState.value.categories.firstOrNull()?.id ?: ""
         _uiState.update {
             it.copy(
                 showAddDialog = true, editingItem = null,
                 dialogName = "", dialogDescription = "", dialogPrice = "",
-                dialogCategoryId = firstCategoryId, dialogImageUrl = "", dialogAvailable = true,
-                dialogVariantGroups = emptyList(),
+                dialogCategoryId = firstCategoryId, dialogImageUrl = "", dialogBarcode = "",
+                dialogAvailable = true, dialogVariantGroups = emptyList(),
+                showBarcodeScanner = false,
             )
         }
     }
 
     fun showEditDialog(item: Item) {
+        AppLogger.i("Items", "User action: open edit item dialog for id=${item.id}")
         _uiState.update {
             it.copy(
                 showAddDialog = true, editingItem = item,
                 dialogName = item.name, dialogDescription = item.description ?: "",
                 dialogPrice = item.price.toString(), dialogCategoryId = item.categoryId,
-                dialogImageUrl = item.imageUrl ?: "", dialogAvailable = item.available,
+                dialogImageUrl = item.imageUrl ?: "", dialogBarcode = item.barcode ?: "",
+                dialogAvailable = item.available, showBarcodeScanner = false,
                 dialogVariantGroups = item.variantGroups.map { group ->
                     EditableVariantGroup(
                         id = group.id, name = group.name, required = group.required,
@@ -154,8 +163,9 @@ class ItemsViewModel constructor(
             it.copy(
                 showAddDialog = false, editingItem = null,
                 dialogName = "", dialogDescription = "", dialogPrice = "",
-                dialogCategoryId = "", dialogImageUrl = "", dialogAvailable = true,
-                dialogVariantGroups = emptyList(),
+                dialogCategoryId = "", dialogImageUrl = "", dialogBarcode = "",
+                dialogAvailable = true, dialogVariantGroups = emptyList(),
+                showBarcodeScanner = false,
             )
         }
     }
@@ -164,14 +174,25 @@ class ItemsViewModel constructor(
     fun updateDialogDescription(v: String) { _uiState.update { it.copy(dialogDescription = v) } }
     fun updateDialogPrice(v: String) { _uiState.update { it.copy(dialogPrice = v) } }
     fun updateDialogCategoryId(v: String) { _uiState.update { it.copy(dialogCategoryId = v) } }
+    fun updateDialogBarcode(v: String) { _uiState.update { it.copy(dialogBarcode = v) } }
     fun updateDialogAvailable(v: Boolean) { _uiState.update { it.copy(dialogAvailable = v) } }
+    fun toggleBarcodeScanner() {
+        AppLogger.d("Items", "Toggling barcode scanner")
+        _uiState.update { it.copy(showBarcodeScanner = !it.showBarcodeScanner) }
+    }
+    fun onBarcodeScanResult(barcode: String) {
+        AppLogger.d("Items", "Barcode scanned: $barcode")
+        _uiState.update { it.copy(dialogBarcode = barcode, showBarcodeScanner = false) }
+    }
 
     // ─── Variant Management ──────────────────────────────────────
     fun addVariantGroup() {
+        AppLogger.d("Items", "Adding variant group")
         _uiState.update { it.copy(dialogVariantGroups = it.dialogVariantGroups + EditableVariantGroup()) }
     }
 
     fun removeVariantGroup(groupId: String) {
+        AppLogger.d("Items", "Removing variant group: groupId=$groupId")
         _uiState.update { it.copy(dialogVariantGroups = it.dialogVariantGroups.filter { g -> g.id != groupId }) }
     }
 
@@ -192,6 +213,7 @@ class ItemsViewModel constructor(
     }
 
     fun addVariantOption(groupId: String) {
+        AppLogger.d("Items", "Adding variant option to group: groupId=$groupId")
         _uiState.update { state ->
             state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
                 if (g.id == groupId) g.copy(options = g.options + EditableVariantOption()) else g
@@ -200,6 +222,7 @@ class ItemsViewModel constructor(
     }
 
     fun removeVariantOption(groupId: String, optionId: String) {
+        AppLogger.d("Items", "Removing variant option: groupId=$groupId, optionId=$optionId")
         _uiState.update { state ->
             state.copy(dialogVariantGroups = state.dialogVariantGroups.map { g ->
                 if (g.id == groupId) g.copy(options = g.options.filter { o -> o.id != optionId }) else g
@@ -229,6 +252,7 @@ class ItemsViewModel constructor(
 
     fun saveItem() {
         val s = _uiState.value
+        AppLogger.d("Items", "Saving item: name=${s.dialogName}, editing=${s.editingItem != null}")
         if (s.dialogName.isBlank() || s.dialogPrice.isBlank()) return
         val price = s.dialogPrice.toDoubleOrNull() ?: return
 
@@ -242,6 +266,7 @@ class ItemsViewModel constructor(
                     name = s.dialogName, description = s.dialogDescription.ifBlank { null },
                     price = price, imageUrl = s.dialogImageUrl.ifBlank { null },
                     available = s.dialogAvailable,
+                    barcode = s.dialogBarcode.ifBlank { null },
                 )
             } else {
                 itemRepository.createItem(
@@ -249,6 +274,7 @@ class ItemsViewModel constructor(
                     description = s.dialogDescription.ifBlank { null },
                     price = price, imageUrl = s.dialogImageUrl.ifBlank { null },
                     available = s.dialogAvailable,
+                    barcode = s.dialogBarcode.ifBlank { null },
                 )
             }
 
@@ -272,8 +298,10 @@ class ItemsViewModel constructor(
                 if (validGroups.isNotEmpty() || s.editingItem?.variantGroups?.isNotEmpty() == true) {
                     itemRepository.updateItemVariants(savedItem.id, validGroups)
                 }
+                AppLogger.i("Items", "Item saved successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                AppLogger.e("Items", "Failed to save item", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
@@ -281,12 +309,14 @@ class ItemsViewModel constructor(
 
     fun toggleAvailability(item: Item) {
         viewModelScope.launch {
+            AppLogger.d("Items", "Toggling availability for item: id=${item.id}")
             itemRepository.toggleAvailability(item.id, !item.available)
         }
     }
 
     fun deleteItem(id: String) {
         viewModelScope.launch {
+            AppLogger.d("Items", "Deleting item: id=$id")
             itemRepository.deleteItem(id).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
             }

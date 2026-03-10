@@ -11,6 +11,8 @@ import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Order
+import net.marllex.waselak.core.model.PointsTransaction
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 
 enum class CustomerSortBy {
     ORDER_COUNT_DESC,
@@ -19,18 +21,28 @@ enum class CustomerSortBy {
     NAME_ASC,
 }
 
+enum class LoyaltyFilter { HAS_POINTS, NO_POINTS }
+
 class CustomersViewModel(
     private val customerRepository: CustomerRepository,
 ) : ViewModel() {
 
     data class UiState(
+        val allCustomers: List<Customer> = emptyList(),
         val customers: List<Customer> = emptyList(),
         val searchQuery: String = "",
         val sortBy: CustomerSortBy = CustomerSortBy.ORDER_COUNT_DESC,
         val selectedCustomer: Customer? = null,
         val selectedCustomerOrders: List<Order> = emptyList(),
+        val pointsHistory: List<PointsTransaction> = emptyList(),
+        val discountOrders: List<Order> = emptyList(),
+        val isLoadingPointsHistory: Boolean = false,
+        val isLoadingDiscountOrders: Boolean = false,
+        val loyaltyFilter: LoyaltyFilter? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -44,12 +56,20 @@ class CustomersViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             customerRepository.refreshCustomers()
-                .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
+                .onFailure { e ->
+                    if (e.isFeatureNotAvailableOrOffline()) {
+                        _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
+                        return@launch
+                    } else {
+                        _uiState.update { it.copy(error = e.message) }
+                    }
+                }
 
             customerRepository.getCustomers().collect { customers ->
                 _uiState.update { state ->
                     state.copy(
-                        customers = sortAndFilter(customers, state.searchQuery, state.sortBy),
+                        allCustomers = customers,
+                        customers = sortAndFilter(customers, state.searchQuery, state.sortBy, state.loyaltyFilter),
                         isLoading = false,
                     )
                 }
@@ -65,13 +85,19 @@ class CustomersViewModel(
             if (query.isBlank()) {
                 customerRepository.getCustomers().collect { customers ->
                     _uiState.update { state ->
-                        state.copy(customers = sortAndFilter(customers, state.searchQuery, state.sortBy))
+                        state.copy(
+                            allCustomers = customers,
+                            customers = sortAndFilter(customers, state.searchQuery, state.sortBy, state.loyaltyFilter),
+                        )
                     }
                 }
             } else {
                 customerRepository.searchCustomers(query).collect { customers ->
                     _uiState.update { state ->
-                        state.copy(customers = sortAndFilter(customers, "", state.sortBy))
+                        state.copy(
+                            allCustomers = customers,
+                            customers = sortAndFilter(customers, "", state.sortBy, state.loyaltyFilter),
+                        )
                     }
                 }
             }
@@ -82,13 +108,20 @@ class CustomersViewModel(
         _uiState.update { state ->
             state.copy(
                 sortBy = sortBy,
-                customers = sortAndFilter(state.customers, state.searchQuery, sortBy),
+                customers = sortAndFilter(state.allCustomers, state.searchQuery, sortBy, state.loyaltyFilter),
             )
         }
     }
 
     fun selectCustomer(customer: Customer?) {
-        _uiState.update { it.copy(selectedCustomer = customer, selectedCustomerOrders = emptyList()) }
+        _uiState.update {
+            it.copy(
+                selectedCustomer = customer,
+                selectedCustomerOrders = emptyList(),
+                pointsHistory = emptyList(),
+                discountOrders = emptyList(),
+            )
+        }
         if (customer != null) {
             viewModelScope.launch {
                 customerRepository.getCustomerRecentOrders(customer.id, limit = 5)
@@ -96,7 +129,32 @@ class CustomersViewModel(
                         _uiState.update { it.copy(selectedCustomerOrders = orders) }
                     }
             }
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoadingPointsHistory = true) }
+                customerRepository.getCustomerPointsHistory(customer.id)
+                    .onSuccess { pts -> _uiState.update { it.copy(pointsHistory = pts, isLoadingPointsHistory = false) } }
+                    .onFailure { _uiState.update { it.copy(isLoadingPointsHistory = false) } }
+            }
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoadingDiscountOrders = true) }
+                customerRepository.getCustomerDiscountOrders(customer.id)
+                    .onSuccess { orders -> _uiState.update { it.copy(discountOrders = orders, isLoadingDiscountOrders = false) } }
+                    .onFailure { _uiState.update { it.copy(isLoadingDiscountOrders = false) } }
+            }
         }
+    }
+
+    fun setLoyaltyFilter(filter: LoyaltyFilter?) {
+        _uiState.update { state ->
+            state.copy(
+                loyaltyFilter = filter,
+                customers = sortAndFilter(state.allCustomers, state.searchQuery, state.sortBy, filter),
+            )
+        }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
     }
 
     fun deleteCustomer(id: String) {
@@ -111,17 +169,26 @@ class CustomersViewModel(
         customers: List<Customer>,
         query: String,
         sortBy: CustomerSortBy,
+        loyaltyFilter: LoyaltyFilter? = null,
     ): List<Customer> {
-        val filtered = if (query.isBlank()) customers
+        val searchFiltered = if (query.isBlank()) customers
         else customers.filter {
             it.phone.contains(query, ignoreCase = true) ||
                     it.name?.contains(query, ignoreCase = true) == true
         }
+
+        // Apply loyalty filter
+        val loyaltyFiltered = when (loyaltyFilter) {
+            LoyaltyFilter.HAS_POINTS -> searchFiltered.filter { it.pointsBalance > 0 }
+            LoyaltyFilter.NO_POINTS -> searchFiltered.filter { it.pointsBalance == 0 }
+            null -> searchFiltered
+        }
+
         return when (sortBy) {
-            CustomerSortBy.ORDER_COUNT_DESC -> filtered.sortedByDescending { it.orderCount }
-            CustomerSortBy.TOTAL_SPENT_DESC -> filtered.sortedByDescending { it.totalSpent }
-            CustomerSortBy.LAST_ORDER_DESC -> filtered.sortedByDescending { it.lastOrderAt ?: 0L }
-            CustomerSortBy.NAME_ASC -> filtered.sortedBy { it.name ?: it.phone }
+            CustomerSortBy.ORDER_COUNT_DESC -> loyaltyFiltered.sortedByDescending { it.orderCount }
+            CustomerSortBy.TOTAL_SPENT_DESC -> loyaltyFiltered.sortedByDescending { it.totalSpent }
+            CustomerSortBy.LAST_ORDER_DESC -> loyaltyFiltered.sortedByDescending { it.lastOrderAt ?: 0L }
+            CustomerSortBy.NAME_ASC -> loyaltyFiltered.sortedBy { it.name ?: it.phone }
         }
     }
 }

@@ -11,6 +11,8 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PaymentStatus
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.isPlanLimitExceeded
 
 class PaymentViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -23,6 +25,10 @@ class PaymentViewModel constructor(
         val error: String? = null,
         val isProcessing: Boolean = false,
         val paymentCompleted: Boolean = false,
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
+        val showPlanLimitDialog: Boolean = false,
+        val planLimitMessage: String = "",
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -53,8 +59,24 @@ class PaymentViewModel constructor(
                     _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isProcessing = false, error = e.message) }
+                    when {
+                        e.isFeatureNotAvailableOrOffline() -> _uiState.update {
+                            it.copy(isProcessing = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                        }
+                        e.isPlanLimitExceeded() -> _uiState.update {
+                            it.copy(isProcessing = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
+                        }
+                        else -> _uiState.update { it.copy(isProcessing = false, error = e.message) }
+                    }
                 }
         }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false, featureNotAvailableMessage = "") }
+    }
+
+    fun dismissPlanLimitDialog() {
+        _uiState.update { it.copy(showPlanLimitDialog = false, planLimitMessage = "") }
     }
 }

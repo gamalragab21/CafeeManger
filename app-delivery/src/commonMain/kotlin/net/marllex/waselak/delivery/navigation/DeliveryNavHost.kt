@@ -69,6 +69,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
+import net.marllex.waselak.core.ui.components.ProfileAvatar
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
@@ -76,6 +78,10 @@ import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
+import net.marllex.waselak.core.ui.components.UploadLogsCard
+import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.network.WaselakApiClient
+import org.koin.compose.koinInject
 import net.marllex.waselak.core.ui.components.WaslekLogo
 import net.marllex.waselak.core.ui.platform.PlatformActions
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
@@ -234,7 +240,9 @@ private fun DeliveryProfileScreen(
     userPhone: String?,
     userEmail: String?,
     userRole: String?,
+    userPhotoUrl: String? = null,
     vendor: Vendor?,
+    onViewShiftSummary: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -263,6 +271,7 @@ private fun DeliveryProfileScreen(
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        val logoPainter = waslekLogoPainter()
                         if (!vendor?.logoUrl.isNullOrBlank()) {
                             AsyncImage(
                                 model = vendor?.logoUrl,
@@ -272,6 +281,8 @@ private fun DeliveryProfileScreen(
                                     .clip(CircleShape)
                                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
                                 contentScale = ContentScale.Crop,
+                                placeholder = logoPainter,
+                                error = logoPainter,
                             )
                         } else {
                             WaslekLogo(
@@ -286,6 +297,12 @@ private fun DeliveryProfileScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        ProfileAvatar(
+                            photoUrl = userPhotoUrl,
+                            size = 56.dp,
+                            contentDescription = userName,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -431,6 +448,59 @@ private fun DeliveryProfileScreen(
                 }
             }
 
+            // Upload Logs
+            item {
+                val apiClient = koinInject<WaselakApiClient>()
+                val logScope = rememberCoroutineScope()
+                var isUploadingLogs by remember { mutableStateOf(false) }
+                val logPlatformActions = rememberPlatformActions()
+
+                UploadLogsCard(
+                    isUploading = isUploadingLogs,
+                    onUploadLogs = {
+                        logScope.launch {
+                            isUploadingLogs = true
+                            try {
+                                val bytes = AppLogger.readLogFileBytes()
+                                if (bytes.isNotEmpty()) {
+                                    apiClient.uploadLogFile(bytes, AppLogger.getLogFileName())
+                                }
+                            } catch (_: Exception) {
+                            } finally {
+                                isUploadingLogs = false
+                            }
+                        }
+                    },
+                    onShareLogs = {
+                        val bytes = AppLogger.readLogFileBytes()
+                        if (bytes.isNotEmpty()) {
+                            logPlatformActions.shareFile(bytes, AppLogger.getLogFileName(), "text/plain")
+                        }
+                    },
+                    onClearLogs = {
+                        AppLogger.clearLogs()
+                    },
+                )
+            }
+
+            // Shift Summary
+            item {
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onViewShiftSummary,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.DeliveryDining,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(CoreRes.string.shift_summary))
+                }
+            }
+
             // Sign Out
             item {
                 Spacer(Modifier.height(8.dp))
@@ -524,27 +594,99 @@ fun DeliveryNavHost(
             }
     }
 
-    // Sign-out with biometric verification (system prompt on Android/iOS)
-    val onSignOut: () -> Unit = remember(scope) {
+    // Shift summary state
+    val apiClient: WaselakApiClient = koinInject()
+    val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
+    var showShiftSummary by remember { mutableStateOf(false) }
+    var shiftSummaryWithSignOut by remember { mutableStateOf(true) }
+    var shiftSummaryData by remember { mutableStateOf<net.marllex.waselak.core.ui.components.ShiftSummaryUiModel?>(null) }
+    var shiftSummaryLoading by remember { mutableStateOf(false) }
+    var shiftSummaryError by remember { mutableStateOf<String?>(null) }
+
+    val fetchShiftSummary: () -> Unit = remember(scope) {
         {
             scope.launch {
-                val canProceed = if (biometricAuth.isAvailable()) {
-                    when (biometricAuth.authenticate("Sign out verification")) {
-                        is BiometricResult.Success -> true
-                        is BiometricResult.NotAvailable -> true
-                        else -> false
-                    }
-                } else {
-                    true
+                shiftSummaryLoading = true
+                shiftSummaryError = null
+                try {
+                    val from = tokenManager.getLoginTimestamp()
+                    val response = apiClient.getMyShiftSummary(from = from)
+                    shiftSummaryData = net.marllex.waselak.core.ui.components.ShiftSummaryUiModel(
+                        totalRevenue = response.totalRevenue,
+                        totalOrders = response.totalOrders,
+                        cashRevenue = response.cashRevenue,
+                        walletRevenue = response.walletRevenue,
+                        cardRevenue = response.cardRevenue,
+                        cashOrders = response.cashOrders,
+                        walletOrders = response.walletOrders,
+                        cardOrders = response.cardOrders,
+                        cancelledTotal = response.cancelledTotal,
+                        cancelledCount = response.cancelledCount,
+                        refundedTotal = response.refundedTotal,
+                        refundedCount = response.refundedCount,
+                    )
+                } catch (e: Exception) {
+                    shiftSummaryError = e.message ?: "Failed to load shift summary"
                 }
-                if (canProceed) {
-                    authRepository.logout()
-                    navController.navigate(AUTH_ROUTE) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+                shiftSummaryLoading = false
             }
         }
+    }
+
+    // Sign-out: show shift summary bottom sheet first
+    val onSignOut: () -> Unit = remember(scope) {
+        {
+            shiftSummaryWithSignOut = true
+            showShiftSummary = true
+            fetchShiftSummary()
+        }
+    }
+
+    // View-only shift summary (from profile screen)
+    val onViewShiftSummary: () -> Unit = remember(scope) {
+        {
+            shiftSummaryWithSignOut = false
+            showShiftSummary = true
+            fetchShiftSummary()
+        }
+    }
+
+    if (showShiftSummary) {
+        net.marllex.waselak.core.ui.components.ShiftSummaryBottomSheet(
+            shiftSummary = shiftSummaryData,
+            isLoading = shiftSummaryLoading,
+            error = shiftSummaryError,
+            onRetry = fetchShiftSummary,
+            onSignOut = if (shiftSummaryWithSignOut) {
+                {
+                    scope.launch {
+                        val canProceed = if (biometricAuth.isAvailable()) {
+                            when (biometricAuth.authenticate("Sign out verification")) {
+                                is BiometricResult.Success -> true
+                                is BiometricResult.NotAvailable -> true
+                                else -> false
+                            }
+                        } else {
+                            true
+                        }
+                        if (canProceed) {
+                            showShiftSummary = false
+                            authRepository.logout()
+                            navController.navigate(AUTH_ROUTE) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
+            } else {
+                null
+            },
+            onDismiss = {
+                showShiftSummary = false
+                shiftSummaryData = null
+                shiftSummaryError = null
+            },
+        )
     }
 
     val showNav = DeliveryTab.entries.any { tab ->
@@ -596,7 +738,9 @@ fun DeliveryNavHost(
                 userPhone = currentUser?.phone,
                 userEmail = currentUser?.email,
                 userRole = roleLabel,
+                userPhotoUrl = currentUser?.photoUrl,
                 vendor = vendor,
+                onViewShiftSummary = onViewShiftSummary,
                 onSignOut = onSignOut,
             )
         }

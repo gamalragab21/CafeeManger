@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS reservations (
+    id TEXT NOT NULL PRIMARY KEY,
+    vendor_id TEXT NOT NULL,
+    table_id TEXT NOT NULL,
+    table_number TEXT,
+    client_name TEXT NOT NULL,
+    client_phone TEXT,
+    reservation_date TEXT NOT NULL,
+    reservation_time TEXT NOT NULL,
+    number_of_guests INTEGER AS kotlin.Int NOT NULL DEFAULT 1,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    order_id TEXT,
+    created_by TEXT NOT NULL,
+    created_at INTEGER,
+    updated_at INTEGER
+);
+
+getReservations:
+SELECT * FROM reservations WHERE vendor_id = ? ORDER BY reservation_date ASC, reservation_time ASC;
+
+getReservationsByTableId:
+SELECT * FROM reservations WHERE vendor_id = ? AND table_id = ? AND status NOT IN ('CANCELLED', 'COMPLETED') ORDER BY reservation_date ASC, reservation_time ASC;
+
+getActiveReservationForTable:
+SELECT * FROM reservations WHERE table_id = ? AND status NOT IN ('CANCELLED', 'COMPLETED') ORDER BY reservation_date ASC, reservation_time ASC LIMIT 1;
+
+getReservationById:
+SELECT * FROM reservations WHERE id = ?;
+
+insertReservation:
+INSERT OR REPLACE INTO reservations(id, vendor_id, table_id, table_number, client_name, client_phone, reservation_date, reservation_time, number_of_guests, notes, status, order_id, created_by, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteReservation:
+DELETE FROM reservations WHERE id = ?;
+
+deleteAllReservations:
+DELETE FROM reservations WHERE vendor_id = ?;

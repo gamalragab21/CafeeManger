@@ -21,4 +21,18 @@
     <string name="default_address">الافتراضي</string>
     <string name="order_number">طلب #%1$s</string>
     <string name="close">قفل</string>
+    <string name="tab_info">المعلومات</string>
+    <string name="tab_points">النقاط</string>
+    <string name="tab_discounts">الخصومات</string>
+    <string name="loyalty_points_history">سجل نقاط الولاء</string>
+    <string name="discount_history">سجل الخصومات</string>
+    <string name="points_earned_label">مكتسبة</string>
+    <string name="points_redeemed_label">مستبدلة</string>
+    <string name="points_balance_label">رصيد النقاط</string>
+    <string name="no_points_history">لا توجد معاملات نقاط بعد</string>
+    <string name="no_discount_history">لا توجد طلبات بخصومات بعد</string>
+    <string name="filter_all">الكل</string>
+    <string name="filter_has_points">لديه نقاط</string>
+    <string name="filter_no_points">بدون نقاط</string>
+    <string name="discount_amount_label">خصم: -%1$s</string>
 </resources>

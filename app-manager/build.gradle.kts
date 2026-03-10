@@ -8,8 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "net.marllex.waselak.manager"
-        versionCode = 1
-        versionName = "1.0.0"
+        // versionCode and versionName are set centrally via gradle.properties → KmpApplicationConventionPlugin
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations.addAll(listOf("en", "ar"))
@@ -29,6 +28,29 @@ android {
 compose.desktop {
     application {
         mainClass = "net.marllex.waselak.manager.MainKt"
+
+        nativeDistributions {
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
+            )
+            packageName = "Waselak Manager"
+            packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
+            vendor = "Marllex"
+            description = "Waselak Restaurant Manager"
+
+            macOS {
+                bundleID = "net.marllex.waselak.manager"
+                iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+            }
+        }
     }
 }
 
@@ -57,6 +79,7 @@ kotlin {
             implementation(project(":feature:feature-manager-orders"))
             implementation(project(":feature:feature-manager-stock"))
             implementation(project(":feature:feature-manager-customers"))
+            implementation(project(":feature:feature-manager-offers"))
             implementation(project(":feature:feature-manager-chatbot"))
             implementation(project(":feature:feature-cashier-receipt"))
 

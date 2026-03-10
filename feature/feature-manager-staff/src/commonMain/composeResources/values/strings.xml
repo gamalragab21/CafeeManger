@@ -27,7 +27,7 @@
     <string name="main_worker_desc">System user with app access and automatic attendance</string>
     <string name="no_app_access">No App Access</string>
     <string name="has_app_access">Has App Access</string>
-    <string name="role_auto_set">Worker role will be automatically set to: %s</string>
+    <string name="role_auto_set">Worker role will be automatically set to: %1$s</string>
     <string name="main_worker_role_info">Role will be set automatically based on app access in the next step</string>
     <string name="basic_info">Basic Info</string>
     <string name="system_access">System Access</string>
@@ -81,7 +81,7 @@
     <string name="present">Present</string>
     <string name="absent">Absent</string>
     <string name="away">Left</string>
-    <string name="away_count">%d Left</string>
+    <string name="away_count">%1$d Left</string>
     <string name="checked_in">Checked In</string>
     <string name="checked_out">Checked Out</string>
     <string name="check_in_time">Check-in: %s</string>
@@ -91,11 +91,11 @@
     <string name="weekly_view">Weekly</string>
     <string name="monthly_view">Monthly</string>
     <string name="who_is_working">Who is Working Today</string>
-    <string name="present_count">%d Present</string>
-    <string name="absent_count">%d Absent</string>
+    <string name="present_count">%1$d Present</string>
+    <string name="absent_count">%1$d Absent</string>
     <string name="attendance_history">Attendance History</string>
     <string name="no_attendance_records">No attendance records found.</string>
-    <string name="total_days">Total Days: %d</string>
+    <string name="total_days">Total Days: %1$d</string>
     <string name="total_hours">Total Hours: %s</string>
     <string name="filter_by_worker">Filter by Worker</string>
     <string name="all_workers">All Workers</string>
@@ -112,7 +112,7 @@
 
     <!-- Salary -->
     <string name="salary_payments">Salary Payments</string>
-    <string name="worked_days">Worked Days: %d</string>
+    <string name="worked_days">Worked Days: %1$d</string>
     <string name="salary_amount_label">Amount: %s EGP</string>
     <string name="paid">Paid</string>
     <string name="unpaid">Unpaid</string>
@@ -120,8 +120,8 @@
     <string name="no_salary_records">No salary records found.</string>
     <string name="payment_note">Payment Note (optional)</string>
     <string name="unpaid_balance">Unpaid Balance</string>
-    <string name="unpaid_records_count">%d unpaid</string>
-    <string name="pay_selected">Pay %d</string>
+    <string name="unpaid_records_count">%1$d unpaid</string>
+    <string name="pay_selected">Pay %1$d</string>
     <string name="back">Back</string>
 
     <!-- Common -->
@@ -129,6 +129,7 @@
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="confirm">Confirm</string>
+    <string name="ok">OK</string>
     <string name="saving">Saving…</string>
     <string name="loading">Loading…</string>
     <string name="error_occurred">An error occurred</string>
@@ -140,7 +141,7 @@
     <string name="delivery_dashboard">Delivery</string>
     <string name="available">Available</string>
     <string name="busy">Busy</string>
-    <string name="active_orders_count">%d active orders</string>
+    <string name="active_orders_count">%1$d active orders</string>
     <string name="no_active_orders">No active orders</string>
     <string name="no_delivery_persons">No delivery persons found</string>
 
@@ -212,4 +213,14 @@
     <string name="no_overtime">No overtime records</string>
     <string name="delete_overtime">Delete Overtime</string>
     <string name="overtime_entry">%1$s hrs @ %2$s EGP/hr = %3$s EGP</string>
+    <string name="pending_rate">Pending Rate</string>
+    <string name="edit_rate">Edit Rate</string>
+    <string name="set_rate">Set Rate</string>
+    <string name="set_rate_per_hour">Set Rate per Hour</string>
+    <string name="overtime_hours_only">%1$s hrs</string>
+    <string name="rate_not_set">Rate not set yet</string>
+
+    <!-- Plan Limit -->
+    <string name="plan_limit_reached">Plan Limit Reached</string>
+    <string name="plan_limit_message">You have reached the maximum allowed in your current plan. Please upgrade to add more.</string>
 </resources>

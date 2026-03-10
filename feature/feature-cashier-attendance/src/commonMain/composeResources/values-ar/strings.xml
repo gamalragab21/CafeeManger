@@ -41,14 +41,14 @@
     <string name="enter_pin">اكتب رمز الـ PIN</string>
     <string name="pin_length_hint">الـ PIN لازم يكون من 4-6 أرقام</string>
     <string name="confirm">تأكيد</string>
-    <string name="check_in_time_label">دخول: %s</string>
-    <string name="check_out_time_label">خروج: %s</string>
+    <string name="check_in_time_label">دخول: %1$s</string>
+    <string name="check_out_time_label">خروج: %1$s</string>
     <string name="backspace">مسح</string>
     <string name="clear_pin">مسح الكل</string>
     <string name="unknown_error">حدث خطأ غير معروف</string>
     <string name="offline_mode">وضع عدم الاتصال</string>
     <string name="offline_mode_desc">سيتم مزامنة الحضور عند الاتصال</string>
-    <string name="pending_sync">%d في انتظار المزامنة</string>
+    <string name="pending_sync">%1$d في انتظار المزامنة</string>
     <string name="sync_in_progress">جاري مزامنة الحضور…</string>
     <string name="sync_complete">تمت مزامنة الحضور بنجاح</string>
     <string name="sync_failed">فشلت مزامنة بعض السجلات</string>

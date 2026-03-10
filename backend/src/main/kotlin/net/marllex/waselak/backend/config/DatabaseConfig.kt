@@ -6,16 +6,14 @@ import io.ktor.server.config.*
 import kotlinx.datetime.Clock
 import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.service.AuthService
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.insertAndGetId
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 
 object DatabaseConfig {
 
-    fun init(config: ApplicationConfig,resetOnStart: Boolean) {
+    fun init(config: ApplicationConfig, resetOnStart: Boolean) {
         val dbConfig = config.config("database")
 
         val hikariConfig = HikariConfig().apply {
@@ -65,17 +63,31 @@ object DatabaseConfig {
                 AnnouncementsTable,
                 AnnouncementReadsTable,
                 OvertimeTable,
+                AdminUsersTable,
+                AdminRefreshTokensTable,
+                SubscriptionPlansTable,
+                VendorSubscriptionsTable,
+                OffersTable,
+                OfferItemsTable,
+                PointsTransactionsTable,
+                RequestLogsTable,
+                ReservationsTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
-                VendorsTable, OrdersTable, OrderItemsTable, ItemsTable,
+                VendorsTable, UsersTable, OrdersTable, OrderItemsTable, ItemsTable,
                 ItemVariantGroupsTable, ItemVariantOptionsTable,
+                TablesTable, TaxPlacesTable,
                 StockTable,
                 RecipesTable, RecipeIngredientsTable, StockTransactionsTable,
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable, OvertimeTable,
                 AnnouncementsTable, AnnouncementReadsTable,
                 CustomersTable, CustomerAddressesTable,
+                AdminUsersTable, AdminRefreshTokensTable, RequestLogsTable,
+                SubscriptionPlansTable, VendorSubscriptionsTable,
+                OffersTable, OfferItemsTable, PointsTransactionsTable,
+                ReservationsTable,
             )
 
             // Add enable_offline_mode to vendors
@@ -91,6 +103,25 @@ object DatabaseConfig {
             // Backfill payment_status for existing orders
             exec("UPDATE orders SET payment_status = 'PAID' WHERE status = 'COMPLETED' AND payment_status = 'PENDING'")
             exec("UPDATE orders SET payment_timing = 'PAY_NOW' WHERE payment_timing IS NULL")
+
+            // ─── Plan V2: Add overtime, salaries, customer_management columns ───
+            exec("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS overtime BOOLEAN DEFAULT false")
+            exec("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS salaries BOOLEAN DEFAULT false")
+            exec("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS customer_management BOOLEAN DEFAULT false")
+            // Backfill existing plans with correct feature values
+            exec("UPDATE subscription_plans SET overtime = false, salaries = false, customer_management = false, table_management = false WHERE name = 'STARTER'")
+            exec("UPDATE subscription_plans SET overtime = false, salaries = true, customer_management = true, table_management = true, digital_menu = 'NONE' WHERE name = 'BUSINESS'")
+            exec("UPDATE subscription_plans SET overtime = true, salaries = true, customer_management = true, table_management = true WHERE name = 'ENTERPRISE'")
+
+            // ─── Plan V3: Add worker_qrcode and digital_receipt columns ───
+            exec("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS worker_qrcode BOOLEAN DEFAULT false")
+            exec("UPDATE subscription_plans SET worker_qrcode = false WHERE name = 'STARTER'")
+            exec("UPDATE subscription_plans SET worker_qrcode = true WHERE name = 'BUSINESS'")
+            exec("UPDATE subscription_plans SET worker_qrcode = true WHERE name = 'ENTERPRISE'")
+            // Backfill digital_receipt: Enterprise only
+            exec("UPDATE subscription_plans SET digital_receipt = false WHERE name = 'STARTER'")
+            exec("UPDATE subscription_plans SET digital_receipt = false WHERE name = 'BUSINESS'")
+            exec("UPDATE subscription_plans SET digital_receipt = true WHERE name = 'ENTERPRISE'")
 
             // Recipe/BOM migration: backfill stockBehavior for items that already have stock entries
             exec("UPDATE items SET stock_behavior = 'DIRECT' WHERE id IN (SELECT item_id FROM stock WHERE item_id IS NOT NULL) AND stock_behavior = 'NONE'")
@@ -116,38 +147,160 @@ object DatabaseConfig {
             exec("UPDATE stock SET unit = 'PACK', base_unit = 'PACK', conversion_rate = 1.0 WHERE unit IN ('BOX','BAG','BOTTLE','CAN','CARTON','SACK','TRAY','BUCKET','ROLL')")
         }
 
+        // Seed admin user if not exists
+        seedAdminUser(config)
+
+        // Seed default subscription plans
+        seedDefaultPlans()
+
         // Auto-seed demo data if database is empty
-//        seedIfEmpty()
+        seedIfEmpty()
+
+        // Migrate existing vendors without a subscription to Enterprise plan
+        // (must run AFTER seedIfEmpty so new vendors get assigned)
+        migrateExistingVendorsToEnterprise()
     }
+
+    private fun seedAdminUser(config: ApplicationConfig) {
+        val adminConfig = config.config("admin")
+        val name = adminConfig.property("name").getString()
+        val email = adminConfig.property("email").getString()
+        val password = adminConfig.property("password").getString()
+
+        transaction {
+            val exists = AdminUsersTable.selectAll()
+                .where { AdminUsersTable.email eq email }
+                .count() > 0
+
+            if (!exists) {
+                AdminUsersTable.insertAndGetId {
+                    it[AdminUsersTable.name] = name
+                    it[AdminUsersTable.email] = email
+                    it[passwordHash] = AuthService.hashPassword(password)
+                    it[active] = true
+                    it[createdAt] = Clock.System.now()
+                    it[updatedAt] = Clock.System.now()
+                }
+                logger.info("Admin user seeded: $email")
+            }
+        }
+    }
+    private fun seedDefaultPlans() {
+        transaction {
+            data class PlanSeed(
+                val name: String, val displayName: String, val priceEgp: Int,
+                val maxManagers: Int, val maxCashiers: Int, val maxDelivery: Int,
+                val maxOrdersPerMonth: Int, val maxMenuItems: Int, val maxBranches: Int,
+                val stockManagement: Boolean, val workerAttendance: Boolean, val deliveryModule: Boolean,
+                val analytics: String, val digitalMenu: String,
+                val overtime: Boolean, val salaries: Boolean, val customerManagement: Boolean,
+                val tableManagement: Boolean, val workerQrcode: Boolean, val digitalReceipt: Boolean,
+                val displayOrder: Int
+            )
+
+            val plans = listOf(
+                PlanSeed("STARTER", "Starter", 299,
+                    maxManagers = 1, maxCashiers = 1, maxDelivery = 0,
+                    maxOrdersPerMonth = 750, maxMenuItems = 50, maxBranches = 1,
+                    stockManagement = false, workerAttendance = false, deliveryModule = false,
+                    analytics = "NONE", digitalMenu = "NONE",
+                    overtime = false, salaries = false, customerManagement = false,
+                    tableManagement = false, workerQrcode = false, digitalReceipt = false,
+                    displayOrder = 1),
+                PlanSeed("BUSINESS", "Business", 599,
+                    maxManagers = 2, maxCashiers = 3, maxDelivery = 3,
+                    maxOrdersPerMonth = 3500, maxMenuItems = 200, maxBranches = 1,
+                    stockManagement = true, workerAttendance = true, deliveryModule = true,
+                    analytics = "FULL", digitalMenu = "NONE",
+                    overtime = false, salaries = true, customerManagement = true,
+                    tableManagement = true, workerQrcode = true, digitalReceipt = false,
+                    displayOrder = 2),
+                PlanSeed("ENTERPRISE", "Enterprise", 999,
+                    maxManagers = -1, maxCashiers = -1, maxDelivery = -1,
+                    maxOrdersPerMonth = -1, maxMenuItems = -1, maxBranches = 5,
+                    stockManagement = true, workerAttendance = true, deliveryModule = true,
+                    analytics = "FULL", digitalMenu = "FULL",
+                    overtime = true, salaries = true, customerManagement = true,
+                    tableManagement = true, workerQrcode = true, digitalReceipt = true,
+                    displayOrder = 3),
+            )
+
+            for (plan in plans) {
+                val exists = SubscriptionPlansTable.selectAll()
+                    .where { SubscriptionPlansTable.name eq plan.name }
+                    .count() > 0
+                if (!exists) {
+                    SubscriptionPlansTable.insertAndGetId {
+                        it[name] = plan.name
+                        it[displayName] = plan.displayName
+                        it[priceEgp] = plan.priceEgp
+                        it[billingCycle] = "MONTHLY"
+                        it[maxManagers] = plan.maxManagers
+                        it[maxCashiers] = plan.maxCashiers
+                        it[maxDelivery] = plan.maxDelivery
+                        it[maxOrdersPerMonth] = plan.maxOrdersPerMonth
+                        it[maxMenuItems] = plan.maxMenuItems
+                        it[maxBranches] = plan.maxBranches
+                        it[stockManagement] = plan.stockManagement
+                        it[workerAttendance] = plan.workerAttendance
+                        it[deliveryModule] = plan.deliveryModule
+                        it[analytics] = plan.analytics
+                        it[digitalMenu] = plan.digitalMenu
+                        it[overtime] = plan.overtime
+                        it[salaries] = plan.salaries
+                        it[customerManagement] = plan.customerManagement
+                        it[tableManagement] = plan.tableManagement
+                        it[workerQrcode] = plan.workerQrcode
+                        it[digitalReceipt] = plan.digitalReceipt
+                        it[active] = true
+                        it[displayOrder] = plan.displayOrder
+                        it[createdAt] = Clock.System.now()
+                        it[updatedAt] = Clock.System.now()
+                    }
+                    logger.info("Subscription plan seeded: ${plan.name} (${plan.priceEgp} EGP/mo)")
+                }
+            }
+        }
+    }
+
+    private fun migrateExistingVendorsToEnterprise() {
+        transaction {
+            // Find Enterprise plan
+            val enterprisePlan = SubscriptionPlansTable.selectAll()
+                .where { SubscriptionPlansTable.name eq "ENTERPRISE" }
+                .firstOrNull() ?: return@transaction
+
+            val enterprisePlanId = enterprisePlan[SubscriptionPlansTable.id].value
+
+            // Find all vendors that don't have a subscription yet
+            val allVendorIds = VendorsTable.selectAll().map { it[VendorsTable.id].value }
+            val subscribedVendorIds = VendorSubscriptionsTable.selectAll()
+                .map { it[VendorSubscriptionsTable.vendorId] }
+                .toSet()
+
+            val unsubscribedVendorIds = allVendorIds.filter { it !in subscribedVendorIds }
+
+            for (vendorId in unsubscribedVendorIds) {
+                VendorSubscriptionsTable.insertAndGetId {
+                    it[VendorSubscriptionsTable.vendorId] = vendorId
+                    it[planId] = enterprisePlanId
+                    it[status] = "ACTIVE"
+                    it[startedAt] = Clock.System.now()
+                    it[notes] = "Auto-migrated to Enterprise plan"
+                    it[createdAt] = Clock.System.now()
+                    it[updatedAt] = Clock.System.now()
+                }
+                logger.info("Vendor $vendorId migrated to Enterprise plan")
+            }
+        }
+    }
+
     fun clearAllDatabase() {
         transaction {
-            SchemaUtils.drop(
-                AnnouncementReadsTable,
-                AnnouncementsTable,
-                RefreshTokensTable,
-                ActivityLogsTable,
-                SalaryPaymentsTable,
-                AttendanceAuthLogsTable,
-                AttendanceTable,
-                WorkerRolesTable,
-                WorkersTable,
-                StockTransactionsTable,
-                RecipeIngredientsTable,
-                RecipesTable,
-                StockTable,
-                OrderItemsTable,
-                OrdersTable,
-                CustomerAddressesTable,
-                CustomersTable,
-                TaxPlacesTable,
-                TablesTable,
-                ItemVariantOptionsTable,
-                ItemVariantGroupsTable,
-                ItemsTable,
-                CategoriesTable,
-                UsersTable,
-                VendorsTable,
-            )
+            // Use raw SQL DROP CASCADE to avoid foreign key ordering issues
+            exec("DROP SCHEMA public CASCADE")
+            exec("CREATE SCHEMA public")
+            exec("GRANT ALL ON SCHEMA public TO PUBLIC")
         }
     }
 
@@ -158,91 +311,921 @@ object DatabaseConfig {
             val vendorCount = VendorsTable.selectAll().count()
             if (vendorCount > 0L) return@transaction
 
-            logger.info("Database is empty. Seeding demo data...")
+            logger.info("Database is empty. Seeding comprehensive test data for all vendor types...")
 
-            // 1. Create demo vendor
-            val vendorId = VendorsTable.insertAndGetId {
-                it[name] = "Demo Store"
-                it[address] = "123 Main Street, Downtown"
-                it[contactPhone] = "+1234567890"
-                it[walletPhone] = "+1234567890"
-                it[createdAt] = Clock.System.now()
-                it[updatedAt] = Clock.System.now()
-            }
-
-            // 2. Create demo users (password: "password123")
             val passwordHash = AuthService.hashPassword("password123")
-            val demoUsers = listOf(
-                Triple("MANAGER", "Demo Manager", "+1111111111"),
-                Triple("CASHIER", "Demo Cashier", "+2222222222"),
-                Triple("DELIVERY", "Demo Delivery", "+3333333333"),
-            )
-            demoUsers.forEach { (role, userName, phone) ->
-                UsersTable.insertAndGetId {
-                    it[UsersTable.vendorId] = vendorId.value
-                    it[UsersTable.role] = role
-                    it[UsersTable.name] = userName
-                    it[UsersTable.phone] = phone
-                    it[email] = "${role.lowercase()}@demo.com"
-                    it[UsersTable.passwordHash] = passwordHash
-                    it[active] = true
-                    it[createdAt] = Clock.System.now()
-                    it[updatedAt] = Clock.System.now()
-                }
-            }
+            val now = Clock.System.now()
 
-            // 3. Create demo categories
+            // ===================================================================
+            // Helper data classes
+            // ===================================================================
+            data class VendorSeed(
+                val name: String, val address: String, val phone: String,
+                val businessType: String, val enableTables: Boolean, val enableDineIn: Boolean,
+                val enableDelivery: Boolean, val enableInStore: Boolean, val taxEnabled: Boolean,
+                val defaultTaxPercent: Double, val stockMode: String,
+                val loyaltyEnabled: Boolean, val phonePrefix: String
+            )
+
             data class CategorySeed(val catName: String, val order: Int)
-            val categories = listOf(
-                CategorySeed("Burgers", 1),
-                CategorySeed("Drinks", 2),
-                CategorySeed("Desserts", 3),
-            )
-            val categoryIds = categories.associate { cat ->
-                cat.catName to CategoriesTable.insertAndGetId {
-                    it[CategoriesTable.vendorId] = vendorId.value
-                    it[name] = cat.catName
-                    it[displayOrder] = cat.order
-                    it[createdAt] = Clock.System.now()
-                    it[updatedAt] = Clock.System.now()
-                }
-            }
-
-            // 4. Create demo items
             data class ItemSeed(val category: String, val itemName: String, val desc: String, val itemPrice: Double)
-            val items = listOf(
-                ItemSeed("Burgers", "Classic Burger", "Beef patty with lettuce and tomato", 8.99),
-                ItemSeed("Burgers", "Cheese Burger", "Classic with extra cheese", 10.99),
-                ItemSeed("Drinks", "Cola", "Refreshing cola drink", 2.99),
-                ItemSeed("Drinks", "Fresh Juice", "Orange juice", 4.99),
-                ItemSeed("Desserts", "Chocolate Cake", "Rich chocolate layer cake", 6.99),
+            data class CustomerSeed(val custName: String, val custPhone: String, val orderCount: Int, val totalSpent: Double, val points: Int)
+            data class StockSeed(val itemName: String, val qty: Double, val minQty: Double, val costPrice: Double, val unit: String)
+            data class WorkerSeed(val workerId: String, val fullName: String, val workerPhone: String?, val role: String, val salaryType: String, val salaryAmount: Double)
+
+            // ===================================================================
+            // 1. RESTAURANT — مطعم الشام
+            // ===================================================================
+            val vendors = listOf(
+                VendorSeed("مطعم الشام", "١٥ شارع التحرير، وسط البلد، القاهرة", "+20100000001",
+                    "RESTAURANT", enableTables = true, enableDineIn = true, enableDelivery = true,
+                    enableInStore = false, taxEnabled = false, defaultTaxPercent = 0.0,
+                    stockMode = "WARN", loyaltyEnabled = true, phonePrefix = "1"),
+                // 2. PHARMACY — صيدلية الشفاء
+                VendorSeed("صيدلية الشفاء", "٢٣ شارع الجمهورية، مصر الجديدة، القاهرة", "+20100000002",
+                    "PHARMACY", enableTables = false, enableDineIn = false, enableDelivery = true,
+                    enableInStore = true, taxEnabled = true, defaultTaxPercent = 14.0,
+                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "2"),
+                // 3. CAFE — كافيه لافندر
+                VendorSeed("كافيه لافندر", "٧ شارع البطل أحمد عبدالعزيز، المهندسين", "+20100000003",
+                    "CAFE", enableTables = true, enableDineIn = true, enableDelivery = true,
+                    enableInStore = false, taxEnabled = false, defaultTaxPercent = 0.0,
+                    stockMode = "WARN", loyaltyEnabled = true, phonePrefix = "3"),
+                // 4. BAKERY — مخبز السنابل
+                VendorSeed("مخبز السنابل", "١٢ شارع فيصل، الجيزة", "+20100000004",
+                    "BAKERY", enableTables = false, enableDineIn = false, enableDelivery = true,
+                    enableInStore = true, taxEnabled = false, defaultTaxPercent = 0.0,
+                    stockMode = "WARN", loyaltyEnabled = false, phonePrefix = "4"),
+                // 5. SUPERMARKET — سوبر ماركت الخير
+                VendorSeed("سوبر ماركت الخير", "٩ شارع مصطفى النحاس، مدينة نصر", "+20100000005",
+                    "SUPERMARKET", enableTables = false, enableDineIn = false, enableDelivery = true,
+                    enableInStore = true, taxEnabled = true, defaultTaxPercent = 14.0,
+                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "5"),
+                // 6. RETAIL — محل لعب أطفال (Kids Toy Store)
+                VendorSeed("محل لعب أطفال توي لاند", "١٨ شارع العروبة، المعادي، القاهرة", "+20100000006",
+                    "RETAIL", enableTables = false, enableDineIn = false, enableDelivery = true,
+                    enableInStore = true, taxEnabled = true, defaultTaxPercent = 14.0,
+                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "6"),
             )
-            items.forEach { item ->
-                ItemsTable.insertAndGetId {
-                    it[ItemsTable.vendorId] = vendorId.value
-                    it[categoryId] = categoryIds[item.category]!!.value
-                    it[name] = item.itemName
-                    it[description] = item.desc
-                    it[price] = item.itemPrice.toBigDecimal()
-                    it[available] = true
-                    it[createdAt] = Clock.System.now()
-                    it[updatedAt] = Clock.System.now()
+
+            // Categories per vendor type
+            val vendorCategories = mapOf(
+                "RESTAURANT" to listOf(CategorySeed("مشويات", 1), CategorySeed("أطباق رئيسية", 2), CategorySeed("مقبلات", 3), CategorySeed("مشروبات", 4), CategorySeed("حلويات", 5)),
+                "PHARMACY" to listOf(CategorySeed("مسكنات", 1), CategorySeed("مضادات حيوية", 2), CategorySeed("فيتامينات ومكملات", 3), CategorySeed("أدوية البرد والسعال", 4), CategorySeed("العناية بالبشرة", 5), CategorySeed("مستلزمات طبية", 6)),
+                "CAFE" to listOf(CategorySeed("قهوة ساخنة", 1), CategorySeed("قهوة باردة", 2), CategorySeed("مشروبات ساخنة", 3), CategorySeed("عصائر وسموذي", 4), CategorySeed("حلويات ومخبوزات", 5)),
+                "BAKERY" to listOf(CategorySeed("خبز طازج", 1), CategorySeed("معجنات", 2), CategorySeed("حلويات شرقية", 3), CategorySeed("حلويات غربية", 4), CategorySeed("فطائر", 5)),
+                "SUPERMARKET" to listOf(CategorySeed("ألبان وأجبان", 1), CategorySeed("مشروبات", 2), CategorySeed("معلبات وبقوليات", 3), CategorySeed("منظفات", 4), CategorySeed("خضار وفاكهة", 5), CategorySeed("لحوم ودواجن", 6)),
+                "RETAIL" to listOf(CategorySeed("عرائس وشخصيات", 1), CategorySeed("ألعاب تعليمية", 2), CategorySeed("ألعاب تركيب وبازل", 3), CategorySeed("سيارات ومركبات", 4), CategorySeed("ألعاب خارجية", 5), CategorySeed("ألعاب إلكترونية", 6)),
+            )
+
+            // Items per vendor type
+            val vendorItems = mapOf(
+                "RESTAURANT" to listOf(
+                    ItemSeed("مشويات", "مشكل مشويات", "لحم - كفتة - فراخ", 250.0),
+                    ItemSeed("مشويات", "كباب حلبي", "كباب لحم على الفحم", 180.0),
+                    ItemSeed("مشويات", "شيش طاووق", "صدور فراخ متبلة مشوية", 150.0),
+                    ItemSeed("أطباق رئيسية", "أرز بسمتي باللحمة", "أرز بسمتي مع قطع اللحم", 120.0),
+                    ItemSeed("أطباق رئيسية", "فتة لحمة", "فتة مصرية باللحم البلدي", 95.0),
+                    ItemSeed("أطباق رئيسية", "محشي ورق عنب", "ورق عنب محشي أرز ولحمة", 85.0),
+                    ItemSeed("مقبلات", "حمص بالطحينة", "حمص طازج مع طحينة وليمون", 40.0),
+                    ItemSeed("مقبلات", "بابا غنوج", "باذنجان مشوي مع طحينة", 35.0),
+                    ItemSeed("مقبلات", "سلطة فتوش", "سلطة لبنانية طازجة", 30.0),
+                    ItemSeed("مشروبات", "عصير مانجو طازج", "مانجو طازج ١٠٠٪", 35.0),
+                    ItemSeed("مشروبات", "ليمون بالنعناع", "ليمون طازج بالنعناع", 25.0),
+                    ItemSeed("حلويات", "كنافة نابلسية", "كنافة بالجبنة", 55.0),
+                    ItemSeed("حلويات", "أم علي", "أم علي بالمكسرات والقشطة", 45.0),
+                ),
+                "PHARMACY" to listOf(
+                    ItemSeed("مسكنات", "بانادول أقراص", "باراسيتامول ٥٠٠ مجم - ٢٤ قرص", 36.0),
+                    ItemSeed("مسكنات", "بروفين ٤٠٠", "ايبوبروفين ٤٠٠ مجم - ٢٠ قرص", 42.0),
+                    ItemSeed("مسكنات", "كتافلام ٥٠", "ديكلوفيناك ٥٠ مجم - ٢٠ قرص", 54.0),
+                    ItemSeed("مضادات حيوية", "أوجمنتين ١ جم", "أموكسيسيلين + كلافيولانيك - ١٤ قرص", 125.0),
+                    ItemSeed("مضادات حيوية", "سيفوتاكس حقن", "سيفوتاكسيم ١ جم - أمبول", 38.0),
+                    ItemSeed("مضادات حيوية", "فلاجيل ٥٠٠", "ميترونيدازول ٥٠٠ مجم - ٢٠ قرص", 18.0),
+                    ItemSeed("فيتامينات ومكملات", "فيتامين سي ١٠٠٠", "فوار فيتامين سي - ٢٠ قرص", 65.0),
+                    ItemSeed("فيتامينات ومكملات", "أوميجا ٣", "زيت السمك ١٠٠٠ مجم - ٣٠ كبسولة", 120.0),
+                    ItemSeed("فيتامينات ومكملات", "كالسيوم + فيتامين د", "كالسيوم ٦٠٠ مجم - ٣٠ قرص", 85.0),
+                    ItemSeed("أدوية البرد والسعال", "كونجستال", "أقراص مزيلة للاحتقان - ٢٠ قرص", 30.0),
+                    ItemSeed("أدوية البرد والسعال", "سينلرج شراب", "شراب للبرد والسعال - ١٢٠ مل", 42.0),
+                    ItemSeed("العناية بالبشرة", "بيبانثين كريم", "كريم مرطب ومعالج - ٣٠ جم", 95.0),
+                    ItemSeed("العناية بالبشرة", "صن بلوك SPF50", "واقي شمس ٥٠ مل", 180.0),
+                    ItemSeed("مستلزمات طبية", "كمامات طبية", "عبوة ٥٠ كمامة", 50.0),
+                    ItemSeed("مستلزمات طبية", "قفازات لاتكس", "عبوة ١٠٠ قفاز - مقاس M", 75.0),
+                    ItemSeed("مستلزمات طبية", "جهاز قياس ضغط", "جهاز ديجيتال لقياس ضغط الدم", 450.0),
+                ),
+                "CAFE" to listOf(
+                    ItemSeed("قهوة ساخنة", "إسبريسو", "شوت إسبريسو مزدوج", 35.0),
+                    ItemSeed("قهوة ساخنة", "كابتشينو", "إسبريسو مع حليب مبخر ورغوة", 45.0),
+                    ItemSeed("قهوة ساخنة", "لاتيه", "إسبريسو مع حليب ساخن", 50.0),
+                    ItemSeed("قهوة ساخنة", "موكا", "إسبريسو + شوكولاتة + حليب", 55.0),
+                    ItemSeed("قهوة باردة", "آيس لاتيه", "إسبريسو بارد مع حليب", 55.0),
+                    ItemSeed("قهوة باردة", "كولد برو", "قهوة مخمرة على البارد ١٢ ساعة", 60.0),
+                    ItemSeed("قهوة باردة", "فرابتشينو كراميل", "قهوة مثلجة بالكراميل والكريمة", 65.0),
+                    ItemSeed("مشروبات ساخنة", "شاي أخضر", "شاي أخضر ياباني", 25.0),
+                    ItemSeed("مشروبات ساخنة", "هوت شوكولت", "شوكولاتة ساخنة بالكريمة", 50.0),
+                    ItemSeed("عصائر وسموذي", "سموذي مانجو", "مانجو + موز + حليب", 55.0),
+                    ItemSeed("عصائر وسموذي", "عصير برتقال طازج", "برتقال طازج ١٠٠٪", 40.0),
+                    ItemSeed("حلويات ومخبوزات", "تشيز كيك", "تشيز كيك بالتوت", 65.0),
+                    ItemSeed("حلويات ومخبوزات", "كروسان شوكولاتة", "كروسان فرنسي بحشو الشوكولاتة", 40.0),
+                    ItemSeed("حلويات ومخبوزات", "كوكيز", "كوكيز شوكولاتة طازج", 30.0),
+                ),
+                "BAKERY" to listOf(
+                    ItemSeed("خبز طازج", "عيش بلدي", "رغيف عيش بلدي طازج", 2.0),
+                    ItemSeed("خبز طازج", "عيش فينو", "عيش فينو سادة", 3.0),
+                    ItemSeed("خبز طازج", "توست أبيض", "توست شرائح - عبوة", 15.0),
+                    ItemSeed("معجنات", "كرواسون سادة", "كرواسون فرنسي طازج", 12.0),
+                    ItemSeed("معجنات", "باتيه باللحمة", "باتيه محشي لحمة مفرومة", 15.0),
+                    ItemSeed("معجنات", "سمبوسك جبنة", "سمبوسك بالجبنة والنعناع", 10.0),
+                    ItemSeed("حلويات شرقية", "بسبوسة بالقشطة", "بسبوسة مصرية بالقشطة", 25.0),
+                    ItemSeed("حلويات شرقية", "كنافة بالمانجو", "كنافة بحشو المانجو", 35.0),
+                    ItemSeed("حلويات شرقية", "بقلاوة", "بقلاوة بالمكسرات - ٦ قطع", 40.0),
+                    ItemSeed("حلويات غربية", "تورتة شوكولاتة", "تورتة شوكولاتة - ١ كجم", 250.0),
+                    ItemSeed("حلويات غربية", "تارت فراولة", "تارت بالفراولة الطازجة", 45.0),
+                    ItemSeed("فطائر", "فطيرة مشلتت", "فطيرة مشلتت بالسمن البلدي", 20.0),
+                    ItemSeed("فطائر", "فطيرة بالجبنة والعسل", "فطيرة محشية جبنة وعسل أبيض", 30.0),
+                ),
+                "SUPERMARKET" to listOf(
+                    ItemSeed("ألبان وأجبان", "حليب كامل الدسم ١ لتر", "حليب طازج كامل الدسم", 28.0),
+                    ItemSeed("ألبان وأجبان", "جبنة بيضاء ١ كجم", "جبنة بيضاء مصرية", 85.0),
+                    ItemSeed("ألبان وأجبان", "زبادي ١٧٠ جم", "زبادي طبيعي", 8.0),
+                    ItemSeed("مشروبات", "مياه معدنية ١.٥ لتر", "مياه معدنية نقية", 5.0),
+                    ItemSeed("مشروبات", "عصير برتقال ١ لتر", "عصير برتقال طبيعي ١٠٠٪", 35.0),
+                    ItemSeed("مشروبات", "بيبسي ٣٣٠ مل", "بيبسي علبة", 10.0),
+                    ItemSeed("معلبات وبقوليات", "فول مدمس ٤٠٠ جم", "فول مدمس جاهز", 12.0),
+                    ItemSeed("معلبات وبقوليات", "تونة ١٧٠ جم", "تونة بالزيت", 28.0),
+                    ItemSeed("معلبات وبقوليات", "عدس أصفر ١ كجم", "عدس أصفر مجروش", 45.0),
+                    ItemSeed("منظفات", "صابون سائل ١ لتر", "صابون سائل لغسيل الأطباق", 30.0),
+                    ItemSeed("منظفات", "مسحوق غسيل ٢ كجم", "مسحوق غسيل أوتوماتيك", 85.0),
+                    ItemSeed("خضار وفاكهة", "طماطم ١ كجم", "طماطم طازجة", 15.0),
+                    ItemSeed("خضار وفاكهة", "بطاطس ١ كجم", "بطاطس طازجة", 12.0),
+                    ItemSeed("لحوم ودواجن", "صدور فراخ ١ كجم", "صدور فراخ طازجة", 130.0),
+                    ItemSeed("لحوم ودواجن", "لحمة بلدي ١ كجم", "لحم بقري طازج", 350.0),
+                ),
+                "RETAIL" to listOf(
+                    ItemSeed("عرائس وشخصيات", "عروسة باربي كلاسيك", "عروسة باربي مع ملابس إضافية", 450.0),
+                    ItemSeed("عرائس وشخصيات", "دبدوب كبير ٨٠ سم", "دبدوب قطيفة ناعم", 350.0),
+                    ItemSeed("عرائس وشخصيات", "شخصية سبايدرمان أكشن", "مجسم سبايدرمان متحرك ٣٠ سم", 280.0),
+                    ItemSeed("ألعاب تعليمية", "صلصال ألوان ١٢ لون", "صلصال آمن للأطفال - ١٢ لون", 85.0),
+                    ItemSeed("ألعاب تعليمية", "حروف مغناطيسية عربي", "حروف عربية مغناطيسية للتعلم", 120.0),
+                    ItemSeed("ألعاب تعليمية", "ألوان خشبية ٢٤ لون", "ألوان خشبية عالية الجودة", 65.0),
+                    ItemSeed("ألعاب تركيب وبازل", "ليجو كلاسيك ٥٠٠ قطعة", "مكعبات ليجو كلاسيكية", 650.0),
+                    ItemSeed("ألعاب تركيب وبازل", "بازل ١٠٠ قطعة خريطة مصر", "بازل تعليمي خريطة مصر", 95.0),
+                    ItemSeed("ألعاب تركيب وبازل", "مكعبات تركيب خشبية", "مكعبات خشبية ملونة ٥٠ قطعة", 150.0),
+                    ItemSeed("سيارات ومركبات", "سيارة ريموت كنترول", "سيارة سباق ريموت كنترول", 380.0),
+                    ItemSeed("سيارات ومركبات", "شاحنة نقل كبيرة", "شاحنة نقل بقلاب ٤٠ سم", 220.0),
+                    ItemSeed("سيارات ومركبات", "طقم سيارات صغيرة ١٠ قطع", "مجموعة سيارات معدنية مصغرة", 180.0),
+                    ItemSeed("ألعاب خارجية", "كورة قدم مقاس ٤", "كورة قدم للأطفال", 150.0),
+                    ItemSeed("ألعاب خارجية", "طوق هولا هوب", "طوق رياضي ملون للأطفال", 60.0),
+                    ItemSeed("ألعاب خارجية", "مسدس نيرف بلاستر", "مسدس نيرف مع ١٠ سهام", 320.0),
+                    ItemSeed("ألعاب إلكترونية", "تابلت تعليمي للأطفال", "تابلت تعليمي عربي/إنجليزي", 550.0),
+                    ItemSeed("ألعاب إلكترونية", "جيم باد ٤٠٠ لعبة", "جهاز ألعاب محمول ٤٠٠ لعبة كلاسيكية", 280.0),
+                    ItemSeed("ألعاب إلكترونية", "روبوت ذكي ريموت", "روبوت ذكي بريموت كنترول وأصوات", 420.0),
+                ),
+            )
+
+            // Customers per vendor type
+            val vendorCustomers = mapOf(
+                "RESTAURANT" to listOf(
+                    CustomerSeed("أحمد محمود", "+20101000001", 25, 3500.0, 350),
+                    CustomerSeed("فاطمة علي", "+20101000002", 18, 2200.0, 220),
+                    CustomerSeed("محمد حسن", "+20101000003", 12, 1800.0, 180),
+                    CustomerSeed("نور الدين", "+20101000004", 8, 950.0, 95),
+                ),
+                "PHARMACY" to listOf(
+                    CustomerSeed("سارة أحمد", "+20102000001", 30, 4500.0, 450),
+                    CustomerSeed("عمرو خالد", "+20102000002", 22, 3200.0, 320),
+                    CustomerSeed("هدى محمد", "+20102000003", 15, 2100.0, 210),
+                    CustomerSeed("يوسف إبراهيم", "+20102000004", 10, 1500.0, 150),
+                    CustomerSeed("منى عبدالله", "+20102000005", 5, 800.0, 80),
+                ),
+                "CAFE" to listOf(
+                    CustomerSeed("كريم وائل", "+20103000001", 40, 2800.0, 280),
+                    CustomerSeed("ريم سامي", "+20103000002", 35, 2400.0, 240),
+                    CustomerSeed("عمر طارق", "+20103000003", 20, 1500.0, 150),
+                ),
+                "BAKERY" to listOf(
+                    CustomerSeed("حسين علي", "+20104000001", 50, 1200.0, 0),
+                    CustomerSeed("آية محمد", "+20104000002", 30, 800.0, 0),
+                ),
+                "SUPERMARKET" to listOf(
+                    CustomerSeed("خالد عبدالرحمن", "+20105000001", 60, 8500.0, 850),
+                    CustomerSeed("نادية حسين", "+20105000002", 45, 6200.0, 620),
+                    CustomerSeed("إسلام فتحي", "+20105000003", 35, 4800.0, 480),
+                    CustomerSeed("سمية أحمد", "+20105000004", 20, 3000.0, 300),
+                ),
+                "RETAIL" to listOf(
+                    CustomerSeed("ماما نورهان", "+20106000001", 15, 4200.0, 420),
+                    CustomerSeed("بابا أحمد", "+20106000002", 10, 2800.0, 280),
+                    CustomerSeed("تيتة فاطمة", "+20106000003", 8, 1950.0, 195),
+                    CustomerSeed("سارة وأولادها", "+20106000004", 20, 5500.0, 550),
+                    CustomerSeed("محمد حسام", "+20106000005", 5, 1200.0, 120),
+                ),
+            )
+
+            // Stock per vendor type
+            val vendorStock = mapOf(
+                "RESTAURANT" to listOf(
+                    StockSeed("لحم بقري", 50.0, 10.0, 280.0, "KILOGRAM"),
+                    StockSeed("صدور فراخ", 30.0, 8.0, 120.0, "KILOGRAM"),
+                    StockSeed("أرز بسمتي", 100.0, 20.0, 45.0, "KILOGRAM"),
+                    StockSeed("طحينة", 15.0, 5.0, 60.0, "KILOGRAM"),
+                    StockSeed("زيت زيتون", 20.0, 5.0, 120.0, "LITER"),
+                ),
+                "PHARMACY" to listOf(
+                    StockSeed("بانادول أقراص", 200.0, 50.0, 22.0, "PACK"),
+                    StockSeed("أوجمنتين ١ جم", 80.0, 20.0, 85.0, "PACK"),
+                    StockSeed("فيتامين سي فوار", 150.0, 30.0, 40.0, "PACK"),
+                    StockSeed("كمامات طبية", 100.0, 20.0, 30.0, "PACK"),
+                    StockSeed("قفازات لاتكس", 50.0, 10.0, 45.0, "PACK"),
+                    StockSeed("بيبانثين كريم", 60.0, 15.0, 65.0, "PIECE"),
+                ),
+                "CAFE" to listOf(
+                    StockSeed("بن إسبريسو", 25.0, 5.0, 350.0, "KILOGRAM"),
+                    StockSeed("حليب طازج", 50.0, 15.0, 25.0, "LITER"),
+                    StockSeed("شوكولاتة", 10.0, 3.0, 180.0, "KILOGRAM"),
+                    StockSeed("كراميل صوص", 8.0, 2.0, 120.0, "LITER"),
+                    StockSeed("كريمة خفق", 12.0, 4.0, 80.0, "LITER"),
+                ),
+                "BAKERY" to listOf(
+                    StockSeed("دقيق أبيض", 200.0, 50.0, 18.0, "KILOGRAM"),
+                    StockSeed("سكر", 80.0, 20.0, 22.0, "KILOGRAM"),
+                    StockSeed("زبدة", 30.0, 10.0, 130.0, "KILOGRAM"),
+                    StockSeed("خميرة فورية", 20.0, 5.0, 45.0, "KILOGRAM"),
+                    StockSeed("بيض", 500.0, 100.0, 3.0, "PIECE"),
+                ),
+                "SUPERMARKET" to listOf(
+                    StockSeed("حليب كامل ١ لتر", 300.0, 80.0, 20.0, "PIECE"),
+                    StockSeed("مياه معدنية", 500.0, 100.0, 3.0, "PIECE"),
+                    StockSeed("أرز ١ كجم", 200.0, 50.0, 25.0, "PIECE"),
+                    StockSeed("زيت طبخ ١ لتر", 150.0, 40.0, 55.0, "PIECE"),
+                    StockSeed("سكر ١ كجم", 100.0, 30.0, 20.0, "PIECE"),
+                ),
+                "RETAIL" to listOf(
+                    StockSeed("عروسة باربي كلاسيك", 25.0, 5.0, 280.0, "PIECE"),
+                    StockSeed("دبدوب كبير ٨٠ سم", 15.0, 3.0, 200.0, "PIECE"),
+                    StockSeed("شخصية سبايدرمان أكشن", 20.0, 5.0, 170.0, "PIECE"),
+                    StockSeed("ليجو كلاسيك ٥٠٠ قطعة", 12.0, 3.0, 400.0, "PIECE"),
+                    StockSeed("صلصال ألوان ١٢ لون", 40.0, 10.0, 50.0, "PIECE"),
+                    StockSeed("سيارة ريموت كنترول", 18.0, 5.0, 230.0, "PIECE"),
+                    StockSeed("كورة قدم مقاس ٤", 30.0, 8.0, 90.0, "PIECE"),
+                    StockSeed("تابلت تعليمي للأطفال", 10.0, 3.0, 350.0, "PIECE"),
+                    StockSeed("مسدس نيرف بلاستر", 22.0, 5.0, 195.0, "PIECE"),
+                    StockSeed("روبوت ذكي ريموت", 8.0, 2.0, 260.0, "PIECE"),
+                ),
+            )
+
+            // Workers per vendor type
+            val vendorWorkers = mapOf(
+                "RESTAURANT" to listOf(
+                    WorkerSeed("WRK-R01", "شيف أحمد", "+20111000001", "شيف رئيسي", "MONTHLY", 8000.0),
+                    WorkerSeed("WRK-R02", "محمود السفرجي", "+20111000002", "سفرجي", "DAILY", 250.0),
+                    WorkerSeed("WRK-R03", "علي الغسال", null, "عامل نظافة", "DAILY", 150.0),
+                ),
+                "PHARMACY" to listOf(
+                    WorkerSeed("WRK-P01", "د. هالة سعيد", "+20112000001", "صيدلي", "MONTHLY", 10000.0),
+                    WorkerSeed("WRK-P02", "أمل فاروق", "+20112000002", "صيدلي مساعد", "MONTHLY", 6000.0),
+                ),
+                "CAFE" to listOf(
+                    WorkerSeed("WRK-C01", "باريستا كريم", "+20113000001", "باريستا", "MONTHLY", 6000.0),
+                    WorkerSeed("WRK-C02", "باريستا نور", "+20113000002", "باريستا", "MONTHLY", 5500.0),
+                    WorkerSeed("WRK-C03", "سامي الويتر", "+20113000003", "ويتر", "DAILY", 200.0),
+                ),
+                "BAKERY" to listOf(
+                    WorkerSeed("WRK-B01", "الأسطى حسن", "+20114000001", "خباز رئيسي", "MONTHLY", 7000.0),
+                    WorkerSeed("WRK-B02", "مساعد عادل", "+20114000002", "مساعد خباز", "DAILY", 200.0),
+                ),
+                "SUPERMARKET" to listOf(
+                    WorkerSeed("WRK-S01", "ممدوح المحاسب", "+20115000001", "محاسب", "MONTHLY", 5500.0),
+                    WorkerSeed("WRK-S02", "سعيد الرفوف", "+20115000002", "عامل رفوف", "DAILY", 180.0),
+                    WorkerSeed("WRK-S03", "حسام المخزن", "+20115000003", "أمين مخزن", "MONTHLY", 5000.0),
+                ),
+                "RETAIL" to listOf(
+                    WorkerSeed("WRK-T01", "مصطفى أمين المخزن", "+20116000001", "أمين مخزن", "MONTHLY", 5000.0),
+                    WorkerSeed("WRK-T02", "رانيا المبيعات", "+20116000002", "مسؤولة مبيعات", "MONTHLY", 4500.0),
+                    WorkerSeed("WRK-T03", "عمرو التغليف", "+20116000003", "عامل تغليف", "DAILY", 180.0),
+                ),
+            )
+
+            // ===================================================================
+            // Create each vendor with all its data
+            // ===================================================================
+            for ((idx, vendor) in vendors.withIndex()) {
+                val bt = vendor.businessType
+
+                // Create vendor
+                val vendorId = VendorsTable.insertAndGetId {
+                    it[name] = vendor.name
+                    it[address] = vendor.address
+                    it[contactPhone] = vendor.phone
+                    it[walletPhone] = vendor.phone
+                    it[businessType] = bt
+                    it[enableTables] = vendor.enableTables
+                    it[enableDineIn] = vendor.enableDineIn
+                    it[enableDelivery] = vendor.enableDelivery
+                    it[enableTakeaway] = true
+                    it[enableInStore] = vendor.enableInStore
+                    it[enablePickupLater] = vendor.enableInStore
+                    it[taxEnabled] = vendor.taxEnabled
+                    it[defaultTaxPercent] = vendor.defaultTaxPercent.toBigDecimal()
+                    it[stockMode] = vendor.stockMode
+                    it[loyaltyEnabled] = vendor.loyaltyEnabled
+                    it[createdAt] = now
+                    it[updatedAt] = now
                 }
+                logger.info("Created vendor: ${vendor.name} (${bt})")
+
+                // Create users: Manager, Cashier, Delivery
+                val prefix = vendor.phonePrefix
+                val userRoles = mutableListOf(
+                    Triple("MANAGER", "مدير ${vendor.name}", "+20${prefix}0${prefix}0${prefix}001"),
+                    Triple("CASHIER", "كاشير ${vendor.name}", "+20${prefix}0${prefix}0${prefix}002"),
+                )
+                if (vendor.enableDelivery) {
+                    userRoles.add(Triple("DELIVERY", "سائق ${vendor.name}", "+20${prefix}0${prefix}0${prefix}003"))
+                }
+
+                val userIdMap = mutableMapOf<String, java.util.UUID>() // role -> userId
+                userRoles.forEach { (role, userName, phone) ->
+                    val userId = UsersTable.insertAndGetId {
+                        it[UsersTable.vendorId] = vendorId.value
+                        it[UsersTable.role] = role
+                        it[UsersTable.name] = userName
+                        it[UsersTable.phone] = phone
+                        it[email] = "${role.lowercase()}.${bt.lowercase()}@test.com"
+                        it[UsersTable.passwordHash] = passwordHash
+                        it[active] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    userIdMap[role] = userId.value
+                }
+
+                // Create categories
+                val catMap = mutableMapOf<String, java.util.UUID>()
+                vendorCategories[bt]?.forEach { cat ->
+                    val catId = CategoriesTable.insertAndGetId {
+                        it[CategoriesTable.vendorId] = vendorId.value
+                        it[CategoriesTable.name] = cat.catName
+                        it[displayOrder] = cat.order
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    catMap[cat.catName] = catId.value
+                }
+
+                // Create items
+                data class CreatedItem(val id: java.util.UUID, val name: String, val price: Double)
+                val createdItems = mutableListOf<CreatedItem>()
+                vendorItems[bt]?.forEach { item ->
+                    val catId = catMap[item.category] ?: return@forEach
+                    val itemId = ItemsTable.insertAndGetId {
+                        it[ItemsTable.vendorId] = vendorId.value
+                        it[categoryId] = catId
+                        it[ItemsTable.name] = item.itemName
+                        it[description] = item.desc
+                        it[price] = item.itemPrice.toBigDecimal()
+                        it[available] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    createdItems.add(CreatedItem(itemId.value, item.itemName, item.itemPrice))
+                }
+
+                // Create tables (only for dine-in vendors)
+                val tableIds = mutableListOf<java.util.UUID>()
+                if (vendor.enableTables) {
+                    (1..6).forEach { num ->
+                        val tId = TablesTable.insertAndGetId {
+                            it[TablesTable.vendorId] = vendorId.value
+                            it[number] = "T$num"
+                            it[capacity] = when (num) { 1, 4 -> 2; 2, 5 -> 4; 3, 6 -> 6; else -> 4 }
+                            it[status] = if (num <= 2) "OCCUPIED" else "AVAILABLE"
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                        tableIds.add(tId.value)
+                    }
+                }
+
+                // Create customers
+                val customerIds = mutableListOf<java.util.UUID>()
+                vendorCustomers[bt]?.forEach { cust ->
+                    val custId = CustomersTable.insertAndGetId {
+                        it[CustomersTable.vendorId] = vendorId.value
+                        it[CustomersTable.name] = cust.custName
+                        it[phone] = cust.custPhone
+                        it[orderCount] = cust.orderCount
+                        it[totalSpent] = cust.totalSpent.toBigDecimal()
+                        it[pointsBalance] = cust.points
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    customerIds.add(custId.value)
+                }
+
+                // Create stock
+                data class CreatedStock(val id: java.util.UUID, val name: String, val qty: Double, val unit: String)
+                val createdStocks = mutableListOf<CreatedStock>()
+                vendorStock[bt]?.forEach { stock ->
+                    val sId = StockTable.insertAndGetId {
+                        it[StockTable.vendorId] = vendorId.value
+                        it[itemName] = stock.itemName
+                        it[quantity] = stock.qty.toBigDecimal()
+                        it[minQuantity] = stock.minQty.toBigDecimal()
+                        it[costPrice] = stock.costPrice.toBigDecimal()
+                        it[unit] = stock.unit
+                        it[baseUnit] = stock.unit
+                        it[isMenuItem] = false
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    createdStocks.add(CreatedStock(sId.value, stock.itemName, stock.qty, stock.unit))
+                }
+
+                // Create workers
+                data class CreatedWorker(val id: java.util.UUID, val name: String, val role: String, val salaryType: String, val salaryAmount: Double)
+                val createdWorkers = mutableListOf<CreatedWorker>()
+                vendorWorkers[bt]?.forEach { worker ->
+                    val wId = WorkersTable.insertAndGetId {
+                        it[WorkersTable.vendorId] = vendorId.value
+                        it[workerId] = worker.workerId
+                        it[fullName] = worker.fullName
+                        it[WorkersTable.phone] = worker.workerPhone
+                        it[role] = worker.role
+                        it[salaryType] = worker.salaryType
+                        it[salaryAmount] = worker.salaryAmount.toBigDecimal()
+                        it[active] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    createdWorkers.add(CreatedWorker(wId.value, worker.fullName, worker.role, worker.salaryType, worker.salaryAmount))
+                }
+
+                // ─── Create orders with various statuses ───────────────────
+                val cashierId = userIdMap["CASHIER"]!!
+                val deliveryId = userIdMap["DELIVERY"]
+                val paymentMethods = listOf("CASH", "WALLET", "CARD")
+
+                // Determine valid channels for this vendor
+                val channels = mutableListOf<String>()
+                if (vendor.enableDineIn) channels.add("DINE_IN")
+                if (vendor.enableDelivery) channels.add("DELIVERY")
+                channels.add("TAKEAWAY") // always enabled
+                if (vendor.enableInStore) channels.add("IN_STORE")
+
+                // Status per channel
+                val statusesByChannel = mapOf(
+                    "DINE_IN" to listOf("CREATED", "IN_PREPARATION", "READY", "SERVED", "COMPLETED", "CANCELED", "REFUNDED"),
+                    "DELIVERY" to listOf("CREATED", "IN_PREPARATION", "READY", "ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELED", "DELIVERY_FAILED", "REFUNDED"),
+                    "TAKEAWAY" to listOf("CREATED", "IN_PREPARATION", "READY", "PICKED_UP", "COMPLETED", "CANCELED", "REFUNDED"),
+                    "IN_STORE" to listOf("CREATED", "COMPLETED", "CANCELED", "REFUNDED"),
+                    "PICKUP_LATER" to listOf("CREATED", "IN_PREPARATION", "READY", "PICKED_UP", "COMPLETED", "CANCELED", "REFUNDED")
+                )
+
+                data class CreatedOrder(val id: java.util.UUID, val status: String, val channel: String, val total: Double, val time: kotlinx.datetime.Instant)
+                val createdOrders = mutableListOf<CreatedOrder>()
+                var orderCounter = 0
+                for (channel in channels) {
+                    val statuses = statusesByChannel[channel] ?: continue
+                    for (status in statuses) {
+                        // Pick 2-3 random items for each order
+                        val orderItems = createdItems.shuffled().take(minOf(3, createdItems.size))
+                        val itemsSubtotal = orderItems.sumOf { it.price }
+                        val deliveryFee = if (channel == "DELIVERY") 15.0 else 0.0
+                        val taxAmount = if (vendor.taxEnabled) itemsSubtotal * vendor.defaultTaxPercent / 100.0 else 0.0
+                        val orderTotal = itemsSubtotal + deliveryFee + taxAmount
+
+                        // Payment status based on order status
+                        val paymentStatus = when (status) {
+                            "COMPLETED" -> "PAID"
+                            "REFUNDED" -> "REFUNDED"
+                            "CANCELED" -> "PENDING"
+                            else -> if (status in listOf("SERVED", "DELIVERED", "PICKED_UP", "OUT_FOR_DELIVERY", "ASSIGNED")) "PAID" else "PENDING"
+                        }
+                        val paymentTiming = if (status in listOf("CREATED", "IN_PREPARATION")) "PAY_LATER" else "PAY_NOW"
+                        val pm = paymentMethods[orderCounter % paymentMethods.size]
+
+                        // Table for dine-in orders
+                        val tableUuid = if (channel == "DINE_IN" && tableIds.isNotEmpty()) tableIds[orderCounter % tableIds.size] else null
+                        // Customer for some orders
+                        val custUuid = if (customerIds.isNotEmpty()) customerIds[orderCounter % customerIds.size] else null
+
+                        // Vary the creation time to spread orders across the last 7 days
+                        val offsetHours = (orderCounter * 3L) + 1L
+                        val orderTime = now.minus(kotlin.time.Duration.parse("${offsetHours}h"))
+
+                        val orderId = OrdersTable.insertAndGetId {
+                            it[OrdersTable.vendorId] = vendorId.value
+                            it[OrdersTable.channel] = channel
+                            it[OrdersTable.status] = status
+                            if (tableUuid != null) it[tableId] = tableUuid
+                            it[OrdersTable.cashierId] = cashierId
+                            if (channel == "DELIVERY" && deliveryId != null && status in listOf("ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "DELIVERY_FAILED")) {
+                                it[deliveryUserId] = deliveryId
+                            }
+                            if (custUuid != null) it[customerId] = custUuid
+                            it[paymentMethod] = pm
+                            it[OrdersTable.paymentStatus] = paymentStatus
+                            it[OrdersTable.paymentTiming] = paymentTiming
+                            if (paymentStatus == "PAID") it[paymentConfirmedAt] = orderTime
+                            it[subtotal] = itemsSubtotal.toBigDecimal()
+                            it[OrdersTable.deliveryFee] = deliveryFee.toBigDecimal()
+                            it[tax] = taxAmount.toBigDecimal()
+                            it[taxPercent] = vendor.defaultTaxPercent.toBigDecimal()
+                            it[total] = orderTotal.toBigDecimal()
+                            it[notes] = if (orderCounter % 3 == 0) "ملاحظات تجريبية" else null
+                            it[createdAt] = orderTime
+                            it[updatedAt] = orderTime
+                            if (status == "REFUNDED") {
+                                it[refundedAt] = orderTime
+                                it[refundedBy] = cashierId
+                                it[refundReason] = "طلب العميل"
+                            }
+                        }
+
+                        createdOrders.add(CreatedOrder(orderId.value, status, channel, orderTotal, orderTime))
+
+                        // Insert order items
+                        orderItems.forEach { oi ->
+                            OrderItemsTable.insertAndGetId {
+                                it[OrderItemsTable.orderId] = orderId.value
+                                it[itemId] = oi.id
+                                it[itemNameSnapshot] = oi.name
+                                it[itemPriceSnapshot] = oi.price.toBigDecimal()
+                                it[quantity] = (orderCounter % 3) + 1
+                                it[note] = if (orderCounter % 4 == 0) "بدون سكر" else null
+                                it[createdAt] = orderTime
+                            }
+                        }
+                        orderCounter++
+                    }
+                }
+
+                // ─── Item Variants (sizes, extras) for food/drink vendors ─────
+                val variantItems = createdItems.take(minOf(4, createdItems.size))
+                val variantGroupNames = when (bt) {
+                    "RESTAURANT" -> listOf("الحجم" to listOf("صغير" to 0.0, "وسط" to 10.0, "كبير" to 20.0), "إضافات" to listOf("جبنة إضافية" to 5.0, "صلصة حارة" to 3.0, "سلطة جانبية" to 8.0))
+                    "CAFE" -> listOf("الحجم" to listOf("صغير" to 0.0, "وسط" to 5.0, "كبير" to 10.0), "الحليب" to listOf("حليب كامل" to 0.0, "حليب لوز" to 5.0, "حليب شوفان" to 7.0))
+                    "BAKERY" -> listOf("الحجم" to listOf("قطعة" to 0.0, "نصف كيلو" to 20.0, "كيلو" to 40.0))
+                    "PHARMACY" -> listOf("التركيز" to listOf("عادي" to 0.0, "مركز" to 15.0))
+                    else -> listOf("الحجم" to listOf("صغير" to 0.0, "كبير" to 10.0))
+                }
+                variantItems.forEach { item ->
+                    variantGroupNames.forEachIndexed { gIdx, (groupName, options) ->
+                        val groupId = ItemVariantGroupsTable.insertAndGetId {
+                            it[itemId] = item.id
+                            it[name] = groupName
+                            it[required] = gIdx == 0
+                            it[displayOrder] = gIdx
+                            it[createdAt] = now
+                        }
+                        options.forEachIndexed { oIdx, (optName, priceAdj) ->
+                            ItemVariantOptionsTable.insertAndGetId {
+                                it[ItemVariantOptionsTable.groupId] = groupId.value
+                                it[name] = optName
+                                it[priceAdjustment] = priceAdj.toBigDecimal()
+                                it[isDefault] = oIdx == 0
+                                it[displayOrder] = oIdx
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Customer Addresses ──────────────────────────────────────
+                val addressLabels = listOf("المنزل" to "١٢ شارع الملك فيصل، الجيزة", "العمل" to "٤٥ شارع التحرير، وسط البلد", "آخر" to "٧ شارع المعز، الحسين")
+                customerIds.forEachIndexed { cIdx, custId ->
+                    val addrCount = if (cIdx == 0) 2 else 1
+                    (0 until addrCount).forEach { aIdx ->
+                        val (label, addr) = addressLabels[(cIdx + aIdx) % addressLabels.size]
+                        CustomerAddressesTable.insertAndGetId {
+                            it[customerId] = custId
+                            it[CustomerAddressesTable.label] = label
+                            it[address] = addr
+                            it[geoLat] = 30.0 + (cIdx * 0.01)
+                            it[geoLng] = 31.2 + (cIdx * 0.01)
+                            it[isDefault] = aIdx == 0
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
+                // ─── Tax Places (for tax-enabled vendors) ────────────────────
+                if (vendor.taxEnabled) {
+                    listOf(
+                        Triple("داخل المحل", vendor.defaultTaxPercent, true),
+                        Triple("توصيل", vendor.defaultTaxPercent, false),
+                        Triple("بدون ضريبة", 0.0, false)
+                    ).forEachIndexed { idx, (placeName, taxPct, default) ->
+                        TaxPlacesTable.insertAndGetId {
+                            it[TaxPlacesTable.vendorId] = vendorId.value
+                            it[name] = placeName
+                            it[taxPercent] = taxPct.toBigDecimal()
+                            it[isDefault] = default
+                            it[displayOrder] = idx
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                    }
+                }
+
+                // ─── Offers & Offer Items ────────────────────────────────────
+                val offerDefs = listOf(
+                    Triple("عرض اليوم", "PERCENT", 15.0),
+                    Triple("عرض خاص ٢٠٪", "PERCENT", 20.0),
+                    Triple("خصم ثابت", "FIXED_PRICE", 10.0)
+                )
+                offerDefs.forEachIndexed { oIdx, (offerName, discType, discVal) ->
+                    val offerId = OffersTable.insertAndGetId {
+                        it[OffersTable.vendorId] = vendorId.value
+                        it[name] = offerName
+                        it[description] = "عرض تجريبي للعملاء"
+                        it[discountType] = discType
+                        it[discountValue] = discVal.toBigDecimal()
+                        it[active] = oIdx < 2
+                        it[displayOrder] = oIdx
+                        it[promoCode] = if (oIdx == 1) "SAVE20" else null
+                        it[maxUses] = if (oIdx == 1) 100 else null
+                        it[usedCount] = if (oIdx == 1) 12 else 0
+                        it[startsAt] = now.minus(kotlin.time.Duration.parse("7d")).toEpochMilliseconds()
+                        it[expiresAt] = now.plus(kotlin.time.Duration.parse("30d")).toEpochMilliseconds()
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    // Attach 2-3 items per offer
+                    createdItems.shuffled().take(minOf(3, createdItems.size)).forEachIndexed { iIdx, item ->
+                        OfferItemsTable.insertAndGetId {
+                            it[OfferItemsTable.offerId] = offerId.value
+                            it[itemId] = item.id
+                            it[quantity] = iIdx + 1
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
+                // ─── Points Transactions (for loyalty-enabled vendors) ───────
+                if (vendor.loyaltyEnabled && customerIds.isNotEmpty()) {
+                    val completedOrders = createdOrders.filter { it.status == "COMPLETED" }
+                    completedOrders.take(minOf(6, completedOrders.size)).forEachIndexed { pIdx, order ->
+                        val custId = customerIds[pIdx % customerIds.size]
+                        val earnPts = (order.total / 10).toInt().coerceAtLeast(1)
+                        PointsTransactionsTable.insertAndGetId {
+                            it[customerId] = custId
+                            it[PointsTransactionsTable.vendorId] = vendorId.value
+                            it[orderId] = order.id
+                            it[type] = "EARN"
+                            it[points] = earnPts
+                            it[description] = "نقاط مكتسبة من طلب"
+                            it[createdAt] = order.time
+                        }
+                        if (pIdx % 3 == 0) {
+                            PointsTransactionsTable.insertAndGetId {
+                                it[customerId] = custId
+                                it[PointsTransactionsTable.vendorId] = vendorId.value
+                                it[orderId] = order.id
+                                it[type] = "REDEEM"
+                                it[points] = (earnPts / 2).coerceAtLeast(1)
+                                it[description] = "نقاط مستبدلة"
+                                it[createdAt] = order.time
+                            }
+                        }
+                    }
+                }
+
+                // ─── Reservations (for table-enabled vendors) ────────────────
+                if (vendor.enableTables && tableIds.isNotEmpty()) {
+                    val resStatuses = listOf("PENDING", "CONFIRMED", "COMPLETED", "CANCELLED")
+                    val resNames = listOf("أحمد محمد", "سارة علي", "محمد حسن", "ليلى إبراهيم", "خالد عبدالله")
+                    resNames.forEachIndexed { rIdx, clientName ->
+                        val dayOffset = rIdx - 2 // some past, some future
+                        val resDate = now.plus(kotlin.time.Duration.parse("${dayOffset * 24}h"))
+                        val dateStr = resDate.toString().take(10)
+                        val hours = listOf("12:00", "14:30", "18:00", "19:30", "21:00")
+                        ReservationsTable.insertAndGetId {
+                            it[ReservationsTable.vendorId] = vendorId.value
+                            it[tableId] = tableIds[rIdx % tableIds.size]
+                            it[ReservationsTable.clientName] = clientName
+                            it[clientPhone] = "+2010000${1000 + rIdx}"
+                            it[reservationDate] = dateStr
+                            it[reservationTime] = hours[rIdx % hours.size]
+                            it[numberOfGuests] = (rIdx % 4) + 2
+                            it[notes] = if (rIdx % 2 == 0) "حجز بجانب النافذة" else null
+                            it[status] = resStatuses[rIdx % resStatuses.size]
+                            if (rIdx < 2) it[orderId] = createdOrders.firstOrNull { o -> o.channel == "DINE_IN" }?.id
+                            it[createdBy] = cashierId
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                    }
+                }
+
+                // ─── Announcements ───────────────────────────────────────────
+                val managerId = userIdMap["MANAGER"]!!
+                val announcements = listOf(
+                    Triple("تحديث ساعات العمل", "تم تعديل ساعات العمل لتبدأ من ٨ صباحاً حتى ١١ مساءً بدءاً من الأسبوع القادم", "ALL"),
+                    Triple("اجتماع الفريق", "يرجى حضور اجتماع الفريق يوم الخميس الساعة ٣ عصراً", "ALL"),
+                    Triple("عرض جديد", "تم إضافة عرض جديد للعملاء - خصم ٢٠٪ على جميع الطلبات", "CASHIERS"),
+                    Triple("تحديث نظام التوصيل", "يرجى التأكد من تحديث التطبيق لآخر إصدار", "DELIVERY")
+                )
+                announcements.forEachIndexed { aIdx, (title, message, target) ->
+                    val annTime = now.minus(kotlin.time.Duration.parse("${(aIdx + 1) * 12}h"))
+                    val annId = AnnouncementsTable.insertAndGetId {
+                        it[AnnouncementsTable.vendorId] = vendorId.value
+                        it[senderId] = managerId
+                        it[targetType] = target
+                        it[AnnouncementsTable.title] = title
+                        it[AnnouncementsTable.message] = message
+                        it[priority] = if (aIdx == 0) "URGENT" else "NORMAL"
+                        it[createdAt] = annTime
+                    }
+                    // Mark some as read by cashier
+                    if (aIdx < 2) {
+                        AnnouncementReadsTable.insertAndGetId {
+                            it[announcementId] = annId.value
+                            it[userId] = cashierId
+                            it[readAt] = annTime.plus(kotlin.time.Duration.parse("1h"))
+                        }
+                    }
+                }
+
+                // ─── Attendance (last 7 days for all workers) ────────────────
+                createdWorkers.forEach { worker ->
+                    (0..6).forEach { dayOffset ->
+                        val attendDay = now.minus(kotlin.time.Duration.parse("${dayOffset * 24}h"))
+                        val dateStr = attendDay.toString().take(10)
+                        val checkInTime = attendDay.minus(kotlin.time.Duration.parse("${8 + dayOffset % 2}h"))
+                        val workedMins = (8 * 60) + (dayOffset * 15) // 8+ hours
+                        val checkOutTime = checkInTime.plus(kotlin.time.Duration.parse("${workedMins}m"))
+                        val authMethods = listOf("PIN", "QR", "MANUAL")
+                        val attendId = AttendanceTable.insertAndGetId {
+                            it[AttendanceTable.vendorId] = vendorId.value
+                            it[AttendanceTable.workerId] = worker.id
+                            it[date] = dateStr
+                            it[checkIn] = checkInTime
+                            if (dayOffset > 0) { // today might still be checked in
+                                it[checkOut] = checkOutTime
+                                it[workedMinutes] = workedMins
+                            }
+                            it[recordedBy] = cashierId
+                            it[authMethod] = authMethods[dayOffset % authMethods.size]
+                            it[note] = if (dayOffset == 0) "وردية صباحية" else null
+                            it[createdAt] = checkInTime
+                            it[updatedAt] = checkOutTime
+                        }
+                        // Auth logs
+                        AttendanceAuthLogsTable.insertAndGetId {
+                            it[AttendanceAuthLogsTable.workerId] = worker.id
+                            it[AttendanceAuthLogsTable.cashierId] = cashierId
+                            it[authMethod] = authMethods[dayOffset % authMethods.size]
+                            it[success] = true
+                            it[createdAt] = checkInTime
+                        }
+                    }
+                }
+
+                // ─── Salary Payments (last 2 months) ─────────────────────────
+                createdWorkers.forEach { worker ->
+                    val periods = if (worker.salaryType == "MONTHLY") {
+                        listOf("2026-02-01" to "2026-02-28", "2026-01-01" to "2026-01-31")
+                    } else {
+                        (1..7).map { d ->
+                            val day = now.minus(kotlin.time.Duration.parse("${d * 24}h")).toString().take(10)
+                            day to day
+                        }
+                    }
+                    periods.forEachIndexed { pIdx, (start, end) ->
+                        val workedDays = if (worker.salaryType == "MONTHLY") 26 else 1
+                        val amount = if (worker.salaryType == "MONTHLY") worker.salaryAmount else worker.salaryAmount
+                        val otHours = if (pIdx == 0) 2.0 else 0.0
+                        val otAmount = otHours * (worker.salaryAmount / 8 / 26 * 1.5)
+                        SalaryPaymentsTable.insertAndGetId {
+                            it[SalaryPaymentsTable.vendorId] = vendorId.value
+                            it[SalaryPaymentsTable.workerId] = worker.id
+                            it[periodType] = if (worker.salaryType == "MONTHLY") "MONTH" else "DAY"
+                            it[periodStart] = start
+                            it[periodEnd] = end
+                            it[SalaryPaymentsTable.workedDays] = workedDays
+                            it[SalaryPaymentsTable.amount] = amount.toBigDecimal()
+                            it[overtimeHours] = otHours.toBigDecimal()
+                            it[overtimeAmount] = otAmount.toBigDecimal()
+                            it[paid] = pIdx > 0
+                            if (pIdx > 0) {
+                                it[paidAt] = now.minus(kotlin.time.Duration.parse("${pIdx * 30 * 24}h"))
+                                it[paidBy] = managerId
+                            }
+                            it[note] = if (pIdx == 0) "في انتظار الصرف" else null
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                    }
+                }
+
+                // ─── Overtime Entries ─────────────────────────────────────────
+                createdWorkers.take(2).forEachIndexed { wIdx, worker ->
+                    (1..3).forEach { otDay ->
+                        val otDate = now.minus(kotlin.time.Duration.parse("${otDay * 24}h")).toString().take(10)
+                        val hrs = 1.5 + (otDay * 0.5)
+                        val rate = worker.salaryAmount / 8 / 26 * 1.5
+                        OvertimeTable.insertAndGetId {
+                            it[OvertimeTable.vendorId] = vendorId.value
+                            it[OvertimeTable.workerId] = worker.id
+                            it[date] = otDate
+                            it[hours] = hrs.toBigDecimal()
+                            it[ratePerHour] = rate.toBigDecimal()
+                            it[amount] = (hrs * rate).toBigDecimal()
+                            it[note] = "ساعات إضافية - وردية مسائية"
+                            it[createdBy] = managerId
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
+                // ─── Stock Transactions ──────────────────────────────────────
+                createdStocks.forEach { stock ->
+                    val txTypes = listOf("ADD" to 20.0, "PURCHASE" to 50.0, "DEDUCT" to -5.0, "ADJUST" to 3.0)
+                    var prevQty = 0.0
+                    txTypes.forEachIndexed { tIdx, (txType, qty) ->
+                        val absQty = kotlin.math.abs(qty)
+                        StockTransactionsTable.insertAndGetId {
+                            it[stockId] = stock.id
+                            it[type] = txType
+                            it[quantity] = absQty.toBigDecimal()
+                            it[previousQuantity] = prevQty.toBigDecimal()
+                            it[note] = when (txType) {
+                                "ADD" -> "إضافة مخزون جديد"
+                                "PURCHASE" -> "شراء من المورد"
+                                "DEDUCT" -> "خصم - استخدام يومي"
+                                "ADJUST" -> "تعديل جرد"
+                                else -> null
+                            }
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("${(tIdx + 1) * 24}h"))
+                        }
+                        prevQty += qty
+                    }
+                }
+
+                // ─── Recipes & Ingredients (for food vendors) ────────────────
+                if (bt in listOf("RESTAURANT", "CAFE", "BAKERY") && createdItems.size >= 2 && createdStocks.size >= 2) {
+                    val recipeItems = createdItems.take(2)
+                    recipeItems.forEachIndexed { rIdx, item ->
+                        val recipeId = RecipesTable.insertAndGetId {
+                            it[RecipesTable.vendorId] = vendorId.value
+                            it[itemId] = item.id
+                            it[name] = "وصفة ${item.name}"
+                            it[description] = "طريقة تحضير ${item.name}"
+                            it[yieldQuantity] = java.math.BigDecimal.ONE
+                            it[yieldUnit] = "PIECE"
+                            it[status] = "ACTIVE"
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                        // Add 2 ingredients from stock
+                        createdStocks.take(2).forEachIndexed { iIdx, stock ->
+                            RecipeIngredientsTable.insertAndGetId {
+                                it[RecipeIngredientsTable.recipeId] = recipeId.value
+                                it[RecipeIngredientsTable.stockId] = stock.id
+                                it[quantity] = (0.1 + iIdx * 0.05).toBigDecimal()
+                                it[unit] = stock.unit
+                                it[fixedQuantity] = iIdx == 0
+                                it[displayOrder] = iIdx
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Activity Logs (for recent orders) ───────────────────────
+                createdOrders.take(minOf(10, createdOrders.size)).forEach { order ->
+                    val actions = when (order.status) {
+                        "CREATED" -> listOf("ORDER_CREATED")
+                        "IN_PREPARATION" -> listOf("ORDER_CREATED", "STATUS_CHANGED")
+                        "COMPLETED" -> listOf("ORDER_CREATED", "STATUS_CHANGED", "PAYMENT_CONFIRMED", "ORDER_COMPLETED")
+                        "CANCELED" -> listOf("ORDER_CREATED", "ORDER_CANCELED")
+                        "REFUNDED" -> listOf("ORDER_CREATED", "ORDER_COMPLETED", "ORDER_REFUNDED")
+                        else -> listOf("ORDER_CREATED", "STATUS_CHANGED")
+                    }
+                    actions.forEachIndexed { aIdx, action ->
+                        ActivityLogsTable.insertAndGetId {
+                            it[ActivityLogsTable.orderId] = order.id
+                            it[userId] = cashierId
+                            it[ActivityLogsTable.action] = action
+                            it[payload] = """{"status":"${order.status}","channel":"${order.channel}"}"""
+                            it[createdAt] = order.time.plus(kotlin.time.Duration.parse("${aIdx}m"))
+                        }
+                    }
+                }
+
+                logger.info("Vendor ${vendor.name}: ${vendorCategories[bt]?.size ?: 0} categories, ${vendorItems[bt]?.size ?: 0} items, ${vendorCustomers[bt]?.size ?: 0} customers, ${vendorStock[bt]?.size ?: 0} stock items, ${vendorWorkers[bt]?.size ?: 0} workers, $orderCounter orders")
             }
 
-            // 5. Create demo tables
-            (1..4).forEach { num ->
-                TablesTable.insertAndGetId {
-                    it[TablesTable.vendorId] = vendorId.value
-                    it[number] = "T$num"
-                    it[capacity] = when (num) { 2 -> 2; 3 -> 6; else -> 4 }
-                    it[status] = "AVAILABLE"
-                    it[createdAt] = Clock.System.now()
-                    it[updatedAt] = Clock.System.now()
-                }
-            }
-
-            logger.info("Demo data seeded successfully! Login with phone: +1111111111, password: password123")
+            logger.info("=== Test data seeded successfully! ===")
+            logger.info("All accounts use password: password123")
+            logger.info("1. مطعم الشام (RESTAURANT)       → Manager: +2010101001  Cashier: +2010101002  Delivery: +2010101003")
+            logger.info("2. صيدلية الشفاء (PHARMACY)       → Manager: +2020202001  Cashier: +2020202002  Delivery: +2020202003")
+            logger.info("3. كافيه لافندر (CAFE)            → Manager: +2030303001  Cashier: +2030303002  Delivery: +2030303003")
+            logger.info("4. مخبز السنابل (BAKERY)          → Manager: +2040404001  Cashier: +2040404002  Delivery: +2040404003")
+            logger.info("5. سوبر ماركت الخير (SUPERMARKET)  → Manager: +2050505001  Cashier: +2050505002  Delivery: +2050505003")
+            logger.info("6. محل لعب أطفال توي لاند (RETAIL)  → Manager: +2060606001  Cashier: +2060606002  Delivery: +2060606003")
         }
     }
 }

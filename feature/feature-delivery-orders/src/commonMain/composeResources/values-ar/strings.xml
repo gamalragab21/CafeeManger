@@ -14,7 +14,7 @@
     <string name="pick_up_order">استلم الطلب</string>
     <string name="complete">تمام</string>
     <string name="view_receipt">شوف الفاتورة</string>
-    <string name="items_count">%d أصناف</string>
+    <string name="items_count">%1$d أصناف</string>
     <string name="items_count_total">%1$d صنف • %2$s</string>
     <string name="order_items">أصناف الطلب</string>
     <string name="completed_orders">الطلبات المكتملة</string>
@@ -57,4 +57,5 @@
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
     <string name="confirm_payment">أكّد الدفع</string>
+    <string name="load_more">حمّل المزيد</string>
 </resources>

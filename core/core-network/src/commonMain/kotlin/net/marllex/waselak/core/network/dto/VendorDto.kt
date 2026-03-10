@@ -27,6 +27,12 @@ data class VendorResponse(
     @SerialName("biometric_required") val biometricRequired: Boolean = false,
     @SerialName("enable_offline_mode") val enableOfflineMode: Boolean = false,
     @SerialName("digital_menu_url") val digitalMenuUrl: String? = null,
+    @SerialName("loyalty_enabled") val loyaltyEnabled: Boolean = false,
+    @SerialName("points_earn_rate") val pointsEarnRate: Double = 1.0,
+    @SerialName("points_redeem_rate") val pointsRedeemRate: Double = 0.1,
+    @SerialName("min_points_redeem") val minPointsRedeem: Int = 100,
+    @SerialName("max_manual_discount_percent") val maxManualDiscountPercent: Double = 100.0,
+    @SerialName("manual_discount_requires_pin") val manualDiscountRequiresPin: Boolean = false,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
 )
@@ -51,5 +57,67 @@ data class UpdateVendorRequest(
     @SerialName("default_tax_percent") val defaultTaxPercent: Double? = null,
     @SerialName("stock_mode") val stockMode: String? = null,
     @SerialName("biometric_required") val biometricRequired: Boolean? = null,
-    @SerialName("enable_offline_mode") val enableOfflineMode: Boolean? = null
+    @SerialName("enable_offline_mode") val enableOfflineMode: Boolean? = null,
+    @SerialName("loyalty_enabled") val loyaltyEnabled: Boolean? = null,
+    @SerialName("points_earn_rate") val pointsEarnRate: Double? = null,
+    @SerialName("points_redeem_rate") val pointsRedeemRate: Double? = null,
+    @SerialName("min_points_redeem") val minPointsRedeem: Int? = null,
+    @SerialName("max_manual_discount_percent") val maxManualDiscountPercent: Double? = null,
+    @SerialName("manual_discount_requires_pin") val manualDiscountRequiresPin: Boolean? = null,
+)
+
+@Serializable
+data class PlanFeaturesResponse(
+    @SerialName("plan_name") val planName: String,
+    @SerialName("plan_display_name") val planDisplayName: String,
+    @SerialName("price_egp") val priceEgp: Int,
+    val features: PlanFeaturesDto,
+    val limits: PlanLimitsDto,
+    val usage: PlanUsageDto,
+)
+
+@Serializable
+data class PlanFeaturesDto(
+    @SerialName("stock_management") val stockManagement: Boolean,
+    @SerialName("worker_attendance") val workerAttendance: Boolean,
+    val overtime: Boolean,
+    val salaries: Boolean,
+    @SerialName("delivery_module") val deliveryModule: Boolean,
+    @SerialName("customer_management") val customerManagement: Boolean,
+    @SerialName("table_management") val tableManagement: Boolean = false,
+    @SerialName("digital_receipt") val digitalReceipt: Boolean = false,
+    @SerialName("worker_qrcode") val workerQrcode: Boolean = false,
+    @SerialName("loyalty_points") val loyaltyPoints: Boolean = false,
+    @SerialName("manual_discount") val manualDiscount: Boolean = false,
+    @SerialName("offers_management") val offersManagement: Boolean = false,
+    val analytics: String,
+    @SerialName("digital_menu") val digitalMenu: String,
+)
+
+@Serializable
+data class PlanLimitsDto(
+    @SerialName("max_managers") val maxManagers: Int,
+    @SerialName("max_cashiers") val maxCashiers: Int,
+    @SerialName("max_delivery") val maxDelivery: Int,
+    @SerialName("max_orders_per_month") val maxOrdersPerMonth: Int,
+    @SerialName("max_menu_items") val maxMenuItems: Int,
+    @SerialName("max_branches") val maxBranches: Int,
+)
+
+@Serializable
+data class PlanUsageDto(
+    val managers: Int,
+    val cashiers: Int,
+    val delivery: Int,
+    @SerialName("monthly_orders") val monthlyOrders: Int,
+    @SerialName("menu_items") val menuItems: Int,
+)
+
+@Serializable
+data class PlanSummaryDto(
+    val name: String,
+    @SerialName("display_name") val displayName: String,
+    @SerialName("price_egp") val priceEgp: Int,
+    val features: PlanFeaturesDto,
+    val limits: PlanLimitsDto,
 )

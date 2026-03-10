@@ -36,10 +36,15 @@ fun Application.configureHmacVerification() {
     intercept(ApplicationCallPipeline.Plugins) {
         val path = call.request.path()
 
-        // Skip HMAC verification for health check, public endpoints, and admin routes
+        // Skip HMAC verification for health check, public endpoints, admin routes, and file uploads
         if (path == "/health" ||
             path.startsWith("/public/") ||
-            path.startsWith("/api/v1/admin")
+            path.startsWith("/admin/") ||
+            path.startsWith("/api/v1/admin") ||
+            path.startsWith("/api/v1/cms") ||
+            path.startsWith("/api/v1/upload") ||
+            path.startsWith("/api/v1/logs/upload") ||
+            path.startsWith("/uploads/")
         ) {
             return@intercept
         }
@@ -132,7 +137,8 @@ fun Application.configureHmacVerification() {
 
             // Only sign /api/ responses (same scope as request verification)
             if (!path.startsWith("/api/") ||
-                path.startsWith("/api/v1/admin")
+                path.startsWith("/api/v1/admin") ||
+                path.startsWith("/api/v1/cms")
             ) {
                 return@onCallRespond
             }

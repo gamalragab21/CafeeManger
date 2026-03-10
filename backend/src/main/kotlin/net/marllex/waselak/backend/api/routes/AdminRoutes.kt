@@ -4,13 +4,19 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.http.ContentType
+import io.ktor.server.response.respondText
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.data.database.*
+import net.marllex.waselak.backend.domain.service.PlanService
+import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.java.KoinJavaComponent
 import java.util.UUID
 
 // ─── Hardcoded admin password ────────────────────────────────────
@@ -41,6 +47,9 @@ data class AdminVendorResponse(
     val suspension_reason: String? = null,
     val digital_menu_url: String? = null,
     val users_count: Int = 0,
+    val plan_name: String? = null,
+    val plan_display_name: String? = null,
+    val subscription_status: String? = null,
     val created_at: Long,
     val updated_at: Long? = null,
 )
@@ -91,11 +100,28 @@ data class AdminCreateVendorRequest(
     val tax_enabled: Boolean? = null,
     val default_tax_percent: Double? = null,
     val stock_mode: String? = null,
+    // Subscription plan
+    val plan: String = "STARTER",  // STARTER, BUSINESS, ENTERPRISE
     // Manager user
     val manager_name: String,
     val manager_phone: String,
     val manager_email: String? = null,
     val manager_password: String,
+)
+
+@Serializable
+data class AdminChangePlanRequest(
+    val plan: String,       // STARTER, BUSINESS, ENTERPRISE
+    val notes: String? = null,
+)
+
+@Serializable
+data class AdminUpdateOverridesRequest(
+    val override_max_managers: Int? = null,
+    val override_max_cashiers: Int? = null,
+    val override_max_delivery: Int? = null,
+    val override_max_orders: Int? = null,
+    val override_max_items: Int? = null,
 )
 
 @Serializable
@@ -260,9 +286,20 @@ private suspend fun RoutingContext.requireAdminPassword(): Boolean {
 }
 
 // ─── Helper: map a DB row to AdminVendorResponse ─────────────────
-private fun mapVendorRow(row: ResultRow, usersCount: Int = 0) =
-    AdminVendorResponse(
-        id = row[VendorsTable.id].toString(),
+private fun mapVendorRow(row: ResultRow, usersCount: Int = 0): AdminVendorResponse {
+    val vendorId = row[VendorsTable.id].value
+    // Fetch subscription + plan info
+    val subscription = VendorSubscriptionsTable.selectAll()
+        .where { VendorSubscriptionsTable.vendorId eq vendorId }
+        .firstOrNull()
+    val planRow = subscription?.let { sub ->
+        SubscriptionPlansTable.selectAll()
+            .where { SubscriptionPlansTable.id eq sub[VendorSubscriptionsTable.planId] }
+            .firstOrNull()
+    }
+
+    return AdminVendorResponse(
+        id = vendorId.toString(),
         name = row[VendorsTable.name],
         logo_url = row[VendorsTable.logoUrl],
         address = row[VendorsTable.address],
@@ -284,36 +321,216 @@ private fun mapVendorRow(row: ResultRow, usersCount: Int = 0) =
         suspension_reason = row[VendorsTable.suspensionReason],
         digital_menu_url = row[VendorsTable.digitalMenuUrl],
         users_count = usersCount,
+        plan_name = planRow?.get(SubscriptionPlansTable.name),
+        plan_display_name = planRow?.get(SubscriptionPlansTable.displayName),
+        subscription_status = subscription?.get(VendorSubscriptionsTable.status),
         created_at = row[VendorsTable.createdAt].toEpochMilliseconds(),
         updated_at = row[VendorsTable.updatedAt].toEpochMilliseconds(),
     )
+}
 
 // ─── Routes ──────────────────────────────────────────────────────
 fun Route.adminRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+
     route("/api/v1/admin") {
+
+        // ─── Plan Management ──────────────────────────────────
+        // GET /api/v1/admin/plans — list all available plans
+        get("/plans") {
+            val trace = call.routeTrace()
+            trace.step("List plans started")
+            if (!requireAdminPassword()) return@get
+
+            trace.step("Fetching active plans")
+            val plans = planService.listActivePlans()
+            trace.step("Plans fetched", mapOf("count" to plans.size.toString()))
+            val json = buildJsonArray {
+                plans.forEach { plan ->
+                    addJsonObject {
+                        put("name", plan[SubscriptionPlansTable.name])
+                        put("display_name", plan[SubscriptionPlansTable.displayName])
+                        put("price_egp", plan[SubscriptionPlansTable.priceEgp])
+                        put("billing_cycle", plan[SubscriptionPlansTable.billingCycle])
+                        put("max_managers", plan[SubscriptionPlansTable.maxManagers])
+                        put("max_cashiers", plan[SubscriptionPlansTable.maxCashiers])
+                        put("max_delivery", plan[SubscriptionPlansTable.maxDelivery])
+                        put("max_orders_per_month", plan[SubscriptionPlansTable.maxOrdersPerMonth])
+                        put("max_menu_items", plan[SubscriptionPlansTable.maxMenuItems])
+                        put("max_branches", plan[SubscriptionPlansTable.maxBranches])
+                        put("stock_management", plan[SubscriptionPlansTable.stockManagement])
+                        put("worker_attendance", plan[SubscriptionPlansTable.workerAttendance])
+                        put("delivery_module", plan[SubscriptionPlansTable.deliveryModule])
+                        put("analytics", plan[SubscriptionPlansTable.analytics])
+                        put("digital_menu", plan[SubscriptionPlansTable.digitalMenu])
+                        put("loyalty_points", plan[SubscriptionPlansTable.loyaltyPoints])
+                        put("manual_discount", plan[SubscriptionPlansTable.manualDiscount])
+                        put("offers_management", plan[SubscriptionPlansTable.offersManagement])
+                    }
+                }
+            }
+            call.respondText(json.toString(), ContentType.Application.Json)
+            trace.step("List plans completed")
+        }
+
+        // PUT /api/v1/admin/vendors/{id}/plan — change vendor's plan
+        put("/vendors/{id}/plan") {
+            val trace = call.routeTrace()
+            trace.step("Change vendor plan started")
+            if (!requireAdminPassword()) return@put
+
+            val vendorId = call.parameters["id"]
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing vendor ID"))
+            val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid vendor ID format"))
+            }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
+
+            val request = call.receive<AdminChangePlanRequest>()
+            trace.step("Received plan change request", mapOf("plan" to request.plan, "notes" to (request.notes ?: "null")))
+            val validPlans = listOf("STARTER", "BUSINESS", "ENTERPRISE")
+            require(request.plan.uppercase() in validPlans) {
+                "Invalid plan. Must be one of: ${validPlans.joinToString()}"
+            }
+
+            trace.step("Assigning plan to vendor")
+            planService.assignPlanToVendor(vendorUuid, request.plan, request.notes)
+            val json = buildJsonObject { put("success", true); put("message", "Plan updated to ${request.plan}") }
+            call.respondText(json.toString(), ContentType.Application.Json)
+            trace.step("Change vendor plan completed", mapOf("vendorId" to vendorId, "newPlan" to request.plan))
+        }
+
+        // PUT /api/v1/admin/vendors/{id}/overrides — update vendor limit overrides
+        put("/vendors/{id}/overrides") {
+            val trace = call.routeTrace()
+            trace.step("Update vendor overrides started")
+            if (!requireAdminPassword()) return@put
+
+            val vendorId = call.parameters["id"]
+                ?: return@put call.respondText("""{"error":"Missing vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+            val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                return@put call.respondText("""{"error":"Invalid vendor ID format"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+            }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
+
+            val request = call.receive<AdminUpdateOverridesRequest>()
+            trace.step("Received overrides request", mapOf(
+                "maxManagers" to (request.override_max_managers?.toString() ?: "null"),
+                "maxCashiers" to (request.override_max_cashiers?.toString() ?: "null"),
+                "maxDelivery" to (request.override_max_delivery?.toString() ?: "null"),
+                "maxOrders" to (request.override_max_orders?.toString() ?: "null"),
+                "maxItems" to (request.override_max_items?.toString() ?: "null")
+            ))
+            trace.step("Applying vendor overrides")
+            planService.updateVendorOverrides(
+                vendorUuid,
+                overrideMaxManagers = request.override_max_managers,
+                overrideMaxCashiers = request.override_max_cashiers,
+                overrideMaxDelivery = request.override_max_delivery,
+                overrideMaxOrders = request.override_max_orders,
+                overrideMaxItems = request.override_max_items,
+            )
+            val json = buildJsonObject { put("success", true); put("message", "Vendor overrides updated") }
+            call.respondText(json.toString(), ContentType.Application.Json)
+            trace.step("Update vendor overrides completed", mapOf("vendorId" to vendorId))
+        }
+
+        // GET /api/v1/admin/vendors/{id}/usage — get vendor usage vs plan limits
+        get("/vendors/{id}/usage") {
+            val trace = call.routeTrace()
+            trace.step("Get vendor usage started")
+            if (!requireAdminPassword()) return@get
+
+            val vendorId = call.parameters["id"]
+                ?: return@get call.respondText("""{"error":"Missing vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+            val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                return@get call.respondText("""{"error":"Invalid vendor ID format"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+            }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
+
+            trace.step("Fetching vendor plan limits")
+            val limits = planService.getVendorPlanLimits(vendorUuid)
+            trace.step("Plan limits fetched", mapOf("planName" to limits.planName))
+
+            trace.step("Fetching vendor usage")
+            val usage = planService.getVendorUsage(vendorUuid)
+            trace.step("Usage fetched", mapOf(
+                "managers" to (usage["managers"] as Int).toString(),
+                "cashiers" to (usage["cashiers"] as Int).toString(),
+                "menuItems" to (usage["menuItems"] as Int).toString()
+            ))
+
+            val json = buildJsonObject {
+                putJsonObject("plan") {
+                    put("name", limits.planName)
+                    put("display_name", limits.planDisplayName)
+                    put("max_managers", limits.effectiveMaxManagers())
+                    put("max_cashiers", limits.effectiveMaxCashiers())
+                    put("max_delivery", limits.effectiveMaxDelivery())
+                    put("max_orders_per_month", limits.effectiveMaxOrders())
+                    put("max_menu_items", limits.effectiveMaxItems())
+                }
+                putJsonObject("usage") {
+                    put("managers", usage["managers"] as Int)
+                    put("cashiers", usage["cashiers"] as Int)
+                    put("delivery", usage["delivery"] as Int)
+                    put("monthly_orders", usage["monthlyOrders"] as Int)
+                    put("menu_items", usage["menuItems"] as Int)
+                }
+                putJsonObject("features") {
+                    put("stock_management", limits.stockManagement)
+                    put("worker_attendance", limits.workerAttendance)
+                    put("delivery_module", limits.deliveryModule)
+                    put("analytics", limits.analytics)
+                    put("digital_menu", limits.digitalMenu)
+                    put("loyalty_points", limits.loyaltyPoints)
+                    put("manual_discount", limits.manualDiscount)
+                    put("offers_management", limits.offersManagement)
+                }
+            }
+            call.respondText(json.toString(), ContentType.Application.Json)
+            trace.step("Get vendor usage completed", mapOf("vendorId" to vendorId))
+        }
 
         // POST /api/v1/admin/vendors — create new vendor with manager
         post("/vendors") {
+            val trace = call.routeTrace()
+            trace.step("Create vendor started")
             if (!requireAdminPassword()) return@post
 
             val request = call.receive<AdminCreateVendorRequest>()
+            trace.step("Received create vendor request", mapOf(
+                "vendorName" to request.vendor_name,
+                "managerName" to request.manager_name,
+                "managerPhone" to request.manager_phone,
+                "businessType" to request.business_type,
+                "plan" to request.plan
+            ))
             require(request.vendor_name.isNotBlank()) { "Vendor name is required" }
             require(request.manager_name.isNotBlank()) { "Manager name is required" }
             require(request.manager_phone.isNotBlank()) { "Manager phone is required" }
             require(request.manager_password.length >= 6) { "Password must be at least 6 characters" }
 
+            val validPlans = listOf("STARTER", "BUSINESS", "ENTERPRISE")
+            require(request.plan.uppercase() in validPlans) {
+                "Invalid plan. Must be one of: ${validPlans.joinToString()}"
+            }
+
             // Auto-configure channel flags based on business_type
             val bt = request.business_type.uppercase()
-            val enableTables = request.enable_tables ?: (bt == "RESTAURANT" || bt == "CAFE")
-            val enableDineIn = request.enable_dine_in ?: (bt == "RESTAURANT" || bt == "CAFE")
+            val isRetailLike = bt in listOf("RETAIL", "GROCERY", "SUPERMARKET", "PHARMACY")
+            val isDineIn = bt in listOf("RESTAURANT", "CAFE", "BAKERY", "JUICE_BAR")
+            val enableTables = request.enable_tables ?: isDineIn
+            val enableDineIn = request.enable_dine_in ?: isDineIn
             val enableDelivery = request.enable_delivery ?: (bt != "RETAIL")
             val enableTakeaway = request.enable_takeaway ?: true
-            val enableInStore = request.enable_in_store ?: (bt == "RETAIL" || bt == "GROCERY")
-            val enablePickupLater = request.enable_pickup_later ?: (bt == "RETAIL" || bt == "GROCERY")
-            val taxEnabled = request.tax_enabled ?: (bt == "RETAIL" || bt == "GROCERY")
-            val defaultTaxPercent = request.default_tax_percent ?: if (bt == "RETAIL" || bt == "GROCERY") 14.0 else 0.0
-            val stockMode = request.stock_mode ?: if (bt == "RETAIL" || bt == "GROCERY") "ENFORCE" else "NONE"
+            val enableInStore = request.enable_in_store ?: isRetailLike
+            val enablePickupLater = request.enable_pickup_later ?: isRetailLike
+            val taxEnabled = request.tax_enabled ?: isRetailLike
+            val defaultTaxPercent = request.default_tax_percent ?: if (isRetailLike) 14.0 else 0.0
+            val stockMode = request.stock_mode ?: if (isRetailLike) "ENFORCE" else "NONE"
 
+            trace.step("Creating vendor and manager in transaction")
             val result = transaction {
                 // Check manager phone uniqueness
                 val existingUser = UsersTable.selectAll()
@@ -348,6 +565,9 @@ fun Route.adminRoutes() {
                     it[updatedAt] = Clock.System.now()
                 }
 
+                // Assign subscription plan
+                planService.assignPlanToVendor(vendorId.value, request.plan)
+
                 // Create manager user
                 val passwordHash = net.marllex.waselak.backend.domain.service.AuthService.hashPassword(request.manager_password)
                 val managerId = UsersTable.insertAndGetId {
@@ -373,13 +593,22 @@ fun Route.adminRoutes() {
                 )
             }
 
+            trace.step("Vendor created", mapOf(
+                "vendorId" to result.vendor.id,
+                "managerId" to result.manager_id,
+                "vendorName" to result.vendor.name
+            ))
             call.respond(HttpStatusCode.Created, result)
+            trace.step("Create vendor completed")
         }
 
         // GET /api/v1/admin/vendors — list all stores
         get("/vendors") {
+            val trace = call.routeTrace()
+            trace.step("List vendors started")
             if (!requireAdminPassword()) return@get
 
+            trace.step("Fetching all vendors")
             val vendors = transaction {
                 VendorsTable.selectAll().map { row ->
                     val vendorId = row[VendorsTable.id]
@@ -389,12 +618,16 @@ fun Route.adminRoutes() {
                     mapVendorRow(row, usersCount)
                 }
             }
+            trace.step("Vendors fetched", mapOf("count" to vendors.size.toString()))
 
             call.respond(HttpStatusCode.OK, vendors)
+            trace.step("List vendors completed")
         }
 
         // GET /api/v1/admin/vendors/{id} — get single store by ID
         get("/vendors/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get vendor by ID started")
             if (!requireAdminPassword()) return@get
 
             val vendorId = call.parameters["id"]
@@ -403,7 +636,9 @@ fun Route.adminRoutes() {
             val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
                 return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid vendor ID format"))
             }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
 
+            trace.step("Querying vendor from database")
             val vendor = transaction {
                 val row = VendorsTable.selectAll()
                     .where { VendorsTable.id eq vendorUuid }
@@ -417,14 +652,19 @@ fun Route.adminRoutes() {
             }
 
             if (vendor == null) {
+                trace.step("Vendor not found", mapOf("vendorId" to vendorId))
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Vendor not found"))
             } else {
+                trace.step("Vendor found", mapOf("vendorId" to vendorId, "vendorName" to vendor.name))
                 call.respond(HttpStatusCode.OK, vendor)
             }
+            trace.step("Get vendor by ID completed")
         }
 
         // PUT /api/v1/admin/vendors/{id} — update any store by ID
         put("/vendors/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update vendor started")
             if (!requireAdminPassword()) return@put
 
             val vendorId = call.parameters["id"]
@@ -433,9 +673,16 @@ fun Route.adminRoutes() {
             val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
                 return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid vendor ID format"))
             }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
 
             val request = call.receive<AdminUpdateVendorRequest>()
+            trace.step("Received update request", mapOf(
+                "name" to (request.name ?: "null"),
+                "businessType" to (request.business_type ?: "null"),
+                "isSuspended" to (request.is_suspended?.toString() ?: "null")
+            ))
 
+            trace.step("Updating vendor in database")
             val updated = transaction {
                 // Check vendor exists
                 val exists = VendorsTable.selectAll()
@@ -479,14 +726,19 @@ fun Route.adminRoutes() {
             }
 
             if (updated == null) {
+                trace.step("Vendor not found for update", mapOf("vendorId" to vendorId))
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Vendor not found"))
             } else {
+                trace.step("Vendor updated", mapOf("vendorId" to vendorId, "vendorName" to updated.name))
                 call.respond(HttpStatusCode.OK, updated)
             }
+            trace.step("Update vendor completed")
         }
 
         // DELETE /api/v1/admin/vendors/{id} — delete vendor and ALL associated data
         delete("/vendors/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete vendor started")
             if (!requireAdminPassword()) return@delete
 
             val vendorId = call.parameters["id"]
@@ -495,7 +747,9 @@ fun Route.adminRoutes() {
             val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
                 return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid vendor ID format"))
             }
+            trace.step("Parsed vendor ID", mapOf("vendorId" to vendorId))
 
+            trace.step("Deleting vendor and all associated data")
             val deleted = transaction {
                 val exists = VendorsTable.selectAll()
                     .where { VendorsTable.id eq vendorUuid }
@@ -522,7 +776,30 @@ fun Route.adminRoutes() {
                     StockTransactionsTable.deleteWhere { StockTransactionsTable.stockId inList stockIds }
                 }
 
-                // 4. Delete worker-dependent records
+                // 4. Delete item variant options/groups (before items)
+                val itemIds = ItemsTable.selectAll()
+                    .where { ItemsTable.vendorId eq vendorUuid }
+                    .map { it[ItemsTable.id].value }
+                if (itemIds.isNotEmpty()) {
+                    val groupIds = ItemVariantGroupsTable.selectAll()
+                        .where { ItemVariantGroupsTable.itemId inList itemIds }
+                        .map { it[ItemVariantGroupsTable.id].value }
+                    if (groupIds.isNotEmpty()) {
+                        ItemVariantOptionsTable.deleteWhere { ItemVariantOptionsTable.groupId inList groupIds }
+                    }
+                    ItemVariantGroupsTable.deleteWhere { ItemVariantGroupsTable.itemId inList itemIds }
+                }
+
+                // 5. Delete recipe ingredients, then recipes
+                val recipeIds = RecipesTable.selectAll()
+                    .where { RecipesTable.vendorId eq vendorUuid }
+                    .map { it[RecipesTable.id].value }
+                if (recipeIds.isNotEmpty()) {
+                    RecipeIngredientsTable.deleteWhere { RecipeIngredientsTable.recipeId inList recipeIds }
+                }
+                RecipesTable.deleteWhere { RecipesTable.vendorId eq vendorUuid }
+
+                // 6. Delete worker-dependent records
                 val workerIds = WorkersTable.selectAll()
                     .where { WorkersTable.vendorId eq vendorUuid }
                     .map { it[WorkersTable.id].value }
@@ -532,7 +809,10 @@ fun Route.adminRoutes() {
                     SalaryPaymentsTable.deleteWhere { SalaryPaymentsTable.workerId inList workerIds }
                 }
 
-                // 5. Delete announcement reads, then announcements
+                // 7. Delete overtime entries
+                OvertimeTable.deleteWhere { OvertimeTable.vendorId eq vendorUuid }
+
+                // 8. Delete announcement reads, then announcements
                 val announcementIds = AnnouncementsTable.selectAll()
                     .where { AnnouncementsTable.vendorId eq vendorUuid }
                     .map { it[AnnouncementsTable.id].value }
@@ -541,7 +821,7 @@ fun Route.adminRoutes() {
                 }
                 AnnouncementsTable.deleteWhere { AnnouncementsTable.vendorId eq vendorUuid }
 
-                // 6. Delete customer addresses, then customers
+                // 9. Delete customer addresses, then customers
                 val customerIds = CustomersTable.selectAll()
                     .where { CustomersTable.vendorId eq vendorUuid }
                     .map { it[CustomersTable.id].value }
@@ -550,7 +830,10 @@ fun Route.adminRoutes() {
                 }
                 CustomersTable.deleteWhere { CustomersTable.vendorId eq vendorUuid }
 
-                // 7. Delete vendor-level tables
+                // 10. Delete reservations
+                ReservationsTable.deleteWhere { ReservationsTable.vendorId eq vendorUuid }
+
+                // 11. Delete vendor-level tables
                 StockTable.deleteWhere { StockTable.vendorId eq vendorUuid }
                 OrdersTable.deleteWhere { OrdersTable.vendorId eq vendorUuid }
                 ItemsTable.deleteWhere { ItemsTable.vendorId eq vendorUuid }
@@ -560,7 +843,7 @@ fun Route.adminRoutes() {
                 TablesTable.deleteWhere { TablesTable.vendorId eq vendorUuid }
                 CategoriesTable.deleteWhere { CategoriesTable.vendorId eq vendorUuid }
 
-                // 8. Delete users and their refresh tokens
+                // 12. Delete users and their refresh tokens
                 val userIds = UsersTable.selectAll()
                     .where { UsersTable.vendorId eq vendorUuid }
                     .map { it[UsersTable.id].value }
@@ -569,17 +852,41 @@ fun Route.adminRoutes() {
                 }
                 UsersTable.deleteWhere { UsersTable.vendorId eq vendorUuid }
 
-                // 9. Finally delete the vendor
+                // 13. Delete vendor subscription
+                VendorSubscriptionsTable.deleteWhere { VendorSubscriptionsTable.vendorId eq vendorUuid }
+
+                // 14. Delete request/audit logs
+                RequestLogsTable.deleteWhere { RequestLogsTable.vendorId eq vendorUuid.toString() }
+
+                // 15. Finally delete the vendor
                 VendorsTable.deleteWhere { VendorsTable.id eq vendorUuid }
 
                 true
             }
 
+            // Clean up uploaded files for this vendor
+            if (deleted) {
+                try {
+                    val uploadsDir = java.io.File("uploads")
+                    if (uploadsDir.exists()) {
+                        uploadsDir.listFiles()?.filter { it.isDirectory && it.name.endsWith("-$vendorId") }?.forEach { dir ->
+                            dir.deleteRecursively()
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Don't fail the response if file cleanup fails
+                }
+            }
+
             if (!deleted) {
+                trace.step("Vendor not found for deletion", mapOf("vendorId" to vendorId))
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Vendor not found"))
             } else {
-                call.respond(HttpStatusCode.OK, mapOf("success" to true, "message" to "Vendor and all associated data deleted"))
+                trace.step("Vendor and associated data deleted", mapOf("vendorId" to vendorId))
+                val successJson = buildJsonObject { put("success", true); put("message", "Vendor and all associated data deleted") }
+                call.respondText(successJson.toString(), ContentType.Application.Json)
             }
+            trace.step("Delete vendor completed")
         }
     }
 }

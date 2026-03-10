@@ -29,6 +29,7 @@ local.properties
 
 # Logs
 *.log
+backend/logs/
 
 # OS
 .DS_Store
@@ -40,3 +41,18 @@ Thumbs.db
 # KSP / Kapt
 ksp/
 
+# Environment secrets (production)
+env/release.properties
+backend/.env.prod
+
+# Signing keys
+keystore/waselak-release.jks
+keystore/keystore.properties
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json
+
+# Uploaded files (runtime data)
+backend/uploads/
+uploads/

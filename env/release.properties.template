@@ -1,0 +1,14 @@
+# ─────────────────────────────────────────────────────────
+# Release / Production environment configuration TEMPLATE
+# Copy this to release.properties and fill in production values:
+#   cp release.properties.template release.properties
+#
+# ⚠️  release.properties is git-ignored — NEVER commit production secrets
+#
+# IMPORTANT: HMAC_SECRET must match the backend's HMAC_SECRET
+# in backend/.env.prod — generate with: openssl rand -hex 32
+# ─────────────────────────────────────────────────────────
+
+BASE_URL=https://api.waselak.net
+HMAC_SECRET=PASTE_SAME_VALUE_AS_BACKEND_ENV_PROD_HMAC_SECRET
+SENTRY_DSN=PASTE_YOUR_SENTRY_DSN

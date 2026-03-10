@@ -14,6 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.database.dao.PendingSyncDao
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class SyncScheduler(
     private val syncService: SyncService,
@@ -81,19 +82,24 @@ class SyncScheduler(
     }
 
     private suspend fun triggerSync(reason: String): Int {
-        // Prevent concurrent syncs — if one is already running, skip
-        if (!syncMutex.tryLock()) return 0
+        if (!syncMutex.tryLock()) {
+            AppLogger.d("SyncScheduler", "Sync skipped (already running): reason=$reason")
+            return 0
+        }
+        AppLogger.i("SyncScheduler", "Sync triggered: reason=$reason")
         return try {
             val count = syncService.syncAll()
-            // Also sync pending attendance records
+            AppLogger.i("SyncScheduler", "Order sync done: synced=$count, reason=$reason")
             try {
                 attendanceSyncManager.syncPendingRecords()
-            } catch (_: Exception) {
-                // Non-critical: attendance sync failure shouldn't block
+                AppLogger.i("SyncScheduler", "Attendance sync done: reason=$reason")
+            } catch (e: Exception) {
+                AppLogger.e("SyncScheduler", "Attendance sync failed (non-critical): reason=$reason", e)
             }
             _lastSyncResult.value = "Synced $count items ($reason)"
             count
         } catch (e: Exception) {
+            AppLogger.e("SyncScheduler", "Sync FAILED: reason=$reason", e)
             _lastSyncResult.value = "Sync failed: ${e.message}"
             0
         } finally {

@@ -1,0 +1,582 @@
+# =============================================================================
+# Waselak CI/CD Pipeline
+# =============================================================================
+# 1. Lint      — Android lint on all 3 apps
+# 2. Test      — Backend (48) + KMP (28+) unit tests
+# 3. Android   — Debug + Release APKs for manager, cashier, delivery
+# 4. Desktop   — Linux .deb, macOS .dmg, Windows .msi (matrix)
+# 5. Upload    — All artifacts → Google Drive under v{VERSION}/debug|release/
+#
+# Naming: {app}-v{version}-{DDMMYY}-{debug|release}-{platform}.{ext}
+# Example: manager-v1.0.0-110326-release-android.apk
+# =============================================================================
+
+name: Waselak CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_upload:
+        description: "Skip Google Drive upload"
+        required: false
+        default: "false"
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  JAVA_DISTRIBUTION: "temurin"
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.parallel=true"
+
+# =============================================================================
+# JOB 1: LINT
+# =============================================================================
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Create stub env/release.properties
+        run: cp env/release.properties.template env/release.properties
+
+      - name: Run Android Lint
+        run: |
+          ./gradlew :app-manager:lintDebug \
+                    :app-cashier:lintDebug \
+                    :app-delivery:lintDebug \
+                    --continue
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: |
+            app-manager/build/reports/lint-results-debug.html
+            app-cashier/build/reports/lint-results-debug.html
+            app-delivery/build/reports/lint-results-debug.html
+          retention-days: 14
+
+  # ===========================================================================
+  # JOB 2: TEST
+  # ===========================================================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Create stub env/release.properties
+        run: cp env/release.properties.template env/release.properties
+
+      - name: Run backend tests
+        run: ./gradlew :backend:test
+
+      - name: Run KMP unit tests
+        run: |
+          ./gradlew :core:core-model:desktopTest \
+                    :feature:feature-manager-orders:desktopTest \
+                    --continue
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            backend/build/reports/tests/
+            core/core-model/build/reports/tests/
+            feature/feature-manager-orders/build/reports/tests/
+          retention-days: 14
+
+  # ===========================================================================
+  # JOB 3: BUILD ANDROID (debug + release APKs)
+  # ===========================================================================
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ── Reconstruct release secrets from GitHub Secrets ──────────────────
+      - name: Create env/release.properties
+        run: |
+          cat > env/release.properties << EOF
+          BASE_URL=${{ secrets.RELEASE_BASE_URL }}
+          HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
+          SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
+          EOF
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release.jks
+
+      - name: Create keystore/keystore.properties
+        run: |
+          cat > keystore/keystore.properties << EOF
+          STORE_FILE=../keystore/waselak-release.jks
+          STORE_PASSWORD=${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEY_ALIAS=${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEY_PASSWORD=${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          EOF
+
+      # ── Build APKs ──────────────────────────────────────────────────────
+      - name: Build all debug APKs
+        run: ./gradlew assembleAllDebug
+
+      - name: Build all release APKs
+        run: ./gradlew assembleAllRelease
+
+      # ── Compute naming variables ────────────────────────────────────────
+      - name: Compute version and date
+        id: vars
+        run: |
+          VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          DATE=$(date +'%d%m%y')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      # ── Rename and organize APKs ────────────────────────────────────────
+      - name: Rename APKs to naming convention
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          DATE="${{ steps.vars.outputs.date }}"
+          mkdir -p artifacts/debug artifacts/release
+
+          declare -A APP_NAMES=(
+            ["app-manager"]="manager"
+            ["app-cashier"]="cashier"
+            ["app-delivery"]="delivery"
+          )
+
+          for module in app-manager app-cashier app-delivery; do
+            name="${APP_NAMES[$module]}"
+
+            # Debug APK
+            cp "$module/build/outputs/apk/debug/${module}-debug.apk" \
+               "artifacts/debug/${name}-v${VERSION}-${DATE}-debug-android.apk"
+
+            # Release APK
+            cp "$module/build/outputs/apk/release/${module}-release.apk" \
+               "artifacts/release/${name}-v${VERSION}-${DATE}-release-android.apk"
+          done
+
+          echo "=== Debug artifacts ==="
+          ls -la artifacts/debug/
+          echo "=== Release artifacts ==="
+          ls -la artifacts/release/
+
+      # ── Upload as GitHub artifacts ──────────────────────────────────────
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug
+          path: artifacts/debug/
+          retention-days: 7
+
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: artifacts/release/
+          retention-days: 7
+
+  # ===========================================================================
+  # JOB 4: BUILD DESKTOP (matrix: Linux, macOS, Windows)
+  # ===========================================================================
+  build-desktop:
+    name: Build Desktop (${{ matrix.os-label }})
+    runs-on: ${{ matrix.os }}
+    needs: [lint, test]
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os-label: Linux
+            task: packageAllDesktopDeb
+            platform: linux
+            ext: deb
+
+          - os: macos-latest
+            os-label: macOS
+            task: packageAllDesktopDmg
+            platform: macos
+            ext: dmg
+
+          - os: windows-latest
+            os-label: Windows
+            task: packageAllDesktopMsi
+            platform: windows
+            ext: msi
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Desktop packaging tasks auto-detect as release via
+      # KmpApplicationConventionPlugin.resolveBuildEnv()
+      - name: Create env/release.properties
+        shell: bash
+        run: |
+          cat > env/release.properties << EOF
+          BASE_URL=${{ secrets.RELEASE_BASE_URL }}
+          HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
+          SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
+          EOF
+
+      - name: Build desktop packages
+        run: ./gradlew ${{ matrix.task }}
+
+      - name: Compute version and date
+        id: vars
+        shell: bash
+        run: |
+          VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          DATE=$(date +'%d%m%y')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Rename desktop packages
+        shell: bash
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          DATE="${{ steps.vars.outputs.date }}"
+          PLATFORM="${{ matrix.platform }}"
+          EXT="${{ matrix.ext }}"
+          mkdir -p artifacts/release
+
+          declare -A APP_NAMES=(
+            ["app-manager"]="manager"
+            ["app-cashier"]="cashier"
+            ["app-delivery"]="delivery"
+          )
+
+          for module in app-manager app-cashier app-delivery; do
+            name="${APP_NAMES[$module]}"
+
+            # Find the built package file
+            PKG=$(find "$module/build/compose/binaries/main/$EXT" \
+                       -name "*.$EXT" -type f 2>/dev/null | head -1)
+
+            if [ -n "$PKG" ]; then
+              cp "$PKG" \
+                 "artifacts/release/${name}-v${VERSION}-${DATE}-release-${PLATFORM}.${EXT}"
+              echo "OK: ${name}-v${VERSION}-${DATE}-release-${PLATFORM}.${EXT}"
+            else
+              echo "WARNING: No .$EXT found for $module"
+            fi
+          done
+
+          echo "=== Desktop artifacts ($PLATFORM) ==="
+          ls -la artifacts/release/
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-${{ matrix.platform }}
+          path: artifacts/release/
+          retention-days: 7
+
+  # ===========================================================================
+  # JOB 5: UPLOAD TO GOOGLE DRIVE
+  # ===========================================================================
+  upload-to-drive:
+    name: Upload to Google Drive
+    runs-on: ubuntu-latest
+    needs: [build-android, build-desktop]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      (github.event.inputs.skip_upload != 'true')
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout (for gradle.properties)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: gradle.properties
+
+      - name: Install Python cryptography
+        run: pip install cryptography
+
+      # ── Download all artifacts ──────────────────────────────────────────
+      - name: Download Android debug
+        uses: actions/download-artifact@v4
+        with:
+          name: android-debug
+          path: all-artifacts/debug/
+
+      - name: Download Android release
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: all-artifacts/release/
+
+      - name: Download Linux desktop
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-release-linux
+          path: all-artifacts/release/
+
+      - name: Download macOS desktop
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-release-macos
+          path: all-artifacts/release/
+
+      - name: Download Windows desktop
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-release-windows
+          path: all-artifacts/release/
+
+      - name: Show all artifacts
+        run: |
+          echo "=== Debug ==="
+          ls -la all-artifacts/debug/
+          echo "=== Release ==="
+          ls -la all-artifacts/release/
+
+      # ── Read version ────────────────────────────────────────────────────
+      - name: Read version
+        id: vars
+        run: |
+          VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # ── Create Drive folder structure: v{VERSION}/debug/ + release/ ────
+      - name: Create Google Drive folders
+        id: drive
+        env:
+          GD_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GD_PARENT_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          echo "$GD_CREDENTIALS" | base64 --decode > /tmp/gsa-key.json
+
+          python3 << 'PYEOF'
+          import json, os, time, base64, urllib.request, urllib.parse
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+
+          def get_access_token(key_path):
+              with open(key_path) as f:
+                  key_data = json.load(f)
+              header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode()).rstrip(b"=").decode()
+              now = int(time.time())
+              claims = {
+                  "iss": key_data["client_email"],
+                  "scope": "https://www.googleapis.com/auth/drive",
+                  "aud": "https://oauth2.googleapis.com/token",
+                  "iat": now, "exp": now + 3600,
+              }
+              payload_b64 = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+              private_key = serialization.load_pem_private_key(key_data["private_key"].encode(), password=None)
+              sig = private_key.sign(f"{header}.{payload_b64}".encode(), padding.PKCS1v15(), hashes.SHA256())
+              sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+              jwt_token = f"{header}.{payload_b64}.{sig_b64}"
+              data = urllib.parse.urlencode({
+                  "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                  "assertion": jwt_token,
+              }).encode()
+              req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data)
+              resp = urllib.request.urlopen(req)
+              return json.loads(resp.read())["access_token"]
+
+          def create_folder(token, name, parent_id):
+              """Create a folder on Google Drive. Returns the folder ID."""
+              metadata = json.dumps({
+                  "name": name,
+                  "mimeType": "application/vnd.google-apps.folder",
+                  "parents": [parent_id],
+              }).encode()
+              req = urllib.request.Request(
+                  "https://www.googleapis.com/drive/v3/files",
+                  data=metadata,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                  },
+              )
+              resp = urllib.request.urlopen(req)
+              folder_id = json.loads(resp.read())["id"]
+              print(f"Created folder: {name} (ID: {folder_id})")
+              return folder_id
+
+          # Get token
+          token = get_access_token("/tmp/gsa-key.json")
+          parent = os.environ["GD_PARENT_FOLDER"]
+          version = os.environ["APP_VERSION"]
+
+          # Create: v{VERSION}/
+          version_folder = create_folder(token, f"v{version}", parent)
+
+          # Create: v{VERSION}/debug/ and v{VERSION}/release/
+          debug_folder = create_folder(token, "debug", version_folder)
+          release_folder = create_folder(token, "release", version_folder)
+
+          # Write folder IDs to GITHUB_OUTPUT
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"debug_folder_id={debug_folder}\n")
+              f.write(f"release_folder_id={release_folder}\n")
+          PYEOF
+
+          rm -f /tmp/gsa-key.json
+
+      # ── Upload all artifacts ────────────────────────────────────────────
+      - name: Upload artifacts to Google Drive
+        env:
+          GD_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          DEBUG_FOLDER_ID: ${{ steps.drive.outputs.debug_folder_id }}
+          RELEASE_FOLDER_ID: ${{ steps.drive.outputs.release_folder_id }}
+        run: |
+          echo "$GD_CREDENTIALS" | base64 --decode > /tmp/gsa-key.json
+
+          python3 << 'PYEOF'
+          import json, os, time, base64, glob, urllib.request, urllib.parse
+          from urllib.request import Request
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          import email.generator
+          import io
+
+          def get_access_token(key_path):
+              with open(key_path) as f:
+                  key_data = json.load(f)
+              header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode()).rstrip(b"=").decode()
+              now = int(time.time())
+              claims = {
+                  "iss": key_data["client_email"],
+                  "scope": "https://www.googleapis.com/auth/drive",
+                  "aud": "https://oauth2.googleapis.com/token",
+                  "iat": now, "exp": now + 3600,
+              }
+              payload_b64 = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+              private_key = serialization.load_pem_private_key(key_data["private_key"].encode(), password=None)
+              sig = private_key.sign(f"{header}.{payload_b64}".encode(), padding.PKCS1v15(), hashes.SHA256())
+              sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+              jwt_token = f"{header}.{payload_b64}.{sig_b64}"
+              data = urllib.parse.urlencode({
+                  "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                  "assertion": jwt_token,
+              }).encode()
+              req = Request("https://oauth2.googleapis.com/token", data=data)
+              resp = urllib.request.urlopen(req)
+              return json.loads(resp.read())["access_token"]
+
+          def upload_file(token, filepath, folder_id):
+              """Upload a file to Google Drive using multipart upload."""
+              filename = os.path.basename(filepath)
+              metadata = json.dumps({"name": filename, "parents": [folder_id]}).encode()
+
+              # Build multipart body
+              boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
+              with open(filepath, "rb") as f:
+                  file_data = f.read()
+
+              body = (
+                  f"--{boundary}\r\n"
+                  f'Content-Type: application/json; charset=UTF-8\r\n\r\n'
+              ).encode() + metadata + (
+                  f"\r\n--{boundary}\r\n"
+                  f"Content-Type: application/octet-stream\r\n\r\n"
+              ).encode() + file_data + f"\r\n--{boundary}--\r\n".encode()
+
+              req = Request(
+                  "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+                  data=body,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": f"multipart/related; boundary={boundary}",
+                  },
+              )
+              resp = urllib.request.urlopen(req)
+              result = json.loads(resp.read())
+              print(f"  Uploaded: {filename} (ID: {result['id']})")
+
+          # Get token
+          token = get_access_token("/tmp/gsa-key.json")
+          debug_folder = os.environ["DEBUG_FOLDER_ID"]
+          release_folder = os.environ["RELEASE_FOLDER_ID"]
+
+          # Upload debug artifacts
+          debug_files = glob.glob("all-artifacts/debug/*")
+          if debug_files:
+              print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
+              for f in debug_files:
+                  upload_file(token, f, debug_folder)
+
+          # Upload release artifacts
+          release_files = glob.glob("all-artifacts/release/*")
+          if release_files:
+              print(f"\n=== Uploading {len(release_files)} release artifacts ===")
+              for f in release_files:
+                  upload_file(token, f, release_folder)
+
+          total = len(debug_files) + len(release_files)
+          print(f"\n=== Done! {total} files uploaded to Google Drive ===")
+          PYEOF
+
+          rm -f /tmp/gsa-key.json

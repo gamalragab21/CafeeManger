@@ -13,5 +13,11 @@ interface VendorRepository {
         enableDelivery: Boolean? = null,
         biometricRequired: Boolean? = null,
         enableOfflineMode: Boolean? = null,
+        loyaltyEnabled: Boolean? = null,
+        pointsEarnRate: Double? = null,
+        pointsRedeemRate: Double? = null,
+        minPointsRedeem: Int? = null,
+        maxManualDiscountPercent: Double? = null,
+        manualDiscountRequiresPin: Boolean? = null,
     ): Result<Vendor>
 }

@@ -52,4 +52,13 @@
     <string name="refund_confirm_message">أنت متأكد إنك عايز تسترد الطلب ده؟ المخزون هيرجع وسجلات العملاء هتتحدّث.</string>
     <string name="processing_refund">بيتعالج الاسترداد…</string>
     <string name="no_orders">مفيش طلبات</string>
+    <string name="pay_now">ادفع دلوقتي</string>
+    <string name="processing_payment">بيتعالج الدفع…</string>
+    <string name="load_more">حمّل المزيد</string>
+    <string name="table_filter">الترابيزة</string>
+    <string name="all_tables">كل الترابيزات</string>
+    <!-- Discount breakdown -->
+    <string name="discount">الخصم</string>
+    <string name="points_redeemed">نقاط مستبدلة</string>
+    <string name="discount_reason">السبب</string>
 </resources>

@@ -5,10 +5,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import net.marllex.waselak.core.ui.components.applyLanguage
 import net.marllex.waselak.core.ui.components.getPersistedLanguage
+import net.marllex.waselak.config.BuildConfig
+import net.marllex.waselak.core.common.crash.CrashReporter
 import net.marllex.waselak.delivery.di.deliveryDesktopKoinModules
 import org.koin.core.context.startKoin
 
 fun main() {
+    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery")
     startKoin {
         modules(deliveryDesktopKoinModules())
     }

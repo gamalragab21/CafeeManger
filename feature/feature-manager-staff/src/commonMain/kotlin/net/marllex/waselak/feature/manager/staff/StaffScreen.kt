@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.DeliveryDining
@@ -84,6 +85,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -114,11 +116,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.Attendance
 import net.marllex.waselak.core.model.AttendanceSummary
+import net.marllex.waselak.core.model.Overtime
 import net.marllex.waselak.core.model.SalaryPayment
 import net.marllex.waselak.core.model.SalaryType
 import net.marllex.waselak.core.model.Worker
 import net.marllex.waselak.core.ui.components.ErrorView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.ProfileAvatar
+import net.marllex.waselak.core.ui.components.ShiftSummaryBottomSheet
+import androidx.compose.material.icons.filled.PointOfSale
+import net.marllex.waselak.core.ui.platform.rememberImagePickerLauncher
+import androidx.compose.material.icons.filled.CameraAlt
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 
@@ -126,6 +135,11 @@ import net.marllex.waselak.core.common.extensions.formatEpochMs
 @Composable
 fun StaffScreen(
     onNavigateToWorkerQrCode: (String) -> Unit = {},
+    isAttendanceEnabled: Boolean = true,
+    isSalaryEnabled: Boolean = true,
+    isOvertimeEnabled: Boolean = true,
+    isDeliveryEnabled: Boolean = true,
+    onNavigateBack: (() -> Unit)? = null,
     viewModel: StaffViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -136,6 +150,7 @@ fun StaffScreen(
         stringResource(Res.string.workers),
         stringResource(Res.string.attendance),
         stringResource(Res.string.salary),
+        stringResource(Res.string.overtime),
         stringResource(Res.string.roles_settings),
     )
 
@@ -154,6 +169,10 @@ fun StaffScreen(
                 navigationIcon = {
                     if (activeSubScreen != null) {
                         IconButton(onClick = { activeSubScreen = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back))
+                        }
+                    } else if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back))
                         }
                     }
@@ -180,39 +199,41 @@ fun StaffScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Card(
-                            onClick = { activeSubScreen = "delivery" },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            ),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        if (isDeliveryEnabled) {
+                            Card(
+                                onClick = { activeSubScreen = "delivery" },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                ),
                             ) {
-                                Icon(
-                                    Icons.Outlined.DeliveryDining,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                                Column {
-                                    Text(
-                                        stringResource(Res.string.delivery_dashboard),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.DeliveryDining,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(28.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
-                                    Text(
-                                        stringResource(Res.string.view_delivery_dashboard),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    Column {
+                                        Text(
+                                            stringResource(Res.string.delivery_dashboard),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                        Text(
+                                            stringResource(Res.string.view_delivery_dashboard),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -255,11 +276,12 @@ fun StaffScreen(
                         }
                     }
 
-                    // 4-tab TabRow
-                    TabRow(
+                    // 5-tab ScrollableTabRow
+                    ScrollableTabRow(
                         selectedTabIndex = selectedTab,
                         containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.primary,
+                        edgePadding = 8.dp,
                         divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
                         indicator = { tabPositions ->
                             if (selectedTab < tabPositions.size) {
@@ -299,9 +321,10 @@ fun StaffScreen(
                         else -> Box(modifier = Modifier.fillMaxSize()) {
                             when (selectedTab) {
                                 0 -> WorkersTab(uiState, viewModel, onNavigateToWorkerQrCode)
-                                1 -> AttendanceTab(uiState, viewModel)
-                                2 -> SalaryTab(uiState, viewModel)
-                                3 -> RolesTab(uiState, viewModel)
+                                1 -> if (isAttendanceEnabled) AttendanceTab(uiState, viewModel) else FeatureNotAvailableView()
+                                2 -> if (isSalaryEnabled) SalaryTab(uiState, viewModel) else FeatureNotAvailableView()
+                                3 -> if (isOvertimeEnabled) OvertimeTab(uiState, viewModel) else FeatureNotAvailableView()
+                                4 -> RolesTab(uiState, viewModel)
                             }
                         }
                     }
@@ -334,6 +357,30 @@ fun StaffScreen(
         }
         if (uiState.showBatchPayDialog) {
             BatchPayNoteDialog(uiState, viewModel)
+        }
+        if (uiState.showAddOvertimeDialog) {
+            AddOvertimeDialog(uiState, viewModel)
+        }
+        if (uiState.showEditRateDialog) {
+            EditRateDialog(uiState, viewModel)
+        }
+        if (uiState.showPlanLimitDialog) {
+            net.marllex.waselak.core.ui.components.PlanLimitBottomSheet(
+                message = uiState.planLimitMessage,
+                onDismiss = viewModel::dismissPlanLimitDialog,
+            )
+        }
+        if (uiState.showShiftSummary) {
+            ShiftSummaryBottomSheet(
+                shiftSummary = uiState.shiftSummaryData,
+                isLoading = uiState.shiftSummaryLoading,
+                error = uiState.shiftSummaryError,
+                onRetry = {
+                    val worker = uiState.workers.firstOrNull { it.fullName == uiState.shiftSummaryWorkerName }
+                    if (worker != null) viewModel.fetchShiftSummary(worker)
+                },
+                onDismiss = viewModel::dismissShiftSummary,
+            )
         }
     }
 }
@@ -403,6 +450,9 @@ private fun WorkersTab(
                             onToggleActive = { viewModel.toggleWorkerActive(worker) },
                             onDelete = { viewModel.showDeleteWorkerConfirm(worker) },
                             onViewQrCode = { onNavigateToWorkerQrCode(worker.id) },
+                            onViewShiftSummary = if (worker.isLoginEnabled && worker.userId != null) {
+                                { viewModel.fetchShiftSummary(worker) }
+                            } else null,
                         )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -430,6 +480,7 @@ private fun WorkerCard(
     onToggleActive: () -> Unit,
     onDelete: () -> Unit,
     onViewQrCode: () -> Unit,
+    onViewShiftSummary: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -456,19 +507,11 @@ private fun WorkerCard(
             ) {
                 // Profile/Presence Section
                 Box(contentAlignment = Alignment.BottomEnd) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                worker.fullName.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
+                    ProfileAvatar(
+                        photoUrl = worker.photoUrl,
+                        size = 48.dp,
+                        contentDescription = worker.fullName,
+                    )
                     // Presence Dot
                     Box(
                         modifier = Modifier
@@ -513,6 +556,11 @@ private fun WorkerCard(
 
                 // Quick Action + Menu
                 Row {
+                    if (onViewShiftSummary != null) {
+                        IconButton(onClick = onViewShiftSummary) {
+                            Icon(Icons.Default.PointOfSale, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     IconButton(onClick = onViewQrCode) {
                         Icon(Icons.Default.QrCode, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -749,6 +797,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
                 summary = summary,
                 isAppUser = isAppUser,
                 workerRole = summary.workerRole,
+                photoUrl = worker?.photoUrl,
             )
         }
 
@@ -840,7 +889,8 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
 
         if (filteredRecords.isNotEmpty()) {
             items(filteredRecords) { record ->
-                AttendanceRecordCard(record)
+                val recordWorker = workerLookup[record.workerId]
+                AttendanceRecordCard(record, photoUrl = recordWorker?.photoUrl)
             }
         }
 
@@ -865,6 +915,7 @@ private fun WorkerAttendanceSummaryCard(
     summary: AttendanceSummary,
     isAppUser: Boolean,
     workerRole: String,
+    photoUrl: String? = null,
 ) {
     // Three states:
     // 1. Present (presentToday=true): green — currently working
@@ -910,20 +961,11 @@ private fun WorkerAttendanceSummaryCard(
         ) {
             // Avatar with status indicator
             Box(contentAlignment = Alignment.BottomEnd) {
-                Surface(
-                    shape = CircleShape,
-                    color = statusColor.copy(alpha = 0.1f),
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            summary.workerName.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor,
-                        )
-                    }
-                }
+                ProfileAvatar(
+                    photoUrl = photoUrl,
+                    size = 44.dp,
+                    contentDescription = summary.workerName,
+                )
                 // Online/Offline dot
                 Box(
                     modifier = Modifier
@@ -1175,7 +1217,7 @@ private fun AttendanceFilters(
 // ─── Attendance Record Card (History) ────────────────────────────
 
 @Composable
-private fun AttendanceRecordCard(record: Attendance) {
+private fun AttendanceRecordCard(record: Attendance, photoUrl: String? = null) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1199,20 +1241,11 @@ private fun AttendanceRecordCard(record: Attendance) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Worker avatar
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(38.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            (record.workerName ?: "W").take(1).uppercase(),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
+                ProfileAvatar(
+                    photoUrl = photoUrl,
+                    size = 38.dp,
+                    contentDescription = record.workerName,
+                )
 
                 Spacer(Modifier.width(10.dp))
 
@@ -1378,6 +1411,7 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
     data class WorkerSummary(
         val workerId: String,
         val workerName: String,
+        val workerPhotoUrl: String?,
         val workerRole: String,
         val salaryType: String,
         val unpaidAmount: Double,
@@ -1392,6 +1426,7 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
             val summary = WorkerSummary(
                 workerId = worker.id,
                 workerName = worker.fullName,
+                workerPhotoUrl = worker.photoUrl,
                 workerRole = worker.role,
                 salaryType = worker.salaryType.name,
                 unpaidAmount = unpaid.sumOf { it.amount },
@@ -1447,6 +1482,12 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
                             modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            ProfileAvatar(
+                                photoUrl = summary.workerPhotoUrl,
+                                size = 44.dp,
+                                contentDescription = summary.workerName,
+                            )
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = summary.workerName,
@@ -1525,7 +1566,12 @@ private fun WorkerSalaryDetailView(uiState: StaffViewModel.UiState, viewModel: S
                         IconButton(onClick = { viewModel.selectWorkerForSalary(null) }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
                         }
-                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        ProfileAvatar(
+                            photoUrl = worker?.photoUrl,
+                            size = 40.dp,
+                            contentDescription = worker?.fullName,
+                        )
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(worker?.fullName ?: "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text(worker?.role ?: "", style = MaterialTheme.typography.bodyMedium)
                         }
@@ -1656,6 +1702,496 @@ private fun SelectableSalaryPaymentCard(
             }
         }
     }
+}
+
+// ─── Overtime Tab ─────────────────────────────────────────────────
+
+@Composable
+private fun OvertimeTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
+    // Two-level navigation: null = worker list, non-null = worker overtime detail
+    var selectedWorkerId by remember { mutableStateOf<String?>(null) }
+
+    if (selectedWorkerId == null) {
+        OvertimeWorkerListView(uiState, viewModel) { workerId ->
+            selectedWorkerId = workerId
+            viewModel.refreshOvertimeForWorker(workerId)
+        }
+    } else {
+        OvertimeWorkerDetailView(
+            uiState = uiState,
+            viewModel = viewModel,
+            workerId = selectedWorkerId!!,
+            onBack = { selectedWorkerId = null },
+        )
+    }
+}
+
+@Composable
+private fun OvertimeWorkerListView(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+    onSelectWorker: (String) -> Unit,
+) {
+    if (uiState.workers.isEmpty()) {
+        EmptyState(
+            icon = Icons.Filled.Timer,
+            message = stringResource(Res.string.no_workers),
+        )
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(uiState.workers, key = { it.id }) { worker ->
+                OutlinedCard(
+                    onClick = { onSelectWorker(worker.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ProfileAvatar(
+                            photoUrl = worker.photoUrl,
+                            size = 44.dp,
+                            contentDescription = worker.fullName,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = worker.fullName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = RoundedCornerShape(4.dp),
+                                ) {
+                                    Text(
+                                        text = worker.role,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                        }
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(80.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun OvertimeWorkerDetailView(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+    workerId: String,
+    onBack: () -> Unit,
+) {
+    val worker = uiState.workers.find { it.id == workerId }
+    val entries = uiState.overtimeEntries.sortedByDescending { it.date }
+    val totalAmount = entries.sumOf { it.amount }
+    var showDeleteId by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        topBar = {
+            Surface(tonalElevation = 3.dp) {
+                Column(Modifier.statusBarsPadding()) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                        }
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(
+                                worker?.fullName ?: "",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                stringResource(Res.string.overtime),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.showAddOvertimeDialog(workerId) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text(stringResource(Res.string.add_overtime)) },
+            )
+        },
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            // Total summary card
+            if (entries.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(Res.string.overtime),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = "${totalAmount.toInt()} ${stringResource(Res.string.egp)}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Text(
+                            text = "${entries.size} ${stringResource(Res.string.overtime)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (entries.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Filled.Timer,
+                    message = stringResource(Res.string.no_overtime_records),
+                )
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(entries, key = { it.id }) { entry ->
+                        OvertimeEntryCard(
+                            entry = entry,
+                            onDelete = { showDeleteId = entry.id },
+                            onEditRate = {
+                                viewModel.showEditRateDialog(entry.id, entry.ratePerHour)
+                            },
+                        )
+                    }
+                    item { Spacer(Modifier.height(80.dp)) }
+                }
+            }
+        }
+    }
+
+    // Delete confirmation
+    if (showDeleteId != null) {
+        DeleteConfirmDialog(
+            title = stringResource(Res.string.delete_overtime),
+            message = stringResource(Res.string.delete_overtime_confirm),
+            onConfirm = {
+                viewModel.deleteOvertime(showDeleteId!!)
+                showDeleteId = null
+                viewModel.refreshOvertimeForWorker(workerId)
+            },
+            onDismiss = { showDeleteId = null },
+        )
+    }
+}
+
+@Composable
+private fun OvertimeEntryCard(
+    entry: Overtime,
+    onDelete: () -> Unit,
+    onEditRate: (() -> Unit)? = null,
+) {
+    val isPendingRate = entry.ratePerHour <= 0.0
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPendingRate)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = entry.date,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (isPendingRate) {
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.error,
+                                shape = RoundedCornerShape(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.pending_rate),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onError,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    if (isPendingRate) {
+                        Text(
+                            text = stringResource(Res.string.overtime_hours_only, entry.hours.toString()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(
+                                Res.string.overtime_entry,
+                                entry.hours.toString(),
+                                entry.ratePerHour.toInt().toString(),
+                                entry.amount.toInt().toString(),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    if (!isPendingRate) {
+                        Text(
+                            text = "${entry.amount.toInt()} ${stringResource(Res.string.egp)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Row {
+                        if (onEditRate != null) {
+                            IconButton(onClick = onEditRate, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = stringResource(Res.string.edit_rate),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = stringResource(Res.string.delete),
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            val noteText = entry.note
+            if (!noteText.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = noteText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddOvertimeDialog(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+) {
+    val worker = uiState.workers.find { it.id == uiState.overtimeWorkerId }
+
+    AlertDialog(
+        onDismissRequest = viewModel::dismissOvertimeDialog,
+        icon = { Icon(Icons.Filled.Timer, null, tint = MaterialTheme.colorScheme.primary) },
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(Res.string.add_overtime))
+                if (worker != null) {
+                    Text(
+                        text = worker.fullName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = uiState.overtimeDate,
+                    onValueChange = viewModel::updateOvertimeDate,
+                    label = { Text(stringResource(Res.string.overtime_date)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("YYYY-MM-DD") },
+                )
+                OutlinedTextField(
+                    value = uiState.overtimeHours,
+                    onValueChange = viewModel::updateOvertimeHours,
+                    label = { Text(stringResource(Res.string.overtime_hours)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    placeholder = { Text("e.g. 2.5") },
+                )
+                OutlinedTextField(
+                    value = uiState.overtimeRatePerHour,
+                    onValueChange = viewModel::updateOvertimeRatePerHour,
+                    label = { Text(stringResource(Res.string.rate_per_hour)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                // Preview calculation
+                val hours = uiState.overtimeHours.toDoubleOrNull() ?: 0.0
+                val rate = uiState.overtimeRatePerHour.toDoubleOrNull() ?: 0.0
+                if (hours > 0 && rate > 0) {
+                    val total = hours * rate
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        ),
+                    ) {
+                        Text(
+                            text = stringResource(
+                                Res.string.overtime_entry,
+                                hours.toString(),
+                                rate.toInt().toString(),
+                                total.toInt().toString(),
+                            ),
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = uiState.overtimeNote,
+                    onValueChange = viewModel::updateOvertimeNote,
+                    label = { Text(stringResource(Res.string.overtime_note)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    minLines = 2,
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = viewModel::submitOvertime,
+                enabled = !uiState.isSaving &&
+                    uiState.overtimeDate.isNotBlank() &&
+                    (uiState.overtimeHours.toDoubleOrNull() ?: 0.0) > 0,
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text(stringResource(Res.string.save))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::dismissOvertimeDialog) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun EditRateDialog(
+    uiState: StaffViewModel.UiState,
+    viewModel: StaffViewModel,
+) {
+    AlertDialog(
+        onDismissRequest = viewModel::dismissEditRateDialog,
+        icon = { Icon(Icons.Filled.Edit, null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text(stringResource(Res.string.set_rate_per_hour)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = uiState.editRateValue,
+                    onValueChange = viewModel::updateEditRateValue,
+                    label = { Text(stringResource(Res.string.rate_per_hour)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = viewModel::submitEditRate,
+                enabled = !uiState.isSaving &&
+                    (uiState.editRateValue.toDoubleOrNull() ?: 0.0) > 0,
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text(stringResource(Res.string.save))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::dismissEditRateDialog) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
+    )
 }
 
 // ─── Roles Tab ───────────────────────────────────────────────────
@@ -1864,6 +2400,33 @@ private fun StepConnector(isCompleted: Boolean) {
 @Composable
 private fun Step1BasicInfoContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Photo picker
+        val pickImage = rememberImagePickerLauncher { bytes ->
+            if (bytes != null) viewModel.uploadWorkerPhoto(bytes)
+        }
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box {
+                ProfileAvatar(
+                    photoUrl = uiState.dialogPhotoUrl,
+                    size = 80.dp,
+                    contentDescription = "Worker photo",
+                )
+                Surface(
+                    onClick = pickImage,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp).align(Alignment.BottomEnd),
+                ) {
+                    Icon(
+                        Icons.Filled.CameraAlt,
+                        contentDescription = "Change photo",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(4.dp),
+                    )
+                }
+            }
+        }
+
         OutlinedTextField(
             value = uiState.dialogName,
             onValueChange = viewModel::updateDialogName,
@@ -2305,6 +2868,33 @@ private fun SummaryRow(label: String, value: String) {
 @Composable
 private fun EditWorkerContent(uiState: StaffViewModel.UiState, viewModel: StaffViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Photo picker
+        val pickImage = rememberImagePickerLauncher { bytes ->
+            if (bytes != null) viewModel.uploadWorkerPhoto(bytes)
+        }
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box {
+                ProfileAvatar(
+                    photoUrl = uiState.dialogPhotoUrl,
+                    size = 80.dp,
+                    contentDescription = "Worker photo",
+                )
+                Surface(
+                    onClick = pickImage,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp).align(Alignment.BottomEnd),
+                ) {
+                    Icon(
+                        Icons.Filled.CameraAlt,
+                        contentDescription = "Change photo",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(4.dp),
+                    )
+                }
+            }
+        }
+
         OutlinedTextField(
             value = uiState.dialogName,
             onValueChange = viewModel::updateDialogName,

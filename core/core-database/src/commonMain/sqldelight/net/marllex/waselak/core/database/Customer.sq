@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS customers (
     notes TEXT,
     order_count INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
     total_spent REAL NOT NULL DEFAULT 0.0,
+    points_balance INTEGER AS kotlin.Int NOT NULL DEFAULT 0,
     last_order_at INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER
@@ -24,8 +25,8 @@ searchCustomers:
 SELECT * FROM customers WHERE vendor_id = ? AND (phone LIKE ? OR name LIKE ?) ORDER BY order_count DESC;
 
 insertCustomer:
-INSERT OR REPLACE INTO customers(id, vendor_id, name, phone, notes, order_count, total_spent, last_order_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO customers(id, vendor_id, name, phone, notes, order_count, total_spent, points_balance, last_order_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteCustomer:
 DELETE FROM customers WHERE id = ?;

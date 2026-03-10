@@ -30,6 +30,7 @@ class UserDao(private val db: WaselakDatabase) {
                     name = user.name,
                     phone = user.phone,
                     email = user.email,
+                    photo_url = user.photo_url,
                     active = user.active,
                     created_at = user.created_at
                 )
@@ -45,6 +46,7 @@ class UserDao(private val db: WaselakDatabase) {
             name = user.name,
             phone = user.phone,
             email = user.email,
+            photo_url = user.photo_url,
             active = user.active,
             created_at = user.created_at
         )

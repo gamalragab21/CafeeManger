@@ -6,10 +6,14 @@ import io.ktor.server.routing.*
 import net.marllex.waselak.backend.data.database.CategoriesTable
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.VendorsTable
+import net.marllex.waselak.backend.domain.service.FeatureNotAvailableException
+import net.marllex.waselak.backend.domain.service.PlanService
+import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.java.KoinJavaComponent
 import java.util.UUID
 
 /**
@@ -17,18 +21,40 @@ import java.util.UUID
  * No authentication required — anyone with the link can view the menu.
  */
 fun Route.digitalMenuRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+
     route("/menu") {
         get("/{vendorId}") {
+            val trace = call.routeTrace()
+            trace.step("Digital menu fetch started")
             val vendorId = call.parameters["vendorId"]
                 ?: return@get call.respondText("Vendor ID required", status = HttpStatusCode.BadRequest)
 
+            trace.step("Parsing vendor ID", mapOf("vendorId" to vendorId))
             val uuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                trace.step("Invalid vendor ID format", mapOf("vendorId" to vendorId))
                 return@get call.respondText("Invalid vendor ID", status = HttpStatusCode.BadRequest)
             }
 
+            trace.step("Looking up vendor in database")
             val vendor = transaction {
                 VendorsTable.selectAll().where { VendorsTable.id eq uuid }.firstOrNull()
-            } ?: return@get call.respondText("Store not found", status = HttpStatusCode.NotFound)
+            } ?: run {
+                trace.step("Vendor not found", mapOf("vendorId" to vendorId))
+                return@get call.respondText("Store not found", status = HttpStatusCode.NotFound)
+            }
+
+            // ─── Plan feature gate: digital menu ──────────
+            trace.step("Checking DIGITAL_MENU feature gate")
+            try {
+                planService.checkFeature(uuid, "DIGITAL_MENU")
+            } catch (_: FeatureNotAvailableException) {
+                trace.step("DIGITAL_MENU feature not available", mapOf("vendorId" to vendorId))
+                return@get call.respondText(
+                    "Digital menu is not available for this store's current plan.",
+                    status = HttpStatusCode.Forbidden
+                )
+            }
 
             data class MenuCategory(val id: String, val name: String, val order: Int)
             data class MenuItem(
@@ -36,13 +62,16 @@ fun Route.digitalMenuRoutes() {
                 val price: Double, val imageUrl: String?, val categoryId: String,
             )
 
+            trace.step("Fetching categories")
             val categories = transaction {
                 CategoriesTable.selectAll()
                     .where { CategoriesTable.vendorId eq uuid }
                     .orderBy(CategoriesTable.displayOrder, SortOrder.ASC)
                     .map { MenuCategory(it[CategoriesTable.id].toString(), it[CategoriesTable.name], it[CategoriesTable.displayOrder]) }
             }
+            trace.step("Categories fetched", mapOf("categoriesCount" to categories.size.toString()))
 
+            trace.step("Fetching menu items")
             val items = transaction {
                 ItemsTable.selectAll()
                     .where { (ItemsTable.vendorId eq uuid) and (ItemsTable.available eq true) }
@@ -57,6 +86,7 @@ fun Route.digitalMenuRoutes() {
                         )
                     }
             }
+            trace.step("Menu items fetched", mapOf("itemsCount" to items.size.toString()))
 
             val storeName = esc(vendor[VendorsTable.name])
             val storeAddress = esc(vendor[VendorsTable.address])
@@ -174,6 +204,11 @@ fun Route.digitalMenuRoutes() {
                 appendLine("</body></html>")
             }
 
+            trace.step("Digital menu fetch completed", mapOf(
+                "vendorId" to vendorId,
+                "categoriesCount" to categories.size.toString(),
+                "itemsCount" to items.size.toString()
+            ))
             call.respondText(html, ContentType.Text.Html)
         }
     }

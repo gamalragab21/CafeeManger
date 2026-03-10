@@ -13,6 +13,7 @@ data class WorkerResponse(
     @SerialName("full_name") val fullName: String,
     val phone: String? = null,
     val description: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
     val role: String,
     @SerialName("salary_type") val salaryType: String,
     @SerialName("salary_amount") val salaryAmount: Double,
@@ -32,6 +33,7 @@ data class CreateWorkerRequest(
     @SerialName("full_name") val fullName: String,
     val phone: String? = null,
     val description: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
     val role: String,
     @SerialName("salary_type") val salaryType: String,
     @SerialName("salary_amount") val salaryAmount: Double = 0.0,
@@ -46,6 +48,7 @@ data class UpdateWorkerRequest(
     @SerialName("full_name") val fullName: String? = null,
     val phone: String? = null,
     val description: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
     val role: String? = null,
     @SerialName("salary_type") val salaryType: String? = null,
     @SerialName("salary_amount") val salaryAmount: Double? = null,
@@ -185,10 +188,16 @@ data class OvertimeResponse(
 
 @Serializable
 data class CreateOvertimeRequest(
-    @SerialName("worker_id") val workerId: String,
+    @SerialName("worker_id") val workerId: String = "",
     val date: String,
     val hours: Double,
-    @SerialName("rate_per_hour") val ratePerHour: Double,
+    @SerialName("rate_per_hour") val ratePerHour: Double = 0.0,
+    val note: String? = null,
+)
+
+@Serializable
+data class UpdateOvertimeRequest(
+    @SerialName("rate_per_hour") val ratePerHour: Double? = null,
     val note: String? = null,
 )
 

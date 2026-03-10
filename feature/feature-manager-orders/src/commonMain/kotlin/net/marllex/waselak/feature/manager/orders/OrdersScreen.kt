@@ -23,6 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,6 +62,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -67,11 +74,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.BoxWithConstraints
+import kotlinx.coroutines.launch
 
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.manager.orders.generated.resources.Res
@@ -84,13 +93,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.OrderItem
 import net.marllex.waselak.core.model.OrderStatus
+import net.marllex.waselak.core.model.PaymentMethod
+import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.ui.components.ChannelChip
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
@@ -130,11 +140,24 @@ fun OrdersScreen(
     }
 
     var showDatePicker by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Show error as Snackbar
+    LaunchedEffect(uiState.error) {
+        val errorMessage = uiState.error
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar(errorMessage)
+            viewModel.clearError()
+        }
+    }
 
     BoxWithConstraints {
-    val isTablet = maxWidth >= 600.dp
+    val screenWidth = maxWidth
+    val isTablet = screenWidth >= 600.dp
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.orders)) },
@@ -158,15 +181,18 @@ fun OrdersScreen(
                     selectedStatus = uiState.selectedStatus,
                     selectedCashierId = uiState.selectedCashierId,
                     selectedDeliveryUserId = uiState.selectedDeliveryUserId,
+                    selectedTableId = uiState.selectedTableId,
                     fromDate = uiState.fromDate,
                     toDate = uiState.toDate,
                     cashiers = uiState.cashiers,
                     deliveryUsers = uiState.deliveryUsers,
+                    tables = uiState.tables,
                     hasActiveFilters = uiState.hasActiveFilters,
                     onChannelSelected = viewModel::filterByChannel,
                     onStatusSelected = viewModel::filterByStatus,
                     onCashierSelected = viewModel::filterByCashier,
                     onDeliverySelected = viewModel::filterByDelivery,
+                    onTableSelected = viewModel::filterByTable,
                     onDateRangeSelected = viewModel::filterByDateRange,
                     onClearAll = viewModel::clearAllFilters,
                     onShowDatePicker = { showDatePicker = true }
@@ -177,18 +203,20 @@ fun OrdersScreen(
                 } else {
                     // Orders count info
                     Text(
-                        text = "${uiState.orders.size} ${stringResource(Res.string.orders_found)}",
+                        text = "${uiState.orders.size} / ${uiState.totalCount} ${stringResource(Res.string.orders_found)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier),
+                    val gridColumns = if (screenWidth >= 1200.dp) 3 else if (screenWidth >= 700.dp) 2 else 1
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(gridColumns),
+                        modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(uiState.orders, key = { it.id }) { order ->
                             OrderCard(
@@ -198,7 +226,26 @@ fun OrdersScreen(
                                 onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
                                     { viewModel.showEditOrder(order) }
                                 } else null,
+                                onPayNow = if (order.paymentStatus == PaymentStatus.PENDING) {
+                                    { viewModel.showPaymentDialog(order) }
+                                } else null,
                             )
+                        }
+                        if (uiState.hasMore) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (uiState.isLoadingMore) {
+                                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                    } else {
+                                        OutlinedButton(onClick = { viewModel.loadMoreOrders() }) {
+                                            Text(stringResource(Res.string.load_more))
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -270,6 +317,18 @@ fun OrdersScreen(
             onRemoveItem = viewModel::removeEditItem,
             onSave = viewModel::saveEditOrder,
             onDismiss = viewModel::dismissEditOrderDialog,
+        )
+    }
+
+    // Payment confirmation bottom sheet
+    if (uiState.showPaymentDialog && uiState.payingOrder != null) {
+        PaymentBottomSheet(
+            order = uiState.payingOrder!!,
+            selectedMethod = uiState.selectedPaymentMethod,
+            isProcessing = uiState.isPaymentProcessing,
+            onSelectMethod = viewModel::selectPaymentMethod,
+            onConfirm = viewModel::confirmPayment,
+            onDismiss = viewModel::dismissPaymentDialog,
         )
     }
 }
@@ -395,6 +454,7 @@ private fun OrderCard(
     onStatusUpdate: (OrderStatus) -> Unit,
     onViewReceipt: () -> Unit,
     onEdit: (() -> Unit)? = null,
+    onPayNow: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -419,7 +479,7 @@ private fun OrderCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = order.createdAt.formatEpochMs("MMM dd, yyyy HH:mm"),
+                        text = order.createdAt.formatEpochMs("MMM dd, yyyy hh:mm a"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -512,8 +572,31 @@ private fun OrderCard(
 
                     // Price Breakdown
                     PriceRow(stringResource(Res.string.subtotal), CurrencyFormatter.format(order.subtotal))
+                    if (order.discount > 0) {
+                        PriceRow(
+                            label = stringResource(Res.string.discount),
+                            value = "- ${CurrencyFormatter.format(order.discount)}",
+                            isDiscount = true,
+                        )
+                    }
+                    if (order.pointsRedeemed > 0) {
+                        PriceRow(
+                            label = stringResource(Res.string.points_redeemed),
+                            value = "${order.pointsRedeemed} pts",
+                            isDiscount = true,
+                        )
+                    }
                     PriceRow(stringResource(Res.string.delivery_fee), CurrencyFormatter.format(order.deliveryFee + order.tax))
                     PriceRow(stringResource(Res.string.total), CurrencyFormatter.format(order.total), isBold = true)
+                    // Discount reason
+                    val discountReason = order.discountReason
+                    if (!discountReason.isNullOrBlank()) {
+                        Text(
+                            text = "${stringResource(Res.string.discount_reason)}: $discountReason",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
                     // Secondary Info
                     if (order.notes != null || order.clientAddress != null) {
@@ -569,6 +652,21 @@ private fun OrderCard(
                     }
                 }
             }
+
+            // Pay Now button for pending payment orders
+            if (onPayNow != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onPayNow,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Default.Payment, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(Res.string.pay_now))
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             val nextStatuses = getNextStatuses(order)
             if (nextStatuses.isNotEmpty()) {
@@ -597,7 +695,7 @@ private fun OrderCard(
 }
 
 @Composable
-fun PriceRow(label: String, value: String, isBold: Boolean = false) {
+fun PriceRow(label: String, value: String, isBold: Boolean = false, isDiscount: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -605,13 +703,18 @@ fun PriceRow(label: String, value: String, isBold: Boolean = false) {
         Text(
             text = label,
             style = if (isBold) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = if (isDiscount) MaterialTheme.colorScheme.error else Color.Unspecified,
         )
         Text(
             text = value,
             style = if (isBold) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
             fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = if (isBold) MaterialTheme.colorScheme.primary else Color.Unspecified
+            color = when {
+                isDiscount -> MaterialTheme.colorScheme.error
+                isBold -> MaterialTheme.colorScheme.primary
+                else -> Color.Unspecified
+            },
         )
     }
 }
@@ -650,6 +753,173 @@ private fun OrderItemRow(item: OrderItem) {
 
 private fun getNextStatuses(order: Order): List<OrderStatus> {
     return OrderStatus.entries.filter { order.status.canTransitionTo(it, order.channel) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PaymentBottomSheet(
+    order: Order,
+    selectedMethod: PaymentMethod,
+    isProcessing: Boolean,
+    onSelectMethod: (PaymentMethod) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Default.Payment,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(Res.string.confirm_payment),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Text(
+                text = stringResource(Res.string.payment_required),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Order info
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                ),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "#${order.id.takeLast(6).uppercase()}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = CurrencyFormatter.format(order.total),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            // Payment method selection
+            Text(
+                text = stringResource(Res.string.select_payment_method),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            PaymentMethod.entries.forEach { method ->
+                val isSelected = method == selectedMethod
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isProcessing) { onSelectMethod(method) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = if (isSelected) 2.dp else 0.dp,
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.onPrimary)
+                                )
+                            }
+                        }
+                        Text(
+                            text = method.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(Res.string.cancel))
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text(stringResource(Res.string.confirm_payment))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)

@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -72,12 +73,14 @@ import net.marllex.waselak.core.model.User
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.ProfileAvatar
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UsersScreen(
     viewModel: UsersViewModel = koinViewModel(),
+    onNavigateBack: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -97,6 +100,13 @@ fun UsersScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(Res.string.users))
+                    }
+                },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -262,20 +272,11 @@ private fun UserPermissionCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Avatar
-                Surface(
-                    shape = CircleShape,
-                    color = roleColor.copy(alpha = 0.1f),
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            user.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = roleColor,
-                        )
-                    }
-                }
+                ProfileAvatar(
+                    photoUrl = user.photoUrl,
+                    size = 44.dp,
+                    contentDescription = user.name,
+                )
 
                 Spacer(Modifier.width(12.dp))
 

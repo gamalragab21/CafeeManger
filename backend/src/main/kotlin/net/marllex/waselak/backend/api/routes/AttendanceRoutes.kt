@@ -11,8 +11,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.service.PinService
+import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.QrCodeService
 import net.marllex.waselak.backend.domain.service.QrCodeValidationResult
 import org.jetbrains.exposed.sql.*
@@ -75,16 +77,21 @@ data class AttendanceSummaryDto(
 // ─── Routes ──────────────────────────────────────────────────────
 
 fun Route.attendanceRoutes() {
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     route("/api/v1/attendance") {
 
         // GET attendance records (Manager: all workers; Cashier: today only)
         get {
+            val trace = call.routeTrace()
+            trace.step("List attendance started")
             val principal = currentUser()
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val workerIdParam = call.parameters["worker_id"]
             val dateParam = call.parameters["date"]
             val fromDate = call.parameters["from_date"]
             val toDate = call.parameters["to_date"]
+            trace.step("Filters parsed", mapOf("workerId" to (workerIdParam ?: "null"), "date" to (dateParam ?: "null"), "fromDate" to (fromDate ?: "null"), "toDate" to (toDate ?: "null")))
 
             val records = transaction {
                 var query = AttendanceTable
@@ -109,14 +116,20 @@ fun Route.attendanceRoutes() {
                     .orderBy(AttendanceTable.checkIn, SortOrder.DESC)
                     .map { it.toAttendanceDto() }
             }
+            trace.step("Attendance records fetched", mapOf("count" to records.size.toString()))
+            trace.step("List attendance completed")
             call.respond(HttpStatusCode.OK, records)
         }
 
         // GET today's attendance summary (who is present / absent)
         get("/today") {
+            val trace = call.routeTrace()
+            trace.step("Today attendance summary started")
             val principal = currentUser()
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val today = Clock.System.now().toString().substring(0, 10) // YYYY-MM-DD
+            trace.step("Date resolved", mapOf("today" to today))
 
             val summary = transaction {
                 val activeWorkers = WorkersTable.selectAll()
@@ -159,15 +172,21 @@ fun Route.attendanceRoutes() {
                     )
                 }
             }
+            trace.step("Today summary fetched", mapOf("workerCount" to summary.size.toString(), "presentCount" to summary.count { it.present_today }.toString()))
+            trace.step("Today attendance summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
 
         // GET attendance history summary for a worker
         get("/summary/{workerId}") {
+            val trace = call.routeTrace()
+            trace.step("Worker attendance summary started")
             val principal = requireRole("MANAGER")
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val workerId = call.parameters["workerId"] ?: throw IllegalArgumentException("Worker ID required")
             val fromDate = call.parameters["from_date"]
             val toDate = call.parameters["to_date"]
+            trace.step("Parameters parsed", mapOf("workerId" to workerId, "fromDate" to (fromDate ?: "null"), "toDate" to (toDate ?: "null")))
 
             val summary = transaction {
                 val workerUUID = UUID.fromString(workerId)
@@ -202,13 +221,20 @@ fun Route.attendanceRoutes() {
                     present_today = isTodayPresent,
                 )
             }
+            trace.step("Worker summary fetched", mapOf("workerId" to workerId, "totalDays" to summary.total_days.toString(), "totalMinutes" to summary.total_worked_minutes.toString()))
+            trace.step("Worker attendance summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
 
         // CHECK IN (Cashier or Manager can record)
         post("/check-in") {
+            val trace = call.routeTrace()
+            trace.step("Check-in started")
             val principal = requireRole("CASHIER", "MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val request = call.receive<CheckInDto>()
+            trace.step("Request parsed", mapOf("workerId" to (request.worker_id ?: "null"), "authMethod" to request.auth_method))
             val pinService by inject<PinService>()
             val qrCodeService by inject<QrCodeService>()
 
@@ -429,13 +455,19 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq id }
                     .first().toAttendanceDto()
             }
+            trace.step("Check-in recorded", mapOf("attendanceId" to record.id, "date" to record.date, "authMethod" to record.auth_method))
+            trace.step("Check-in completed")
             call.respond(HttpStatusCode.Created, record)
         }
 
         // CHECK IN WITH PIN (Convenience endpoint)
         post("/check-in/pin") {
+            val trace = call.routeTrace()
+            trace.step("PIN check-in started")
             val principal = requireRole("CASHIER", "MANAGER")
-            
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
+
             @Serializable
             data class PinCheckInRequest(
                 @SerialName("worker_id") val workerId: String,
@@ -443,7 +475,8 @@ fun Route.attendanceRoutes() {
             )
             
             val request = call.receive<PinCheckInRequest>()
-            
+            trace.step("PIN request parsed", mapOf("workerId" to request.workerId))
+
             // Convert to standard CheckInDto
             val checkInRequest = CheckInDto(
                 worker_id = request.workerId,
@@ -604,19 +637,26 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq id }
                     .first().toAttendanceDto()
             }
+            trace.step("PIN check-in recorded", mapOf("attendanceId" to record.id, "date" to record.date))
+            trace.step("PIN check-in completed")
             call.respond(HttpStatusCode.Created, record)
         }
 
         // CHECK IN WITH QR (Convenience endpoint)
         post("/check-in/qr") {
+            val trace = call.routeTrace()
+            trace.step("QR check-in started")
             val principal = requireRole("CASHIER", "MANAGER")
-            
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
+
             @Serializable
             data class QrCheckInRequest(
                 @SerialName("qr_data") val qrData: String,
             )
             
             val request = call.receive<QrCheckInRequest>()
+            trace.step("QR request received")
 
             val pinService by KoinJavaComponent.inject<PinService>(
                 clazz = PinService::class.java
@@ -753,14 +793,21 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq id }
                     .first().toAttendanceDto()
             }
+            trace.step("QR check-in recorded", mapOf("attendanceId" to record.id, "date" to record.date))
+            trace.step("QR check-in completed")
             call.respond(HttpStatusCode.Created, record)
         }
 
         // CHECK OUT WITH PIN (Convenience endpoint)
         post("/check-out/{attendanceId}/pin") {
+            val trace = call.routeTrace()
+            trace.step("PIN check-out started")
             val principal = requireRole("CASHIER", "MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val attendanceId = call.parameters["attendanceId"]
                 ?: throw IllegalArgumentException("Attendance ID required")
+            trace.step("Attendance ID parsed", mapOf("attendanceId" to attendanceId))
             
             @Serializable
             data class PinCheckOutRequest(
@@ -815,19 +862,26 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq attnUUID }
                     .first().toAttendanceDto()
             }
+            trace.step("PIN check-out recorded", mapOf("attendanceId" to record.id, "workedMinutes" to (record.worked_minutes?.toString() ?: "null")))
+            trace.step("PIN check-out completed")
             call.respond(HttpStatusCode.OK, record)
         }
 
         // CHECK OUT WITH QR (Convenience endpoint)
         post("/check-out/qr") {
+            val trace = call.routeTrace()
+            trace.step("QR check-out started")
             val principal = requireRole("CASHIER", "MANAGER")
-            
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
+
             @Serializable
             data class QrCheckOutRequest(
                 @SerialName("qr_data") val qrData: String,
             )
             
             val request = call.receive<QrCheckOutRequest>()
+            trace.step("QR check-out request received")
             val qrCodeService by inject<QrCodeService>()
 
             val record = transaction {
@@ -873,15 +927,23 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq attnUUID }
                     .first().toAttendanceDto()
             }
+            trace.step("QR check-out recorded", mapOf("attendanceId" to record.id, "workedMinutes" to (record.worked_minutes?.toString() ?: "null")))
+            trace.step("QR check-out completed")
             call.respond(HttpStatusCode.OK, record)
         }
 
         // CHECK OUT
         post("/check-out/{attendanceId}") {
+            val trace = call.routeTrace()
+            trace.step("Check-out started")
             val principal = requireRole("CASHIER", "MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val attendanceId = call.parameters["attendanceId"]
                 ?: throw IllegalArgumentException("Attendance ID required")
+            trace.step("Attendance ID parsed", mapOf("attendanceId" to attendanceId))
             val request = call.receive<CheckOutDto>()
+            trace.step("Request parsed", mapOf("authMethod" to request.auth_method))
 
             val record = transaction {
                 val attnUUID = UUID.fromString(attendanceId)
@@ -914,13 +976,19 @@ fun Route.attendanceRoutes() {
                     .where { AttendanceTable.id eq attnUUID }
                     .first().toAttendanceDto()
             }
+            trace.step("Check-out recorded", mapOf("attendanceId" to record.id, "workedMinutes" to (record.worked_minutes?.toString() ?: "null")))
+            trace.step("Check-out completed")
             call.respond(HttpStatusCode.OK, record)
         }
 
         // DELETE attendance record (Manager only)
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete attendance started")
             val principal = requireRole("MANAGER")
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Attendance ID parsed", mapOf("attendanceId" to id))
 
             transaction {
                 val deleted = AttendanceTable.deleteWhere {
@@ -929,6 +997,8 @@ fun Route.attendanceRoutes() {
                 }
                 if (deleted == 0) throw NoSuchElementException("Attendance record not found")
             }
+            trace.step("Attendance record deleted", mapOf("attendanceId" to id))
+            trace.step("Delete attendance completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }

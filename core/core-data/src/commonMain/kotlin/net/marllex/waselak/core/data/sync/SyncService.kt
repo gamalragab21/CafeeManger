@@ -19,6 +19,7 @@ import net.marllex.waselak.core.network.dto.UpdateOrderStatusRequest
 import net.marllex.waselak.core.network.dto.UpdatePaymentStatusRequest
 import net.marllex.waselak.core.network.mapper.toDomain
 import net.marllex.waselak.core.database.mapper.toDbEntity
+import net.marllex.waselak.core.common.logging.AppLogger
 
 enum class SyncState { IDLE, SYNCING, SUCCESS, ERROR }
 
@@ -31,74 +32,88 @@ class SyncService(
     private val _syncState = MutableStateFlow(SyncState.IDLE)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
+    companion object {
+        private const val MAX_RETRIES = 5
+    }
+
     suspend fun syncAll(): Int {
         _syncState.value = SyncState.SYNCING
         var syncedCount = 0
-        // Track offline-ID → server-ID mappings for dependent items in this sync run
         val offlineIdMap = mutableMapOf<String, String>()
         try {
             val pending = pendingSyncDao.getAllPendingList()
-            for (item in pending) {
+            AppLogger.i("Sync", "syncAll started: ${pending.size} pending items")
+            // Clean up items that exceeded max retries
+            val staleItems = pending.filter { (it.retry_count ?: 0) >= MAX_RETRIES }
+            if (staleItems.isNotEmpty()) {
+                AppLogger.w("Sync", "Cleaning up ${staleItems.size} stale items that exceeded max retries")
+                for (stale in staleItems) {
+                    AppLogger.w("Sync", "  Removing stale: type=${stale.type}, id=${stale.id}, retries=${stale.retry_count}, lastError=${stale.last_error}")
+                    pendingSyncDao.deletePending(stale.id)
+                }
+            }
+
+            val activePending = pending.filter { (it.retry_count ?: 0) < MAX_RETRIES }
+            for (item in activePending) {
+                AppLogger.d("Sync", "Processing: type=${item.type}, id=${item.id}, retries=${item.retry_count}, payload=${item.payload}")
                 try {
                     when (item.type) {
                         "ORDER" -> {
                             val request = json.decodeFromString<CreateOrderRequest>(item.payload)
+                            AppLogger.d("Sync", "Syncing ORDER: offlineId=${item.id}")
                             val response = api.createOrder(request)
                             val order = response.toDomain()
+                            val offlineId = item.id
+                            val serverId = order.id
+                            AppLogger.i("Sync", "ORDER synced: offlineId=$offlineId -> serverId=$serverId")
 
-                            val offlineId = item.id   // e.g. "offline-1772229943841"
-                            val serverId = order.id    // real server UUID
-
-                            // Remove old offline order and its items from local DB
                             orderDao.deleteOrderItems(offlineId)
                             orderDao.deleteOrder(offlineId)
-
-                            // Insert the server order with items
                             orderDao.insertOrder(order.toDbEntity().copy(sync_status = "SYNCED"))
                             orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
+                            AppLogger.d("Sync", "ORDER DB updated: removed offline, inserted server order")
 
-                            // Track the mapping for in-memory resolution later in this loop
                             offlineIdMap[offlineId] = serverId
-
-                            // Update dependent pending items in DB so future sync runs use server ID
                             remapDependentItems(offlineId, serverId)
-
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                         "CHECK_IN" -> {
                             val params = json.decodeFromString<CheckInPayload>(item.payload)
+                            AppLogger.d("Sync", "Syncing CHECK_IN: workerId=${params.workerId}, hasPin=${params.pin != null}")
                             if (params.pin != null) {
                                 api.checkInWithPin(CheckInWithPinRequest(params.workerId, params.pin))
                             } else {
                                 api.checkIn(CheckInRequest(params.workerId))
                             }
+                            AppLogger.i("Sync", "CHECK_IN synced: workerId=${params.workerId}")
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                         "CHECK_OUT" -> {
                             val params = json.decodeFromString<CheckOutPayload>(item.payload)
+                            AppLogger.d("Sync", "Syncing CHECK_OUT: attendanceId=${params.attendanceId}, hasPin=${params.pin != null}")
                             if (params.pin != null) {
                                 api.checkOutWithPin(params.attendanceId, CheckOutWithPinRequest(params.pin))
                             } else {
                                 api.checkOut(params.attendanceId, CheckOutRequest())
                             }
+                            AppLogger.i("Sync", "CHECK_OUT synced: attendanceId=${params.attendanceId}")
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                         "PAYMENT_UPDATE" -> {
                             val params = json.decodeFromString<PaymentUpdatePayload>(item.payload)
-                            // Resolve offline ID → server ID (from this sync run or DB remap)
                             val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+                            AppLogger.d("Sync", "Syncing PAYMENT_UPDATE: orderId=${params.orderId}, resolved=$resolvedOrderId, status=${params.status}")
 
-                            // If still an offline ID, check if there's a pending ORDER for it
                             if (resolvedOrderId.startsWith("offline-")) {
                                 val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
                                 if (hasPendingOrder) {
-                                    // ORDER will sync first and remap — skip until next run
+                                    AppLogger.d("Sync", "PAYMENT_UPDATE deferred: waiting for ORDER $resolvedOrderId")
                                     continue
                                 }
-                                // No pending ORDER: legacy item — mark as failed so user can delete
+                                AppLogger.w("Sync", "PAYMENT_UPDATE failed: cannot resolve offline ID $resolvedOrderId")
                                 pendingSyncDao.updateRetry(
                                     id = item.id, retryCount = 3,
                                     lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
@@ -112,22 +127,22 @@ class SyncService(
                             )
                             val order = response.toDomain()
                             orderDao.insertOrder(order.toDbEntity())
+                            AppLogger.i("Sync", "PAYMENT_UPDATE synced: orderId=$resolvedOrderId, newStatus=${params.status}")
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                         "ORDER_STATUS_UPDATE" -> {
                             val params = json.decodeFromString<OrderStatusPayload>(item.payload)
-                            // Resolve offline ID → server ID (from this sync run or DB remap)
                             val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+                            AppLogger.d("Sync", "Syncing ORDER_STATUS_UPDATE: orderId=${params.orderId}, resolved=$resolvedOrderId, status=${params.status}")
 
-                            // If still an offline ID, check if there's a pending ORDER for it
                             if (resolvedOrderId.startsWith("offline-")) {
                                 val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
                                 if (hasPendingOrder) {
-                                    // ORDER will sync first and remap — skip until next run
+                                    AppLogger.d("Sync", "ORDER_STATUS_UPDATE deferred: waiting for ORDER $resolvedOrderId")
                                     continue
                                 }
-                                // No pending ORDER: legacy item — mark as failed so user can delete
+                                AppLogger.w("Sync", "ORDER_STATUS_UPDATE failed: cannot resolve offline ID $resolvedOrderId")
                                 pendingSyncDao.updateRetry(
                                     id = item.id, retryCount = 3,
                                     lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
@@ -141,16 +156,19 @@ class SyncService(
                             )
                             val order = response.toDomain()
                             orderDao.insertOrder(order.toDbEntity())
+                            AppLogger.i("Sync", "ORDER_STATUS_UPDATE synced: orderId=$resolvedOrderId, newStatus=${params.status}")
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                         "REFUND" -> {
                             val params = json.decodeFromString<RefundPayload>(item.payload)
                             val resolvedOrderId = offlineIdMap[params.orderId] ?: params.orderId
+                            AppLogger.d("Sync", "Syncing REFUND: orderId=${params.orderId}, resolved=$resolvedOrderId")
 
                             if (resolvedOrderId.startsWith("offline-")) {
                                 val hasPendingOrder = pending.any { it.type == "ORDER" && it.id == resolvedOrderId }
                                 if (hasPendingOrder) continue
+                                AppLogger.w("Sync", "REFUND failed: cannot resolve offline ID $resolvedOrderId")
                                 pendingSyncDao.updateRetry(
                                     id = item.id, retryCount = 3,
                                     lastError = "Cannot resolve offline order ID. The order was already synced. Please delete this item."
@@ -164,20 +182,35 @@ class SyncService(
                             )
                             val order = response.toDomain()
                             orderDao.insertOrder(order.toDbEntity())
+                            AppLogger.i("Sync", "REFUND synced: orderId=$resolvedOrderId")
                             pendingSyncDao.deletePending(item.id)
                             syncedCount++
                         }
                     }
                 } catch (e: Exception) {
-                    pendingSyncDao.updateRetry(
-                        id = item.id,
-                        retryCount = (item.retry_count ?: 0) + 1,
-                        lastError = e.message
-                    )
+                    val statusCode = (e as? net.marllex.waselak.core.network.ApiException)?.statusCode
+                    AppLogger.e("Sync", "Sync item FAILED: type=${item.type}, id=${item.id}, statusCode=$statusCode", e)
+                    // Non-retryable errors: remove immediately
+                    if (statusCode == 409 || statusCode == 400 || statusCode == 404) {
+                        AppLogger.w("Sync", "Removing non-retryable item ${item.id} (status=$statusCode): ${e.message}")
+                        pendingSyncDao.deletePending(item.id)
+                    } else {
+                        val newRetryCount = (item.retry_count ?: 0) + 1
+                        pendingSyncDao.updateRetry(
+                            id = item.id,
+                            retryCount = newRetryCount,
+                            lastError = e.message
+                        )
+                        if (newRetryCount >= MAX_RETRIES) {
+                            AppLogger.w("Sync", "Item ${item.id} reached max retries ($newRetryCount), will not retry again")
+                        }
+                    }
                 }
             }
+            AppLogger.i("Sync", "syncAll completed: synced=$syncedCount of ${activePending.size} active (${staleItems.size} stale removed)")
             _syncState.value = if (syncedCount > 0) SyncState.SUCCESS else SyncState.IDLE
         } catch (e: Exception) {
+            AppLogger.e("Sync", "syncAll FAILED with exception", e)
             _syncState.value = SyncState.ERROR
         }
         return syncedCount

@@ -7,6 +7,7 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.model.VendorTypeConfigs
 
 private fun formatAmount(amount: Double, currency: String = "EGP"): String {
     val rounded = kotlin.math.round(amount * 100) / 100.0
@@ -18,9 +19,11 @@ private fun formatAmount(amount: Double, currency: String = "EGP"): String {
 private fun formatDate(epochMs: Long): String {
     val instant = Instant.fromEpochMilliseconds(epochMs)
     val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+    val h12 = if (dt.hour == 0) 12 else if (dt.hour > 12) dt.hour - 12 else dt.hour
+    val amPm = if (dt.hour < 12) "AM" else "PM"
     return "${dt.year}-${dt.monthNumber.toString().padStart(2, '0')}-${
         dt.dayOfMonth.toString().padStart(2, '0')
-    }  ${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}"
+    }  ${h12.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')} $amPm"
 }
 
 private fun channelLabel(channel: OrderChannel): String = when (channel) {
@@ -134,6 +137,7 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
   }
   @media print {
     body { padding: 0; }
+    img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 </head>
@@ -142,6 +146,10 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
 
     // Header
     append("<div class='header'>")
+    val logoUrl = vendor?.logoUrl
+    if (!logoUrl.isNullOrBlank()) {
+        append("<img src='${logoUrl.htmlEscape()}' style='width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;' alt='Logo'>")
+    }
     append("<h1>${(vendor?.name ?: "Restaurant").htmlEscape()}</h1>")
     vendor?.address?.let { append("<p>${it.htmlEscape()}</p>") }
     vendor?.contactPhone?.let { append("<p>${it.htmlEscape()}</p>") }
@@ -150,8 +158,9 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     append("<hr class='divider'>")
 
     // Order Info
+    val vendorTypeConfig = VendorTypeConfigs.forType(vendor?.businessType ?: "RESTAURANT")
     append("<div class='info-section'>")
-    append("<div class='info-row'><span class='label'>Order #</span><span class='value bold'>#${order.id.takeLast(8).uppercase()}</span></div>")
+    append("<div class='info-row'><span class='label'>${vendorTypeConfig.orderLabelEn} #</span><span class='value bold'>#${order.id.takeLast(8).uppercase()}</span></div>")
     append("<div class='info-row'><span class='label'>Date</span><span class='value'>${formatDate(order.createdAt)}</span></div>")
     append("<div class='info-row'><span class='label'>Channel</span><span class='value'>${channelLabel(order.channel)}</span></div>")
     append("<div class='info-row'><span class='label'>Payment</span><span class='value'>${paymentLabel(order.paymentMethod)}</span></div>")

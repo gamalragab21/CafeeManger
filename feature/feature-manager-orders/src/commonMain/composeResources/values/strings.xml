@@ -52,4 +52,13 @@
     <string name="refund_confirm_message">Are you sure you want to refund this order? Stock will be restored and customer records updated.</string>
     <string name="processing_refund">Processing refund…</string>
     <string name="no_orders">No orders found</string>
+    <string name="pay_now">Pay Now</string>
+    <string name="processing_payment">Processing payment…</string>
+    <string name="load_more">Load More</string>
+    <string name="table_filter">Table</string>
+    <string name="all_tables">All Tables</string>
+    <!-- Discount breakdown -->
+    <string name="discount">Discount</string>
+    <string name="points_redeemed">Points Redeemed</string>
+    <string name="discount_reason">Reason</string>
 </resources>

@@ -28,11 +28,17 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableBar
@@ -112,6 +118,7 @@ import net.marllex.waselak.feature.cashier.receipt.navigation.receiptScreen
 import net.marllex.waselak.feature.manager.chatbot.navigation.chatbotScreen
 import net.marllex.waselak.feature.manager.dashboard.DashboardScreen
 import net.marllex.waselak.feature.manager.items.ItemsScreen
+import net.marllex.waselak.feature.manager.offers.OffersScreen
 import net.marllex.waselak.feature.manager.orders.OrdersScreen
 import net.marllex.waselak.feature.manager.staff.StaffScreen
 import net.marllex.waselak.feature.manager.staff.WorkerQrCodeScreen
@@ -120,7 +127,12 @@ import net.marllex.waselak.feature.manager.tables.TablesScreen
 import net.marllex.waselak.feature.manager.users.UsersScreen
 import net.marllex.waselak.manager.offline.OfflineSettingsScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
+import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
+import net.marllex.waselak.core.ui.components.UploadLogsCard
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
 import org.koin.mp.KoinPlatform
 import waselak.core.core_ui.generated.resources.Res as CoreRes
@@ -133,18 +145,24 @@ enum class ManagerTab(
 ) {
     DASHBOARD("manager/dashboard", "Home", Icons.Filled.Dashboard),
     ORDERS("manager/orders", "Orders", Icons.AutoMirrored.Filled.FormatListBulleted),
+    TABLES("manager/tables", "Tables", Icons.Filled.TableBar),
     MENU("manager/menu", "Menu", Icons.Filled.Restaurant),
-    USERS("manager/users", "Staff", Icons.Filled.People),
-    PROFILE("manager/profile", "Profile", Icons.Filled.Person),
+    OFFERS("manager/offers", "Offers", Icons.Filled.Star),
+    MORE("manager/more", "More", Icons.Filled.MoreHoriz),
 }
 
 @Composable
-private fun localizedTabTitle(tab: ManagerTab): String = when (tab) {
+private fun localizedTabTitle(tab: ManagerTab, businessType: String = "RESTAURANT"): String = when (tab) {
     ManagerTab.DASHBOARD -> stringResource(CoreRes.string.nav_home)
-    ManagerTab.ORDERS -> stringResource(CoreRes.string.nav_orders)
+    ManagerTab.ORDERS -> when (businessType) {
+        "PHARMACY" -> stringResource(CoreRes.string.nav_orders_prescriptions)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.nav_orders_invoices)
+        else -> stringResource(CoreRes.string.nav_orders)
+    }
+    ManagerTab.TABLES -> stringResource(CoreRes.string.nav_tables)
     ManagerTab.MENU -> stringResource(CoreRes.string.nav_menu)
-    ManagerTab.USERS -> stringResource(CoreRes.string.nav_staff)
-    ManagerTab.PROFILE -> stringResource(CoreRes.string.nav_profile)
+    ManagerTab.OFFERS -> stringResource(CoreRes.string.nav_offers)
+    ManagerTab.MORE -> stringResource(CoreRes.string.nav_more)
 }
 
 // --- Adaptive Bottom Bar (phone) ---
@@ -152,14 +170,16 @@ private fun localizedTabTitle(tab: ManagerTab): String = when (tab) {
 private fun ManagerBottomBar(
     navController: NavController,
     currentDestination: NavDestination?,
+    visibleTabs: List<ManagerTab> = ManagerTab.entries,
+    businessType: String = "RESTAURANT",
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         windowInsets = WindowInsets.navigationBars,
     ) {
-        ManagerTab.entries.forEach { tab ->
-            val title = localizedTabTitle(tab)
+        visibleTabs.forEach { tab ->
+            val title = localizedTabTitle(tab, businessType)
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
 
@@ -205,12 +225,14 @@ private fun ManagerBottomBar(
 private fun ManagerNavRail(
     navController: NavController,
     currentDestination: NavDestination?,
+    visibleTabs: List<ManagerTab> = ManagerTab.entries,
+    businessType: String = "RESTAURANT",
 ) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        ManagerTab.entries.forEach { tab ->
-            val title = localizedTabTitle(tab)
+        visibleTabs.forEach { tab ->
+            val title = localizedTabTitle(tab, businessType)
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
 
@@ -296,7 +318,20 @@ fun ManagerNavHost(authRepository: AuthRepository) {
         }
     }
 
-    val showNav = ManagerTab.entries.any { tab ->
+    // Get vendor config for tables tab visibility (works offline via cached vendor)
+    val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val profileState by profileVm.uiState.collectAsState()
+    val vendor = profileState.vendor
+
+    val visibleTabs = remember(vendor?.enableTables) {
+        if (vendor?.enableTables == false) {
+            ManagerTab.entries.filter { it != ManagerTab.TABLES }
+        } else {
+            ManagerTab.entries.toList()
+        }
+    }
+
+    val showNav = visibleTabs.any { tab ->
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
     }
 
@@ -307,7 +342,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
             // Tablet: NavigationRail on the side
             Row(modifier = Modifier.fillMaxSize()) {
                 if (showNav) {
-                    ManagerNavRail(navController, currentDestination)
+                    ManagerNavRail(navController, currentDestination, visibleTabs, vendor?.businessType ?: "RESTAURANT")
                     VerticalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant,
                         thickness = 0.5.dp,
@@ -343,21 +378,42 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
-                    composable(ManagerTab.USERS.route) {
-                        StaffTabContent(
+                    composable(ManagerTab.OFFERS.route) { OffersScreen() }
+                    composable(ManagerTab.TABLES.route) {
+                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+                        val profileState by profileVm.uiState.collectAsState()
+                        val planFeatures = profileState.planInfo?.features
+                        if (planFeatures != null && planFeatures.tableManagement == false) {
+                            FeatureNotAvailableView()
+                        } else {
+                            TablesScreen()
+                        }
+                    }
+                    composable(ManagerTab.MORE.route) {
+                        MoreTabContent(
+                            onSignOut = onSignOut,
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
-                            }
+                            },
+                            onNavigateToExport = {
+                                navController.navigate("export")
+                            },
                         )
                     }
-                    composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
                     composable(
                         route = "worker_qr_code/{workerId}",
                         arguments = listOf(navArgument("workerId") { type = NavType.StringType })
                     ) {
-                        WorkerQrCodeScreen(
-                            onNavigateBack = { navController.navigateUp() }
-                        )
+                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+                        val profileState by profileVm.uiState.collectAsState()
+                        val planFeatures = profileState.planInfo?.features
+                        if (planFeatures != null && !planFeatures.workerQrcode) {
+                            FeatureNotAvailableView()
+                        } else {
+                            WorkerQrCodeScreen(
+                                onNavigateBack = { navController.navigateUp() }
+                            )
+                        }
                     }
                     chatbotScreen(
                         onNavigateBack = { navController.navigateUp() }
@@ -376,7 +432,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
             // Phone: Bottom NavigationBar
             Scaffold(
                 bottomBar = {
-                    if (showNav) ManagerBottomBar(navController, currentDestination)
+                    if (showNav) ManagerBottomBar(navController, currentDestination, visibleTabs, vendor?.businessType ?: "RESTAURANT")
                 }
             ) { innerPadding ->
                 NavHost(
@@ -407,21 +463,42 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
-                    composable(ManagerTab.USERS.route) {
-                        StaffTabContent(
+                    composable(ManagerTab.OFFERS.route) { OffersScreen() }
+                    composable(ManagerTab.TABLES.route) {
+                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+                        val profileState by profileVm.uiState.collectAsState()
+                        val planFeatures = profileState.planInfo?.features
+                        if (planFeatures != null && planFeatures.tableManagement == false) {
+                            FeatureNotAvailableView()
+                        } else {
+                            TablesScreen()
+                        }
+                    }
+                    composable(ManagerTab.MORE.route) {
+                        MoreTabContent(
+                            onSignOut = onSignOut,
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
-                            }
+                            },
+                            onNavigateToExport = {
+                                navController.navigate("export")
+                            },
                         )
                     }
-                    composable(ManagerTab.PROFILE.route) { ProfileTabContent(onSignOut = onSignOut) }
                     composable(
                         route = "worker_qr_code/{workerId}",
                         arguments = listOf(navArgument("workerId") { type = NavType.StringType })
                     ) {
-                        WorkerQrCodeScreen(
-                            onNavigateBack = { navController.navigateUp() }
-                        )
+                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
+                        val profileState by profileVm.uiState.collectAsState()
+                        val planFeatures = profileState.planInfo?.features
+                        if (planFeatures != null && !planFeatures.workerQrcode) {
+                            FeatureNotAvailableView()
+                        } else {
+                            WorkerQrCodeScreen(
+                                onNavigateBack = { navController.navigateUp() }
+                            )
+                        }
                     }
                     chatbotScreen(
                         onNavigateBack = { navController.navigateUp() }
@@ -435,62 +512,6 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         onBack = { navController.navigateUp() },
                     )
                 }
-            }
-        }
-    }
-}
-
-// --- Staff Sub-Tabs (Staff + Customers) ---
-@Composable
-private fun StaffTabContent(
-    onNavigateToWorkerQrCode: (String) -> Unit = {},
-) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf(
-        stringResource(CoreRes.string.nav_staff),
-        stringResource(CoreRes.string.nav_customers),
-    )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
-            indicator = { tabPositions ->
-                if (selectedTab < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            },
-        ) {
-            tabs.forEachIndexed { index, title ->
-                val isSelected = selectedTab == index
-                Tab(
-                    selected = isSelected,
-                    onClick = { selectedTab = index },
-                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    text = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1,
-                        )
-                    },
-                )
-            }
-        }
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (selectedTab) {
-                0 -> StaffScreen(
-                    onNavigateToWorkerQrCode = onNavigateToWorkerQrCode,
-                )
-                1 -> CustomersScreen()
             }
         }
     }
@@ -550,14 +571,27 @@ private fun MenuTabContent() {
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
+            val planFeatures = profileState.planInfo?.features
             when (selectedTab) {
                 0 -> CategoriesScreen()
                 1 -> ItemsScreen()
-                2 -> StockScreen()
-                3 -> DigitalMenuSection(
-                    vendorId = vendor?.id,
-                    customMenuUrl = vendor?.digitalMenuUrl,
-                )
+                2 -> {
+                    if (planFeatures != null && !planFeatures.stockManagement) {
+                        FeatureNotAvailableView()
+                    } else {
+                        StockScreen()
+                    }
+                }
+                3 -> {
+                    if (planFeatures != null && planFeatures.digitalMenu == "NONE") {
+                        FeatureNotAvailableView()
+                    } else {
+                        DigitalMenuSection(
+                            vendorId = vendor?.id,
+                            customMenuUrl = vendor?.digitalMenuUrl,
+                        )
+                    }
+                }
             }
         }
     }
@@ -584,7 +618,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
@@ -630,7 +664,10 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         Card(
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp, MaterialTheme.colorScheme.outlineVariant
+                            ),
                         ) {
                             Box(Modifier.padding(if (screenWidth > 600) 32.dp else 20.dp)) {
                                 QrCodeImage(
@@ -647,7 +684,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ),
                         ) {
                             Column(Modifier.padding(16.dp)) {
@@ -724,54 +761,94 @@ private fun EmptyMenuState() {
     }
 }
 
-// --- Profile Sub-Tabs ---
+// --- More Tab Content ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileTabContent(onSignOut: () -> Unit) {
+private fun MoreTabContent(
+    onSignOut: () -> Unit,
+    onNavigateToWorkerQrCode: (String) -> Unit = {},
+    onNavigateToExport: () -> Unit = {},
+) {
     val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
     val profileState by profileVm.uiState.collectAsState()
+    val planFeatures = profileState.planInfo?.features
     val vendor = profileState.vendor
 
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
-    var selectedTab by remember { mutableIntStateOf(0) }
-
-    val mainTabs = listOf(
-        stringResource(CoreRes.string.tab_store),
-        stringResource(CoreRes.string.tab_analytics),
-        stringResource(CoreRes.string.tab_settings),
-    )
+    var settingsSubScreen by remember { mutableStateOf<String?>(null) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (activeSubScreen) {
-            "tables" -> {
-                TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.tables)) },
-                    navigationIcon = {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            "analytics" -> {
+                if (planFeatures != null && planFeatures.analytics == "NONE") {
+                    TopAppBar(
+                        title = { Text(stringResource(CoreRes.string.tab_analytics)) },
+                        navigationIcon = {
+                            IconButton(onClick = { activeSubScreen = null }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                    )
+                    FeatureNotAvailableView()
+                } else {
+                    AnalyticsScreen(
+                        onNavigateBack = { activeSubScreen = null },
+                    )
+                }
+            }
+
+            "staff" -> {
+                StaffScreen(
+                    onNavigateToWorkerQrCode = onNavigateToWorkerQrCode,
+                    isAttendanceEnabled = planFeatures?.workerAttendance != false,
+                    isSalaryEnabled = planFeatures?.salaries != false,
+                    isOvertimeEnabled = planFeatures?.overtime != false,
+                    isDeliveryEnabled = planFeatures?.deliveryModule != false,
+                    onNavigateBack = { activeSubScreen = null },
                 )
-                TablesScreen()
+            }
+
+            "customers" -> {
+                if (planFeatures != null && !planFeatures.customerManagement) {
+                    TopAppBar(
+                        title = { Text(stringResource(CoreRes.string.nav_customers)) },
+                        navigationIcon = {
+                            IconButton(onClick = { activeSubScreen = null }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                    )
+                    FeatureNotAvailableView()
+                } else {
+                    CustomersScreen(
+                        onNavigateBack = { activeSubScreen = null },
+                    )
+                }
+            }
+
+            "store_profile" -> {
+                RestaurantProfileScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "loyalty_discounts" -> {
+                LoyaltyDiscountsScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
             }
 
             "users" -> {
-                TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.roles_permissions)) },
-                    navigationIcon = {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                UsersScreen(
+                    onNavigateBack = { activeSubScreen = null },
                 )
-                UsersScreen()
             }
 
-            "tax_places" -> {
+            "plans" -> {
                 TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.tax_places)) },
+                    title = { Text(stringResource(CoreRes.string.subscription_plans)) },
                     navigationIcon = {
                         IconButton(onClick = { activeSubScreen = null }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -779,186 +856,238 @@ private fun ProfileTabContent(onSignOut: () -> Unit) {
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
-                TaxPlacesScreen()
+                PlansComparisonScreen()
             }
 
             "export" -> {
-                TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.export_data)) },
-                    navigationIcon = {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                )
                 ExportScreen(
-                    onNavigateBack = { activeSubScreen = null }
+                    onNavigateBack = { activeSubScreen = null },
                 )
             }
 
-            "store_configuration" -> {
-                TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.store_configuration)) },
-                    navigationIcon = {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                )
-                StoreConfigurationScreen()
-            }
+            "settings" -> {
+                // Settings sub-level with its own nested screens
+                when (settingsSubScreen) {
+                    "tax_places" -> {
+                        TaxPlacesScreen(
+                            onNavigateBack = { settingsSubScreen = null },
+                        )
+                    }
 
-            "offline_mode" -> {
-                TopAppBar(
-                    title = { Text(stringResource(CoreRes.string.offline_mode_settings)) },
-                    navigationIcon = {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    "store_configuration" -> {
+                        TopAppBar(
+                            title = { Text(stringResource(CoreRes.string.store_configuration)) },
+                            navigationIcon = {
+                                IconButton(onClick = { settingsSubScreen = null }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                        )
+                        StoreConfigurationScreen()
+                    }
+
+                    "offline_mode" -> {
+                        TopAppBar(
+                            title = { Text(stringResource(CoreRes.string.offline_mode_settings)) },
+                            navigationIcon = {
+                                IconButton(onClick = { settingsSubScreen = null }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                        )
+                        OfflineSettingsScreen()
+                    }
+
+                    else -> {
+                        // Settings main list
+                        TopAppBar(
+                            title = { Text(stringResource(CoreRes.string.tab_settings)) },
+                            navigationIcon = {
+                                IconButton(onClick = { activeSubScreen = null; settingsSubScreen = null }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                        )
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            val isTablet = maxWidth >= 600.dp
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                SettingsNavigationCard(
+                                    icon = Icons.Filled.LocalShipping,
+                                    title = stringResource(CoreRes.string.tax_places),
+                                    onClick = { settingsSubScreen = "tax_places" },
+                                )
+                                SettingsNavigationCard(
+                                    icon = Icons.Filled.Settings,
+                                    title = stringResource(CoreRes.string.store_configuration),
+                                    onClick = { settingsSubScreen = "store_configuration" },
+                                )
+                                SettingsNavigationCard(
+                                    icon = Icons.Filled.CloudOff,
+                                    title = stringResource(CoreRes.string.offline_mode_settings),
+                                    onClick = { settingsSubScreen = "offline_mode" },
+                                )
+
+                                Spacer(Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                Spacer(Modifier.height(4.dp))
+
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp),
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        LanguageSelector(modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                                Spacer(Modifier.height(24.dp))
+                            }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                )
-                OfflineSettingsScreen()
+                    }
+                }
             }
 
             else -> {
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
-                    indicator = { tabPositions ->
-                        if (selectedTab < tabPositions.size) {
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
+                // More main screen with toolbar
+                TopAppBar(
+                    title = { Text(stringResource(CoreRes.string.nav_more)) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val isTablet = maxWidth >= 600.dp
+                    val gridColumns = if (isTablet) 3 else 2
+                    val horizontalPad = if (isTablet) 32.dp else 16.dp
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = horizontalPad, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        // ── Store Features Grid ──
+                        MoreSectionHeader(stringResource(CoreRes.string.store_features))
+
+                        val storeItems = listOf(
+                            Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)),
+                            Triple(Icons.Filled.People, stringResource(CoreRes.string.nav_staff), Color(0xFF2E7D32)),
+                            Triple(Icons.Filled.Groups, stringResource(CoreRes.string.nav_customers), Color(0xFF6A1B9A)),
+                            Triple(Icons.Filled.Security, stringResource(CoreRes.string.roles_permissions), Color(0xFFE65100)),
+                            Triple(Icons.Filled.CardGiftcard, stringResource(CoreRes.string.loyalty_and_discounts), Color(0xFFF57C00)),
+                        )
+                        val storeActions = listOf<() -> Unit>(
+                            { activeSubScreen = "analytics" },
+                            { activeSubScreen = "staff" },
+                            { activeSubScreen = "customers" },
+                            { activeSubScreen = "users" },
+                            { activeSubScreen = "loyalty_discounts" },
+                        )
+                        MoreGrid(storeItems, storeActions, gridColumns)
+
+                        // ── Account Information Grid ──
+                        MoreSectionHeader(stringResource(CoreRes.string.account_information))
+
+                        val accountItems = listOf(
+                            Triple(Icons.Filled.Store, stringResource(CoreRes.string.tab_store), Color(0xFF00838F)),
+                            Triple(Icons.Filled.Star, stringResource(CoreRes.string.subscription_plans), Color(0xFFF9A825)),
+                        )
+                        val accountActions = listOf<() -> Unit>(
+                            { activeSubScreen = "store_profile" },
+                            { activeSubScreen = "plans" },
+                        )
+                        MoreGrid(accountItems, accountActions, gridColumns)
+
+                        // ── App Settings Grid ──
+                        MoreSectionHeader(stringResource(CoreRes.string.app_settings))
+
+                        val settingsItems = listOf(
+                            Triple(Icons.Filled.Settings, stringResource(CoreRes.string.tab_settings), Color(0xFF546E7A)),
+                        )
+                        val settingsActions = listOf<() -> Unit>(
+                            { activeSubScreen = "settings" },
+                        )
+                        MoreGrid(settingsItems, settingsActions, gridColumns)
+
+                        // Language card (full width)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                LanguageSelector(modifier = Modifier.fillMaxWidth())
+                            }
                         }
-                    },
-                ) {
-                    mainTabs.forEachIndexed { index, title ->
-                        val isSelected = selectedTab == index
-                        Tab(
-                            selected = isSelected,
-                            onClick = { selectedTab = index },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            text = {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1,
-                                )
+
+                        // Upload Logs
+                        val apiClient = koinInject<WaselakApiClient>()
+                        val scope = rememberCoroutineScope()
+                        var isUploadingLogs by remember { mutableStateOf(false) }
+                        var logUploadMessage by remember { mutableStateOf<String?>(null) }
+                        val settingsPlatformActions = rememberPlatformActions()
+
+                        UploadLogsCard(
+                            isUploading = isUploadingLogs,
+                            onUploadLogs = {
+                                scope.launch {
+                                    isUploadingLogs = true
+                                    try {
+                                        val bytes = AppLogger.readLogFileBytes()
+                                        if (bytes.isEmpty()) {
+                                            logUploadMessage = "No logs available"
+                                        } else {
+                                            apiClient.uploadLogFile(bytes, AppLogger.getLogFileName())
+                                            logUploadMessage = "Logs uploaded successfully"
+                                        }
+                                    } catch (e: Exception) {
+                                        logUploadMessage = "Failed to upload logs: ${e.message}"
+                                    } finally {
+                                        isUploadingLogs = false
+                                    }
+                                }
+                            },
+                            onShareLogs = {
+                                val bytes = AppLogger.readLogFileBytes()
+                                if (bytes.isNotEmpty()) {
+                                    settingsPlatformActions.shareFile(bytes, AppLogger.getLogFileName(), "text/plain")
+                                }
+                            },
+                            onClearLogs = {
+                                AppLogger.clearLogs()
+                                logUploadMessage = "Logs cleared"
                             },
                         )
+
+                        logUploadMessage?.let { msg ->
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (msg.startsWith("Failed")) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary,
+                            )
+                            LaunchedEffect(msg) {
+                                kotlinx.coroutines.delay(3000)
+                                logUploadMessage = null
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(4.dp))
+
+                        SignOutButton(onSignOut = onSignOut)
+                        Spacer(Modifier.height(24.dp))
                     }
                 }
-
-                Box(modifier = Modifier.fillMaxSize()) {
-                    when (selectedTab) {
-                        0 -> RestaurantProfileScreen()
-                        1 -> AnalyticsScreen()
-                        2 -> SettingsContent(
-                            vendor = vendor,
-                            onSignOut = onSignOut,
-                            onNavigateToTables = { activeSubScreen = "tables" },
-                            onNavigateToUsers = { activeSubScreen = "users" },
-                            onNavigateToTaxPlaces = { activeSubScreen = "tax_places" },
-                            onNavigateToConfiguration = { activeSubScreen = "store_configuration" },
-                            onNavigateToOfflineSettings = { activeSubScreen = "offline_mode" },
-                        )
-                    }
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsContent(
-    vendor: net.marllex.waselak.core.model.Vendor?,
-    onSignOut: () -> Unit,
-    onNavigateToTables: () -> Unit,
-    onNavigateToUsers: () -> Unit,
-    onNavigateToTaxPlaces: () -> Unit,
-    onNavigateToConfiguration: () -> Unit,
-    onNavigateToOfflineSettings: () -> Unit,
-) {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isTablet = maxWidth >= 600.dp
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = if (isTablet) 32.dp else 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = stringResource(CoreRes.string.store_features),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-
-            if (vendor?.enableTables != false) {
-                SettingsNavigationCard(
-                    icon = Icons.Filled.TableBar,
-                    title = stringResource(CoreRes.string.tables),
-                    onClick = onNavigateToTables,
-                )
-            }
-
-            SettingsNavigationCard(
-                icon = Icons.Filled.Security,
-                title = stringResource(CoreRes.string.roles_permissions),
-                onClick = onNavigateToUsers,
-            )
-
-            SettingsNavigationCard(
-                icon = Icons.Filled.LocalShipping,
-                title = stringResource(CoreRes.string.tax_places),
-                onClick = onNavigateToTaxPlaces,
-            )
-
-            SettingsNavigationCard(
-                icon = Icons.Filled.Settings,
-                title = stringResource(CoreRes.string.store_configuration),
-                onClick = onNavigateToConfiguration,
-            )
-
-            SettingsNavigationCard(
-                icon = Icons.Filled.CloudOff,
-                title = stringResource(CoreRes.string.offline_mode_settings),
-                onClick = onNavigateToOfflineSettings,
-            )
-
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = stringResource(CoreRes.string.tab_settings),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    LanguageSelector(modifier = Modifier.fillMaxWidth())
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            SignOutButton(onSignOut = onSignOut)
-            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -989,6 +1118,99 @@ private fun SettingsNavigationCard(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MoreSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp),
+    )
+}
+
+@Composable
+private fun MoreGrid(
+    items: List<Triple<ImageVector, String, Color>>,
+    actions: List<() -> Unit>,
+    columns: Int,
+) {
+    val rows = items.chunked(columns)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        rows.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                rowItems.forEachIndexed { index, (icon, title, tint) ->
+                    MoreGridCard(
+                        icon = icon,
+                        title = title,
+                        iconTint = tint,
+                        onClick = actions[items.indexOf(rowItems[index])],
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Fill remaining space if row is not full
+                repeat(columns - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreGridCard(
+    icon: ImageVector,
+    title: String,
+    iconTint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 20.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = iconTint.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(14.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

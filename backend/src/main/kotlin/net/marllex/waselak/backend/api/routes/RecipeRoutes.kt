@@ -8,6 +8,7 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
+import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.model.StockUnit
 import org.jetbrains.exposed.sql.*
@@ -98,8 +99,11 @@ fun Route.recipeRoutes() {
 
         // GET all recipes for this vendor
         get {
+            val trace = call.routeTrace()
+            trace.step("List recipes started")
             val principal = currentUser()
             val vendorUUID = UUID.fromString(principal.vendorId)
+            trace.step("Querying recipes for vendor", mapOf("vendorId" to principal.vendorId))
 
             val recipes = transaction {
                 val recipeRows = RecipesTable.selectAll()
@@ -111,13 +115,18 @@ fun Route.recipeRoutes() {
                     mapRecipeRow(row, vendorUUID)
                 }
             }
+            trace.step("List recipes result", mapOf("count" to recipes.size.toString()))
+            trace.step("List recipes completed")
             call.respond(HttpStatusCode.OK, recipes)
         }
 
         // GET single recipe
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get recipe started")
             val principal = currentUser()
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Fetching recipe", mapOf("recipeId" to id))
 
             val recipe = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -129,13 +138,18 @@ fun Route.recipeRoutes() {
 
                 mapRecipeRow(row, vendorUUID)
             }
+            trace.step("Get recipe result", mapOf("recipeId" to recipe.id, "name" to recipe.name, "ingredientsCount" to recipe.ingredients.size.toString(), "itemName" to recipe.item_name))
+            trace.step("Get recipe completed")
             call.respond(HttpStatusCode.OK, recipe)
         }
 
         // GET recipe by item ID
         get("/by-item/{itemId}") {
+            val trace = call.routeTrace()
+            trace.step("Get recipe by item started")
             val principal = currentUser()
             val itemId = call.parameters["itemId"] ?: throw IllegalArgumentException("Item ID required")
+            trace.step("Fetching recipe by item", mapOf("itemId" to itemId))
 
             val recipe = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -149,18 +163,25 @@ fun Route.recipeRoutes() {
             }
 
             if (recipe != null) {
+                trace.step("Recipe found for item", mapOf("recipeId" to recipe.id, "name" to recipe.name, "ingredientsCount" to recipe.ingredients.size.toString()))
+                trace.step("Get recipe by item completed")
                 call.respond(HttpStatusCode.OK, recipe)
             } else {
+                trace.step("No recipe found for item", mapOf("itemId" to itemId))
+                trace.step("Get recipe by item completed")
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Recipe not found for this item"))
             }
         }
 
         // CREATE recipe (MANAGER only)
         post {
+            val trace = call.routeTrace()
+            trace.step("Create recipe started")
             val principal = requireRole("MANAGER")
             val request = call.receive<CreateRecipeDto>()
             require(request.ingredients.isNotEmpty()) { "Recipe must have at least one ingredient" }
             require(request.yield_quantity > 0) { "Yield quantity must be positive" }
+            trace.step("Creating recipe", mapOf("itemId" to request.item_id, "name" to (request.name ?: "null"), "ingredientsCount" to request.ingredients.size.toString()))
 
             val recipe = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -268,14 +289,19 @@ fun Route.recipeRoutes() {
                     .where { RecipesTable.id eq recipeId }.first()
                 mapRecipeRow(row, vendorUUID)
             }
+            trace.step("Create recipe result", mapOf("recipeId" to recipe.id, "name" to recipe.name, "ingredientsCount" to recipe.ingredients.size.toString(), "itemName" to recipe.item_name))
+            trace.step("Create recipe completed")
             call.respond(HttpStatusCode.Created, recipe)
         }
 
         // UPDATE recipe (MANAGER only)
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update recipe started")
             val principal = requireRole("MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             val request = call.receive<UpdateRecipeDto>()
+            trace.step("Updating recipe", mapOf("recipeId" to id, "name" to (request.name ?: "null"), "ingredientsProvided" to (request.ingredients != null).toString()))
 
             val updated = transaction {
                 val recipeUUID = UUID.fromString(id)
@@ -360,13 +386,18 @@ fun Route.recipeRoutes() {
                     .where { RecipesTable.id eq recipeUUID }.first()
                 mapRecipeRow(row, vendorUUID)
             }
+            trace.step("Update recipe result", mapOf("recipeId" to updated.id, "name" to updated.name, "ingredientsCount" to updated.ingredients.size.toString(), "itemName" to updated.item_name))
+            trace.step("Update recipe completed")
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // DELETE recipe (MANAGER only)
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete recipe started")
             val principal = requireRole("MANAGER")
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Deleting recipe", mapOf("recipeId" to id))
 
             transaction {
                 val recipeUUID = UUID.fromString(id)
@@ -395,14 +426,19 @@ fun Route.recipeRoutes() {
                     it[updatedAt] = now
                 }
             }
+            trace.step("Recipe deleted successfully", mapOf("recipeId" to id))
+            trace.step("Delete recipe completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
 
         // CHECK recipe availability for a given quantity
         get("/check-availability/{itemId}") {
+            val trace = call.routeTrace()
+            trace.step("Check recipe availability started")
             val principal = currentUser()
             val itemId = call.parameters["itemId"] ?: throw IllegalArgumentException("Item ID required")
             val requestedQty = call.parameters["quantity"]?.toIntOrNull() ?: 1
+            trace.step("Checking availability", mapOf("itemId" to itemId, "requestedQuantity" to requestedQty.toString()))
 
             val availability = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -468,6 +504,8 @@ fun Route.recipeRoutes() {
                     insufficient_ingredients = insufficient,
                 )
             }
+            trace.step("Availability result", mapOf("available" to availability.available.toString(), "maxQuantity" to availability.max_quantity.toString(), "insufficientCount" to availability.insufficient_ingredients.size.toString()))
+            trace.step("Check recipe availability completed")
             call.respond(HttpStatusCode.OK, availability)
         }
     }

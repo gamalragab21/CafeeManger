@@ -230,6 +230,36 @@
     <string name="retry">جرّب تاني</string>
     <string name="refresh">حدّث</string>
 
+    <!-- Offers Analytics -->
+    <string name="offers_analytics">أداء العروض</string>
+    <string name="total_offers_count">إجمالي العروض</string>
+    <string name="active_offers_count">نشطة</string>
+    <string name="total_offer_uses">إجمالي الاستخدامات</string>
+    <string name="avg_discount_per_use">متوسط الخصم/استخدام</string>
+    <string name="top_offers">أفضل العروض</string>
+    <string name="offer_usage_trend">اتجاه الاستخدام</string>
+    <string name="uses_label">استخدام</string>
+    <!-- Discount Analytics -->
+    <string name="discount_analytics">تحليلات الخصومات</string>
+    <string name="orders_with_discount">طلبات بخصم</string>
+    <string name="total_discount_given">إجمالي الخصم</string>
+    <string name="avg_discount_per_order">متوسط/طلب</string>
+    <string name="discount_rate_label">معدل الخصم</string>
+    <string name="discount_breakdown">التوزيع</string>
+    <string name="discount_type_manual">يدوي</string>
+    <string name="discount_type_offer">عرض</string>
+    <string name="discount_type_points">نقاط</string>
+    <string name="discount_daily_trend">الاتجاه اليومي</string>
+    <!-- Loyalty Analytics -->
+    <string name="loyalty_analytics">تحليلات الولاء</string>
+    <string name="total_points_earned">إجمالي المكتسبة</string>
+    <string name="total_points_redeemed">إجمالي المستبدلة</string>
+    <string name="outstanding_points">النقاط المعلقة</string>
+    <string name="active_loyalty_customers">العملاء النشطون</string>
+    <string name="redemption_rate_label">معدل الاستبدال</string>
+    <string name="points_revenue_label">إيراد النقاط</string>
+    <string name="loyalty_trend">اتجاه النقاط</string>
+
     <!-- Day abbreviations for charts -->
     <string name="day_mon">إثنين</string>
     <string name="day_tue">ثلاثاء</string>

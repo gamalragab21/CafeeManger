@@ -11,6 +11,7 @@ import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockAlert
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.AdjustQuantityRequest
 import net.marllex.waselak.core.network.dto.CreateStockRequest
@@ -48,10 +49,12 @@ class StockRepositoryImpl constructor(
     // ─── Sync from API ──────────────────────────────────────────
 
     override suspend fun refreshStock(): Result<List<Stock>> = runCatching {
+        AppLogger.d(TAG, "Refreshing stock")
         val response = api.getStock()
         val stocks = response.map { it.toDomain() }
         stockDao.deleteAllStock(vendorId)
         stockDao.insertAllStock(stocks.map { it.toDbEntity() })
+        AppLogger.i(TAG, "Fetched ${stocks.size} stock items")
         stocks
     }
 
@@ -68,6 +71,7 @@ class StockRepositoryImpl constructor(
         conversionRate: Double,
         alertEnabled: Boolean,
     ): Result<Stock> = runCatching {
+        AppLogger.d(TAG, "Adding stock item: itemName=$itemName, quantity=$quantity")
         val response = api.createStock(
             CreateStockRequest(
                 itemId = itemId,
@@ -83,6 +87,7 @@ class StockRepositoryImpl constructor(
         )
         val stock = response.toDomain()
         stockDao.insertStock(stock.toDbEntity())
+        AppLogger.i(TAG, "Stock item added: id=${stock.id}")
         stock
     }
 
@@ -96,6 +101,7 @@ class StockRepositoryImpl constructor(
         baseUnit: String?,
         alertEnabled: Boolean?,
     ): Result<Stock> = runCatching {
+        AppLogger.d(TAG, "Updating stock item: id=$id")
         val response = api.updateStock(
             id,
             UpdateStockRequest(
@@ -114,6 +120,7 @@ class StockRepositoryImpl constructor(
     }
 
     override suspend fun addQuantity(stockId: String, quantity: Double, note: String?): Result<Stock> = runCatching {
+        AppLogger.d(TAG, "Adding quantity: stockId=$stockId, quantity=$quantity")
         val response = api.addStockQuantity(stockId, AdjustQuantityRequest(quantity, note))
         val stock = response.toDomain()
         stockDao.insertStock(stock.toDbEntity())
@@ -123,6 +130,7 @@ class StockRepositoryImpl constructor(
     override suspend fun deductQuantity(
         stockId: String, quantity: Double, orderId: String?, note: String?
     ): Result<Stock> = runCatching {
+        AppLogger.d(TAG, "Deducting quantity: stockId=$stockId, quantity=$quantity")
         val response = api.deductStockQuantity(stockId, AdjustQuantityRequest(quantity, note))
         val stock = response.toDomain()
         stockDao.insertStock(stock.toDbEntity())
@@ -136,9 +144,11 @@ class StockRepositoryImpl constructor(
     }
 
     override suspend fun deleteStockItem(id: String): Result<Unit> = runCatching {
+        AppLogger.d(TAG, "Deleting stock item: id=$id")
         api.deleteStock(id)
         stockDao.deleteTransactionsByStockId(id)
         stockDao.deleteStock(id)
+        AppLogger.i(TAG, "Stock item deleted")
     }
 
     // ─── Stock Analytics ────────────────────────────────────────
@@ -159,5 +169,9 @@ class StockRepositoryImpl constructor(
 
     override suspend fun getAnalyticsSummary(): Result<StockSummary> = runCatching {
         api.getStockAnalyticsSummary().toDomain()
+    }
+
+    private companion object {
+        const val TAG = "StockRepo"
     }
 }

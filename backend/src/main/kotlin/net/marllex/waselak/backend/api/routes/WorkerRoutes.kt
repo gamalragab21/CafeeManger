@@ -15,10 +15,12 @@ import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.service.AuthService
 import net.marllex.waselak.backend.domain.service.OrderService
 import net.marllex.waselak.backend.domain.service.PinService
+import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.QrCodeService
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import net.marllex.waselak.backend.plugins.routeTrace
 import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
 import java.security.MessageDigest
@@ -26,6 +28,12 @@ import java.util.UUID
 import kotlin.getValue
 
 // ─── DTOs ────────────────────────────────────────────────────────
+
+@Serializable
+data class PinVerifyResponse(
+    val success: Boolean,
+    val message: String? = null,
+)
 
 @Serializable
 data class WorkerDto(
@@ -36,6 +44,7 @@ data class WorkerDto(
     val full_name: String,
     val phone: String? = null,
     val description: String? = null,
+    val photo_url: String? = null,
     val role: String,
     val salary_type: String,
     val salary_amount: Double,
@@ -54,6 +63,7 @@ data class CreateWorkerDto(
     val full_name: String,
     val phone: String? = null,
     val description: String? = null,
+    val photo_url: String? = null,
     val role: String,
     val salary_type: String, // DAILY, MONTHLY
     val salary_amount: Double = 0.0,
@@ -68,6 +78,7 @@ data class UpdateWorkerDto(
     val full_name: String? = null,
     val phone: String? = null,
     val description: String? = null,
+    val photo_url: String? = null,
     val role: String? = null,
     val salary_type: String? = null,
     val salary_amount: Double? = null,
@@ -143,11 +154,15 @@ fun Route.workerRoutes() {
     val qrCodeService by KoinJavaComponent.inject<QrCodeService>(
         clazz = QrCodeService::class.java
     )
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     // ── Worker Roles (Predefined in Settings) ────────────────────
     route("/api/v1/worker-roles") {
         // GET all worker roles
         get {
+            val trace = call.routeTrace()
+            trace.step("List worker roles started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId, "role" to principal.role))
             val vendorUUID = UUID.fromString(principal.vendorId)
 
             val roles = transaction {
@@ -156,13 +171,19 @@ fun Route.workerRoutes() {
                     .orderBy(WorkerRolesTable.name)
                     .map { it.toWorkerRoleDto() }
             }
+            trace.step("Worker roles fetched", mapOf("count" to roles.size.toString()))
+            trace.step("List worker roles completed")
             call.respond(HttpStatusCode.OK, roles)
         }
 
         // CREATE worker role
         post {
+            val trace = call.routeTrace()
+            trace.step("Create worker role started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val request = call.receive<CreateWorkerRoleDto>()
+            trace.step("Request parsed", mapOf("name" to request.name, "description" to (request.description ?: "null")))
             require(request.name.isNotBlank()) { "Role name is required" }
 
             val role = transaction {
@@ -175,6 +196,7 @@ fun Route.workerRoutes() {
                         (WorkerRolesTable.name eq request.name)
                     }.firstOrNull()
                 if (existing != null) throw IllegalStateException("Role '${request.name}' already exists")
+                trace.step("Duplicate check passed")
 
                 val id = WorkerRolesTable.insertAndGetId {
                     it[vendorId] = vendorUUID
@@ -182,23 +204,31 @@ fun Route.workerRoutes() {
                     it[description] = request.description
                     it[createdAt] = Clock.System.now()
                 }
+                trace.step("Worker role created", mapOf("roleId" to id.toString()))
                 WorkerRolesTable.selectAll().where { WorkerRolesTable.id eq id }.first().toWorkerRoleDto()
             }
+            trace.step("Create worker role completed")
             call.respond(HttpStatusCode.Created, role)
         }
 
         // DELETE worker role
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete worker role started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Role ID parsed", mapOf("roleId" to id))
 
             transaction {
                 val deleted = WorkerRolesTable.deleteWhere {
                     (WorkerRolesTable.id eq UUID.fromString(id)) and
                     (vendorId eq UUID.fromString(principal.vendorId))
                 }
+                trace.step("Delete result", mapOf("deletedCount" to deleted.toString()))
                 if (deleted == 0) throw NoSuchElementException("Role not found")
             }
+            trace.step("Delete worker role completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }
@@ -207,46 +237,39 @@ fun Route.workerRoutes() {
     route("/api/v1/workers") {
         // GET all workers
         get {
-            try {
-                println("[Workers][GET] Start fetching all workers")
+            val trace = call.routeTrace()
+            trace.step("List workers started")
+            val principal = requireRole("MANAGER","CASHIER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId, "role" to principal.role))
 
-                val principal = requireRole("MANAGER","CASHIER")
-                println("[Workers][GET] Principal: $principal")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val activeOnly = call.parameters["active"]?.toBooleanStrictOrNull()
+            trace.step("Filters applied", mapOf("activeOnly" to (activeOnly?.toString() ?: "null")))
 
-                val vendorUUID = UUID.fromString(principal.vendorId)
-                println("[Workers][GET] Vendor UUID: $vendorUUID")
+            val workers = transaction {
+                var query = WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUUID }
 
-                val activeOnly = call.parameters["active"]?.toBooleanStrictOrNull()
-                println("[Workers][GET] Active filter parameter: $activeOnly")
-
-                val workers = transaction {
-                    println("[Workers][GET][Transaction] Start database transaction")
-
-                    var query = WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUUID }
-                    println("[Workers][GET][Transaction] Base query for vendor: ${query.fetchSize}")
-
-                    activeOnly?.let { active ->
-                        query = query.andWhere { WorkersTable.active eq active }
-                        println("[Workers][GET][Transaction] Applied active filter: $active")
-                    }
-
-                    val results = query.orderBy(WorkersTable.fullName).map { it.toWorkerDto() }
-                    println("[Workers][GET][Transaction] Workers fetched count: ${results.size}")
-                    results
+                activeOnly?.let { active ->
+                    query = query.andWhere { WorkersTable.active eq active }
                 }
 
-                println("[Workers][GET] Finished fetching workers: $workers")
-                call.respond(HttpStatusCode.OK, workers)
-            } catch (e: Exception) {
-                println("[Workers][GET][ERROR] ${e.message}")
-                throw e
+                val results = query.orderBy(WorkersTable.fullName).map { it.toWorkerDto() }
+                trace.step("Workers fetched from database", mapOf("count" to results.size.toString()))
+                results
             }
+
+            trace.step("List workers completed", mapOf("totalReturned" to workers.size.toString()))
+            call.respond(HttpStatusCode.OK, workers)
         }
 
         // GET single worker
         get("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Get worker started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
 
             val worker = transaction {
                 WorkersTable.selectAll()
@@ -256,14 +279,28 @@ fun Route.workerRoutes() {
                     }.firstOrNull()?.toWorkerDto()
                     ?: throw NoSuchElementException("Worker not found")
             }
+            trace.step("Worker found", mapOf("workerName" to worker.full_name, "workerRole" to worker.role))
+            trace.step("Get worker completed")
             call.respond(HttpStatusCode.OK, worker)
         }
 
         // CREATE worker
         post {
+            val trace = call.routeTrace()
+            trace.step("Create worker started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val request = call.receive<CreateWorkerDto>()
-            
+            trace.step("Request parsed", mapOf(
+                "name" to request.full_name,
+                "role" to request.role,
+                "phone" to (request.phone ?: "null"),
+                "salaryType" to request.salary_type,
+                "salaryAmount" to request.salary_amount.toString(),
+                "isLoginEnabled" to request.is_login_enabled.toString(),
+                "hasPin" to (!request.pin.isNullOrBlank()).toString()
+            ))
+
             require(request.full_name.isNotBlank()) { "Full name is required" }
             require(request.role.isNotBlank()) { "Role is required" }
             require(request.salary_type in listOf("DAILY", "MONTHLY")) {
@@ -273,6 +310,7 @@ fun Route.workerRoutes() {
             if (!request.pin.isNullOrBlank()) {
                 require(pinService.isValidPin(request.pin)) { "PIN must be 4-6 digits" }
             }
+            trace.step("Validation passed")
 
             val worker = transaction {
                 val vendorUUID = UUID.fromString(principal.vendorId)
@@ -292,6 +330,7 @@ fun Route.workerRoutes() {
                 } else 1
 
                 val workerId = "WRK-%03d".format(nextNum)
+                trace.step("Worker ID generated", mapOf("workerId" to workerId))
 
                 // Hash PIN only if provided
                 val pinHash = if (!request.pin.isNullOrBlank()) {
@@ -318,6 +357,7 @@ fun Route.workerRoutes() {
                         it[createdAt] = now
                         it[updatedAt] = now
                     }.value
+                    trace.step("Login user created", mapOf("linkedUserId" to linkedUserId.toString(), "loginRole" to userRole))
                 }
 
                 val id = WorkersTable.insertAndGetId {
@@ -326,6 +366,7 @@ fun Route.workerRoutes() {
                     it[fullName] = request.full_name
                     it[phone] = request.phone
                     it[description] = request.description
+                    it[photoUrl] = request.photo_url
                     it[role] = request.role
                     it[salaryType] = request.salary_type
                     it[salaryAmount] = BigDecimal.valueOf(request.salary_amount)
@@ -340,6 +381,7 @@ fun Route.workerRoutes() {
                     it[createdAt] = now
                     it[updatedAt] = now
                 }
+                trace.step("Worker inserted", mapOf("workerId" to id.toString()))
 
                 // Generate QR code data
                 val qrData = qrCodeService.generateQrCodeData(
@@ -354,27 +396,43 @@ fun Route.workerRoutes() {
                 WorkersTable.update({ WorkersTable.id eq id }) {
                     it[qrCodeData] = qrDataJson
                 }
+                trace.step("QR code generated and saved")
 
                 WorkersTable.selectAll().where { WorkersTable.id eq id }.first().toWorkerDto()
             }
+            trace.step("Create worker completed", mapOf("workerId" to worker.id, "workerCode" to worker.worker_id))
             call.respond(HttpStatusCode.Created, worker)
         }
 
         // UPDATE worker
         put("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Update worker started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
             val request = call.receive<UpdateWorkerDto>()
+            trace.step("Request parsed", mapOf(
+                "fullName" to (request.full_name ?: "null"),
+                "role" to (request.role ?: "null"),
+                "phone" to (request.phone ?: "null"),
+                "salaryType" to (request.salary_type ?: "null"),
+                "salaryAmount" to (request.salary_amount?.toString() ?: "null"),
+                "active" to (request.active?.toString() ?: "null"),
+                "hasPin" to (request.pin != null).toString()
+            ))
 
             request.salary_type?.let { type ->
                 require(type in listOf("DAILY", "MONTHLY")) {
                     "Salary type must be DAILY or MONTHLY"
                 }
             }
-            
+
             request.pin?.let { pin ->
                 require(pinService.isValidPin(pin)) { "PIN must be 4-6 digits" }
             }
+            trace.step("Validation passed")
 
             try {
                 val updated = transaction {
@@ -386,8 +444,18 @@ fun Route.workerRoutes() {
                     val currentWorker = WorkersTable.selectAll()
                         .where { (WorkersTable.id eq workerUUID) and (WorkersTable.vendorId eq vendorUUID) }
                         .firstOrNull() ?: throw NoSuchElementException("Worker not found")
+                    trace.step("Current worker found", mapOf("currentName" to currentWorker[WorkersTable.fullName], "currentRole" to currentWorker[WorkersTable.role]))
 
                     val needsQrRegeneration = request.full_name != null || request.role != null
+
+                    // Delete old photo file if being replaced
+                    if (request.photo_url != null) {
+                        val oldPhotoUrl = currentWorker[WorkersTable.photoUrl]
+                        if (oldPhotoUrl != null && oldPhotoUrl != request.photo_url) {
+                            deleteUploadedFile(oldPhotoUrl)
+                            trace.step("Old photo deleted", mapOf("oldPhotoUrl" to oldPhotoUrl))
+                        }
+                    }
 
                     WorkersTable.update({
                         (WorkersTable.id eq workerUUID) and
@@ -396,6 +464,7 @@ fun Route.workerRoutes() {
                         request.full_name?.let { stmt[fullName] = it }
                         request.phone?.let { stmt[phone] = it }
                         request.description?.let { stmt[description] = it }
+                        request.photo_url?.let { stmt[photoUrl] = it }
                         request.role?.let { stmt[role] = it }
                         request.salary_type?.let { stmt[salaryType] = it }
                         request.salary_amount?.let { stmt[salaryAmount] = BigDecimal.valueOf(it) }
@@ -407,6 +476,7 @@ fun Route.workerRoutes() {
                         }
                         stmt[updatedAt] = now
                     }
+                    trace.step("Worker record updated")
 
                     // Update UNPAID salary records when salary amount or type changes
                     if (request.salary_amount != null || request.salary_type != null) {
@@ -420,6 +490,7 @@ fun Route.workerRoutes() {
                         }) { stmt ->
                             stmt[amount] = newAmount
                         }
+                        trace.step("Unpaid salary records updated", mapOf("newAmount" to newAmount.toString()))
                     }
 
                     // Regenerate QR code if name or role changed
@@ -427,7 +498,7 @@ fun Route.workerRoutes() {
                         val updatedWorker = WorkersTable.selectAll()
                             .where { WorkersTable.id eq workerUUID }
                             .first()
-                        
+
                         val newVersion = currentWorker[WorkersTable.qrCodeVersion] + 1
                         val qrData = qrCodeService.generateQrCodeData(
                             workerId = workerUUID.toString(),
@@ -441,6 +512,7 @@ fun Route.workerRoutes() {
                             it[WorkersTable.qrCodeData] = qrDataJson
                             it[WorkersTable.qrCodeVersion] = newVersion
                         }
+                        trace.step("QR code regenerated", mapOf("newVersion" to newVersion.toString()))
                     }
 
                     WorkersTable.selectAll()
@@ -448,6 +520,7 @@ fun Route.workerRoutes() {
                         .firstOrNull()?.toWorkerDto()
                         ?: throw NoSuchElementException("Worker not found")
                 }
+                trace.step("Update worker completed", mapOf("workerId" to updated.id))
                 call.respond(HttpStatusCode.OK, updated)
             } catch (e: Exception) {
                 call.application.log.error("Error updating worker: ${e.message}", e)
@@ -457,8 +530,12 @@ fun Route.workerRoutes() {
 
         // DELETE worker
         delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete worker started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
 
             transaction {
                 val workerUUID = UUID.fromString(id)
@@ -469,21 +546,31 @@ fun Route.workerRoutes() {
                 AttendanceTable.deleteWhere { AttendanceTable.workerId eq workerUUID }
                 OvertimeTable.deleteWhere { OvertimeTable.workerId eq workerUUID }
                 SalaryPaymentsTable.deleteWhere { SalaryPaymentsTable.workerId eq workerUUID }
+                trace.step("Related records deleted (attendance, overtime, salary)")
 
                 val deleted = WorkersTable.deleteWhere {
                     (WorkersTable.id eq workerUUID) and
                     (WorkersTable.vendorId eq vendorUUID)
                 }
+                trace.step("Worker delete result", mapOf("deletedCount" to deleted.toString()))
                 if (deleted == 0) throw NoSuchElementException("Worker not found")
             }
+            trace.step("Delete worker completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
 
-        // UPDATE worker PIN
+        // UPDATE worker PIN (attendance feature)
         post("/{id}/pin") {
+            val trace = call.routeTrace()
+            trace.step("Set worker PIN started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "ATTENDANCE")
+            trace.step("Feature check passed", mapOf("feature" to "ATTENDANCE"))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
             val request = call.receive<UpdatePinDto>()
+            trace.step("PIN request received", mapOf("pinLength" to request.pin.length.toString()))
 
             require(pinService.isValidPin(request.pin)) { "PIN must be 4-6 digits" }
 
@@ -501,16 +588,91 @@ fun Route.workerRoutes() {
                     it[WorkersTable.pinUpdatedAt] = now
                     it[updatedAt] = now
                 }
+                trace.step("PIN update result", mapOf("updatedCount" to updated.toString()))
 
                 if (updated == 0) throw NoSuchElementException("Worker not found")
             }
+            trace.step("Set worker PIN completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // VERIFY manager PIN (for cashier-initiated actions like large discounts)
+        // Checks the PIN against all manager-role workers in the vendor
+        post("/verify-manager-pin") {
+            val trace = call.routeTrace()
+            trace.step("Verify manager PIN started")
+            val principal = requireRole("MANAGER", "CASHIER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            val request = call.receive<UpdatePinDto>()
+
+            val vendorId = principal.vendorId
+
+            // Rate limiting using vendor-level key
+            val rateLimitKey = "manager-pin-$vendorId"
+            if (!pinService.canAttemptPin(rateLimitKey)) {
+                val remaining = pinService.getRemainingLockoutTime(rateLimitKey)
+                trace.step("Rate limited", mapOf("remainingSeconds" to remaining.toString()))
+                call.respond(HttpStatusCode.TooManyRequests, PinVerifyResponse(
+                    success = false,
+                    message = "Too many attempts. Try again in $remaining seconds."
+                ))
+                return@post
+            }
+
+            // Find all manager workers with PINs set
+            val managers = transaction {
+                WorkersTable.selectAll()
+                    .where {
+                        (WorkersTable.vendorId eq UUID.fromString(vendorId)) and
+                        (WorkersTable.active eq true) and
+                        (WorkersTable.pinHash.isNotNull())
+                    }
+                    .filter { row ->
+                        val role = row[WorkersTable.role].lowercase()
+                        role == "manager" || role == "مدير"
+                    }
+                    .map { row ->
+                        row[WorkersTable.id].toString() to row[WorkersTable.pinHash]!!
+                    }
+            }
+
+            if (managers.isEmpty()) {
+                trace.step("No managers with PINs found")
+                call.respond(HttpStatusCode.BadRequest, PinVerifyResponse(
+                    success = false,
+                    message = "No managers have PINs set up"
+                ))
+                return@post
+            }
+
+            // Try to verify against any manager's PIN
+            val matchedManager = managers.firstOrNull { (_, hash) ->
+                pinService.verifyPin(request.pin, hash)
+            }
+
+            if (matchedManager != null) {
+                pinService.resetRateLimit(rateLimitKey)
+                trace.step("Manager PIN verified", mapOf("managerId" to matchedManager.first))
+                call.respond(HttpStatusCode.OK, PinVerifyResponse(success = true))
+            } else {
+                trace.step("PIN verification failed against all managers")
+                call.respond(HttpStatusCode.Unauthorized, PinVerifyResponse(
+                    success = false,
+                    message = "Invalid PIN"
+                ))
+            }
         }
 
         // GET worker QR code as PNG image
         get("/{id}/qr-code") {
+            val trace = call.routeTrace()
+            trace.step("Get worker QR code started")
             val principal = requireRole("MANAGER", "CASHIER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId, "role" to principal.role))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "WORKER_QRCODE")
+            trace.step("Feature check passed", mapOf("feature" to "WORKER_QRCODE"))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
 
             val imageBytes = transaction {
                 val workerUUID = UUID.fromString(id)
@@ -521,11 +683,13 @@ fun Route.workerRoutes() {
                         (WorkersTable.id eq workerUUID) and
                         (WorkersTable.vendorId eq vendorUUID)
                     }.firstOrNull() ?: throw NoSuchElementException("Worker not found")
+                trace.step("Worker found", mapOf("workerName" to worker[WorkersTable.fullName]))
 
                 var qrDataJson = worker[WorkersTable.qrCodeData]
-                
+
                 // If worker doesn't have QR code, generate it now
                 if (qrDataJson == null) {
+                    trace.step("No existing QR code, generating new one")
                     val qrData = qrCodeService.generateQrCodeData(
                         workerId = workerUUID.toString(),
                         name = worker[WorkersTable.fullName],
@@ -533,25 +697,35 @@ fun Route.workerRoutes() {
                         version = 1
                     )
                     qrDataJson = Json.encodeToString(qrData)
-                    
+
                     // Save QR code data to worker
                     WorkersTable.update({ WorkersTable.id eq workerUUID }) {
                         it[qrCodeData] = qrDataJson
                         it[qrCodeVersion] = 1
                     }
+                    trace.step("QR code generated and saved", mapOf("version" to "1"))
+                } else {
+                    trace.step("Existing QR code found")
                 }
 
                 val qrData = Json.decodeFromString<net.marllex.waselak.backend.domain.service.QrCodeData>(qrDataJson)
                 qrCodeService.generateQrCodeImage(qrData, size = 500) // Larger QR code
             }
-
+            trace.step("QR code image rendered", mapOf("imageSize" to imageBytes.size.toString()))
+            trace.step("Get worker QR code completed")
             call.respondBytes(imageBytes, ContentType.Image.PNG)
         }
 
         // REGENERATE worker QR code
         post("/{id}/qr-code/regenerate") {
+            val trace = call.routeTrace()
+            trace.step("Regenerate QR code started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "WORKER_QRCODE")
+            trace.step("Feature check passed", mapOf("feature" to "WORKER_QRCODE"))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Worker ID parsed", mapOf("workerId" to id))
 
             try {
                 val response = transaction {
@@ -563,12 +737,12 @@ fun Route.workerRoutes() {
                             (WorkersTable.id eq workerUUID) and
                             (WorkersTable.vendorId eq vendorUUID)
                         }.firstOrNull() ?: throw NoSuchElementException("Worker not found")
+                    trace.step("Worker found", mapOf("workerName" to worker[WorkersTable.fullName]))
 
                     val currentVersion = worker[WorkersTable.qrCodeVersion]
                     val newVersion = currentVersion + 1
-                    
-                    call.application.log.info("Regenerating QR code for worker $workerUUID: version $currentVersion -> $newVersion")
-                    
+                    trace.step("Version bump", mapOf("oldVersion" to currentVersion.toString(), "newVersion" to newVersion.toString()))
+
                     val qrData = qrCodeService.generateQrCodeData(
                         workerId = workerUUID.toString(),
                         name = worker[WorkersTable.fullName],
@@ -582,18 +756,18 @@ fun Route.workerRoutes() {
                         it[qrCodeVersion] = newVersion
                         it[updatedAt] = Clock.System.now()
                     }
-                    
+                    trace.step("QR code update result", mapOf("updatedCount" to updated.toString()))
+
                     if (updated == 0) {
                         throw IllegalStateException("Failed to update worker QR code")
                     }
-                    
-                    call.application.log.info("QR code regenerated successfully for worker $workerUUID")
 
                     QrCodeResponse(
                         qr_code_data = qrDataJson,
                         qr_code_version = newVersion
                     )
                 }
+                trace.step("Regenerate QR code completed", mapOf("newVersion" to response.qr_code_version.toString()))
                 call.respond(HttpStatusCode.OK, response)
             } catch (e: Exception) {
                 call.application.log.error("Error regenerating QR code: ${e.message}", e)
@@ -606,11 +780,21 @@ fun Route.workerRoutes() {
     route("/api/v1/salary-payments") {
         // GET salary payments (filter by worker, period, paid status)
         get {
+            val trace = call.routeTrace()
+            trace.step("List salary payments started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "SALARY")
+            trace.step("Feature check passed", mapOf("feature" to "SALARY"))
             val vendorUUID = UUID.fromString(principal.vendorId)
             val workerIdParam = call.parameters["worker_id"]
             val paidParam = call.parameters["paid"]?.toBooleanStrictOrNull()
             val periodType = call.parameters["period_type"]
+            trace.step("Filters applied", mapOf(
+                "workerId" to (workerIdParam ?: "null"),
+                "paid" to (paidParam?.toString() ?: "null"),
+                "periodType" to (periodType ?: "null")
+            ))
 
             val payments = transaction {
                 var query = SalaryPaymentsTable
@@ -628,16 +812,28 @@ fun Route.workerRoutes() {
                     query = query.andWhere { SalaryPaymentsTable.periodType eq pt }
                 }
 
-                query.orderBy(SalaryPaymentsTable.createdAt, SortOrder.DESC)
+                val results = query.orderBy(SalaryPaymentsTable.createdAt, SortOrder.DESC)
                     .map { it.toSalaryPaymentDto() }
+                trace.step("Salary payments fetched", mapOf("count" to results.size.toString()))
+                results
             }
+            trace.step("List salary payments completed")
             call.respond(HttpStatusCode.OK, payments)
         }
 
         // BATCH PAY multiple salary payments at once
         patch("/batch-pay") {
+            val trace = call.routeTrace()
+            trace.step("Batch pay salary payments started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "SALARY")
+            trace.step("Feature check passed", mapOf("feature" to "SALARY"))
             val request = call.receive<BatchPayDto>()
+            trace.step("Request parsed", mapOf(
+                "paymentCount" to request.payment_ids.size.toString(),
+                "hasNote" to (request.note != null).toString()
+            ))
             require(request.payment_ids.isNotEmpty()) { "At least one payment ID is required" }
 
             val updated = transaction {
@@ -666,14 +862,22 @@ fun Route.workerRoutes() {
                         .firstOrNull()?.toSalaryPaymentDto()
                 }.filterNotNull()
             }
+            trace.step("Batch pay completed", mapOf("paidCount" to updated.size.toString()))
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // MARK as paid / unpaid
         patch("/{id}/pay") {
+            val trace = call.routeTrace()
+            trace.step("Mark salary payment as paid started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "SALARY")
+            trace.step("Feature check passed", mapOf("feature" to "SALARY"))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Payment ID parsed", mapOf("paymentId" to id))
             val request = call.receive<MarkPaidDto>()
+            trace.step("Request parsed", mapOf("hasNote" to (request.note != null).toString()))
 
             val updated = transaction {
                 val paymentUUID = UUID.fromString(id)
@@ -689,6 +893,7 @@ fun Route.workerRoutes() {
                     it[note] = request.note
                     it[updatedAt] = Clock.System.now()
                 }
+                trace.step("Payment marked as paid")
 
                 SalaryPaymentsTable
                     .innerJoin(WorkersTable, { SalaryPaymentsTable.workerId }, { WorkersTable.id })
@@ -697,13 +902,20 @@ fun Route.workerRoutes() {
                     .firstOrNull()?.toSalaryPaymentDto()
                     ?: throw NoSuchElementException("Payment not found")
             }
+            trace.step("Mark as paid completed", mapOf("paymentId" to updated.id, "workerName" to (updated.worker_name ?: "null")))
             call.respond(HttpStatusCode.OK, updated)
         }
 
         // MARK as unpaid
         patch("/{id}/unpay") {
+            val trace = call.routeTrace()
+            trace.step("Mark salary payment as unpaid started")
             val principal = requireRole("MANAGER")
+            trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+            planService.checkFeature(java.util.UUID.fromString(principal.vendorId), "SALARY")
+            trace.step("Feature check passed", mapOf("feature" to "SALARY"))
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            trace.step("Payment ID parsed", mapOf("paymentId" to id))
 
             val updated = transaction {
                 val paymentUUID = UUID.fromString(id)
@@ -718,6 +930,7 @@ fun Route.workerRoutes() {
                     it[paidBy] = null
                     it[updatedAt] = Clock.System.now()
                 }
+                trace.step("Payment marked as unpaid")
 
                 SalaryPaymentsTable
                     .innerJoin(WorkersTable, { SalaryPaymentsTable.workerId }, { WorkersTable.id })
@@ -726,6 +939,7 @@ fun Route.workerRoutes() {
                     .firstOrNull()?.toSalaryPaymentDto()
                     ?: throw NoSuchElementException("Payment not found")
             }
+            trace.step("Mark as unpaid completed", mapOf("paymentId" to updated.id, "workerName" to (updated.worker_name ?: "null")))
             call.respond(HttpStatusCode.OK, updated)
         }
     }
@@ -740,7 +954,7 @@ private fun sha256Hex(input: String): String {
 
 // ─── Mappers ─────────────────────────────────────────────────────
 
-private fun ResultRow.toWorkerDto() = WorkerDto(
+private fun ResultRow.toWorkerDto(host: String = "localhost:8080", scheme: String = "http") = WorkerDto(
     id = this[WorkersTable.id].toString(),
     vendor_id = this[WorkersTable.vendorId].toString(),
     user_id = this[WorkersTable.userId]?.toString(),
@@ -748,6 +962,7 @@ private fun ResultRow.toWorkerDto() = WorkerDto(
     full_name = this[WorkersTable.fullName],
     phone = this[WorkersTable.phone],
     description = this[WorkersTable.description],
+    photo_url = rewriteUploadUrl(this[WorkersTable.photoUrl], host, scheme),
     role = this[WorkersTable.role],
     salary_type = this[WorkersTable.salaryType],
     salary_amount = this[WorkersTable.salaryAmount].toDouble(),

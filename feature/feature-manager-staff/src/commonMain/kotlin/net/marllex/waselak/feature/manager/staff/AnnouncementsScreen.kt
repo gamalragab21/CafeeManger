@@ -213,7 +213,7 @@ private fun AnnouncementCard(
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
-                            text = announcement.createdAt.formatEpochMs("MMM dd, HH:mm"),
+                            text = announcement.createdAt.formatEpochMs("MMM dd, hh:mm a"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

@@ -24,10 +24,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ModalBottomSheet
@@ -52,6 +55,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -75,7 +80,9 @@ import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Order
+import net.marllex.waselak.core.model.PointsTransaction
 import net.marllex.waselak.core.ui.components.ErrorView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.theme.*
 import net.marllex.waselak.feature.manager.customers.generated.resources.Res
@@ -87,6 +94,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun CustomersScreen(
     viewModel: CustomersViewModel = koinViewModel(),
+    onNavigateBack: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -94,6 +102,13 @@ fun CustomersScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.customers)) },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -101,6 +116,9 @@ fun CustomersScreen(
         },
     ) { padding ->
         when {
+            uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
+                message = uiState.featureNotAvailableMessage,
+            )
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.customers.isEmpty() -> ErrorView(
                 message = uiState.error!!,
@@ -126,6 +144,7 @@ fun CustomersScreen(
                 }
             }
         }
+
     }
 }
 
@@ -157,6 +176,13 @@ private fun PhoneLayout(
             selectedSort = uiState.sortBy,
             onSortSelected = viewModel::setSortBy,
             modifier = Modifier.padding(horizontal = 16.dp),
+        )
+
+        // Loyalty filter chips
+        LoyaltyFilterChipsRow(
+            selectedFilter = uiState.loyaltyFilter,
+            onFilterSelected = viewModel::setLoyaltyFilter,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -194,6 +220,10 @@ private fun PhoneLayout(
         CustomerDetailBottomSheet(
             customer = uiState.selectedCustomer!!,
             orders = uiState.selectedCustomerOrders,
+            pointsHistory = uiState.pointsHistory,
+            discountOrders = uiState.discountOrders,
+            isLoadingPointsHistory = uiState.isLoadingPointsHistory,
+            isLoadingDiscountOrders = uiState.isLoadingDiscountOrders,
             onDismiss = {
                 showDetailDialog = false
                 viewModel.selectCustomer(null)
@@ -250,6 +280,13 @@ private fun TabletLayout(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
 
+            // Loyalty filter chips
+            LoyaltyFilterChipsRow(
+                selectedFilter = uiState.loyaltyFilter,
+                onFilterSelected = viewModel::setLoyaltyFilter,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             Spacer(modifier = Modifier.height(8.dp))
 
             PullToRefreshBox(
@@ -287,6 +324,10 @@ private fun TabletLayout(
                 CustomerDetailPane(
                     customer = uiState.selectedCustomer!!,
                     orders = uiState.selectedCustomerOrders,
+                    pointsHistory = uiState.pointsHistory,
+                    discountOrders = uiState.discountOrders,
+                    isLoadingPointsHistory = uiState.isLoadingPointsHistory,
+                    isLoadingDiscountOrders = uiState.isLoadingDiscountOrders,
                     onDelete = { showDeleteDialog = true },
                 )
             } else {
@@ -398,6 +439,56 @@ private fun SortChipsRow(
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Loyalty Filter Chips Row
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun LoyaltyFilterChipsRow(
+    selectedFilter: LoyaltyFilter?,
+    onFilterSelected: (LoyaltyFilter?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            FilterChip(
+                selected = selectedFilter == null,
+                onClick = { onFilterSelected(null) },
+                label = { Text(stringResource(Res.string.filter_all)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
+                ),
+            )
+        }
+        item {
+            FilterChip(
+                selected = selectedFilter == LoyaltyFilter.HAS_POINTS,
+                onClick = { onFilterSelected(LoyaltyFilter.HAS_POINTS) },
+                label = { Text(stringResource(Res.string.filter_has_points)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
+                ),
+            )
+        }
+        item {
+            FilterChip(
+                selected = selectedFilter == LoyaltyFilter.NO_POINTS,
+                onClick = { onFilterSelected(LoyaltyFilter.NO_POINTS) },
+                label = { Text(stringResource(Res.string.filter_no_points)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiary,
                 ),
             )
         }
@@ -532,6 +623,10 @@ private fun CustomerCard(
 private fun CustomerDetailBottomSheet(
     customer: Customer,
     orders: List<Order>,
+    pointsHistory: List<PointsTransaction>,
+    discountOrders: List<Order>,
+    isLoadingPointsHistory: Boolean,
+    isLoadingDiscountOrders: Boolean,
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -562,17 +657,15 @@ private fun CustomerDetailBottomSheet(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    CustomerDetailContent(
-                        customer = customer,
-                        orders = orders,
-                    )
-                }
-                item { Spacer(modifier = Modifier.height(24.dp)) }
-            }
+            CustomerDetailContent(
+                customer = customer,
+                orders = orders,
+                pointsHistory = pointsHistory,
+                discountOrders = discountOrders,
+                isLoadingPointsHistory = isLoadingPointsHistory,
+                isLoadingDiscountOrders = isLoadingDiscountOrders,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -585,6 +678,10 @@ private fun CustomerDetailBottomSheet(
 private fun CustomerDetailPane(
     customer: Customer,
     orders: List<Order>,
+    pointsHistory: List<PointsTransaction>,
+    discountOrders: List<Order>,
+    isLoadingPointsHistory: Boolean,
+    isLoadingDiscountOrders: Boolean,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -620,16 +717,14 @@ private fun CustomerDetailPane(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    CustomerDetailContent(
-                        customer = customer,
-                        orders = orders,
-                    )
-                }
-            }
+            CustomerDetailContent(
+                customer = customer,
+                orders = orders,
+                pointsHistory = pointsHistory,
+                discountOrders = discountOrders,
+                isLoadingPointsHistory = isLoadingPointsHistory,
+                isLoadingDiscountOrders = isLoadingDiscountOrders,
+            )
         }
     }
 }
@@ -642,134 +737,503 @@ private fun CustomerDetailPane(
 private fun CustomerDetailContent(
     customer: Customer,
     orders: List<Order>,
+    pointsHistory: List<PointsTransaction>,
+    discountOrders: List<Order>,
+    isLoadingPointsHistory: Boolean,
+    isLoadingDiscountOrders: Boolean,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Customer info card
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Name + Avatar
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = customer.name ?: customer.phone,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.Phone,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = customer.phone,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf(
+        stringResource(Res.string.tab_info),
+        stringResource(Res.string.tab_points),
+        stringResource(Res.string.tab_discounts),
+    )
 
-                Spacer(modifier = Modifier.height(16.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Customer header card (always visible)
+        CustomerHeaderCard(customer = customer)
 
-                // Stats row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    StatColumn(
-                        label = stringResource(Res.string.sort_order_count),
-                        value = "${customer.orderCount}",
-                        color = ChartIndigo,
-                    )
-                    StatColumn(
-                        label = stringResource(Res.string.sort_total_spent),
-                        value = CurrencyFormatter.formatDecimal(customer.totalSpent),
-                        color = StockHealthy,
-                    )
-                    StatColumn(
-                        label = stringResource(Res.string.sort_last_order),
-                        value = customer.lastOrderAt?.formatEpochMs("MMM dd") ?: "-",
-                        color = ChartPurple,
-                    )
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Notes
-        if (!customer.notes.isNullOrBlank()) {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = ChartAmber.copy(alpha = 0.08f),
-                ),
-            ) {
-                Text(
-                    text = customer.notes!!,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(12.dp),
+        // Tab Row
+        TabRow(selectedTabIndex = selectedTab) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) },
                 )
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Tab content
+        when (selectedTab) {
+            0 -> InfoTabContent(customer = customer, orders = orders)
+            1 -> PointsTabContent(
+                customer = customer,
+                pointsHistory = pointsHistory,
+                isLoading = isLoadingPointsHistory,
+            )
+            2 -> DiscountsTabContent(
+                discountOrders = discountOrders,
+                isLoading = isLoadingDiscountOrders,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomerHeaderCard(customer: Customer) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Name + Avatar
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = customer.name ?: customer.phone,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Phone,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = customer.phone,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stats row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                StatColumn(
+                    label = stringResource(Res.string.sort_order_count),
+                    value = "${customer.orderCount}",
+                    color = ChartIndigo,
+                )
+                StatColumn(
+                    label = stringResource(Res.string.sort_total_spent),
+                    value = CurrencyFormatter.formatDecimal(customer.totalSpent),
+                    color = StockHealthy,
+                )
+                StatColumn(
+                    label = stringResource(Res.string.points_balance_label),
+                    value = "${customer.pointsBalance}",
+                    color = ChartAmber,
+                )
+                StatColumn(
+                    label = stringResource(Res.string.sort_last_order),
+                    value = customer.lastOrderAt?.formatEpochMs("MMM dd") ?: "-",
+                    color = ChartPurple,
+                )
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Info Tab Content
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun InfoTabContent(
+    customer: Customer,
+    orders: List<Order>,
+) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Notes
+        if (!customer.notes.isNullOrBlank()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = ChartAmber.copy(alpha = 0.08f),
+                    ),
+                ) {
+                    Text(
+                        text = customer.notes!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
+        }
+
         // Addresses section
-        SectionHeader(
-            title = stringResource(Res.string.addresses),
-            icon = Icons.Outlined.LocationOn,
-        )
+        item {
+            SectionHeader(
+                title = stringResource(Res.string.addresses),
+                icon = Icons.Outlined.LocationOn,
+            )
+        }
 
         if (customer.addresses.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.no_addresses),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+            item {
+                Text(
+                    text = stringResource(Res.string.no_addresses),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
         } else {
-            customer.addresses.forEach { address ->
+            items(customer.addresses, key = { it.id }) { address ->
                 AddressCard(address = address)
             }
         }
 
         // Recent orders section
+        item {
+            SectionHeader(
+                title = stringResource(Res.string.recent_orders),
+                icon = Icons.Outlined.Receipt,
+            )
+        }
+
+        if (orders.isEmpty()) {
+            item {
+                Text(
+                    text = stringResource(Res.string.no_recent_orders),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        } else {
+            items(orders, key = { it.id }) { order ->
+                OrderCompactCard(order = order)
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Points Tab Content
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun PointsTabContent(
+    customer: Customer,
+    pointsHistory: List<PointsTransaction>,
+    isLoading: Boolean,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Points balance card
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = ChartAmber.copy(alpha = 0.12f),
+            ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    Icons.Outlined.Star,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = ChartAmber,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${customer.pointsBalance}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = ChartAmber,
+                )
+                Text(
+                    text = stringResource(Res.string.points_balance_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         SectionHeader(
-            title = stringResource(Res.string.recent_orders),
+            title = stringResource(Res.string.loyalty_points_history),
+            icon = Icons.Outlined.Star,
+        )
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            pointsHistory.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.no_points_history),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(pointsHistory, key = { it.id }) { transaction ->
+                        PointsTransactionCard(transaction = transaction)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PointsTransactionCard(
+    transaction: PointsTransaction,
+    modifier: Modifier = Modifier,
+) {
+    val isEarn = transaction.type.equals("EARN", ignoreCase = true)
+    val typeColor = if (isEarn) StockHealthy else StockOut
+    val typeLabel = if (isEarn) stringResource(Res.string.points_earned_label) else stringResource(Res.string.points_redeemed_label)
+    val pointsText = if (isEarn) "+${transaction.points}" else "-${transaction.points}"
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = typeColor.copy(alpha = 0.08f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Type badge
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(typeColor.copy(alpha = 0.2f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = typeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = typeColor,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Description + date
+            Column(modifier = Modifier.weight(1f)) {
+                if (!transaction.description.isNullOrBlank()) {
+                    Text(
+                        text = transaction.description!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = transaction.createdAt.formatEpochMs("MMM dd, yyyy"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Points amount
+            Text(
+                text = pointsText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = typeColor,
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Discounts Tab Content
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun DiscountsTabContent(
+    discountOrders: List<Order>,
+    isLoading: Boolean,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SectionHeader(
+            title = stringResource(Res.string.discount_history),
             icon = Icons.Outlined.Receipt,
         )
 
-        if (orders.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.no_recent_orders),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        } else {
-            orders.forEach { order ->
-                OrderCompactCard(order = order)
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            discountOrders.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.no_discount_history),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(discountOrders, key = { it.id }) { order ->
+                        DiscountOrderCard(order = order)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscountOrderCard(
+    order: Order,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Order icon
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(StockOut.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Receipt,
+                    contentDescription = null,
+                    tint = StockOut,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.order_number, order.id.takeLast(6)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = order.createdAt.formatEpochMs("MMM dd, yyyy"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!order.discountReason.isNullOrBlank()) {
+                    Text(
+                        text = order.discountReason!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            // Discount + Total
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = stringResource(
+                        Res.string.discount_amount_label,
+                        CurrencyFormatter.formatDecimal(order.discount),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = StockOut,
+                )
+                Text(
+                    text = CurrencyFormatter.formatDecimal(order.total),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }
@@ -949,7 +1413,7 @@ private fun OrderCompactCard(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = order.createdAt.formatEpochMs("MMM dd, HH:mm"),
+                    text = order.createdAt.formatEpochMs("MMM dd, hh:mm a"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

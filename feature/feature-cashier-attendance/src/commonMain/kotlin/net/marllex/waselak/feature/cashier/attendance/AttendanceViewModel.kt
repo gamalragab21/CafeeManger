@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.extensions.toLocalDateTimeKt
 import net.marllex.waselak.core.common.extensions.formatAsDate
 import net.marllex.waselak.core.data.sync.AttendanceSyncManager
@@ -14,6 +15,7 @@ import net.marllex.waselak.core.model.Attendance
 import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.Worker
 import net.marllex.waselak.core.network.connectivity.NetworkMonitor
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 
 class AttendanceViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -44,6 +46,8 @@ class AttendanceViewModel constructor(
         val selectedAttendanceId: String? = null,
         val authAction: AuthAction? = null,
         val isQrDisabled: Boolean = false,
+        val showFeatureNotAvailable: Boolean = false,
+        val featureNotAvailableMessage: String = "",
     )
 
     sealed class AuthAction {
@@ -91,18 +95,17 @@ class AttendanceViewModel constructor(
 
     fun loadData() {
         viewModelScope.launch {
+            AppLogger.d("Attendance", "Loading attendance data, isOffline=${networkMonitor.isOnline.value.not()}")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 if (networkMonitor.isOnline.value) {
-                    workerRepository.refreshWorkers()
-                    workerRepository.getTodayAttendance().onSuccess { summary ->
-                        _uiState.update { it.copy(todaySummary = summary) }
-                    }
-                    workerRepository.refreshAttendance(
+                    workerRepository.refreshWorkers().getOrThrow()
+                    val summary = workerRepository.getTodayAttendance().getOrThrow()
+                    _uiState.update { it.copy(todaySummary = summary) }
+                    val records = workerRepository.refreshAttendance(
                         date = Clock.System.now().toLocalDateTimeKt(TimeZone.currentSystemDefault()).formatAsDate()
-                    ).onSuccess { records ->
-                        _uiState.update { it.copy(todayRecords = records) }
-                    }
+                    ).getOrThrow()
+                    _uiState.update { it.copy(todayRecords = records) }
                 } else {
                     // Offline: load from local database only
                     val today = Clock.System.now().toLocalDateTimeKt(TimeZone.currentSystemDefault()).formatAsDate()
@@ -115,7 +118,11 @@ class AttendanceViewModel constructor(
                     _uiState.update { it.copy(workers = workers, isLoading = false) }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
             }
         }
     }
@@ -126,6 +133,7 @@ class AttendanceViewModel constructor(
 
     // Show PIN dialog for check-in
     fun showPinDialogForCheckIn(worker: Worker) {
+        AppLogger.i("Attendance", "User action: open PIN dialog for check-in, workerId=${worker.id}")
         _uiState.update {
             it.copy(
                 showPinDialog = true,
@@ -138,6 +146,7 @@ class AttendanceViewModel constructor(
 
     // Show PIN dialog for check-out
     fun showPinDialogForCheckOut(worker: Worker, attendanceId: String) {
+        AppLogger.i("Attendance", "User action: open PIN dialog for check-out, workerId=${worker.id}, attendanceId=$attendanceId")
         _uiState.update {
             it.copy(
                 showPinDialog = true,
@@ -150,6 +159,7 @@ class AttendanceViewModel constructor(
 
     // Show QR scanner for check-in
     fun showQrScannerForCheckIn() {
+        AppLogger.i("Attendance", "User action: open QR scanner for check-in")
         _uiState.update {
             it.copy(
                 showQrScanner = true,
@@ -160,6 +170,7 @@ class AttendanceViewModel constructor(
 
     // Show QR scanner for check-out
     fun showQrScannerForCheckOut() {
+        AppLogger.i("Attendance", "User action: open QR scanner for check-out")
         _uiState.update {
             it.copy(
                 showQrScanner = true,
@@ -229,11 +240,13 @@ class AttendanceViewModel constructor(
 
     // Execute check-in with PIN
     fun checkInWithPin(workerId: String, pin: String) {
+        AppLogger.d("Attendance", "Starting check-in with PIN: workerId=$workerId")
         val currentWorker = _uiState.value.selectedWorker
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, showPinDialog = false) }
             workerRepository.checkInWithPin(workerId, pin)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Check-in with PIN successful: workerId=$workerId")
                     _uiState.update {
                         it.copy(
                             successMessage = if (networkMonitor.isOnline.value) "check_in_success" else "offline_check_in_recorded",
@@ -244,6 +257,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Check-in with PIN failed: workerId=$workerId", e)
                     _uiState.update {
                         it.copy(
                             showPinErrorDialog = true,
@@ -259,12 +273,14 @@ class AttendanceViewModel constructor(
 
     // Execute check-out with PIN
     fun checkOutWithPin(attendanceId: String, pin: String) {
+        AppLogger.d("Attendance", "Starting check-out with PIN: attendanceId=$attendanceId")
         val currentWorker = _uiState.value.selectedWorker
         val currentAttendanceId = attendanceId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, showPinDialog = false) }
             workerRepository.checkOutWithPin(attendanceId, pin)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Check-out with PIN successful: attendanceId=$attendanceId")
                     _uiState.update {
                         it.copy(
                             successMessage = if (networkMonitor.isOnline.value) "check_out_success" else "offline_check_out_recorded",
@@ -276,6 +292,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Check-out with PIN failed: attendanceId=$attendanceId", e)
                     _uiState.update {
                         it.copy(
                             showPinErrorDialog = true,
@@ -292,10 +309,12 @@ class AttendanceViewModel constructor(
 
     // Execute check-in with QR code
     fun checkInWithQr(qrData: String) {
+        AppLogger.d("Attendance", "Starting check-in with QR")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, showQrScanner = false) }
             workerRepository.checkInWithQr(qrData)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Check-in with QR successful")
                     _uiState.update {
                         it.copy(
                             successMessage = "check_in_success",
@@ -305,6 +324,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Check-in with QR failed", e)
                     _uiState.update {
                         it.copy(
                             showQrErrorDialog = true,
@@ -319,10 +339,12 @@ class AttendanceViewModel constructor(
 
     // Execute check-out with QR code
     fun checkOutWithQr(qrData: String) {
+        AppLogger.d("Attendance", "Starting check-out with QR")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, showQrScanner = false) }
             workerRepository.checkOutWithQr(qrData)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Check-out with QR successful")
                     _uiState.update {
                         it.copy(
                             successMessage = "check_out_success",
@@ -332,6 +354,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Check-out with QR failed", e)
                     _uiState.update {
                         it.copy(
                             showQrErrorDialog = true,
@@ -346,13 +369,16 @@ class AttendanceViewModel constructor(
 
     // Manual check-in (without PIN/QR)
     fun checkInManual(workerId: String) {
+        AppLogger.d("Attendance", "Starting manual check-in: workerId=$workerId")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             workerRepository.checkIn(workerId)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Manual check-in successful: workerId=$workerId")
                     _uiState.update { it.copy(successMessage = "check_in_success") }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Manual check-in failed: workerId=$workerId", e)
                     _uiState.update { it.copy(error = e.message, isLoading = false) }
                 }
         }
@@ -360,16 +386,23 @@ class AttendanceViewModel constructor(
 
     // Manual check-out (without PIN/QR)
     fun checkOutManual(attendanceId: String) {
+        AppLogger.d("Attendance", "Starting manual check-out: attendanceId=$attendanceId")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             workerRepository.checkOut(attendanceId)
                 .onSuccess {
+                    AppLogger.i("Attendance", "Manual check-out successful: attendanceId=$attendanceId")
                     _uiState.update { it.copy(successMessage = "check_out_success") }
                     loadData()
                 }.onFailure { e ->
+                    AppLogger.e("Attendance", "Manual check-out failed: attendanceId=$attendanceId", e)
                     _uiState.update { it.copy(error = e.message, isLoading = false) }
                 }
         }
+    }
+
+    fun dismissFeatureNotAvailable() {
+        _uiState.update { it.copy(showFeatureNotAvailable = false) }
     }
 
     fun clearMessages() {

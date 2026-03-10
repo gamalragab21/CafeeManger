@@ -45,6 +45,7 @@ class CustomerDao(private val db: WaselakDatabase) {
             notes = customer.notes,
             order_count = customer.order_count,
             total_spent = customer.total_spent,
+            points_balance = customer.points_balance,
             last_order_at = customer.last_order_at,
             created_at = customer.created_at,
             updated_at = customer.updated_at

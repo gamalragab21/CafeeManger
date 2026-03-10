@@ -59,6 +59,12 @@ class KmpFeatureConventionPlugin : Plugin<Project> {
                     // Logging
                     implementation(libs.findLibrary("kermit").get())
                 }
+
+                sourceSets.commonTest.dependencies {
+                    implementation(kotlin("test"))
+                    implementation(libs.findLibrary("kotlinx-coroutines-test").get())
+                    implementation(libs.findLibrary("turbine").get())
+                }
             }
 
             extensions.configure<LibraryExtension> {

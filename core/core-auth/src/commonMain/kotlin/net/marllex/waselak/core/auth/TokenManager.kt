@@ -32,6 +32,7 @@ class TokenManager(
         dataStore.edit { prefs ->
             prefs[KEY_ACCESS_TOKEN] = accessToken
             prefs[KEY_REFRESH_TOKEN] = refreshToken
+            prefs[KEY_LOGIN_TIMESTAMP] = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString()
         }
         _isLoggedIn.value = true
     }
@@ -46,6 +47,8 @@ class TokenManager(
             prefs.remove(KEY_USER_NAME)
             prefs.remove(KEY_USER_PHONE)
             prefs.remove(KEY_USER_EMAIL)
+            prefs.remove(KEY_USER_PHOTO_URL)
+            prefs.remove(KEY_LOGIN_TIMESTAMP)
         }
         _isLoggedIn.value = false
     }
@@ -76,7 +79,8 @@ class TokenManager(
         role: String,
         name: String,
         phone: String,
-        email: String? = null
+        email: String? = null,
+        photoUrl: String? = null
     ) {
         dataStore.edit { prefs ->
             prefs[KEY_USER_ID] = userId
@@ -85,6 +89,7 @@ class TokenManager(
             prefs[KEY_USER_NAME] = name
             prefs[KEY_USER_PHONE] = phone
             email?.let { prefs[KEY_USER_EMAIL] = it }
+            photoUrl?.let { prefs[KEY_USER_PHOTO_URL] = it }
         }
     }
 
@@ -94,6 +99,8 @@ class TokenManager(
     suspend fun getCachedUserName(): String? = dataStore.data.first()[KEY_USER_NAME]
     suspend fun getCachedUserPhone(): String? = dataStore.data.first()[KEY_USER_PHONE]
     suspend fun getCachedUserEmail(): String? = dataStore.data.first()[KEY_USER_EMAIL]
+    suspend fun getCachedUserPhotoUrl(): String? = dataStore.data.first()[KEY_USER_PHOTO_URL]
+    suspend fun getLoginTimestamp(): Long? = dataStore.data.first()[KEY_LOGIN_TIMESTAMP]?.toLongOrNull()
 
     companion object {
         private val KEY_ACCESS_TOKEN = stringPreferencesKey("access_token")
@@ -104,5 +111,7 @@ class TokenManager(
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_USER_PHONE = stringPreferencesKey("user_phone")
         private val KEY_USER_EMAIL = stringPreferencesKey("user_email")
+        private val KEY_USER_PHOTO_URL = stringPreferencesKey("user_photo_url")
+        private val KEY_LOGIN_TIMESTAMP = stringPreferencesKey("login_timestamp")
     }
 }

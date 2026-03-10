@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.PointOfSale
@@ -45,7 +47,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,8 +65,12 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
@@ -76,13 +85,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
@@ -92,6 +104,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
+import net.marllex.waselak.core.ui.components.waslekLogoPainter
+import net.marllex.waselak.core.ui.components.ProfileAvatar
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.data.sync.SyncScheduler
@@ -107,7 +121,16 @@ import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.SignOutButton
+import net.marllex.waselak.core.ui.components.UploadLogsCard
+import net.marllex.waselak.core.ui.platform.rememberPlatformActions
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
+import net.marllex.waselak.core.ui.components.FeatureNotAvailableBottomSheet
 import net.marllex.waselak.core.ui.components.WaslekLogo
+import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.model.Worker
+import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 import waselak.core.core_ui.generated.resources.Res as CoreRes
 import waselak.core.core_ui.generated.resources.*
@@ -119,6 +142,7 @@ import net.marllex.waselak.feature.cashier.attendance.AttendanceScreen
 import net.marllex.waselak.feature.cashier.payment.navigation.navigateToPayment
 import net.marllex.waselak.feature.cashier.payment.navigation.paymentScreen
 import net.marllex.waselak.feature.cashier.pos.navigation.navigateToPos
+import net.marllex.waselak.feature.cashier.pos.navigation.navigateToPosWithReservation
 import net.marllex.waselak.feature.cashier.pos.navigation.posScreen
 import net.marllex.waselak.feature.cashier.receipt.navigation.navigateToReceipt
 import net.marllex.waselak.feature.cashier.receipt.navigation.receiptScreen
@@ -147,15 +171,24 @@ enum class CashierDrawerItem(
     DELIVERY("cashier/delivery", "Delivery", Icons.Filled.DeliveryDining),
     ANNOUNCEMENTS("cashier/announcements", "Alerts", Icons.Filled.Notifications),
     ATTENDANCE("cashier/attendance", "Attendance", Icons.Filled.Fingerprint),
+    OVERTIME("cashier/overtime", "Overtime", Icons.Filled.Timer),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
 }
 
 private val allRoutes = CashierTab.entries.map { it.route } + CashierDrawerItem.entries.map { it.route }
 
 @Composable
-private fun localizedTabTitle(tab: CashierTab): String = when (tab) {
-    CashierTab.POS -> stringResource(CoreRes.string.nav_new_order)
-    CashierTab.ORDERS -> stringResource(CoreRes.string.nav_orders)
+private fun localizedTabTitle(tab: CashierTab, businessType: String = "RESTAURANT"): String = when (tab) {
+    CashierTab.POS -> when (businessType) {
+        "PHARMACY" -> stringResource(CoreRes.string.nav_new_prescription)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.nav_new_invoice)
+        else -> stringResource(CoreRes.string.nav_new_order)
+    }
+    CashierTab.ORDERS -> when (businessType) {
+        "PHARMACY" -> stringResource(CoreRes.string.nav_orders_prescriptions)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.nav_orders_invoices)
+        else -> stringResource(CoreRes.string.nav_orders)
+    }
     CashierTab.TABLES -> stringResource(CoreRes.string.nav_tables)
 }
 
@@ -164,6 +197,7 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.DELIVERY -> stringResource(CoreRes.string.nav_delivery)
     CashierDrawerItem.ANNOUNCEMENTS -> stringResource(CoreRes.string.nav_alerts)
     CashierDrawerItem.ATTENDANCE -> stringResource(CoreRes.string.nav_attendance)
+    CashierDrawerItem.OVERTIME -> stringResource(CoreRes.string.nav_overtime)
     CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
 }
 
@@ -180,15 +214,17 @@ private fun localizedRoleLabel(role: UserRole?): String = when (role) {
 private fun CashierBottomBar(
     navController: NavController,
     currentDestination: NavDestination?,
+    visibleTabs: List<CashierTab> = CashierTab.entries,
+    businessType: String = "RESTAURANT",
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
     ) {
-        CashierTab.entries.forEach { tab ->
+        visibleTabs.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
-            val title = localizedTabTitle(tab)
+            val title = localizedTabTitle(tab, businessType)
 
             NavigationBarItem(
                 selected = isSelected,
@@ -232,14 +268,16 @@ private fun CashierBottomBar(
 private fun CashierNavRail(
     navController: NavController,
     currentDestination: NavDestination?,
+    visibleTabs: List<CashierTab> = CashierTab.entries,
+    businessType: String = "RESTAURANT",
 ) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        CashierTab.entries.forEach { tab ->
+        visibleTabs.forEach { tab ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == tab.route } == true
-            val title = localizedTabTitle(tab)
+            val title = localizedTabTitle(tab, businessType)
 
             NavigationRailItem(
                 selected = isSelected,
@@ -297,6 +335,7 @@ private fun CashierDrawerContent(
                 .padding(24.dp),
         ) {
             // Store logo
+            val drawerLogoPainter = waslekLogoPainter()
             if (!vendor?.logoUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = vendor?.logoUrl,
@@ -306,6 +345,8 @@ private fun CashierDrawerContent(
                         .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
                     contentScale = ContentScale.Crop,
+                    placeholder = drawerLogoPainter,
+                    error = drawerLogoPainter,
                 )
             } else {
                 WaslekLogo(
@@ -363,6 +404,374 @@ private fun CashierDrawerContent(
     }
 }
 
+// ─── Overtime Screen (Cashier can add entries — hours only, no rate) ─────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CashierOvertimeScreen() {
+    val workerRepository = koinInject<net.marllex.waselak.core.domain.repository.WorkerRepository>()
+    val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
+    val scope = rememberCoroutineScope()
+    var entries by remember { mutableStateOf<List<net.marllex.waselak.core.model.Overtime>>(emptyList()) }
+    var workers by remember { mutableStateOf<List<Worker>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var showFeatureNotAvailable by remember { mutableStateOf(false) }
+    var featureNotAvailableMessage by remember { mutableStateOf("") }
+
+    // Add form state — default date to today
+    val todayDate = remember { net.marllex.waselak.core.common.extensions.todayDateString() }
+    var overtimeDate by remember { mutableStateOf(todayDate) }
+    var overtimeHours by remember { mutableStateOf("") }
+    var overtimeNote by remember { mutableStateOf("") }
+    var selectedWorkerId by remember { mutableStateOf("") }
+    var workerDropdownExpanded by remember { mutableStateOf(false) }
+
+    fun refresh() {
+        isLoading = true
+        scope.launch {
+            try {
+                val result = workerRepository.refreshOvertime().getOrThrow()
+                entries = result.sortedByDescending { it.date }
+            } catch (e: Exception) {
+                if (e.isFeatureNotAvailableOrOffline()) {
+                    showFeatureNotAvailable = true
+                    featureNotAvailableMessage = e.message ?: ""
+                }
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
+        // Load workers list and default to authenticated user's worker
+        try {
+            val loadedWorkers = workerRepository.getActiveWorkers().first()
+            workers = loadedWorkers
+            val userId = tokenManager.getCachedUserId()
+            val myWorker = loadedWorkers.find { it.userId == userId }
+            if (myWorker != null) selectedWorkerId = myWorker.id
+            else if (loadedWorkers.isNotEmpty()) selectedWorkerId = loadedWorkers.first().id
+        } catch (_: Exception) { }
+    }
+
+    val totalAmount = entries.sumOf { it.amount }
+
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    overtimeDate = todayDate
+                    overtimeHours = ""
+                    overtimeNote = ""
+                    // Default to authenticated user's worker
+                    val userId = kotlinx.coroutines.runBlocking { tokenManager.getCachedUserId() }
+                    val myWorker = workers.find { it.userId == userId }
+                    selectedWorkerId = myWorker?.id ?: workers.firstOrNull()?.id ?: ""
+                    showAddDialog = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text(stringResource(CoreRes.string.nav_overtime)) },
+            )
+        },
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (showFeatureNotAvailable) {
+                FeatureNotAvailableView(message = featureNotAvailableMessage)
+            } else if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (entries.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = stringResource(CoreRes.string.nav_overtime),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                // Total summary card
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(CoreRes.string.nav_overtime),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = "${totalAmount.toInt()} EGP",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Text(
+                            text = "${entries.size} records",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(entries.size) { index ->
+                        val entry = entries[index]
+                        val isPendingRate = entry.ratePerHour <= 0.0
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isPendingRate)
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            ),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = entry.date,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            if (isPendingRate) {
+                                                Spacer(Modifier.width(8.dp))
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    shape = RoundedCornerShape(4.dp),
+                                                ) {
+                                                    Text(
+                                                        text = "⏳",
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onError,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        if (isPendingRate) {
+                                            Text(
+                                                text = "${entry.hours} hrs",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "${entry.hours} hrs @ ${entry.ratePerHour.toInt()} EGP/hr",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                    if (!isPendingRate) {
+                                        Text(
+                                            text = "${entry.amount.toInt()} EGP",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                                val noteText = entry.note
+                                if (!noteText.isNullOrBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = noteText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item { Spacer(Modifier.height(80.dp)) }
+                }
+            }
+        }
+    }
+
+    // ─── Add Overtime Dialog (Cashier: worker selector + hours + date + note, NO rate) ───
+    if (showAddDialog) {
+        val selectedWorker = workers.find { it.id == selectedWorkerId }
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            icon = { Icon(Icons.Filled.Timer, null, tint = MaterialTheme.colorScheme.primary) },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(CoreRes.string.nav_overtime))
+                    if (selectedWorker != null) {
+                        Text(
+                            text = selectedWorker.fullName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Worker selector dropdown
+                    if (workers.isNotEmpty()) {
+                        ExposedDropdownMenuBox(
+                            expanded = workerDropdownExpanded,
+                            onExpandedChange = { workerDropdownExpanded = it },
+                        ) {
+                            OutlinedTextField(
+                                value = selectedWorker?.fullName ?: "",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Worker") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerDropdownExpanded)
+                                },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                singleLine = true,
+                            )
+                            ExposedDropdownMenu(
+                                expanded = workerDropdownExpanded,
+                                onDismissRequest = { workerDropdownExpanded = false },
+                            ) {
+                                workers.forEach { worker ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(
+                                                    text = worker.fullName,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                )
+                                                Text(
+                                                    text = worker.role,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedWorkerId = worker.id
+                                            workerDropdownExpanded = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = overtimeDate,
+                        onValueChange = { overtimeDate = it },
+                        label = { Text("Date") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("YYYY-MM-DD") },
+                    )
+                    OutlinedTextField(
+                        value = overtimeHours,
+                        onValueChange = { overtimeHours = it },
+                        label = { Text("Hours") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        placeholder = { Text("e.g. 2.5") },
+                    )
+                    OutlinedTextField(
+                        value = overtimeNote,
+                        onValueChange = { overtimeNote = it },
+                        label = { Text("Note (optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        minLines = 2,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val hours = overtimeHours.toDoubleOrNull() ?: return@Button
+                        if (hours <= 0 || overtimeDate.isBlank()) return@Button
+                        isSaving = true
+                        scope.launch {
+                            workerRepository.createOvertime(
+                                workerId = selectedWorkerId,
+                                date = overtimeDate,
+                                hours = hours,
+                                ratePerHour = 0.0, // Cashier doesn't set rate
+                                note = overtimeNote.ifBlank { null },
+                            ).onSuccess {
+                                isSaving = false
+                                showAddDialog = false
+                                refresh()
+                            }.onFailure {
+                                isSaving = false
+                            }
+                        }
+                    },
+                    enabled = !isSaving &&
+                        overtimeDate.isNotBlank() &&
+                        selectedWorkerId.isNotBlank() &&
+                        (overtimeHours.toDoubleOrNull() ?: 0.0) > 0,
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+}
+
 // ─── Profile Screen ──────────────────────────────────────────────
 @Composable
 private fun CashierProfileScreen(
@@ -370,8 +779,10 @@ private fun CashierProfileScreen(
     userPhone: String?,
     userEmail: String?,
     userRole: String?,
+    userPhotoUrl: String? = null,
     vendor: Vendor?,
     onSignOut: () -> Unit,
+    onViewShiftSummary: () -> Unit = {},
     pendingSyncItems: List<Pending_sync> = emptyList(),
     isSyncing: Boolean = false,
     lastSyncResult: String? = null,
@@ -390,105 +801,69 @@ private fun CashierProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Profile header card with store logo
+            // ── Card 1: Vendor / Store Information ──
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f),
                     ),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        if (!vendor?.logoUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = vendor?.logoUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(CircleShape)
-                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            WaslekLogo(
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                            )
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        // Vendor header row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val settingsLogoPainter = waslekLogoPainter()
+                            if (!vendor?.logoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = vendor?.logoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentScale = ContentScale.Crop,
+                                    placeholder = settingsLogoPainter,
+                                    error = settingsLogoPainter,
+                                )
+                            } else {
+                                WaslekLogo(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(CoreRes.string.store_information),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = vendor?.name ?: "",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = vendor?.name ?: "",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = userName ?: "N/A",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = userRole ?: "N/A",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
-            // Store Info section
-            if (vendor != null) {
-                item {
-                    Text(
-                        text = stringResource(CoreRes.string.store_information),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(4.dp)) {
-                            ProfileInfoRow(
-                                label = stringResource(CoreRes.string.store_name),
-                                value = vendor.name,
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                            )
+                        if (vendor != null) {
+                            Spacer(Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(Modifier.height(12.dp))
                             ProfileInfoRow(
                                 label = stringResource(CoreRes.string.address),
                                 value = vendor.address,
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant,
                             )
                             ProfileInfoRow(
                                 label = stringResource(CoreRes.string.contact_phone),
                                 value = vendor.contactPhone,
                             )
                             vendor.walletPhone?.let { walletPhone ->
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                )
                                 ProfileInfoRow(
                                     label = stringResource(CoreRes.string.wallet_phone),
                                     value = walletPhone,
@@ -499,50 +874,65 @@ private fun CashierProfileScreen(
                 }
             }
 
-            // Account Info section
-            item {
-                Text(
-                    text = stringResource(CoreRes.string.account_information),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-
+            // ── Card 2: Cashier Information ──
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 ) {
-                    Column(modifier = Modifier.padding(4.dp)) {
-                        ProfileInfoRow(
-                            label = stringResource(CoreRes.string.name),
-                            value = userName ?: "N/A",
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        // Cashier header row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ProfileAvatar(
+                                photoUrl = userPhotoUrl,
+                                size = 56.dp,
+                                contentDescription = userName,
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(CoreRes.string.account_information),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = userName ?: "N/A",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(20.dp),
+                                        ),
+                                ) {
+                                    Text(
+                                        text = userRole ?: "N/A",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(Modifier.height(12.dp))
                         ProfileInfoRow(
                             label = stringResource(CoreRes.string.contact_phone),
                             value = userPhone ?: "N/A",
                         )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
                         ProfileInfoRow(
                             label = stringResource(CoreRes.string.email),
                             value = userEmail ?: "N/A",
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                        ProfileInfoRow(
-                            label = stringResource(CoreRes.string.role),
-                            value = userRole ?: "N/A",
                         )
                     }
                 }
@@ -720,6 +1110,63 @@ private fun CashierProfileScreen(
                             onDelete = null,
                         )
                     }
+                }
+            }
+
+            // Upload Logs
+            item {
+                val apiClient = koinInject<WaselakApiClient>()
+                val logScope = rememberCoroutineScope()
+                var isUploadingLogs by remember { mutableStateOf(false) }
+                val logPlatformActions = rememberPlatformActions()
+
+                UploadLogsCard(
+                    isUploading = isUploadingLogs,
+                    onUploadLogs = {
+                        logScope.launch {
+                            isUploadingLogs = true
+                            try {
+                                val bytes = AppLogger.readLogFileBytes()
+                                if (bytes.isNotEmpty()) {
+                                    apiClient.uploadLogFile(bytes, AppLogger.getLogFileName())
+                                }
+                            } catch (_: Exception) {
+                            } finally {
+                                isUploadingLogs = false
+                            }
+                        }
+                    },
+                    onShareLogs = {
+                        val bytes = AppLogger.readLogFileBytes()
+                        if (bytes.isNotEmpty()) {
+                            logPlatformActions.shareFile(bytes, AppLogger.getLogFileName(), "text/plain")
+                        }
+                    },
+                    onClearLogs = {
+                        AppLogger.clearLogs()
+                    },
+                )
+            }
+
+            // Shift Summary
+            item {
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onViewShiftSummary,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.PointOfSale,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(CoreRes.string.shift_summary),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
 
@@ -978,31 +1425,130 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             }
     }
 
-    // Sign-out with biometric verification (system prompt on Android/iOS)
-    val onSignOut: () -> Unit = remember(scope) {
+    // Shift summary state
+    val apiClient: WaselakApiClient = koinInject()
+    val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
+    var showShiftSummary by remember { mutableStateOf(false) }
+    var shiftSummaryWithSignOut by remember { mutableStateOf(false) }
+    var shiftSummaryData by remember { mutableStateOf<net.marllex.waselak.core.ui.components.ShiftSummaryUiModel?>(null) }
+    var shiftSummaryLoading by remember { mutableStateOf(false) }
+    var shiftSummaryError by remember { mutableStateOf<String?>(null) }
+    var shiftSummaryFeatureNotAvailable by remember { mutableStateOf(false) }
+    var shiftSummaryFeatureMessage by remember { mutableStateOf("") }
+
+    val fetchShiftSummary: () -> Unit = remember(scope) {
         {
             scope.launch {
-                val canProceed = if (biometricAuth.isAvailable()) {
-                    when (biometricAuth.authenticate("Sign out verification")) {
-                        is BiometricResult.Success -> true
-                        is BiometricResult.NotAvailable -> true
-                        else -> false
+                shiftSummaryLoading = true
+                shiftSummaryError = null
+                try {
+                    val from = tokenManager.getLoginTimestamp()
+                    val response = apiClient.getMyShiftSummary(from = from)
+                    shiftSummaryData = net.marllex.waselak.core.ui.components.ShiftSummaryUiModel(
+                        totalRevenue = response.totalRevenue,
+                        totalOrders = response.totalOrders,
+                        cashRevenue = response.cashRevenue,
+                        walletRevenue = response.walletRevenue,
+                        cardRevenue = response.cardRevenue,
+                        cashOrders = response.cashOrders,
+                        walletOrders = response.walletOrders,
+                        cardOrders = response.cardOrders,
+                        cancelledTotal = response.cancelledTotal,
+                        cancelledCount = response.cancelledCount,
+                        refundedTotal = response.refundedTotal,
+                        refundedCount = response.refundedCount,
+                    )
+                } catch (e: Exception) {
+                    if (e.isFeatureNotAvailableOrOffline()) {
+                        shiftSummaryFeatureNotAvailable = true
+                        shiftSummaryFeatureMessage = e.message ?: ""
+                    } else {
+                        shiftSummaryError = e.message ?: "Failed to load shift summary"
                     }
-                } else {
-                    true
                 }
-                if (canProceed) {
-                    authRepository.logout()
-                    navController.navigate(AUTH_ROUTE) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+                shiftSummaryLoading = false
             }
         }
     }
 
+    // Sign-out: show shift summary with sign-out button
+    val onSignOut: () -> Unit = remember(scope) {
+        {
+            shiftSummaryWithSignOut = true
+            showShiftSummary = true
+            fetchShiftSummary()
+        }
+    }
+
+    // View-only: show shift summary without sign-out button
+    val onViewShiftSummary: () -> Unit = remember(scope) {
+        {
+            shiftSummaryWithSignOut = false
+            showShiftSummary = true
+            fetchShiftSummary()
+        }
+    }
+
+    if (showShiftSummary) {
+        net.marllex.waselak.core.ui.components.ShiftSummaryBottomSheet(
+            shiftSummary = shiftSummaryData,
+            isLoading = shiftSummaryLoading,
+            error = shiftSummaryError,
+            onRetry = fetchShiftSummary,
+            onSignOut = if (shiftSummaryWithSignOut) {
+                {
+                    scope.launch {
+                        val canProceed = if (biometricAuth.isAvailable()) {
+                            when (biometricAuth.authenticate("Sign out verification")) {
+                                is BiometricResult.Success -> true
+                                is BiometricResult.NotAvailable -> true
+                                else -> false
+                            }
+                        } else {
+                            true
+                        }
+                        if (canProceed) {
+                            showShiftSummary = false
+                            authRepository.logout()
+                            navController.navigate(AUTH_ROUTE) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
+            } else null,
+            onDismiss = {
+                showShiftSummary = false
+                shiftSummaryData = null
+                shiftSummaryError = null
+            },
+        )
+    }
+
+    if (shiftSummaryFeatureNotAvailable) {
+        FeatureNotAvailableBottomSheet(
+            message = shiftSummaryFeatureMessage,
+            onDismiss = {
+                shiftSummaryFeatureNotAvailable = false
+                shiftSummaryFeatureMessage = ""
+                showShiftSummary = false
+            },
+        )
+    }
+
+    // Compute visible tabs — hide Tables tab when vendor.enableTables == false (works offline)
+    val visibleTabs = remember(vendor?.enableTables) {
+        if (vendor?.enableTables == false) {
+            CashierTab.entries.filter { it != CashierTab.TABLES }
+        } else {
+            CashierTab.entries.toList()
+        }
+    }
+
     val showNav = allRoutes.any { route ->
-        currentDestination?.hierarchy?.any { it.route == route } == true
+        currentDestination?.hierarchy?.any { dest ->
+            dest.route == route || dest.route?.startsWith("$route?") == true
+        } == true
     }
 
     val roleLabel = formatRoleLabel(currentUser?.role)
@@ -1031,18 +1577,30 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 },
             )
         }
-        composable(CashierTab.TABLES.route) { TablesScreen(readOnly = true) }
+        composable(CashierTab.TABLES.route) {
+            TablesScreen(
+                readOnly = true,
+                onStartOrder = { tableId, reservationId, clientName, clientPhone ->
+                    navController.navigateToPosWithReservation(tableId, reservationId, clientName, clientPhone)
+                },
+            )
+        }
         composable(CashierDrawerItem.DELIVERY.route) { DeliveryDashboardScreen() }
         composable(CashierDrawerItem.ANNOUNCEMENTS.route) { AnnouncementsScreen() }
         composable(CashierDrawerItem.ATTENDANCE.route) { AttendanceScreen() }
+        composable(CashierDrawerItem.OVERTIME.route) {
+            CashierOvertimeScreen()
+        }
         composable(CashierDrawerItem.PROFILE.route) {
             CashierProfileScreen(
                 userName = currentUser?.name,
                 userPhone = currentUser?.phone,
                 userEmail = currentUser?.email,
                 userRole = roleLabel,
+                userPhotoUrl = currentUser?.photoUrl,
                 vendor = vendor,
                 onSignOut = onSignOut,
+                onViewShiftSummary = onViewShiftSummary,
                 pendingSyncItems = pendingSyncItems,
                 isSyncing = isSyncing,
                 lastSyncResult = lastSyncResult,
@@ -1114,7 +1672,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             ) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     if (showNav) {
-                        CashierNavRail(navController, currentDestination)
+                        CashierNavRail(navController, currentDestination, visibleTabs, vendor?.businessType ?: "RESTAURANT")
                         VerticalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant,
                             thickness = 0.5.dp,
@@ -1209,7 +1767,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         }
                     },
                     bottomBar = {
-                        if (showNav) CashierBottomBar(navController, currentDestination)
+                        if (showNav) CashierBottomBar(navController, currentDestination, visibleTabs, vendor?.businessType ?: "RESTAURANT")
                     },
                 ) { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {

@@ -59,6 +59,7 @@ class WorkerDao(private val db: WaselakDatabase) {
             has_pin = worker.has_pin,
             pin_sha256 = worker.pin_sha256,
             qr_code_version = worker.qr_code_version,
+            photo_url = worker.photo_url,
             pin_updated_at = worker.pin_updated_at,
             created_at = worker.created_at,
             updated_at = worker.updated_at

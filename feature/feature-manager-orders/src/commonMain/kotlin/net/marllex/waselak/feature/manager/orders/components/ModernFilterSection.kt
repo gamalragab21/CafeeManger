@@ -47,15 +47,18 @@ fun ModernFilterSection(
     selectedStatus: String?,
     selectedCashierId: String?,
     selectedDeliveryUserId: String?,
+    selectedTableId: String?,
     fromDate: Long?,
     toDate: Long?,
     cashiers: List<net.marllex.waselak.core.model.User>,
     deliveryUsers: List<net.marllex.waselak.core.model.User>,
+    tables: List<net.marllex.waselak.core.model.Table>,
     hasActiveFilters: Boolean,
     onChannelSelected: (String?) -> Unit,
     onStatusSelected: (String?) -> Unit,
     onCashierSelected: (String?) -> Unit,
     onDeliverySelected: (String?) -> Unit,
+    onTableSelected: (String?) -> Unit,
     onDateRangeSelected: (Long?, Long?) -> Unit,
     onClearAll: () -> Unit,
     onShowDatePicker: () -> Unit,
@@ -146,6 +149,7 @@ fun ModernFilterSection(
                                 selectedStatus,
                                 selectedCashierId,
                                 selectedDeliveryUserId,
+                                selectedTableId,
                                 fromDate
                             ).size
                             Text(
@@ -379,6 +383,21 @@ fun ModernFilterSection(
                         }
                     }
                 }
+
+                // Table Filter
+                if (tables.isNotEmpty()) {
+                    FilterGroup(
+                        title = stringResource(Res.string.table_filter),
+                        icon = Icons.Default.TableBar
+                    ) {
+                        TableDropdownFilter(
+                            selectedTableId = selectedTableId,
+                            tables = tables,
+                            allLabel = stringResource(Res.string.all_tables),
+                            onSelected = onTableSelected
+                        )
+                    }
+                }
             }
         }
     }
@@ -563,6 +582,110 @@ private fun PersonDropdownFilter(
                     },
                     leadingIcon = {
                         Icon(Icons.Default.Person, contentDescription = null)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TableDropdownFilter(
+    selectedTableId: String?,
+    tables: List<net.marllex.waselak.core.model.Table>,
+    allLabel: String,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedTable = tables.find { it.id == selectedTableId }
+
+    Box {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = if (selectedTableId != null)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                1.dp,
+                if (selectedTableId != null)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                else
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.TableBar,
+                        contentDescription = null,
+                        tint = if (selectedTableId != null)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = stringResource(Res.string.table_filter),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = selectedTable?.let { "#${it.number}" } ?: allLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = if (selectedTableId != null)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            DropdownMenuItem(
+                text = { Text(allLabel) },
+                onClick = {
+                    expanded = false
+                    onSelected(null)
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.SelectAll, contentDescription = null)
+                }
+            )
+            HorizontalDivider()
+            tables.forEach { table ->
+                DropdownMenuItem(
+                    text = { Text("#${table.number}") },
+                    onClick = {
+                        expanded = false
+                        onSelected(table.id)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.TableBar, contentDescription = null)
                     }
                 )
             }
