@@ -298,7 +298,7 @@ private fun ExpandedScaffold(
             ) {
                 // Drawer header
                 Text(
-                    text = "Waselak Admin",
+                    text = stringResource(Res.string.app_name),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

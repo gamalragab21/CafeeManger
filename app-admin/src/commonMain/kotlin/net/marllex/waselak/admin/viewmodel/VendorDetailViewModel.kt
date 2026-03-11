@@ -9,6 +9,9 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.*
 import net.marllex.waselak.admin.ui.components.DateRange
 import net.marllex.waselak.admin.ui.components.DateRangePeriod
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _detail = MutableStateFlow<VendorDetailDto?>(null)
@@ -20,11 +23,11 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
 
     // ── Tab state ────────────────────────────────────────────────────────
     private val _selectedTab = MutableStateFlow(0)
@@ -108,10 +111,10 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
                 if (result != null) {
                     _detail.value = result
                 } else {
-                    _error.value = "Failed to load vendor details"
+                    _error.value = UiMessage.Resource(Res.string.error_loading_vendor)
                 }
             } catch (e: Exception) {
-                _error.value = e.message ?: "Unknown error"
+                _error.value = if (e.message != null) UiMessage.Text(e.message!!) else UiMessage.Resource(Res.string.unknown_error)
             } finally {
                 _isLoading.value = false
             }
@@ -234,13 +237,13 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
             try {
                 val success = apiClient.updateVendor(vendorId, request)
                 if (success) {
-                    _message.value = "Vendor updated successfully"
+                    _message.value = UiMessage.Resource(Res.string.vendor_updated, isSuccess = true)
                     loadVendorDetail(vendorId)
                 } else {
-                    _message.value = "Failed to update vendor"
+                    _message.value = UiMessage.Resource(Res.string.vendor_update_failed)
                 }
             } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
+                _message.value = UiMessage.Text(e.message ?: "")
             } finally {
                 _isSaving.value = false
             }
@@ -252,10 +255,10 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
         viewModelScope.launch {
             val success = apiClient.createVendorUser(vendorId, name, phone, password, role, email)
             if (success) {
-                _message.value = "User created successfully"
+                _message.value = UiMessage.Resource(Res.string.user_created_success, isSuccess = true)
                 loadVendorDetail(vendorId)
             } else {
-                _message.value = "Failed to create user (phone may already exist)"
+                _message.value = UiMessage.Resource(Res.string.user_create_failed)
             }
         }
     }
@@ -263,7 +266,7 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
     fun resetUserPassword(vendorId: String, userId: String, newPassword: String) {
         viewModelScope.launch {
             val success = apiClient.resetVendorUserPassword(vendorId, userId, newPassword)
-            _message.value = if (success) "Password reset successfully" else "Failed to reset password"
+            _message.value = if (success) UiMessage.Resource(Res.string.password_reset_success, isSuccess = true) else UiMessage.Resource(Res.string.password_reset_failed)
         }
     }
 
@@ -271,10 +274,10 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
         viewModelScope.launch {
             val success = apiClient.deactivateVendorUser(vendorId, userId)
             if (success) {
-                _message.value = "User deactivated"
+                _message.value = UiMessage.Resource(Res.string.user_deactivated, isSuccess = true)
                 loadVendorDetail(vendorId)
             } else {
-                _message.value = "Failed to deactivate user"
+                _message.value = UiMessage.Resource(Res.string.user_deactivate_failed)
             }
         }
     }

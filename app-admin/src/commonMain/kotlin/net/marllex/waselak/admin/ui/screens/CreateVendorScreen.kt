@@ -16,7 +16,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.CreateVendorRequest
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -31,6 +33,7 @@ fun CreateVendorScreen(
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -79,14 +82,11 @@ fun CreateVendorScreen(
     val widthClass = LocalWindowSizeClass.current
 
     LaunchedEffect(message) {
-        message?.let {
-            if (it.contains("created successfully")) {
-                snackbarHostState.showSnackbar(it)
-                viewModel.clearMessage()
+        message?.let { msg ->
+            resolvedMessage?.let { snackbarHostState.showSnackbar(it) }
+            viewModel.clearMessage()
+            if (msg.isSuccess) {
                 onBack()
-            } else {
-                snackbarHostState.showSnackbar(it)
-                viewModel.clearMessage()
             }
         }
     }

@@ -28,7 +28,9 @@ import net.marllex.waselak.admin.util.CsvColumn
 import net.marllex.waselak.admin.util.FileSaver
 import net.marllex.waselak.admin.util.buildCsvString
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
@@ -50,6 +52,7 @@ fun VendorsScreen(
     val plans by viewModel.plans.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
 
     var searchQuery by remember { mutableStateOf("") }
     var vendorToDelete by remember { mutableStateOf<VendorDto?>(null) }
@@ -71,7 +74,7 @@ fun VendorsScreen(
     }
 
     LaunchedEffect(message) {
-        message?.let {
+        resolvedMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
@@ -207,17 +210,20 @@ fun VendorsScreen(
 
                 // Export CSV button
                 val coroutineScope = rememberCoroutineScope()
+                val noDataExportText = stringResource(Res.string.export_no_data)
+                val exportSuccessText = stringResource(Res.string.export_success)
+                val exportCancelledText = stringResource(Res.string.export_cancelled)
                 FilledTonalIconButton(
                     onClick = {
                         if (filteredVendors.isEmpty()) {
-                            coroutineScope.launch { snackbarHostState.showSnackbar("No data to export") }
+                            coroutineScope.launch { snackbarHostState.showSnackbar(noDataExportText) }
                             return@FilledTonalIconButton
                         }
                         val csv = buildCsvString(filteredVendors, vendorCsvColumns())
                         val success = FileSaver.saveCsv(csv, "vendors_export.csv")
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar(
-                                if (success) "CSV exported successfully" else "Export cancelled"
+                                if (success) exportSuccessText else exportCancelledText
                             )
                         }
                     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.LoginViewModel
 import net.marllex.waselak.core.ui.components.WaslekLogo
 import org.jetbrains.compose.resources.stringResource
@@ -83,7 +84,7 @@ fun LoginScreen(
                     email = email,
                     password = password,
                     isLoading = isLoading,
-                    error = error,
+                    error = error?.resolve(),
                     onEmailChange = { viewModel.updateEmail(it) },
                     onPasswordChange = { viewModel.updatePassword(it) },
                     onLogin = { viewModel.login(onLoginSuccess) },
@@ -103,7 +104,7 @@ fun LoginScreen(
                 email = email,
                 password = password,
                 isLoading = isLoading,
-                error = error,
+                error = error?.resolve(),
                 onEmailChange = { viewModel.updateEmail(it) },
                 onPasswordChange = { viewModel.updatePassword(it) },
                 onLogin = { viewModel.login(onLoginSuccess) },

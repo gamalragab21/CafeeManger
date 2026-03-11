@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.PlanDto
 import net.marllex.waselak.admin.network.PlanUpdateDto
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.PlansViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -36,6 +38,7 @@ fun PlansScreen(
     val plans by viewModel.plans.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -44,7 +47,7 @@ fun PlansScreen(
     }
 
     LaunchedEffect(message) {
-        message?.let {
+        resolvedMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }

@@ -36,6 +36,56 @@
     <string name="loading">Loading...</string>
     <string name="retry">Retry</string>
     <string name="no_data">No data available</string>
+    <string name="overview">Overview</string>
+    <string name="top_vendors_today">Top Vendors Today</string>
+    <string name="good_morning">Good Morning</string>
+    <string name="good_afternoon">Good Afternoon</string>
+    <string name="good_evening">Good Evening</string>
+    <string name="good_night">Good Night</string>
+    <string name="revenue">Revenue</string>
+    <string name="egp_amount">EGP %1$s</string>
+    <string name="total">Total</string>
+    <string name="plan_starter">Starter</string>
+    <string name="plan_business">Business</string>
+    <string name="plan_enterprise">Enterprise</string>
+    <string name="workers_active_format">%1$d/%2$d workers active</string>
+    <string name="orders_count_format">%1$d orders</string>
+    <string name="critical_count_format">%1$d critical</string>
+    <string name="warnings_count_format">%1$d warnings</string>
+    <string name="more_alerts_format">+%1$d more alerts</string>
+
+    <!-- Month abbreviations -->
+    <string name="month_jan">Jan</string>
+    <string name="month_feb">Feb</string>
+    <string name="month_mar">Mar</string>
+    <string name="month_apr">Apr</string>
+    <string name="month_may">May</string>
+    <string name="month_jun">Jun</string>
+    <string name="month_jul">Jul</string>
+    <string name="month_aug">Aug</string>
+    <string name="month_sep">Sep</string>
+    <string name="month_oct">Oct</string>
+    <string name="month_nov">Nov</string>
+    <string name="month_dec">Dec</string>
+
+    <!-- Day names -->
+    <string name="day_monday">Monday</string>
+    <string name="day_tuesday">Tuesday</string>
+    <string name="day_wednesday">Wednesday</string>
+    <string name="day_thursday">Thursday</string>
+    <string name="day_friday">Friday</string>
+    <string name="day_saturday">Saturday</string>
+    <string name="day_sunday">Sunday</string>
+
+    <!-- Date Range Periods -->
+    <string name="period_today">Today</string>
+    <string name="period_yesterday">Yesterday</string>
+    <string name="period_this_week">This Week</string>
+    <string name="period_last_7_days">Last 7 Days</string>
+    <string name="period_this_month">This Month</string>
+    <string name="period_last_30_days">Last 30 Days</string>
+    <string name="period_last_90_days">Last 90 Days</string>
+    <string name="period_all_time">All Time</string>
 
     <!-- Vendors -->
     <string name="vendors">Vendors</string>
@@ -95,6 +145,7 @@
     <string name="edit_mode">Edit</string>
     <string name="cancel_edit">Cancel</string>
     <string name="contact_settings">Contact &amp; Settings</string>
+    <string name="export_cancelled">Export cancelled</string>
 
     <!-- Create Vendor -->
     <string name="vendor_info">Vendor Information</string>
@@ -156,6 +207,8 @@
     <string name="save">Save Changes</string>
     <string name="no_plans">No plans found</string>
     <string name="plan_updated">Plan updated successfully</string>
+    <string name="plan_change_success">Plan changed to %1$s</string>
+    <string name="plan_change_failed">Failed to change plan</string>
 
     <!-- Analytics -->
     <string name="analytics_overview">Analytics Overview</string>
@@ -164,6 +217,159 @@
     <string name="vendor">Vendor</string>
     <string name="status">Status</string>
     <string name="revenue_month">Revenue (Month)</string>
+    <string name="plan_dist_format">Starter: %1$d | Business: %2$d | Enterprise: %3$d</string>
+    <string name="avg_egp_vendor_format">Avg: EGP %1$s/vendor</string>
+    <string name="egp_per_month_format">EGP %1$s/mo</string>
+    <string name="orders">Orders</string>
+
+    <!-- Vendor Detail -->
+    <string name="vendor_details">Vendor Details</string>
+    <string name="error_loading_vendor">Error loading vendor details</string>
+    <string name="tab_overview">Overview</string>
+    <string name="tab_revenue">Revenue</string>
+    <string name="tab_peak_times">Peak Times</string>
+    <string name="tab_staff">Staff</string>
+    <string name="tab_products">Products</string>
+    <string name="tab_customers">Customers</string>
+    <string name="tab_stock">Stock</string>
+    <string name="tab_offers">Offers</string>
+    <string name="tab_alerts">Alerts</string>
+    <string name="tab_orders">Orders</string>
+    <string name="tab_workers">Workers</string>
+    <string name="users_count_format">Users (%1$d)</string>
+    <string name="add_user">Add User</string>
+    <string name="no_users_found">No users found</string>
+    <string name="order_statistics">Order Statistics</string>
+    <string name="plan_usage">Plan Usage</string>
+    <string name="deactivate_user">Deactivate User</string>
+    <string name="deactivate_user_confirm">Are you sure you want to deactivate %1$s?</string>
+    <string name="deactivate">Deactivate</string>
+    <string name="add_new_user">Add New User</string>
+    <string name="role">Role</string>
+    <string name="reset_password">Reset Password</string>
+    <string name="reset_password_confirm">Reset password for %1$s</string>
+    <string name="reset">Reset</string>
+    <string name="address">Address</string>
+    <string name="phone">Phone</string>
+    <string name="wallet">Wallet</string>
+    <string name="enabled_channels">Enabled Channels</string>
+    <string name="channel_dine_in">Dine-In</string>
+    <string name="channel_takeaway">Takeaway</string>
+    <string name="channel_delivery">Delivery</string>
+    <string name="channel_in_store">In-Store</string>
+    <string name="channel_pickup_later">Pickup Later</string>
+    <string name="tables">Tables</string>
+    <string name="tax">Tax</string>
+    <string name="today">Today</string>
+    <string name="this_month">This Month</string>
+    <string name="by_channel">By Channel</string>
+    <string name="by_status">By Status</string>
+    <string name="by_payment_method">By Payment Method</string>
+    <string name="revenue_by_channel">Revenue By Channel</string>
+    <string name="tax_collected">Tax Collected</string>
+    <string name="tax_collected_subtitle">Total tax from all completed orders</string>
+    <string name="managers">Managers</string>
+    <string name="cashiers">Cashiers</string>
+    <string name="menu_items">Menu Items</string>
+    <string name="monthly_orders">Monthly Orders</string>
+    <string name="suspension_reason">Reason: %1$s</string>
+
+    <!-- Vendor Analytics Tabs -->
+    <string name="executive_summary">Executive Summary</string>
+    <string name="aov">AOV</string>
+    <string name="active_orders">Active Orders</string>
+    <string name="net_revenue">Net Revenue</string>
+    <string name="attendance">Attendance</string>
+    <string name="revenue_breakdown">Revenue Breakdown</string>
+    <string name="gross_revenue">Gross Revenue</string>
+    <string name="delivery_fees">Delivery Fees</string>
+    <string name="payment_methods">Payment Methods</string>
+    <string name="orders_intelligence">Orders Intelligence</string>
+    <string name="completed">Completed</string>
+    <string name="cancelled">Cancelled</string>
+    <string name="refunded">Refunded</string>
+    <string name="channel_breakdown">Channel Breakdown</string>
+    <string name="revenue_and_orders">Revenue &amp; Orders</string>
+    <string name="busiest_hour">Busiest Hour</string>
+    <string name="busiest_day">Busiest Day</string>
+    <string name="hourly_breakdown">Hourly Breakdown</string>
+    <string name="orders_revenue_format">%1$d orders (EGP %2$s)</string>
+    <string name="no_orders_period">No orders in this period</string>
+    <string name="day_of_week">Day of Week</string>
+    <string name="day_orders_format">%1$s (%2$d orders)</string>
+    <string name="cashier_performance">Cashier Performance</string>
+    <string name="no_cashier_data">No cashier data available</string>
+    <string name="delivery_performance">Delivery Performance</string>
+    <string name="no_delivery_data">No delivery data available</string>
+    <string name="completed_orders">Completed Orders</string>
+    <string name="fees_collected">Fees Collected</string>
+    <string name="top_selling">Top Selling</string>
+    <string name="revenue_by_category">Revenue by Category</string>
+    <string name="low_margin_warnings">Low Margin Warnings</string>
+    <string name="new_label">New</string>
+    <string name="returning">Returning</string>
+    <string name="avg_spend">Avg Spend</string>
+    <string name="ltv">LTV</string>
+    <string name="by_spend">By Spend</string>
+    <string name="by_orders">By Orders</string>
+    <string name="by_name">By Name</string>
+    <string name="customers_page_format">%1$d customers (Page %2$d/%3$d)</string>
+    <string name="top_customers">Top Customers</string>
+    <string name="total_spent">Total Spent</string>
+    <string name="items">Items</string>
+    <string name="stock_value">Stock Value</string>
+    <string name="profit">Profit</string>
+    <string name="out_of_stock">Out of Stock</string>
+    <string name="low_stock">Low Stock</string>
+    <string name="dead_stock">Dead Stock (no movement 30d)</string>
+    <string name="uses">Uses</string>
+    <string name="top_offers">Top Offers</string>
+    <string name="discount_given">Discount Given</string>
+    <string name="discount_analytics_title">Discount Analytics</string>
+    <string name="orders_with_discount">Orders with Discount</string>
+    <string name="total_discount">Total Discount</string>
+    <string name="avg_per_order">Avg per Order</string>
+    <string name="discount_rate_label">Discount Rate</string>
+    <string name="loyalty_program">Loyalty Program</string>
+    <string name="points_earned">Points Earned</string>
+    <string name="points_redeemed">Points Redeemed</string>
+    <string name="outstanding">Outstanding</string>
+    <string name="active_customers">Active Customers</string>
+    <string name="redemption_rate">Redemption Rate</string>
+    <string name="points_revenue">Points Revenue</string>
+    <string name="offers_and_discounts">Offers &amp; Discounts</string>
+    <string name="no_active_alerts">No active alerts</string>
+    <string name="search_by_name_phone">Search by name/phone</string>
+    <string name="clear">Clear</string>
+    <string name="search">Search</string>
+    <string name="filter_done">Done</string>
+    <string name="filter_new">New</string>
+    <string name="filter_cancel">Cancel</string>
+    <string name="filter_refund">Refund</string>
+    <string name="orders_page_format">%1$d orders (Page %2$d/%3$d)</string>
+    <string name="guest">Guest</string>
+    <string name="channel">Channel</string>
+    <string name="payment">Payment</string>
+    <string name="load_more">Load More</string>
+    <string name="order_details">Order Details</string>
+    <string name="customer">Customer</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="discount">Discount</string>
+    <string name="refund_info">Refund Info</string>
+    <string name="reason">Reason</string>
+    <string name="items_count_format">Items (%1$d)</string>
+    <string name="failed_load_order">Failed to load order details</string>
+    <string name="close">Close</string>
+    <string name="workers_total_format">%1$d Workers</string>
+    <string name="present">Present</string>
+    <string name="id_label">ID</string>
+    <string name="salary">Salary</string>
+    <string name="attendance_30d">Attendance (30d)</string>
+    <string name="hours_30d">Hours (30d)</string>
+    <string name="inactive_label">INACTIVE</string>
+    <string name="loading_tab_data">Loading %1$s data...</string>
+    <string name="qty_sold">Qty Sold</string>
+    <string name="margin">Margin</string>
 
     <!-- Logs Dashboard -->
     <string name="nav_logs">Logs</string>
@@ -191,6 +397,7 @@
     <string name="cleanup_logs">Cleanup Old Logs</string>
     <string name="cleanup_confirm">Delete logs older than %1$d days?</string>
     <string name="cleanup_success">Old logs cleaned up</string>
+    <string name="cleanup_failed">Failed to cleanup logs</string>
     <string name="requests">requests</string>
     <string name="ms">ms</string>
     <string name="resource_breakdown">Resource Breakdown</string>
@@ -206,6 +413,12 @@
     <string name="tags">Tags</string>
     <string name="resource">Resource</string>
     <string name="action">Action</string>
+    <string name="filters">Filters</string>
+    <string name="vendor_id_label">Vendor ID</string>
+    <string name="user_id_label">User ID</string>
+    <string name="client_ip">Client IP</string>
+    <string name="query_label">Query</string>
+    <string name="user_agent">User-Agent</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
@@ -258,4 +471,18 @@
     <string name="alert_subscription_expired">Subscription Expired</string>
     <string name="alert_high_error_rate">High Error Rate</string>
     <string name="view_vendor">View Vendor</string>
+
+    <!-- ViewModel Messages -->
+    <string name="vendor_created_success">Vendor \'%1$s\' created successfully</string>
+    <string name="vendor_create_failed">Failed to create vendor</string>
+    <string name="vendor_delete_failed">Failed to delete vendor</string>
+    <string name="user_created_success">User created successfully</string>
+    <string name="user_create_failed">Failed to create user (phone may already exist)</string>
+    <string name="password_reset_success">Password reset successfully</string>
+    <string name="password_reset_failed">Failed to reset password</string>
+    <string name="user_deactivated">User deactivated</string>
+    <string name="user_deactivate_failed">Failed to deactivate user</string>
+    <string name="unknown_error">Unknown error</string>
+    <string name="plan_updated_format">Plan \'%1$s\' updated</string>
+    <string name="plan_update_failed">Failed to update plan</string>
 </resources>

@@ -80,7 +80,7 @@ fun HomeScreen(
                 // ─── Key Metrics Row ─────────────────────────────
                 item {
                     Text(
-                        text = "Overview",
+                        text = stringResource(Res.string.overview),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -152,7 +152,7 @@ fun HomeScreen(
                         if (data.vendors.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "Top Vendors Today",
+                                    text = stringResource(Res.string.top_vendors_today),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -172,7 +172,7 @@ fun HomeScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     if (data.vendors.isNotEmpty()) {
                                         Text(
-                                            text = "Top Vendors Today",
+                                            text = stringResource(Res.string.top_vendors_today),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                         )
@@ -223,19 +223,30 @@ private fun WelcomeHeader() {
     val now = remember {
         Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
     }
-    val greeting = remember(now) {
+    val greetingRes = remember(now) {
         when (now.hour) {
-            in 5..11 -> "Good Morning"
-            in 12..16 -> "Good Afternoon"
-            in 17..20 -> "Good Evening"
-            else -> "Good Night"
+            in 5..11 -> Res.string.good_morning
+            in 12..16 -> Res.string.good_afternoon
+            in 17..20 -> Res.string.good_evening
+            else -> Res.string.good_night
         }
     }
-    val dateStr = remember(now) {
-        val months = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-        val days = arrayOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-        "${days[now.dayOfWeek.ordinal]}, ${months[now.monthNumber - 1]} ${now.dayOfMonth}, ${now.year}"
-    }
+    val greeting = stringResource(greetingRes)
+    val months = arrayOf(
+        stringResource(Res.string.month_jan), stringResource(Res.string.month_feb),
+        stringResource(Res.string.month_mar), stringResource(Res.string.month_apr),
+        stringResource(Res.string.month_may), stringResource(Res.string.month_jun),
+        stringResource(Res.string.month_jul), stringResource(Res.string.month_aug),
+        stringResource(Res.string.month_sep), stringResource(Res.string.month_oct),
+        stringResource(Res.string.month_nov), stringResource(Res.string.month_dec),
+    )
+    val days = arrayOf(
+        stringResource(Res.string.day_monday), stringResource(Res.string.day_tuesday),
+        stringResource(Res.string.day_wednesday), stringResource(Res.string.day_thursday),
+        stringResource(Res.string.day_friday), stringResource(Res.string.day_saturday),
+        stringResource(Res.string.day_sunday),
+    )
+    val dateStr = "${days[now.dayOfWeek.ordinal]}, ${months[now.monthNumber - 1]} ${now.dayOfMonth}, ${now.year}"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -518,7 +529,7 @@ private fun RevenueSection(summary: AnalyticsSummary) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    text = "Revenue",
+                    text = stringResource(Res.string.revenue),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -538,7 +549,7 @@ private fun RevenueSection(summary: AnalyticsSummary) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "EGP ${formatDecimal(summary.revenue_today, 2)}",
+                        text = stringResource(Res.string.egp_amount, formatDecimal(summary.revenue_today, 2)),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50),
@@ -552,7 +563,7 @@ private fun RevenueSection(summary: AnalyticsSummary) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "EGP ${formatDecimal(summary.revenue_this_month, 2)}",
+                        text = stringResource(Res.string.egp_amount, formatDecimal(summary.revenue_this_month, 2)),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
@@ -595,7 +606,7 @@ private fun TeamCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${stringResource(Res.string.active)} / Total",
+                text = "${stringResource(Res.string.active)} / ${stringResource(Res.string.total)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -635,11 +646,11 @@ private fun PlanDistributionCard(planDist: PlanDistribution, totalVendors: Int) 
 
             val total = (planDist.starter + planDist.business + planDist.enterprise).coerceAtLeast(1)
 
-            PlanBar("Starter", planDist.starter, total, Color(0xFF2196F3))
+            PlanBar(stringResource(Res.string.plan_starter), planDist.starter, total, Color(0xFF2196F3))
             Spacer(Modifier.height(10.dp))
-            PlanBar("Business", planDist.business, total, Color(0xFF9C27B0))
+            PlanBar(stringResource(Res.string.plan_business), planDist.business, total, Color(0xFF9C27B0))
             Spacer(Modifier.height(10.dp))
-            PlanBar("Enterprise", planDist.enterprise, total, Color(0xFFFF9800))
+            PlanBar(stringResource(Res.string.plan_enterprise), planDist.enterprise, total, Color(0xFFFF9800))
         }
     }
 }
@@ -755,20 +766,20 @@ private fun TopVendorsSection(vendors: List<VendorAnalytics>) {
                             }
                         }
                         Text(
-                            text = "${vendor.active_workers}/${vendor.total_workers} workers active",
+                            text = stringResource(Res.string.workers_active_format, vendor.active_workers, vendor.total_workers),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "${vendor.orders_today} orders",
+                            text = stringResource(Res.string.orders_count_format, vendor.orders_today),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            text = "EGP ${formatDecimal(vendor.revenue_this_month, 0)}",
+                            text = stringResource(Res.string.egp_amount, formatDecimal(vendor.revenue_this_month, 0)),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -819,7 +830,7 @@ private fun AlertsSection(alerts: List<PlatformAlertDto>) {
                         shape = MaterialTheme.shapes.small,
                     ) {
                         Text(
-                            "$criticalCount critical",
+                            stringResource(Res.string.critical_count_format, criticalCount),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error,
@@ -834,7 +845,7 @@ private fun AlertsSection(alerts: List<PlatformAlertDto>) {
                         shape = MaterialTheme.shapes.small,
                     ) {
                         Text(
-                            "$warningCount warnings",
+                            stringResource(Res.string.warnings_count_format, warningCount),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFFFF9800),
@@ -854,7 +865,7 @@ private fun AlertsSection(alerts: List<PlatformAlertDto>) {
 
             if (alerts.size > 5) {
                 Text(
-                    text = "+${alerts.size - 5} more alerts",
+                    text = stringResource(Res.string.more_alerts_format, alerts.size - 5),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),

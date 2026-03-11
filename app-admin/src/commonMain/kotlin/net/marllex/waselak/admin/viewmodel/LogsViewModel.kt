@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.*
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class LogsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
 
@@ -37,8 +40,8 @@ class LogsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
 
     // New: Resource & Action breakdown
     private val _resourceBreakdown = MutableStateFlow<List<ResourceStatDto>>(emptyList())
@@ -161,11 +164,11 @@ class LogsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
         viewModelScope.launch {
             val success = apiClient.cleanupLogs(days)
             if (success) {
-                _message.value = "Old logs cleaned up"
+                _message.value = UiMessage.Resource(Res.string.cleanup_success, isSuccess = true)
                 loadDashboard()
                 loadLogs(1)
             } else {
-                _message.value = "Failed to cleanup logs"
+                _message.value = UiMessage.Resource(Res.string.cleanup_failed)
             }
         }
     }

@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class LoginViewModel(
     private val apiClient: AdminApiClient,
@@ -24,8 +27,8 @@ class LoginViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _error = MutableStateFlow<UiMessage?>(null)
+    val error: StateFlow<UiMessage?> = _error.asStateFlow()
 
     fun updateEmail(value: String) { _email.value = value }
     fun updatePassword(value: String) { _password.value = value }
@@ -33,7 +36,7 @@ class LoginViewModel(
 
     fun login(onSuccess: () -> Unit) {
         if (_email.value.isBlank() || _password.value.isBlank()) {
-            _error.value = "Please enter email and password"
+            _error.value = UiMessage.Resource(Res.string.enter_email_password)
             return
         }
         viewModelScope.launch {
@@ -48,9 +51,8 @@ class LoginViewModel(
                 Logger.i(TAG) { "Login successful: ${loginResponse.email}" }
                 onSuccess()
             }.onFailure { exception ->
-                val errorMsg = exception.message ?: "Unknown error"
-                Logger.e(TAG) { "Login failed: $errorMsg" }
-                _error.value = errorMsg
+                Logger.e(TAG) { "Login failed: ${exception.message}" }
+                _error.value = if (exception.message != null) UiMessage.Text(exception.message!!) else UiMessage.Resource(Res.string.unknown_error)
             }
 
             _isLoading.value = false

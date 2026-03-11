@@ -147,15 +147,15 @@ private fun OverviewTab(
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AnalyticsStatCard(stringResource(Res.string.orders_this_month), "${summary.orders_this_month}", modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.users), "${summary.active_users} / ${summary.total_users}",
-                                    subtitle = "$activeText / Total", modifier = Modifier.weight(1f))
+                                    subtitle = "$activeText / ${stringResource(Res.string.total)}", modifier = Modifier.weight(1f))
                             }
                         }
                         item {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AnalyticsStatCard(stringResource(Res.string.workers), "${summary.active_workers} / ${summary.total_workers}",
-                                    subtitle = "$activeText / Total", modifier = Modifier.weight(1f))
+                                    subtitle = "$activeText / ${stringResource(Res.string.total)}", modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.plan_distribution), "",
-                                    subtitle = "Starter: ${planDist.starter} | Business: ${planDist.business} | Enterprise: ${planDist.enterprise}",
+                                    subtitle = stringResource(Res.string.plan_dist_format, planDist.starter, planDist.business, planDist.enterprise),
                                     modifier = Modifier.weight(1f))
                             }
                         }
@@ -174,15 +174,15 @@ private fun OverviewTab(
                                 AnalyticsStatCard(stringResource(Res.string.revenue_today), "EGP ${formatDecimal(summary.revenue_today, 2)}", modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.revenue_this_month), "EGP ${formatDecimal(summary.revenue_this_month, 2)}", modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.users), "${summary.active_users} / ${summary.total_users}",
-                                    subtitle = "$activeText / Total", modifier = Modifier.weight(1f))
+                                    subtitle = "$activeText / ${stringResource(Res.string.total)}", modifier = Modifier.weight(1f))
                             }
                         }
                         item {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AnalyticsStatCard(stringResource(Res.string.workers), "${summary.active_workers} / ${summary.total_workers}",
-                                    subtitle = "$activeText / Total", modifier = Modifier.weight(1f))
+                                    subtitle = "$activeText / ${stringResource(Res.string.total)}", modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.plan_distribution), "",
-                                    subtitle = "Starter: ${planDist.starter} | Business: ${planDist.business} | Enterprise: ${planDist.enterprise}",
+                                    subtitle = stringResource(Res.string.plan_dist_format, planDist.starter, planDist.business, planDist.enterprise),
                                     modifier = Modifier.weight(1f))
                             }
                         }
@@ -284,10 +284,10 @@ private fun PlatformTab(
                                     subtitle = "${platform.active_subscriptions} ${stringResource(Res.string.active_subscriptions)}",
                                     modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.total_vendors), "${platform.total_vendors}",
-                                    subtitle = "${platform.active_vendors} ${stringResource(Res.string.active)} / ${platform.new_this_month} new",
+                                    subtitle = "${platform.active_vendors} ${stringResource(Res.string.active)} / ${platform.new_this_month} ${stringResource(Res.string.new_label)}",
                                     modifier = Modifier.weight(1f))
                                 AnalyticsStatCard(stringResource(Res.string.total_revenue_platform), "EGP ${formatDecimal(platform.revenue_this_month, 2)}",
-                                    subtitle = "Avg: EGP ${formatDecimal(platform.avg_revenue_per_vendor, 2)}/vendor",
+                                    subtitle = stringResource(Res.string.avg_egp_vendor_format, formatDecimal(platform.avg_revenue_per_vendor, 2)),
                                     modifier = Modifier.weight(1f))
                             }
                         }
@@ -330,8 +330,8 @@ private fun PlatformTab(
                                             )
                                         }
                                         Spacer(Modifier.height(8.dp))
-                                        Text("EGP ${plan.revenue}/mo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                        Text("${plan.count} vendors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(stringResource(Res.string.egp_per_month_format, plan.revenue.toString()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(Res.string.vendors_count, plan.count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -353,7 +353,7 @@ private fun PlatformTab(
                                     Row(Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
                                             Text(vendor.vendor_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                            Text("${vendor.orders} orders", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(Res.string.orders_count_format, vendor.orders), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         Text("EGP ${formatDecimal(vendor.revenue, 2)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                     }
@@ -367,8 +367,8 @@ private fun PlatformTab(
                                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text("#", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp))
                                         Text(stringResource(Res.string.vendor), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
-                                        Text("Orders", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                        Text("Revenue", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                        Text(stringResource(Res.string.orders), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                        Text(stringResource(Res.string.revenue), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
                                     }
                                 }
                             }

@@ -36,6 +36,56 @@
     <string name="loading">جاري التحميل...</string>
     <string name="retry">اعادة المحاوله</string>
     <string name="no_data">مفيش بيانات</string>
+    <string name="overview">نظره عامه</string>
+    <string name="top_vendors_today">اعلى المحلات النهارده</string>
+    <string name="good_morning">صباح الخير</string>
+    <string name="good_afternoon">مساء الخير</string>
+    <string name="good_evening">مساء الخير</string>
+    <string name="good_night">تصبح على خير</string>
+    <string name="revenue">الايرادات</string>
+    <string name="egp_amount">%1$s ج.م</string>
+    <string name="total">الاجمالي</string>
+    <string name="plan_starter">ستارتر</string>
+    <string name="plan_business">بيزنس</string>
+    <string name="plan_enterprise">انتربرايز</string>
+    <string name="workers_active_format">%1$d/%2$d عامل نشط</string>
+    <string name="orders_count_format">%1$d طلب</string>
+    <string name="critical_count_format">%1$d حرج</string>
+    <string name="warnings_count_format">%1$d تحذير</string>
+    <string name="more_alerts_format">+%1$d تنبيهات اخرى</string>
+
+    <!-- Month abbreviations -->
+    <string name="month_jan">يناير</string>
+    <string name="month_feb">فبراير</string>
+    <string name="month_mar">مارس</string>
+    <string name="month_apr">ابريل</string>
+    <string name="month_may">مايو</string>
+    <string name="month_jun">يونيو</string>
+    <string name="month_jul">يوليو</string>
+    <string name="month_aug">اغسطس</string>
+    <string name="month_sep">سبتمبر</string>
+    <string name="month_oct">اكتوبر</string>
+    <string name="month_nov">نوفمبر</string>
+    <string name="month_dec">ديسمبر</string>
+
+    <!-- Day names -->
+    <string name="day_monday">الاثنين</string>
+    <string name="day_tuesday">الثلاثاء</string>
+    <string name="day_wednesday">الاربعاء</string>
+    <string name="day_thursday">الخميس</string>
+    <string name="day_friday">الجمعه</string>
+    <string name="day_saturday">السبت</string>
+    <string name="day_sunday">الاحد</string>
+
+    <!-- Date Range Periods -->
+    <string name="period_today">النهارده</string>
+    <string name="period_yesterday">امبارح</string>
+    <string name="period_this_week">الاسبوع ده</string>
+    <string name="period_last_7_days">اخر 7 ايام</string>
+    <string name="period_this_month">الشهر ده</string>
+    <string name="period_last_30_days">اخر 30 يوم</string>
+    <string name="period_last_90_days">اخر 90 يوم</string>
+    <string name="period_all_time">كل الوقت</string>
 
     <!-- Vendors -->
     <string name="vendors">المحلات</string>
@@ -95,6 +145,7 @@
     <string name="edit_mode">تعديل</string>
     <string name="cancel_edit">الغاء</string>
     <string name="contact_settings">بيانات التواصل والاعدادات</string>
+    <string name="export_cancelled">التصدير اتلغى</string>
 
     <!-- Create Vendor -->
     <string name="vendor_info">بيانات المحل</string>
@@ -156,6 +207,8 @@
     <string name="save">حفظ التغييرات</string>
     <string name="no_plans">مفيش باقات</string>
     <string name="plan_updated">الباقه اتحدثت بنجاح</string>
+    <string name="plan_change_success">الباقه اتغيرت لـ %1$s</string>
+    <string name="plan_change_failed">فشل تغيير الباقه</string>
 
     <!-- Analytics -->
     <string name="analytics_overview">نظرة عامه على التحليلات</string>
@@ -164,6 +217,159 @@
     <string name="vendor">المحل</string>
     <string name="status">الحاله</string>
     <string name="revenue_month">ايراد (الشهر)</string>
+    <string name="plan_dist_format">ستارتر: %1$d | بيزنس: %2$d | انتربرايز: %3$d</string>
+    <string name="avg_egp_vendor_format">متوسط: %1$s ج.م/محل</string>
+    <string name="egp_per_month_format">%1$s ج.م/شهر</string>
+    <string name="orders">الطلبات</string>
+
+    <!-- Vendor Detail -->
+    <string name="vendor_details">تفاصيل المحل</string>
+    <string name="error_loading_vendor">خطأ في تحميل تفاصيل المحل</string>
+    <string name="tab_overview">نظره عامه</string>
+    <string name="tab_revenue">الايرادات</string>
+    <string name="tab_peak_times">اوقات الذروه</string>
+    <string name="tab_staff">الموظفين</string>
+    <string name="tab_products">المنتجات</string>
+    <string name="tab_customers">العملاء</string>
+    <string name="tab_stock">المخزن</string>
+    <string name="tab_offers">العروض</string>
+    <string name="tab_alerts">التنبيهات</string>
+    <string name="tab_orders">الطلبات</string>
+    <string name="tab_workers">العمال</string>
+    <string name="users_count_format">المستخدمين (%1$d)</string>
+    <string name="add_user">اضافة مستخدم</string>
+    <string name="no_users_found">مفيش مستخدمين</string>
+    <string name="order_statistics">احصائيات الطلبات</string>
+    <string name="plan_usage">استخدام الباقه</string>
+    <string name="deactivate_user">تعطيل المستخدم</string>
+    <string name="deactivate_user_confirm">انت متأكد انك عايز تعطل %1$s؟</string>
+    <string name="deactivate">تعطيل</string>
+    <string name="add_new_user">اضافة مستخدم جديد</string>
+    <string name="role">الدور</string>
+    <string name="reset_password">اعادة تعيين كلمة السر</string>
+    <string name="reset_password_confirm">اعادة تعيين كلمة السر لـ %1$s</string>
+    <string name="reset">اعادة تعيين</string>
+    <string name="address">العنوان</string>
+    <string name="phone">التليفون</string>
+    <string name="wallet">المحفظه</string>
+    <string name="enabled_channels">القنوات المفعله</string>
+    <string name="channel_dine_in">اكل في المحل</string>
+    <string name="channel_takeaway">تيك اواي</string>
+    <string name="channel_delivery">توصيل</string>
+    <string name="channel_in_store">شراء من المحل</string>
+    <string name="channel_pickup_later">استلام لاحقا</string>
+    <string name="tables">الطاولات</string>
+    <string name="tax">الضريبه</string>
+    <string name="today">النهارده</string>
+    <string name="this_month">الشهر ده</string>
+    <string name="by_channel">حسب القناه</string>
+    <string name="by_status">حسب الحاله</string>
+    <string name="by_payment_method">حسب طريقة الدفع</string>
+    <string name="revenue_by_channel">الايراد حسب القناه</string>
+    <string name="tax_collected">الضرائب المحصله</string>
+    <string name="tax_collected_subtitle">اجمالي الضرائب من كل الطلبات المكتمله</string>
+    <string name="managers">المديرين</string>
+    <string name="cashiers">الكاشير</string>
+    <string name="menu_items">اصناف المنيو</string>
+    <string name="monthly_orders">الطلبات الشهريه</string>
+    <string name="suspension_reason">السبب: %1$s</string>
+
+    <!-- Vendor Analytics Tabs -->
+    <string name="executive_summary">ملخص تنفيذي</string>
+    <string name="aov">متوسط الطلب</string>
+    <string name="active_orders">الطلبات النشطه</string>
+    <string name="net_revenue">صافي الايراد</string>
+    <string name="attendance">الحضور</string>
+    <string name="revenue_breakdown">تفاصيل الايرادات</string>
+    <string name="gross_revenue">اجمالي الايراد</string>
+    <string name="delivery_fees">رسوم التوصيل</string>
+    <string name="payment_methods">طرق الدفع</string>
+    <string name="orders_intelligence">تحليلات الطلبات</string>
+    <string name="completed">مكتمل</string>
+    <string name="cancelled">ملغي</string>
+    <string name="refunded">مسترجع</string>
+    <string name="channel_breakdown">تفاصيل القنوات</string>
+    <string name="revenue_and_orders">الايرادات والطلبات</string>
+    <string name="busiest_hour">اكثر ساعه ازدحام</string>
+    <string name="busiest_day">اكثر يوم ازدحام</string>
+    <string name="hourly_breakdown">التوزيع بالساعه</string>
+    <string name="orders_revenue_format">%1$d طلب (%2$s ج.م)</string>
+    <string name="no_orders_period">مفيش طلبات في الفتره دي</string>
+    <string name="day_of_week">يوم الاسبوع</string>
+    <string name="day_orders_format">%1$s (%2$d طلب)</string>
+    <string name="cashier_performance">اداء الكاشير</string>
+    <string name="no_cashier_data">مفيش بيانات كاشير</string>
+    <string name="delivery_performance">اداء التوصيل</string>
+    <string name="no_delivery_data">مفيش بيانات توصيل</string>
+    <string name="completed_orders">الطلبات المكتمله</string>
+    <string name="fees_collected">الرسوم المحصله</string>
+    <string name="top_selling">الاكثر مبيعا</string>
+    <string name="revenue_by_category">الايراد حسب التصنيف</string>
+    <string name="low_margin_warnings">تحذيرات هامش ربح منخفض</string>
+    <string name="new_label">جديد</string>
+    <string name="returning">عائد</string>
+    <string name="avg_spend">متوسط الانفاق</string>
+    <string name="ltv">قيمة العميل</string>
+    <string name="by_spend">حسب الانفاق</string>
+    <string name="by_orders">حسب الطلبات</string>
+    <string name="by_name">حسب الاسم</string>
+    <string name="customers_page_format">%1$d عميل (صفحه %2$d/%3$d)</string>
+    <string name="top_customers">اعلى العملاء</string>
+    <string name="total_spent">اجمالي الانفاق</string>
+    <string name="items">الاصناف</string>
+    <string name="stock_value">قيمة المخزن</string>
+    <string name="profit">الربح</string>
+    <string name="out_of_stock">نفد من المخزن</string>
+    <string name="low_stock">مخزون منخفض</string>
+    <string name="dead_stock">مخزون راكد (بدون حركه 30 يوم)</string>
+    <string name="uses">الاستخدامات</string>
+    <string name="top_offers">اعلى العروض</string>
+    <string name="discount_given">الخصم المعطى</string>
+    <string name="discount_analytics_title">تحليلات الخصومات</string>
+    <string name="orders_with_discount">طلبات بخصم</string>
+    <string name="total_discount">اجمالي الخصم</string>
+    <string name="avg_per_order">متوسط لكل طلب</string>
+    <string name="discount_rate_label">نسبة الخصم</string>
+    <string name="loyalty_program">برنامج الولاء</string>
+    <string name="points_earned">النقاط المكتسبه</string>
+    <string name="points_redeemed">النقاط المستبدله</string>
+    <string name="outstanding">المتبقي</string>
+    <string name="active_customers">العملاء النشطين</string>
+    <string name="redemption_rate">نسبة الاستبدال</string>
+    <string name="points_revenue">ايراد النقاط</string>
+    <string name="offers_and_discounts">العروض والخصومات</string>
+    <string name="no_active_alerts">مفيش تنبيهات نشطه</string>
+    <string name="search_by_name_phone">بحث بالاسم/التليفون</string>
+    <string name="clear">مسح</string>
+    <string name="search">بحث</string>
+    <string name="filter_done">مكتمل</string>
+    <string name="filter_new">جديد</string>
+    <string name="filter_cancel">ملغي</string>
+    <string name="filter_refund">مسترجع</string>
+    <string name="orders_page_format">%1$d طلب (صفحه %2$d/%3$d)</string>
+    <string name="guest">ضيف</string>
+    <string name="channel">القناه</string>
+    <string name="payment">الدفع</string>
+    <string name="load_more">تحميل المزيد</string>
+    <string name="order_details">تفاصيل الطلب</string>
+    <string name="customer">العميل</string>
+    <string name="subtotal">المجموع الفرعي</string>
+    <string name="discount">الخصم</string>
+    <string name="refund_info">معلومات الاسترجاع</string>
+    <string name="reason">السبب</string>
+    <string name="items_count_format">الاصناف (%1$d)</string>
+    <string name="failed_load_order">فشل تحميل تفاصيل الطلب</string>
+    <string name="close">اغلاق</string>
+    <string name="workers_total_format">%1$d عامل</string>
+    <string name="present">حاضر</string>
+    <string name="id_label">الرقم</string>
+    <string name="salary">المرتب</string>
+    <string name="attendance_30d">الحضور (30 يوم)</string>
+    <string name="hours_30d">الساعات (30 يوم)</string>
+    <string name="inactive_label">غير نشط</string>
+    <string name="loading_tab_data">جاري تحميل بيانات %1$s...</string>
+    <string name="qty_sold">الكميه المباعه</string>
+    <string name="margin">هامش الربح</string>
 
     <!-- Logs Dashboard -->
     <string name="nav_logs">السجلات</string>
@@ -191,6 +397,7 @@
     <string name="cleanup_logs">تنظيف السجلات القديمه</string>
     <string name="cleanup_confirm">حذف السجلات الاقدم من %1$d يوم؟</string>
     <string name="cleanup_success">السجلات القديمه اتنظفت</string>
+    <string name="cleanup_failed">فشل تنظيف السجلات</string>
     <string name="requests">طلبات</string>
     <string name="ms">مللي ثانيه</string>
     <string name="resource_breakdown">تفاصيل الموارد</string>
@@ -206,6 +413,12 @@
     <string name="tags">التاجات</string>
     <string name="resource">المورد</string>
     <string name="action">العمليه</string>
+    <string name="filters">الفلاتر</string>
+    <string name="vendor_id_label">رقم المحل</string>
+    <string name="user_id_label">رقم المستخدم</string>
+    <string name="client_ip">عنوان IP</string>
+    <string name="query_label">الاستعلام</string>
+    <string name="user_agent">وكيل المستخدم</string>
 
     <!-- Settings -->
     <string name="settings">الاعدادات</string>
@@ -258,4 +471,18 @@
     <string name="alert_subscription_expired">الاشتراك انتهى</string>
     <string name="alert_high_error_rate">نسبة اخطاء عاليه</string>
     <string name="view_vendor">عرض المحل</string>
+
+    <!-- ViewModel Messages -->
+    <string name="vendor_created_success">المحل \'%1$s\' اتعمل بنجاح</string>
+    <string name="vendor_create_failed">فشل انشاء المحل</string>
+    <string name="vendor_delete_failed">فشل حذف المحل</string>
+    <string name="user_created_success">المستخدم اتعمل بنجاح</string>
+    <string name="user_create_failed">فشل انشاء المستخدم (الرقم ممكن يكون موجود)</string>
+    <string name="password_reset_success">كلمة السر اتغيرت بنجاح</string>
+    <string name="password_reset_failed">فشل اعادة تعيين كلمة السر</string>
+    <string name="user_deactivated">المستخدم اتعطل</string>
+    <string name="user_deactivate_failed">فشل تعطيل المستخدم</string>
+    <string name="unknown_error">خطأ غير معروف</string>
+    <string name="plan_updated_format">الباقه \'%1$s\' اتحدثت</string>
+    <string name="plan_update_failed">فشل تحديث الباقه</string>
 </resources>

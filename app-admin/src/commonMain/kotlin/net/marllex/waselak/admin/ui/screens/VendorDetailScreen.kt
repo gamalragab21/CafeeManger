@@ -26,7 +26,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.admin.network.*
 import net.marllex.waselak.admin.ui.components.DateRangeSelector
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.formatDecimal
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
@@ -45,7 +47,9 @@ fun VendorDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()
+    val resolvedError = error?.resolve()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
 
     var isEditMode by remember { mutableStateOf(false) }
 
@@ -56,10 +60,10 @@ fun VendorDetailScreen(
     }
 
     LaunchedEffect(message) {
-        message?.let {
-            snackbarHostState.showSnackbar(it)
+        message?.let { msg ->
+            resolvedMessage?.let { snackbarHostState.showSnackbar(it) }
             viewModel.clearMessage()
-            if (it.contains("successfully")) {
+            if (msg.isSuccess) {
                 isEditMode = false
             }
         }
@@ -69,7 +73,7 @@ fun VendorDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(detail?.vendor?.name ?: "Vendor Details") },
+                title = { Text(detail?.vendor?.name ?: stringResource(Res.string.vendor_details)) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (isEditMode) {
@@ -78,7 +82,7 @@ fun VendorDetailScreen(
                             onBack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
                     }
                 },
                 actions = {
@@ -106,9 +110,9 @@ fun VendorDetailScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(error ?: "Error loading vendor details")
+                        Text(resolvedError ?: stringResource(Res.string.error_loading_vendor))
                         Button(onClick = { viewModel.retry(vendorId) }) {
-                            Text("Retry")
+                            Text(stringResource(Res.string.retry))
                         }
                     }
                 }
@@ -446,12 +450,6 @@ private fun EditSwitchRow(
 
 // ─── Tabbed Layout ─────────────────────────────────────────────
 
-private val VENDOR_TABS = listOf(
-    "Overview", "Revenue", "Peak Times", "Staff",
-    "Products", "Customers", "Stock", "Offers", "Alerts",
-    "Orders", "Workers"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VendorTabbedContent(
@@ -459,6 +457,14 @@ private fun VendorTabbedContent(
     detail: VendorDetailDto,
     viewModel: VendorDetailViewModel
 ) {
+    val VENDOR_TABS = listOf(
+        stringResource(Res.string.tab_overview), stringResource(Res.string.tab_revenue),
+        stringResource(Res.string.tab_peak_times), stringResource(Res.string.tab_staff),
+        stringResource(Res.string.tab_products), stringResource(Res.string.tab_customers),
+        stringResource(Res.string.tab_stock), stringResource(Res.string.tab_offers),
+        stringResource(Res.string.tab_alerts), stringResource(Res.string.tab_orders),
+        stringResource(Res.string.tab_workers),
+    )
     val selectedTab by viewModel.selectedTab.collectAsState()
     val tabLoading by viewModel.tabLoading.collectAsState()
     val selectedPeriod by viewModel.selectedPeriod.collectAsState()
@@ -576,12 +582,12 @@ private fun VendorDetailContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SectionTitle("Users (${detail.users.size})")
+                SectionTitle(stringResource(Res.string.users_count_format, detail.users.size))
                 if (viewModel != null) {
                     TextButton(onClick = { showAddUserDialog = true }) {
                         Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Add User")
+                        Text(stringResource(Res.string.add_user))
                     }
                 }
             }
@@ -589,7 +595,7 @@ private fun VendorDetailContent(
         if (detail.users.isEmpty()) {
             item {
                 Text(
-                    "No users found",
+                    stringResource(Res.string.no_users_found),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp)
@@ -608,7 +614,7 @@ private fun VendorDetailContent(
 
         // ─── Order Stats ─────────────────────────
         item {
-            SectionTitle("Order Statistics")
+            SectionTitle(stringResource(Res.string.order_statistics))
         }
         item {
             OrderStatsCard(stats.orders)
@@ -616,7 +622,7 @@ private fun VendorDetailContent(
 
         // ─── Revenue Stats ───────────────────────
         item {
-            SectionTitle("Revenue")
+            SectionTitle(stringResource(Res.string.revenue))
         }
         item {
             RevenueCard(stats.revenue)
@@ -629,7 +635,7 @@ private fun VendorDetailContent(
 
         // ─── Plan Usage ──────────────────────────
         item {
-            SectionTitle("Plan Usage")
+            SectionTitle(stringResource(Res.string.plan_usage))
         }
         item {
             PlanUsageCard(planUsage)
@@ -671,8 +677,8 @@ private fun VendorDetailContent(
         if (viewModel != null) {
             AlertDialog(
                 onDismissRequest = { showDeactivateDialog = null },
-                title = { Text("Deactivate User") },
-                text = { Text("Are you sure you want to deactivate ${user.name}? They will no longer be able to log in.") },
+                title = { Text(stringResource(Res.string.deactivate_user)) },
+                text = { Text(stringResource(Res.string.deactivate_user_confirm, user.name)) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -680,7 +686,7 @@ private fun VendorDetailContent(
                             showDeactivateDialog = null
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) { Text("Deactivate") }
+                    ) { Text(stringResource(Res.string.deactivate)) }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeactivateDialog = null }) { Text(stringResource(Res.string.cancel)) }
@@ -703,7 +709,7 @@ private fun AddUserDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New User") },
+        title = { Text(stringResource(Res.string.add_new_user)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -728,7 +734,7 @@ private fun AddUserDialog(
                 )
 
                 // Role selection
-                Text("Role", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(Res.string.role), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("MANAGER", "CASHIER", "DELIVERY").forEach { r ->
                         FilterChip(
@@ -766,10 +772,10 @@ private fun ResetPasswordDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Reset Password") },
+        title = { Text(stringResource(Res.string.reset_password)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Reset password for $userName")
+                Text(stringResource(Res.string.reset_password_confirm, userName))
                 OutlinedTextField(
                     value = newPassword, onValueChange = { newPassword = it },
                     label = { Text(stringResource(Res.string.new_password)) },
@@ -788,7 +794,7 @@ private fun ResetPasswordDialog(
             TextButton(
                 onClick = { onConfirm(newPassword) },
                 enabled = newPassword.length >= 6
-            ) { Text("Reset") }
+            ) { Text(stringResource(Res.string.reset)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
@@ -857,7 +863,7 @@ private fun UserRowWithActions(
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = if (user.active) "Active" else "Inactive",
+                            text = if (user.active) stringResource(Res.string.active) else stringResource(Res.string.inactive),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = activeColor
@@ -875,7 +881,7 @@ private fun UserRowWithActions(
                     ) {
                         Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Reset Password", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(Res.string.reset_password), style = MaterialTheme.typography.labelSmall)
                     }
                     OutlinedButton(
                         onClick = onDeactivate,
@@ -884,7 +890,7 @@ private fun UserRowWithActions(
                     ) {
                         Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Deactivate", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(Res.string.deactivate), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -929,7 +935,7 @@ private fun VendorHeaderCard(vendor: VendorDetailInfo) {
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = if (vendor.is_suspended) "Suspended" else "Active",
+                            text = if (vendor.is_suspended) stringResource(Res.string.suspended) else stringResource(Res.string.active),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = statusColor
@@ -992,7 +998,7 @@ private fun VendorHeaderCard(vendor: VendorDetailInfo) {
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = "Reason: ${vendor.suspension_reason}",
+                        text = stringResource(Res.string.suspension_reason, vendor.suspension_reason),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer
@@ -1019,9 +1025,9 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
             )
             Spacer(Modifier.height(12.dp))
 
-            InfoRow("Address", vendor.address)
-            InfoRow("Phone", vendor.contact_phone)
-            vendor.wallet_phone?.let { InfoRow("Wallet", it) }
+            InfoRow(stringResource(Res.string.address), vendor.address)
+            InfoRow(stringResource(Res.string.phone), vendor.contact_phone)
+            vendor.wallet_phone?.let { InfoRow(stringResource(Res.string.wallet), it) }
             InfoRow(stringResource(Res.string.delivery_fee), "${formatDecimal(vendor.default_delivery_fee, 2)} EGP")
 
             // Digital Menu URL
@@ -1032,7 +1038,7 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "Enabled Channels",
+                stringResource(Res.string.enabled_channels),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -1042,16 +1048,16 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (vendor.enable_dine_in) ChannelChip("Dine-In")
-                if (vendor.enable_takeaway) ChannelChip("Takeaway")
-                if (vendor.enable_delivery) ChannelChip("Delivery")
-                if (vendor.enable_in_store) ChannelChip("In-Store")
-                if (vendor.enable_pickup_later) ChannelChip("Pickup Later")
+                if (vendor.enable_dine_in) ChannelChip(stringResource(Res.string.channel_dine_in))
+                if (vendor.enable_takeaway) ChannelChip(stringResource(Res.string.channel_takeaway))
+                if (vendor.enable_delivery) ChannelChip(stringResource(Res.string.channel_delivery))
+                if (vendor.enable_in_store) ChannelChip(stringResource(Res.string.channel_in_store))
+                if (vendor.enable_pickup_later) ChannelChip(stringResource(Res.string.channel_pickup_later))
             }
 
             Spacer(Modifier.height(12.dp))
-            InfoRow("Tables", if (vendor.enable_tables) enabledText else disabledText)
-            InfoRow("Tax", if (vendor.tax_enabled) "$enabledText (${vendor.default_tax_percent}%)" else disabledText)
+            InfoRow(stringResource(Res.string.tables), if (vendor.enable_tables) enabledText else disabledText)
+            InfoRow(stringResource(Res.string.tax), if (vendor.tax_enabled) "$enabledText (${vendor.default_tax_percent}%)" else disabledText)
             InfoRow(stringResource(Res.string.stock_mode), vendor.stock_mode)
         }
     }
@@ -1243,15 +1249,15 @@ private fun OrderStatsCard(orders: VendorOrderStatsDto) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StatItem("Total", orders.total.toString())
-                StatItem("Today", orders.today.toString())
-                StatItem("This Month", orders.this_month.toString())
+                StatItem(stringResource(Res.string.total), orders.total.toString())
+                StatItem(stringResource(Res.string.today), orders.today.toString())
+                StatItem(stringResource(Res.string.this_month), orders.this_month.toString())
             }
 
             if (orders.by_channel.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "By Channel",
+                    stringResource(Res.string.by_channel),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1278,7 +1284,7 @@ private fun OrderStatsCard(orders: VendorOrderStatsDto) {
             if (orders.by_status.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "By Status",
+                    stringResource(Res.string.by_status),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1321,15 +1327,15 @@ private fun RevenueCard(revenue: VendorRevenueStatsDto) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StatItem("Total", "${formatDecimal(revenue.total, 0)} EGP")
-                StatItem("Today", "${formatDecimal(revenue.today, 0)} EGP")
-                StatItem("This Month", "${formatDecimal(revenue.this_month, 0)} EGP")
+                StatItem(stringResource(Res.string.total), "${formatDecimal(revenue.total, 0)} EGP")
+                StatItem(stringResource(Res.string.today), "${formatDecimal(revenue.today, 0)} EGP")
+                StatItem(stringResource(Res.string.this_month), "${formatDecimal(revenue.this_month, 0)} EGP")
             }
 
             if (revenue.by_payment_method.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "By Payment Method",
+                    stringResource(Res.string.by_payment_method),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1372,7 +1378,7 @@ private fun RevenueCard(revenue: VendorRevenueStatsDto) {
             if (revenue.by_channel.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Revenue By Channel",
+                    stringResource(Res.string.revenue_by_channel),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1413,12 +1419,12 @@ private fun TaxCard(tax: VendorTaxStatsDto) {
         ) {
             Column {
                 Text(
-                    "Tax Collected",
+                    stringResource(Res.string.tax_collected),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Total tax from all completed orders",
+                    stringResource(Res.string.tax_collected_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1444,11 +1450,11 @@ private fun PlanUsageCard(planUsage: VendorPlanUsageDto) {
             )
             Spacer(Modifier.height(12.dp))
 
-            UsageProgressRow("Managers", planUsage.usage.managers, planUsage.plan.max_managers)
-            UsageProgressRow("Cashiers", planUsage.usage.cashiers, planUsage.plan.max_cashiers)
-            UsageProgressRow("Delivery", planUsage.usage.delivery, planUsage.plan.max_delivery)
-            UsageProgressRow("Menu Items", planUsage.usage.menu_items, planUsage.plan.max_menu_items)
-            UsageProgressRow("Monthly Orders", planUsage.usage.monthly_orders, planUsage.plan.max_orders_per_month)
+            UsageProgressRow(stringResource(Res.string.managers), planUsage.usage.managers, planUsage.plan.max_managers)
+            UsageProgressRow(stringResource(Res.string.cashiers), planUsage.usage.cashiers, planUsage.plan.max_cashiers)
+            UsageProgressRow(stringResource(Res.string.channel_delivery), planUsage.usage.delivery, planUsage.plan.max_delivery)
+            UsageProgressRow(stringResource(Res.string.menu_items), planUsage.usage.menu_items, planUsage.plan.max_menu_items)
+            UsageProgressRow(stringResource(Res.string.monthly_orders), planUsage.usage.monthly_orders, planUsage.plan.max_orders_per_month)
         }
     }
 }

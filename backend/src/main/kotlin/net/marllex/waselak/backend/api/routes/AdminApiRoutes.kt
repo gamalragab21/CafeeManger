@@ -1545,7 +1545,7 @@ fun Route.adminApiRoutes() {
                 trace.step("Get analytics overview completed")
             }
 
-            get("/platform") {
+            get("/analytics/platform") {
                 val trace = call.routeTrace()
                 trace.step("Get platform analytics started")
                 val now = Clock.System.now()

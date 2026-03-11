@@ -10,6 +10,9 @@ import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.CreateVendorRequest
 import net.marllex.waselak.admin.network.PlanDto
 import net.marllex.waselak.admin.network.VendorDto
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _vendors = MutableStateFlow<List<VendorDto>>(emptyList())
@@ -21,8 +24,8 @@ class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
 
     fun clearMessage() { _message.value = null }
 
@@ -39,10 +42,10 @@ class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
         viewModelScope.launch {
             val success = apiClient.suspendVendor(id, suspended, reason)
             if (success) {
-                _message.value = if (suspended) "Vendor suspended" else "Vendor activated"
+                _message.value = if (suspended) UiMessage.Resource(Res.string.vendor_suspended) else UiMessage.Resource(Res.string.vendor_activated)
                 loadVendors()
             } else {
-                _message.value = "Failed to update vendor"
+                _message.value = UiMessage.Resource(Res.string.vendor_update_failed)
             }
         }
     }
@@ -51,10 +54,10 @@ class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
         viewModelScope.launch {
             val success = apiClient.deleteVendor(id)
             if (success) {
-                _message.value = "Vendor deleted"
+                _message.value = UiMessage.Resource(Res.string.vendor_deleted)
                 loadVendors()
             } else {
-                _message.value = "Failed to delete vendor"
+                _message.value = UiMessage.Resource(Res.string.vendor_delete_failed)
             }
         }
     }
@@ -63,10 +66,10 @@ class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
         viewModelScope.launch {
             val success = apiClient.changeVendorPlan(vendorId, plan, null)
             if (success) {
-                _message.value = "Plan changed to $plan"
+                _message.value = UiMessage.Resource(Res.string.plan_change_success, listOf(plan))
                 loadVendors()
             } else {
-                _message.value = "Failed to change plan"
+                _message.value = UiMessage.Resource(Res.string.plan_change_failed)
             }
         }
     }
@@ -76,10 +79,10 @@ class VendorsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
             _isLoading.value = true
             val result = apiClient.createVendor(request)
             if (result != null) {
-                _message.value = "Vendor '${result.vendor_name}' created successfully"
+                _message.value = UiMessage.Resource(Res.string.vendor_created_success, listOf(result.vendor_name), isSuccess = true)
                 loadVendors()
             } else {
-                _message.value = "Failed to create vendor"
+                _message.value = UiMessage.Resource(Res.string.vendor_create_failed)
             }
             _isLoading.value = false
         }

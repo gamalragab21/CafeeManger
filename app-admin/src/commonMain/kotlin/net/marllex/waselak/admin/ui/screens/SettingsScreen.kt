@@ -17,8 +17,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.ThemeState
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.util.padZero
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.SettingsViewModel
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import org.jetbrains.compose.resources.stringResource
@@ -38,6 +40,7 @@ fun SettingsScreen(
     val confirmPassword by viewModel.confirmPassword.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -46,7 +49,7 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(message) {
-        message?.let {
+        resolvedMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }

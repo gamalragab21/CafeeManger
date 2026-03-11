@@ -9,6 +9,9 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.PlanDto
 import net.marllex.waselak.admin.network.PlanUpdateDto
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class PlansViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _plans = MutableStateFlow<List<PlanDto>>(emptyList())
@@ -17,8 +20,8 @@ class PlansViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
 
     fun clearMessage() { _message.value = null }
 
@@ -35,10 +38,10 @@ class PlansViewModel(private val apiClient: AdminApiClient) : ViewModel() {
             _isLoading.value = true
             val result = apiClient.updatePlan(planName, update)
             if (result != null) {
-                _message.value = "Plan '$planName' updated"
+                _message.value = UiMessage.Resource(Res.string.plan_updated_format, listOf(planName), isSuccess = true)
                 loadPlans()
             } else {
-                _message.value = "Failed to update plan"
+                _message.value = UiMessage.Resource(Res.string.plan_update_failed)
             }
             _isLoading.value = false
         }

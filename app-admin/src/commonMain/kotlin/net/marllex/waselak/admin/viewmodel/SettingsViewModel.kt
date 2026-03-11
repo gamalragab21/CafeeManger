@@ -9,6 +9,9 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.AdminProfile
 import net.marllex.waselak.admin.session.AdminSessionManager
+import net.marllex.waselak.admin.util.UiMessage
+import waselak.app_admin.generated.resources.Res
+import waselak.app_admin.generated.resources.*
 
 class SettingsViewModel(
     private val apiClient: AdminApiClient,
@@ -29,8 +32,8 @@ class SettingsViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
 
     fun clearMessage() { _message.value = null }
     fun updateCurrentPassword(v: String) { _currentPassword.value = v }
@@ -45,23 +48,23 @@ class SettingsViewModel(
 
     fun changePassword() {
         if (_newPassword.value.length < 6) {
-            _message.value = "Password must be at least 6 characters"
+            _message.value = UiMessage.Resource(Res.string.password_min_length)
             return
         }
         if (_newPassword.value != _confirmPassword.value) {
-            _message.value = "Passwords do not match"
+            _message.value = UiMessage.Resource(Res.string.passwords_not_match)
             return
         }
         viewModelScope.launch {
             _isLoading.value = true
             val success = apiClient.changePassword(_currentPassword.value, _newPassword.value)
             if (success) {
-                _message.value = "Password changed successfully"
+                _message.value = UiMessage.Resource(Res.string.password_changed, isSuccess = true)
                 _currentPassword.value = ""
                 _newPassword.value = ""
                 _confirmPassword.value = ""
             } else {
-                _message.value = "Current password is incorrect"
+                _message.value = UiMessage.Resource(Res.string.password_incorrect)
             }
             _isLoading.value = false
         }

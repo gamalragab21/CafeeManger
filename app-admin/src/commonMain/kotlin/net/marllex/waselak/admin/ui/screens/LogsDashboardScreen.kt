@@ -34,8 +34,10 @@ import net.marllex.waselak.admin.network.EndpointStatDto
 import net.marllex.waselak.admin.network.LogEntryDto
 import net.marllex.waselak.admin.network.ResourceStatDto
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.util.formatDecimal
+import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.LogsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -55,6 +57,7 @@ fun LogsDashboardScreen(
     val vendors by viewModel.vendors.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
+    val resolvedMessage = message?.resolve()
     val resourceBreakdown by viewModel.resourceBreakdown.collectAsState()
     val actionBreakdown by viewModel.actionBreakdown.collectAsState()
     val monitoring by viewModel.monitoring.collectAsState()
@@ -78,7 +81,7 @@ fun LogsDashboardScreen(
     }
 
     LaunchedEffect(message) {
-        message?.let {
+        resolvedMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
@@ -446,7 +449,7 @@ fun LogsDashboardScreen(
                         IconButton(onClick = { showFilters = !showFilters }) {
                             Icon(
                                 Icons.Default.FilterList,
-                                contentDescription = "Filters",
+                                contentDescription = stringResource(Res.string.filters),
                                 tint = if (showFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -532,7 +535,7 @@ fun LogsDashboardScreen(
         AlertDialog(
             onDismissRequest = { showCleanupDialog = false },
             title = { Text(stringResource(Res.string.cleanup_logs)) },
-            text = { Text("Delete logs older than 30 days?") },
+            text = { Text(stringResource(Res.string.cleanup_confirm, 30)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1123,13 +1126,13 @@ private fun LogEntryCard(entry: LogEntryDto) {
                     HorizontalDivider()
                     Spacer(Modifier.height(4.dp))
 
-                    entry.vendorId?.let { DetailRow("Vendor ID", it) }
-                    entry.userId?.let { DetailRow("User ID", it) }
-                    entry.userRole?.let { DetailRow("Role", it) }
-                    entry.clientIp?.let { DetailRow("Client IP", it) }
-                    entry.queryParams?.let { DetailRow("Query", it) }
+                    entry.vendorId?.let { DetailRow(stringResource(Res.string.vendor_id_label), it) }
+                    entry.userId?.let { DetailRow(stringResource(Res.string.user_id_label), it) }
+                    entry.userRole?.let { DetailRow(stringResource(Res.string.role), it) }
+                    entry.clientIp?.let { DetailRow(stringResource(Res.string.client_ip), it) }
+                    entry.queryParams?.let { DetailRow(stringResource(Res.string.query_label), it) }
                     entry.userAgent?.let {
-                        DetailRow("User-Agent", it.take(100) + if (it.length > 100) "..." else "")
+                        DetailRow(stringResource(Res.string.user_agent), it.take(100) + if (it.length > 100) "..." else "")
                     }
 
                     // Show all tags in expanded view

@@ -19,6 +19,9 @@ import net.marllex.waselak.admin.network.*
 import net.marllex.waselak.admin.util.formatDecimal
 import net.marllex.waselak.admin.util.formatPercent
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
+import org.jetbrains.compose.resources.stringResource
+import waselak.app_admin.generated.resources.*
+import waselak.app_admin.generated.resources.Res
 
 // ══════════════════════════════════════════════════════════════════════
 // Analytics Tab Composables for VendorDetailScreen
@@ -40,24 +43,24 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
         // Executive Summary Cards
         summary?.let { s ->
             item {
-                Text("Executive Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.executive_summary), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MetricCard(
-                        title = "Revenue",
+                        title = stringResource(Res.string.revenue),
                         value = formatDecimal(s.current.total_revenue, 2),
                         change = s.revenue_change_percent,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
-                        title = "Orders",
+                        title = stringResource(Res.string.orders),
                         value = s.current.total_orders.toString(),
                         change = s.orders_change_percent,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
-                        title = "AOV",
+                        title = stringResource(Res.string.aov),
                         value = formatDecimal(s.current.average_order_value, 2),
                         change = s.aov_change_percent,
                         modifier = Modifier.weight(1f)
@@ -66,9 +69,9 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
             }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Active Orders", s.active_orders.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Net Revenue", formatDecimal(s.current.net_revenue, 2), Modifier.weight(1f))
-                    SmallInfoCard("Attendance", s.attendance_today.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.active_orders), s.active_orders.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.net_revenue), formatDecimal(s.current.net_revenue, 2), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.attendance), s.attendance_today.toString(), Modifier.weight(1f))
                 }
             }
         }
@@ -77,16 +80,16 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
         revenue?.let { r ->
             item { Spacer(Modifier.height(8.dp)) }
             item {
-                Text("Revenue Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.revenue_breakdown), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoRowSimple("Gross Revenue", formatDecimal(r.gross_revenue, 2))
-                        InfoRowSimple("Delivery Fees", formatDecimal(r.total_delivery_fees, 2))
-                        InfoRowSimple("Net Revenue", formatDecimal(r.net_revenue, 2))
+                        InfoRowSimple(stringResource(Res.string.gross_revenue), formatDecimal(r.gross_revenue, 2))
+                        InfoRowSimple(stringResource(Res.string.delivery_fees), formatDecimal(r.total_delivery_fees, 2))
+                        InfoRowSimple(stringResource(Res.string.net_revenue), formatDecimal(r.net_revenue, 2))
                         Divider()
-                        Text("Payment Methods", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(Res.string.payment_methods), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                         r.payment_methods.forEach { pm ->
                             InfoRowSimple("${pm.method} (${pm.order_count})", formatDecimal(pm.revenue, 2))
                         }
@@ -99,21 +102,21 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
         orders?.let { o ->
             item { Spacer(Modifier.height(8.dp)) }
             item {
-                Text("Orders Intelligence", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.orders_intelligence), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Total", o.total_orders.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Completed", o.completed_orders.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Cancelled", o.cancelled_orders.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Refunded", o.refunded_orders.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.total), o.total_orders.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.completed), o.completed_orders.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.cancelled), o.cancelled_orders.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.refunded), o.refunded_orders.toString(), Modifier.weight(1f))
                 }
             }
             if (o.channel_breakdown.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Channel Breakdown", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(Res.string.channel_breakdown), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             o.channel_breakdown.forEach { ch ->
                                 InfoRowSimple("${ch.channel} (${ch.count})", formatPercent(ch.percent, 1))
                             }
@@ -124,7 +127,7 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
         }
 
         if (summary == null && revenue == null && orders == null) {
-            item { EmptyTabContent("Revenue & Orders") }
+            item { EmptyTabContent(stringResource(Res.string.revenue_and_orders)) }
         }
     }
 }
@@ -143,33 +146,33 @@ fun PeakTimesTab(viewModel: VendorDetailViewModel) {
         peakTimes?.let { pt ->
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Busiest Hour", "${pt.busiest_hour}:00", Modifier.weight(1f))
-                    SmallInfoCard("Busiest Day", pt.busiest_day, Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.busiest_hour), "${pt.busiest_hour}:00", Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.busiest_day), pt.busiest_day, Modifier.weight(1f))
                 }
             }
             item {
-                Text("Hourly Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.hourly_breakdown), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         pt.hourly_data.filter { it.order_count > 0 }.forEach { h ->
-                            InfoRowSimple("${h.hour}:00 - ${h.hour + 1}:00", "${h.order_count} orders (${formatDecimal(h.revenue, 2)})")
+                            InfoRowSimple("${h.hour}:00 - ${h.hour + 1}:00", stringResource(Res.string.orders_revenue_format, h.order_count, formatDecimal(h.revenue, 0)))
                         }
                         if (pt.hourly_data.all { it.order_count == 0 }) {
-                            Text("No orders in this period", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(Res.string.no_orders_period), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
             item {
-                Text("Day of Week", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.day_of_week), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         pt.day_of_week.forEach { d ->
-                            InfoRowSimple("${d.name} (${d.order_count} orders)", formatDecimal(d.revenue, 2))
+                            InfoRowSimple(stringResource(Res.string.day_orders_format, d.name, d.order_count), formatDecimal(d.revenue, 2))
                         }
                     }
                 }
@@ -177,7 +180,7 @@ fun PeakTimesTab(viewModel: VendorDetailViewModel) {
         }
 
         if (peakTimes == null) {
-            item { EmptyTabContent("Peak Times") }
+            item { EmptyTabContent(stringResource(Res.string.tab_peak_times)) }
         }
     }
 }
@@ -195,37 +198,37 @@ fun StaffPerformanceTab(viewModel: VendorDetailViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Cashier Performance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.cashier_performance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         if (cashiers.isEmpty()) {
-            item { Text("No cashier data available", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text(stringResource(Res.string.no_cashier_data), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(cashiers) { c ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(c.cashier_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    InfoRowSimple("Orders", c.order_count.toString())
-                    InfoRowSimple("Revenue", formatDecimal(c.revenue, 2))
-                    InfoRowSimple("AOV", formatDecimal(c.average_order_value, 2))
-                    InfoRowSimple("Cancelled", "${c.cancelled_orders} (${formatPercent(c.cancellation_rate, 1)})")
+                    InfoRowSimple(stringResource(Res.string.orders), c.order_count.toString())
+                    InfoRowSimple(stringResource(Res.string.revenue), formatDecimal(c.revenue, 2))
+                    InfoRowSimple(stringResource(Res.string.aov), formatDecimal(c.average_order_value, 2))
+                    InfoRowSimple(stringResource(Res.string.cancelled), "${c.cancelled_orders} (${formatPercent(c.cancellation_rate, 1)})")
                 }
             }
         }
 
         item { Spacer(Modifier.height(8.dp)) }
         item {
-            Text("Delivery Performance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.delivery_performance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         if (drivers.isEmpty()) {
-            item { Text("No delivery data available", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text(stringResource(Res.string.no_delivery_data), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(drivers) { d ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(d.driver_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    InfoRowSimple("Completed Orders", d.orders_completed.toString())
-                    InfoRowSimple("Fees Collected", formatDecimal(d.fees_collected, 2))
-                    InfoRowSimple("Revenue", formatDecimal(d.revenue, 2))
+                    InfoRowSimple(stringResource(Res.string.completed_orders), d.orders_completed.toString())
+                    InfoRowSimple(stringResource(Res.string.fees_collected), formatDecimal(d.fees_collected, 2))
+                    InfoRowSimple(stringResource(Res.string.revenue), formatDecimal(d.revenue, 2))
                 }
             }
         }
@@ -245,12 +248,12 @@ fun ProductsTab(viewModel: VendorDetailViewModel) {
     ) {
         products?.let { p ->
             if (p.top_selling.isNotEmpty()) {
-                item { Text("Top Selling", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                item { Text(stringResource(Res.string.top_selling), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(p.top_selling.take(10)) { item -> ProductRow(item) }
             }
             if (p.revenue_by_category.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)) }
-                item { Text("Revenue by Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                item { Text(stringResource(Res.string.revenue_by_category), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(p.revenue_by_category) { cat ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -262,13 +265,13 @@ fun ProductsTab(viewModel: VendorDetailViewModel) {
             }
             if (p.low_margin_warnings.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)) }
-                item { Text("Low Margin Warnings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) }
+                item { Text(stringResource(Res.string.low_margin_warnings), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) }
                 items(p.low_margin_warnings.take(5)) { item -> ProductRow(item) }
             }
         }
 
         if (products == null) {
-            item { EmptyTabContent("Products") }
+            item { EmptyTabContent(stringResource(Res.string.tab_products)) }
         }
     }
 }
@@ -294,13 +297,13 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Total", ci.total_customers.toString(), Modifier.weight(1f))
-                    SmallInfoCard("New", formatPercent(ci.new_customers_percent, 0), Modifier.weight(1f))
-                    SmallInfoCard("Returning", formatPercent(ci.returning_customers_percent, 0), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.total), ci.total_customers.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.new_label), formatPercent(ci.new_customers_percent, 0), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.returning), formatPercent(ci.returning_customers_percent, 0), Modifier.weight(1f))
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Avg Spend", formatDecimal(ci.average_spend, 2), Modifier.weight(1f))
-                    SmallInfoCard("LTV", formatDecimal(ci.lifetime_value, 2), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.avg_spend), formatDecimal(ci.average_spend, 2), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.ltv), formatDecimal(ci.lifetime_value, 2), Modifier.weight(1f))
                 }
             }
         }
@@ -310,7 +313,7 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf("total_spent" to "By Spend", "order_count" to "By Orders", "name" to "By Name").forEach { (sort, label) ->
+            listOf("total_spent" to stringResource(Res.string.by_spend), "order_count" to stringResource(Res.string.by_orders), "name" to stringResource(Res.string.by_name)).forEach { (sort, label) ->
                 FilterChip(
                     selected = sortBy == sort,
                     onClick = { sortBy = sort },
@@ -327,7 +330,7 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
-                    Text("${data.total} customers (Page ${data.page}/${data.total_pages})", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(Res.string.customers_page_format, data.total, data.page, data.total_pages), style = MaterialTheme.typography.labelLarge)
                 }
                 items(data.customers) { customer ->
                     Card(modifier = Modifier.fillMaxWidth()) {
@@ -348,9 +351,9 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                                     }
                                 }
                             }
-                            InfoRowSimple("Phone", customer.phone)
-                            InfoRowSimple("Orders", customer.order_count.toString())
-                            InfoRowSimple("Total Spent", "${formatDecimal(customer.total_spent, 2)} EGP")
+                            InfoRowSimple(stringResource(Res.string.phone), customer.phone)
+                            InfoRowSimple(stringResource(Res.string.orders), customer.order_count.toString())
+                            InfoRowSimple(stringResource(Res.string.total_spent), "${formatDecimal(customer.total_spent, 2)} EGP")
                         }
                     }
                 }
@@ -375,14 +378,14 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { Text("Top Customers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                        item { Text(stringResource(Res.string.top_customers), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                         items(ci.top_customers) { c ->
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(c.customer_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                    InfoRowSimple("Phone", c.phone)
-                                    InfoRowSimple("Orders", c.order_count.toString())
-                                    InfoRowSimple("Total Spent", formatDecimal(c.total_spent, 2))
+                                    InfoRowSimple(stringResource(Res.string.phone), c.phone)
+                                    InfoRowSimple(stringResource(Res.string.orders), c.order_count.toString())
+                                    InfoRowSimple(stringResource(Res.string.total_spent), formatDecimal(c.total_spent, 2))
                                 }
                             }
                         }
@@ -413,30 +416,30 @@ fun StockTab(viewModel: VendorDetailViewModel) {
         stock?.let { s ->
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Items", s.total_items.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Stock Value", formatDecimal(s.total_stock_value, 2), Modifier.weight(1f))
-                    SmallInfoCard("Profit", formatDecimal(s.potential_profit, 2), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.items), s.total_items.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.stock_value), formatDecimal(s.total_stock_value, 2), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.profit), formatDecimal(s.potential_profit, 2), Modifier.weight(1f))
                 }
             }
 
             if (s.out_of_stock_items.isNotEmpty()) {
-                item { Text("Out of Stock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) }
+                item { Text(stringResource(Res.string.out_of_stock), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) }
                 items(s.out_of_stock_items) { item -> StockItemRow(item) }
             }
 
             if (s.low_stock_items.isNotEmpty()) {
-                item { Text("Low Stock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57C00)) }
+                item { Text(stringResource(Res.string.low_stock), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57C00)) }
                 items(s.low_stock_items) { item -> StockItemRow(item) }
             }
 
             if (s.dead_stock_items.isNotEmpty()) {
-                item { Text("Dead Stock (no movement 30d)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                item { Text(stringResource(Res.string.dead_stock), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(s.dead_stock_items.take(10)) { item -> StockItemRow(item) }
             }
         }
 
         if (stock == null) {
-            item { EmptyTabContent("Stock") }
+            item { EmptyTabContent(stringResource(Res.string.tab_stock)) }
         }
     }
 }
@@ -456,28 +459,28 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
     ) {
         // Offers section
         offers?.let { o ->
-            item { Text("Offers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            item { Text(stringResource(Res.string.tab_offers), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Total", o.total_offers.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Active", o.active_offers.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Uses", o.total_offer_uses.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.total), o.total_offers.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.active), o.active_offers.toString(), Modifier.weight(1f))
+                    SmallInfoCard(stringResource(Res.string.uses), o.total_offer_uses.toString(), Modifier.weight(1f))
                 }
             }
             if (o.top_offers.isNotEmpty()) {
-                item { Text("Top Offers", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold) }
+                item { Text(stringResource(Res.string.top_offers), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold) }
                 items(o.top_offers.take(5)) { offer ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(offer.offer_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                 if (offer.is_active) {
-                                    Text("Active", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(Res.string.active), color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
-                            InfoRowSimple("Uses", offer.usage_count.toString())
-                            InfoRowSimple("Discount Given", formatDecimal(offer.total_discount_given, 2))
-                            InfoRowSimple("Revenue", formatDecimal(offer.total_revenue_from_offer_orders, 2))
+                            InfoRowSimple(stringResource(Res.string.uses), offer.usage_count.toString())
+                            InfoRowSimple(stringResource(Res.string.discount_given), formatDecimal(offer.total_discount_given, 2))
+                            InfoRowSimple(stringResource(Res.string.revenue), formatDecimal(offer.total_revenue_from_offer_orders, 2))
                         }
                     }
                 }
@@ -487,14 +490,14 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
         // Discount section
         discounts?.let { d ->
             item { Spacer(Modifier.height(8.dp)) }
-            item { Text("Discount Analytics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            item { Text(stringResource(Res.string.discount_analytics_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        InfoRowSimple("Orders with Discount", d.total_orders_with_discount.toString())
-                        InfoRowSimple("Total Discount", formatDecimal(d.total_discount_given, 2))
-                        InfoRowSimple("Avg per Order", formatDecimal(d.average_discount_per_order, 2))
-                        InfoRowSimple("Discount Rate", formatPercent(d.discount_rate, 1))
+                        InfoRowSimple(stringResource(Res.string.orders_with_discount), d.total_orders_with_discount.toString())
+                        InfoRowSimple(stringResource(Res.string.total_discount), formatDecimal(d.total_discount_given, 2))
+                        InfoRowSimple(stringResource(Res.string.avg_per_order), formatDecimal(d.average_discount_per_order, 2))
+                        InfoRowSimple(stringResource(Res.string.discount_rate_label), formatPercent(d.discount_rate, 1))
                         if (d.breakdown.isNotEmpty()) {
                             Divider(modifier = Modifier.padding(vertical = 4.dp))
                             d.breakdown.forEach { b ->
@@ -509,23 +512,23 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
         // Loyalty section
         loyalty?.let { l ->
             item { Spacer(Modifier.height(8.dp)) }
-            item { Text("Loyalty Program", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            item { Text(stringResource(Res.string.loyalty_program), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        InfoRowSimple("Points Earned", l.total_points_earned.toString())
-                        InfoRowSimple("Points Redeemed", l.total_points_redeemed.toString())
-                        InfoRowSimple("Outstanding", l.total_points_outstanding.toString())
-                        InfoRowSimple("Active Customers", l.active_loyalty_customers.toString())
-                        InfoRowSimple("Redemption Rate", formatPercent(l.redemption_rate, 1))
-                        InfoRowSimple("Points Revenue", formatDecimal(l.points_to_revenue, 2))
+                        InfoRowSimple(stringResource(Res.string.points_earned), l.total_points_earned.toString())
+                        InfoRowSimple(stringResource(Res.string.points_redeemed), l.total_points_redeemed.toString())
+                        InfoRowSimple(stringResource(Res.string.outstanding), l.total_points_outstanding.toString())
+                        InfoRowSimple(stringResource(Res.string.active_customers), l.active_loyalty_customers.toString())
+                        InfoRowSimple(stringResource(Res.string.redemption_rate), formatPercent(l.redemption_rate, 1))
+                        InfoRowSimple(stringResource(Res.string.points_revenue), formatDecimal(l.points_to_revenue, 2))
                     }
                 }
             }
         }
 
         if (offers == null && discounts == null && loyalty == null) {
-            item { EmptyTabContent("Offers & Discounts") }
+            item { EmptyTabContent(stringResource(Res.string.offers_and_discounts)) }
         }
     }
 }
@@ -547,7 +550,7 @@ fun AlertsTab(viewModel: VendorDetailViewModel) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.padding(24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                            Text("No active alerts", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(Res.string.no_active_alerts), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
@@ -584,7 +587,7 @@ fun AlertsTab(viewModel: VendorDetailViewModel) {
         }
 
         if (alertsData == null) {
-            item { EmptyTabContent("Alerts") }
+            item { EmptyTabContent(stringResource(Res.string.tab_alerts)) }
         }
     }
 }
@@ -611,7 +614,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search by name/phone") },
+                placeholder = { Text(stringResource(Res.string.search_by_name_phone)) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 trailingIcon = {
@@ -619,13 +622,13 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                         IconButton(onClick = {
                             searchQuery = ""
                             viewModel.loadMoreOrders(vendorId, 1, selectedStatus, search = null)
-                        }) { Icon(Icons.Default.Clear, "Clear") }
+                        }) { Icon(Icons.Default.Clear, stringResource(Res.string.clear)) }
                     }
                 }
             )
             Button(onClick = {
                 viewModel.loadMoreOrders(vendorId, 1, selectedStatus, search = searchQuery.ifBlank { null })
-            }) { Text("Search") }
+            }) { Text(stringResource(Res.string.search)) }
         }
 
         // Status filter chips
@@ -633,7 +636,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf(null to "All", "COMPLETED" to "Done", "CREATED" to "New", "CANCELED" to "Cancel", "REFUNDED" to "Refund").forEach { (status, label) ->
+            listOf(null to stringResource(Res.string.all), "COMPLETED" to stringResource(Res.string.filter_done), "CREATED" to stringResource(Res.string.filter_new), "CANCELED" to stringResource(Res.string.filter_cancel), "REFUNDED" to stringResource(Res.string.filter_refund)).forEach { (status, label) ->
                 FilterChip(
                     selected = selectedStatus == status,
                     onClick = {
@@ -653,7 +656,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
-                    Text("${data.total} orders (Page ${data.page}/${data.total_pages})", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(Res.string.orders_page_format, data.total, data.page, data.total_pages), style = MaterialTheme.typography.labelLarge)
                 }
                 items(data.orders) { order ->
                     Card(
@@ -665,13 +668,13 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(order.client_name.ifBlank { "Guest" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(order.client_name.ifBlank { stringResource(Res.string.guest) }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                 StatusBadge(order.status)
                             }
-                            InfoRowSimple("Channel", order.channel)
-                            InfoRowSimple("Total", "${formatDecimal(order.total, 2)} EGP")
-                            InfoRowSimple("Payment", "${order.payment_method} (${order.payment_status})")
-                            if (order.client_phone.isNotBlank()) InfoRowSimple("Phone", order.client_phone)
+                            InfoRowSimple(stringResource(Res.string.channel), order.channel)
+                            InfoRowSimple(stringResource(Res.string.total), "${formatDecimal(order.total, 2)} EGP")
+                            InfoRowSimple(stringResource(Res.string.payment), "${order.payment_method} (${order.payment_status})")
+                            if (order.client_phone.isNotBlank()) InfoRowSimple(stringResource(Res.string.phone), order.client_phone)
                         }
                     }
                 }
@@ -682,7 +685,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                         Button(
                             onClick = { viewModel.loadMoreOrders(vendorId, data.page + 1, selectedStatus, search = searchQuery.ifBlank { null }) },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Load More") }
+                        ) { Text(stringResource(Res.string.load_more)) }
                     }
                 }
             }
@@ -702,7 +705,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                 showOrderDetail = false
                 viewModel.clearOrderDetail()
             },
-            title = { Text("Order Details") },
+            title = { Text(stringResource(Res.string.order_details)) },
             text = {
                 if (orderDetailLoading) {
                     Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
@@ -732,42 +735,42 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                             HorizontalDivider()
 
                             // Customer info
-                            if (detail.client_name.isNotBlank()) InfoRowSimple("Customer", detail.client_name)
-                            if (detail.client_phone.isNotBlank()) InfoRowSimple("Phone", detail.client_phone)
-                            detail.client_address?.let { InfoRowSimple("Address", it) }
+                            if (detail.client_name.isNotBlank()) InfoRowSimple(stringResource(Res.string.customer), detail.client_name)
+                            if (detail.client_phone.isNotBlank()) InfoRowSimple(stringResource(Res.string.phone), detail.client_phone)
+                            detail.client_address?.let { InfoRowSimple(stringResource(Res.string.address), it) }
 
                             HorizontalDivider()
 
                             // Price breakdown
-                            InfoRowSimple("Subtotal", "${formatDecimal(detail.subtotal, 2)} EGP")
-                            if (detail.delivery_fee > 0) InfoRowSimple("Delivery Fee", "${formatDecimal(detail.delivery_fee, 2)} EGP")
-                            if (detail.discount > 0) InfoRowSimple("Discount", "-${formatDecimal(detail.discount, 2)} EGP")
-                            if (detail.tax > 0) InfoRowSimple("Tax", "${formatDecimal(detail.tax, 2)} EGP")
+                            InfoRowSimple(stringResource(Res.string.subtotal), "${formatDecimal(detail.subtotal, 2)} EGP")
+                            if (detail.delivery_fee > 0) InfoRowSimple(stringResource(Res.string.delivery_fee), "${formatDecimal(detail.delivery_fee, 2)} EGP")
+                            if (detail.discount > 0) InfoRowSimple(stringResource(Res.string.discount), "-${formatDecimal(detail.discount, 2)} EGP")
+                            if (detail.tax > 0) InfoRowSimple(stringResource(Res.string.tax), "${formatDecimal(detail.tax, 2)} EGP")
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Total", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text(stringResource(Res.string.total), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Text("${formatDecimal(detail.total, 2)} EGP", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
 
-                            InfoRowSimple("Payment", "${detail.payment_method} (${detail.payment_status})")
+                            InfoRowSimple(stringResource(Res.string.payment), "${detail.payment_method} (${detail.payment_status})")
 
                             // Refund info
                             if (detail.refunded_at != null || detail.refund_reason != null) {
                                 HorizontalDivider()
-                                Text("Refund Info", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                                detail.refund_reason?.let { InfoRowSimple("Reason", it) }
+                                Text(stringResource(Res.string.refund_info), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                detail.refund_reason?.let { InfoRowSimple(stringResource(Res.string.reason), it) }
                             }
 
                             // Points info
                             if (detail.points_earned > 0 || detail.points_redeemed > 0) {
                                 HorizontalDivider()
-                                if (detail.points_earned > 0) InfoRowSimple("Points Earned", detail.points_earned.toString())
-                                if (detail.points_redeemed > 0) InfoRowSimple("Points Redeemed", detail.points_redeemed.toString())
+                                if (detail.points_earned > 0) InfoRowSimple(stringResource(Res.string.points_earned), detail.points_earned.toString())
+                                if (detail.points_redeemed > 0) InfoRowSimple(stringResource(Res.string.points_redeemed), detail.points_redeemed.toString())
                             }
 
                             // Order items
                             if (detail.items.isNotEmpty()) {
                                 HorizontalDivider()
-                                Text("Items (${detail.items.size})", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text(stringResource(Res.string.items_count_format, detail.items.size), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                 detail.items.forEach { item ->
                                     Card(modifier = Modifier.fillMaxWidth()) {
                                         Row(
@@ -795,14 +798,14 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                                 }
                             }
                         }
-                    } ?: Text("Failed to load order details")
+                    } ?: Text(stringResource(Res.string.failed_load_order))
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     showOrderDetail = false
                     viewModel.clearOrderDetail()
-                }) { Text("Close") }
+                }) { Text(stringResource(Res.string.close)) }
             }
         )
     }
@@ -820,25 +823,25 @@ fun WorkersTab(viewModel: VendorDetailViewModel) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         workersData?.let { data ->
-            item { Text("${data.total} Workers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            item { Text(stringResource(Res.string.workers_total_format, data.total), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(data.workers) { worker ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(worker.full_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             if (worker.checked_in_today) {
-                                Text("Present", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(Res.string.present), color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        InfoRowSimple("ID", worker.worker_id)
-                        InfoRowSimple("Role", worker.role)
-                        InfoRowSimple("Salary", "${worker.salary_type}: ${formatDecimal(worker.salary_amount, 2)}")
-                        InfoRowSimple("Attendance (30d)", "${worker.attendance_days_30d} days")
+                        InfoRowSimple(stringResource(Res.string.id_label), worker.worker_id)
+                        InfoRowSimple(stringResource(Res.string.role), worker.role)
+                        InfoRowSimple(stringResource(Res.string.salary), "${worker.salary_type}: ${formatDecimal(worker.salary_amount, 2)}")
+                        InfoRowSimple(stringResource(Res.string.attendance_30d), "${worker.attendance_days_30d} days")
                         val hours = worker.worked_minutes_30d / 60
                         val mins = worker.worked_minutes_30d % 60
-                        InfoRowSimple("Hours (30d)", "${hours}h ${mins}m")
+                        InfoRowSimple(stringResource(Res.string.hours_30d), "${hours}h ${mins}m")
                         if (!worker.active) {
-                            Text("INACTIVE", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(Res.string.inactive_label), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -846,7 +849,7 @@ fun WorkersTab(viewModel: VendorDetailViewModel) {
         }
 
         if (workersData == null) {
-            item { EmptyTabContent("Workers") }
+            item { EmptyTabContent(stringResource(Res.string.tab_workers)) }
         }
     }
 }
@@ -917,9 +920,9 @@ fun ProductRow(item: ProductItemDto) {
                 Text(item.item_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(item.category_name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            InfoRowSimple("Qty Sold", item.quantity_sold.toString())
-            InfoRowSimple("Revenue", formatDecimal(item.revenue, 2))
-            InfoRowSimple("Margin", formatPercent(item.profit_margin, 1))
+            InfoRowSimple(stringResource(Res.string.qty_sold), item.quantity_sold.toString())
+            InfoRowSimple(stringResource(Res.string.revenue), formatDecimal(item.revenue, 2))
+            InfoRowSimple(stringResource(Res.string.margin), formatPercent(item.profit_margin, 1))
         }
     }
 }
@@ -946,7 +949,7 @@ fun EmptyTabContent(tabName: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Loading $tabName data...", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.loading_tab_data, tabName), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             CircularProgressIndicator(modifier = Modifier.size(24.dp))
         }
     }

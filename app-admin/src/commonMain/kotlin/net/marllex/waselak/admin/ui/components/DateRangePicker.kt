@@ -7,6 +7,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.*
+import org.jetbrains.compose.resources.stringResource
+import waselak.app_admin.generated.resources.*
+import waselak.app_admin.generated.resources.Res
 
 /**
  * Predefined date range periods for analytics filtering.
@@ -20,6 +23,18 @@ enum class DateRangePeriod(val label: String) {
     LAST_30_DAYS("Last 30 Days"),
     LAST_90_DAYS("Last 90 Days"),
     ALL_TIME("All Time"),
+}
+
+@Composable
+fun DateRangePeriod.localizedLabel(): String = when (this) {
+    DateRangePeriod.TODAY -> stringResource(Res.string.period_today)
+    DateRangePeriod.YESTERDAY -> stringResource(Res.string.period_yesterday)
+    DateRangePeriod.THIS_WEEK -> stringResource(Res.string.period_this_week)
+    DateRangePeriod.LAST_7_DAYS -> stringResource(Res.string.period_last_7_days)
+    DateRangePeriod.THIS_MONTH -> stringResource(Res.string.period_this_month)
+    DateRangePeriod.LAST_30_DAYS -> stringResource(Res.string.period_last_30_days)
+    DateRangePeriod.LAST_90_DAYS -> stringResource(Res.string.period_last_90_days)
+    DateRangePeriod.ALL_TIME -> stringResource(Res.string.period_all_time)
 }
 
 data class DateRange(
@@ -105,7 +120,7 @@ fun DateRangeSelector(
             FilterChip(
                 selected = selectedPeriod == period,
                 onClick = { onPeriodChanged(period) },
-                label = { Text(period.label, style = MaterialTheme.typography.labelSmall) }
+                label = { Text(period.localizedLabel(), style = MaterialTheme.typography.labelSmall) }
             )
         }
     }
