@@ -21,10 +21,6 @@ internal fun Project.configureKmpTargets(
 
         jvm("desktop")
 
-        wasmJs {
-            browser()
-        }
-
         listOf(
             iosX64(),
             iosArm64(),

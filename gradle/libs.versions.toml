@@ -112,7 +112,6 @@ ktor-client-auth = { group = "io.ktor", name = "ktor-client-auth", version.ref =
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { group = "io.ktor", name = "ktor-client-darwin", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
-ktor-client-js = { group = "io.ktor", name = "ktor-client-js", version.ref = "ktor" }
 
 # SQLDelight (KMP)
 sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.ref = "sqldelight" }
