@@ -193,14 +193,8 @@ jobs:
           DATE="${{ steps.vars.outputs.date }}"
           mkdir -p artifacts/debug artifacts/release
 
-          declare -A APP_NAMES=(
-            ["app-manager"]="manager"
-            ["app-cashier"]="cashier"
-            ["app-delivery"]="delivery"
-          )
-
           for module in app-manager app-cashier app-delivery; do
-            name="${APP_NAMES[$module]}"
+            name="${module#app-}"
 
             # Debug APK
             cp "$module/build/outputs/apk/debug/${module}-debug.apk" \
@@ -307,14 +301,8 @@ jobs:
           EXT="${{ matrix.ext }}"
           mkdir -p artifacts/release
 
-          declare -A APP_NAMES=(
-            ["app-manager"]="manager"
-            ["app-cashier"]="cashier"
-            ["app-delivery"]="delivery"
-          )
-
           for module in app-manager app-cashier app-delivery; do
-            name="${APP_NAMES[$module]}"
+            name="${module#app-}"
 
             # Find the built package file
             PKG=$(find "$module/build/compose/binaries/main/$EXT" \
