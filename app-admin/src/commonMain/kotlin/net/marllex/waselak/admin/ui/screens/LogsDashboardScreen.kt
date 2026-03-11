@@ -33,6 +33,9 @@ import net.marllex.waselak.admin.network.ActionStatDto
 import net.marllex.waselak.admin.network.EndpointStatDto
 import net.marllex.waselak.admin.network.LogEntryDto
 import net.marllex.waselak.admin.network.ResourceStatDto
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.formatDecimal
 import net.marllex.waselak.admin.viewmodel.LogsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -92,6 +95,8 @@ fun LogsDashboardScreen(
                 CircularProgressIndicator()
             }
         } else {
+            val widthClass = LocalWindowSizeClass.current
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -176,7 +181,7 @@ fun LogsDashboardScreen(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
-                                                text = "${"%.1f".format(m.requestsPerMinute)}",
+                                                text = formatDecimal(m.requestsPerMinute, 1),
                                                 style = MaterialTheme.typography.headlineSmall,
                                                 fontWeight = FontWeight.Bold,
                                             )
@@ -231,40 +236,107 @@ fun LogsDashboardScreen(
 
                 // ─── Stats Cards ────────────────────────────────────
                 stats?.let { s ->
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            MiniStatCard(
-                                title = stringResource(Res.string.total_requests),
-                                value = "${s.totalRequests}",
-                                modifier = Modifier.weight(1f)
-                            )
-                            MiniStatCard(
-                                title = stringResource(Res.string.error_count),
-                                value = "${s.errorCount}",
-                                valueColor = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.weight(1f)
-                            )
+                    when (widthClass) {
+                        WindowWidthSizeClass.COMPACT -> {
+                            item {
+                                MiniStatCard(
+                                    title = stringResource(Res.string.total_requests),
+                                    value = "${s.totalRequests}",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            item {
+                                MiniStatCard(
+                                    title = stringResource(Res.string.error_count),
+                                    value = "${s.errorCount}",
+                                    valueColor = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            item {
+                                MiniStatCard(
+                                    title = stringResource(Res.string.error_rate),
+                                    value = "${formatDecimal(s.errorRate, 1)}%",
+                                    valueColor = if (s.errorRate > 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            item {
+                                MiniStatCard(
+                                    title = stringResource(Res.string.avg_duration),
+                                    value = "${formatDecimal(s.avgDurationMs, 0)} ms",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
-                    }
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            MiniStatCard(
-                                title = stringResource(Res.string.error_rate),
-                                value = "${"%.1f".format(s.errorRate)}%",
-                                valueColor = if (s.errorRate > 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f)
-                            )
-                            MiniStatCard(
-                                title = stringResource(Res.string.avg_duration),
-                                value = "${"%.0f".format(s.avgDurationMs)} ms",
-                                modifier = Modifier.weight(1f)
-                            )
+                        WindowWidthSizeClass.MEDIUM -> {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.total_requests),
+                                        value = "${s.totalRequests}",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.error_count),
+                                        value = "${s.errorCount}",
+                                        valueColor = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.error_rate),
+                                        value = "${formatDecimal(s.errorRate, 1)}%",
+                                        valueColor = if (s.errorRate > 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.avg_duration),
+                                        value = "${formatDecimal(s.avgDurationMs, 0)} ms",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                        WindowWidthSizeClass.EXPANDED -> {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.total_requests),
+                                        value = "${s.totalRequests}",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.error_count),
+                                        value = "${s.errorCount}",
+                                        valueColor = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.error_rate),
+                                        value = "${formatDecimal(s.errorRate, 1)}%",
+                                        valueColor = if (s.errorRate > 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MiniStatCard(
+                                        title = stringResource(Res.string.avg_duration),
+                                        value = "${formatDecimal(s.avgDurationMs, 0)} ms",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -551,7 +623,7 @@ private fun ResourceBreakdownSection(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "${"%.0f".format(r.avgDurationMs)}ms",
+                            text = "${formatDecimal(r.avgDurationMs, 0)}ms",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -659,7 +731,7 @@ private fun EndpointSection(
                         )
                         if (highlightDuration) {
                             Text(
-                                text = "${"%.0f".format(ep.avgDurationMs)}ms",
+                                text = "${formatDecimal(ep.avgDurationMs, 0)}ms",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (ep.avgDurationMs > 500) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,

@@ -15,6 +15,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.CreateVendorRequest
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -74,6 +76,8 @@ fun CreateVendorScreen(
 
     val requiredFieldsError = stringResource(Res.string.required_fields)
 
+    val widthClass = LocalWindowSizeClass.current
+
     LaunchedEffect(message) {
         message?.let {
             if (it.contains("created successfully")) {
@@ -100,14 +104,23 @@ fun CreateVendorScreen(
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter,
         ) {
+            Column(
+                modifier = Modifier
+                    .then(
+                        if (widthClass == WindowWidthSizeClass.EXPANDED)
+                            Modifier.widthIn(max = 900.dp)
+                        else Modifier.fillMaxWidth()
+                    )
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             // --- Vendor Info Section ---
             SectionHeader(stringResource(Res.string.vendor_info))
 
@@ -382,6 +395,7 @@ fun CreateVendorScreen(
             }
 
             Spacer(Modifier.height(32.dp))
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.admin.network.*
 import net.marllex.waselak.admin.ui.components.DateRangeSelector
+import net.marllex.waselak.admin.util.formatDecimal
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
@@ -1021,7 +1022,7 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
             InfoRow("Address", vendor.address)
             InfoRow("Phone", vendor.contact_phone)
             vendor.wallet_phone?.let { InfoRow("Wallet", it) }
-            InfoRow(stringResource(Res.string.delivery_fee), "%.2f EGP".format(vendor.default_delivery_fee))
+            InfoRow(stringResource(Res.string.delivery_fee), "${formatDecimal(vendor.default_delivery_fee, 2)} EGP")
 
             // Digital Menu URL
             vendor.digital_menu_url?.let {
@@ -1320,9 +1321,9 @@ private fun RevenueCard(revenue: VendorRevenueStatsDto) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StatItem("Total", "%.0f EGP".format(revenue.total))
-                StatItem("Today", "%.0f EGP".format(revenue.today))
-                StatItem("This Month", "%.0f EGP".format(revenue.this_month))
+                StatItem("Total", "${formatDecimal(revenue.total, 0)} EGP")
+                StatItem("Today", "${formatDecimal(revenue.today, 0)} EGP")
+                StatItem("This Month", "${formatDecimal(revenue.this_month, 0)} EGP")
             }
 
             if (revenue.by_payment_method.isNotEmpty()) {
@@ -1360,7 +1361,7 @@ private fun RevenueCard(revenue: VendorRevenueStatsDto) {
                             )
                         }
                         Text(
-                            text = "${stats.count} orders | %.0f EGP".format(stats.amount),
+                            text = "${stats.count} orders | ${formatDecimal(stats.amount, 0)} EGP",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1388,7 +1389,7 @@ private fun RevenueCard(revenue: VendorRevenueStatsDto) {
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = "%.0f EGP".format(amount),
+                            text = "${formatDecimal(amount, 0)} EGP",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary
@@ -1423,7 +1424,7 @@ private fun TaxCard(tax: VendorTaxStatsDto) {
                 )
             }
             Text(
-                text = "%.2f EGP".format(tax.total_collected),
+                text = "${formatDecimal(tax.total_collected, 2)} EGP",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

@@ -3,6 +3,9 @@ package net.marllex.waselak.admin.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -17,6 +20,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.PlanDto
 import net.marllex.waselak.admin.network.PlanUpdateDto
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.viewmodel.PlansViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -27,6 +32,7 @@ import waselak.app_admin.generated.resources.Res
 fun PlansScreen(
     viewModel: PlansViewModel = koinViewModel()
 ) {
+    val widthClass = LocalWindowSizeClass.current
     val plans by viewModel.plans.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
@@ -80,17 +86,35 @@ fun PlansScreen(
                     )
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(plans, key = { it.name }) { plan ->
-                        PlanCard(
-                            plan = plan,
-                            isLoading = isLoading,
-                            onSave = { update ->
-                                viewModel.updatePlan(plan.name, update)
-                            }
-                        )
+                if (widthClass == WindowWidthSizeClass.COMPACT) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(plans, key = { it.name }) { plan ->
+                            PlanCard(
+                                plan = plan,
+                                isLoading = isLoading,
+                                onSave = { update ->
+                                    viewModel.updatePlan(plan.name, update)
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 400.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        gridItems(plans, key = { it.name }) { plan ->
+                            PlanCard(
+                                plan = plan,
+                                isLoading = isLoading,
+                                onSave = { update ->
+                                    viewModel.updatePlan(plan.name, update)
+                                }
+                            )
+                        }
                     }
                 }
             }

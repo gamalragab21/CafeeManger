@@ -16,6 +16,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.ThemeState
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.padZero
 import net.marllex.waselak.admin.viewmodel.SettingsViewModel
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import org.jetbrains.compose.resources.stringResource
@@ -28,6 +31,7 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel()
 ) {
+    val widthClass = LocalWindowSizeClass.current
     val profile by viewModel.profile.collectAsState()
     val currentPassword by viewModel.currentPassword.collectAsState()
     val newPassword by viewModel.newPassword.collectAsState()
@@ -51,10 +55,16 @@ fun SettingsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 700.dp)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -65,98 +75,198 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold,
             )
 
-            // ─── Profile Section ──────────────────────────────
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            // ─── Profile & Appearance Sections ─────────────────
+            if (widthClass == WindowWidthSizeClass.EXPANDED) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(
-                        text = stringResource(Res.string.profile),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    HorizontalDivider()
-
-                    if (profile != null) {
-                        val p = profile!!
-                        ProfileRow(stringResource(Res.string.name), p.name)
-                        ProfileRow(stringResource(Res.string.email), p.email)
-                        ProfileRow(
-                            stringResource(Res.string.last_login),
-                            if (p.last_login_at != null) formatTimestamp(p.last_login_at)
-                            else stringResource(Res.string.never)
-                        )
-                        ProfileRow(
-                            stringResource(Res.string.account_status),
-                            if (p.active) stringResource(Res.string.active)
-                            else stringResource(Res.string.inactive)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center,
+                    // Profile card
+                    ElevatedCard(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Text(
+                                text = stringResource(Res.string.profile),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            HorizontalDivider()
+
+                            if (profile != null) {
+                                val p = profile!!
+                                ProfileRow(stringResource(Res.string.name), p.name)
+                                ProfileRow(stringResource(Res.string.email), p.email)
+                                ProfileRow(
+                                    stringResource(Res.string.last_login),
+                                    if (p.last_login_at != null) formatTimestamp(p.last_login_at)
+                                    else stringResource(Res.string.never)
+                                )
+                                ProfileRow(
+                                    stringResource(Res.string.account_status),
+                                    if (p.active) stringResource(Res.string.active)
+                                    else stringResource(Res.string.inactive)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
+                    }
+                    // Appearance card
+                    ElevatedCard(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.appearance),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.use_system_theme),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                Switch(
+                                    checked = ThemeState.useSystemTheme,
+                                    onCheckedChange = { ThemeState.useSystemTheme = it },
+                                )
+                            }
+
+                            if (!ThemeState.useSystemTheme) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = if (ThemeState.isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = stringResource(Res.string.dark_mode),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                    }
+                                    Switch(
+                                        checked = ThemeState.isDarkMode,
+                                        onCheckedChange = { ThemeState.isDarkMode = it },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
-
-            // ─── Appearance Section (Dark/Light mode) ─────────
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(Res.string.appearance),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    HorizontalDivider()
-
-                    // Use system theme toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+            } else {
+                // ─── Profile Section ──────────────────────────────
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = stringResource(Res.string.use_system_theme),
-                            style = MaterialTheme.typography.bodyLarge,
+                            text = stringResource(Res.string.profile),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                         )
-                        Switch(
-                            checked = ThemeState.useSystemTheme,
-                            onCheckedChange = { ThemeState.useSystemTheme = it },
-                        )
-                    }
+                        HorizontalDivider()
 
-                    // Manual dark mode toggle (only when not using system theme)
-                    if (!ThemeState.useSystemTheme) {
+                        if (profile != null) {
+                            val p = profile!!
+                            ProfileRow(stringResource(Res.string.name), p.name)
+                            ProfileRow(stringResource(Res.string.email), p.email)
+                            ProfileRow(
+                                stringResource(Res.string.last_login),
+                                if (p.last_login_at != null) formatTimestamp(p.last_login_at)
+                                else stringResource(Res.string.never)
+                            )
+                            ProfileRow(
+                                stringResource(Res.string.account_status),
+                                if (p.active) stringResource(Res.string.active)
+                                else stringResource(Res.string.inactive)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    }
+                }
+
+                // ─── Appearance Section (Dark/Light mode) ─────────
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.appearance),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        HorizontalDivider()
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            Text(
+                                text = stringResource(Res.string.use_system_theme),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Switch(
+                                checked = ThemeState.useSystemTheme,
+                                onCheckedChange = { ThemeState.useSystemTheme = it },
+                            )
+                        }
+
+                        if (!ThemeState.useSystemTheme) {
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Icon(
-                                    imageVector = if (ThemeState.isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text = stringResource(Res.string.dark_mode),
-                                    style = MaterialTheme.typography.bodyLarge,
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = if (ThemeState.isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        text = stringResource(Res.string.dark_mode),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                }
+                                Switch(
+                                    checked = ThemeState.isDarkMode,
+                                    onCheckedChange = { ThemeState.isDarkMode = it },
                                 )
                             }
-                            Switch(
-                                checked = ThemeState.isDarkMode,
-                                onCheckedChange = { ThemeState.isDarkMode = it },
-                            )
                         }
                     }
                 }
@@ -247,6 +357,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(32.dp))
         }
+        }
     }
 }
 
@@ -279,5 +390,5 @@ private fun formatTimestamp(epochMillis: Long): String {
     val remainingDays = (days % 365.25).toInt()
     val month = (remainingDays / 30) + 1
     val day = (remainingDays % 30) + 1
-    return "%04d-%02d-%02d %02d:%02d".format(year, month.coerceIn(1, 12), day.coerceIn(1, 31), hours, minutes)
+    return "${padZero(year, 4)}-${padZero(month.coerceIn(1, 12), 2)}-${padZero(day.coerceIn(1, 31), 2)} ${padZero(hours.toInt(), 2)}:${padZero(minutes.toInt(), 2)}"
 }

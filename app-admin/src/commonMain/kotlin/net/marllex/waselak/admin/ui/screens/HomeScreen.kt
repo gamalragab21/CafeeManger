@@ -29,6 +29,9 @@ import net.marllex.waselak.admin.network.AnalyticsSummary
 import net.marllex.waselak.admin.network.PlatformAlertDto
 import net.marllex.waselak.admin.network.PlanDistribution
 import net.marllex.waselak.admin.network.VendorAnalytics
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
+import net.marllex.waselak.admin.util.formatDecimal
 import net.marllex.waselak.admin.viewmodel.HomeViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -43,6 +46,7 @@ fun HomeScreen(
     val analytics by viewModel.analytics.collectAsState()
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val widthClass = LocalWindowSizeClass.current
 
     LaunchedEffect(Unit) {
         viewModel.loadData()
@@ -83,56 +87,101 @@ fun HomeScreen(
                 }
 
                 item {
-                    KeyMetricsRow(summary)
-                }
-
-                // ─── Revenue Section ─────────────────────────────
-                item {
-                    RevenueSection(summary)
-                }
-
-                // ─── Users & Workers ─────────────────────────────
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        TeamCard(
-                            modifier = Modifier.weight(1f),
-                            title = stringResource(Res.string.users),
-                            icon = Icons.Filled.Person,
-                            active = summary.active_users,
-                            total = summary.total_users,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        TeamCard(
-                            modifier = Modifier.weight(1f),
-                            title = stringResource(Res.string.workers),
-                            icon = Icons.Filled.Groups,
-                            active = summary.active_workers,
-                            total = summary.total_workers,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
+                    when (widthClass) {
+                        WindowWidthSizeClass.COMPACT -> {
+                            KeyMetricsRow(summary)
+                        }
+                        WindowWidthSizeClass.MEDIUM -> {
+                            KeyMetricsGrid2x2(summary)
+                        }
+                        WindowWidthSizeClass.EXPANDED -> {
+                            KeyMetricsExpandedRow(summary)
+                        }
                     }
                 }
 
-                // ─── Plan Distribution ───────────────────────────
-                item {
-                    PlanDistributionCard(planDist, summary.total_vendors)
+                // ─── Revenue Section + Team Cards ────────────────
+                when (widthClass) {
+                    WindowWidthSizeClass.COMPACT,
+                    WindowWidthSizeClass.MEDIUM -> {
+                        item { RevenueSection(summary) }
+                        item {
+                            TeamCardsRow(summary)
+                        }
+                    }
+                    WindowWidthSizeClass.EXPANDED -> {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                Box(modifier = Modifier.weight(1.2f)) {
+                                    RevenueSection(summary)
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    TeamCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        title = stringResource(Res.string.users),
+                                        icon = Icons.Filled.Person,
+                                        active = summary.active_users,
+                                        total = summary.total_users,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    TeamCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        title = stringResource(Res.string.workers),
+                                        icon = Icons.Filled.Groups,
+                                        active = summary.active_workers,
+                                        total = summary.total_workers,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // ─── Top Active Vendors ──────────────────────────
-                if (data.vendors.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Top Vendors Today",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
+                // ─── Plan Distribution + Top Vendors ─────────────
+                when (widthClass) {
+                    WindowWidthSizeClass.COMPACT,
+                    WindowWidthSizeClass.MEDIUM -> {
+                        item { PlanDistributionCard(planDist, summary.total_vendors) }
+                        if (data.vendors.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Top Vendors Today",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            item { TopVendorsSection(data.vendors) }
+                        }
                     }
-
-                    item {
-                        TopVendorsSection(data.vendors)
+                    WindowWidthSizeClass.EXPANDED -> {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    PlanDistributionCard(planDist, summary.total_vendors)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    if (data.vendors.isNotEmpty()) {
+                                        Text(
+                                            text = "Top Vendors Today",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        TopVendorsSection(data.vendors)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -272,8 +321,137 @@ private fun KeyMetricsRow(summary: AnalyticsSummary) {
     }
 }
 
+// ─── Key Metrics 2x2 Grid (MEDIUM) ──────────────────────────────
+
+@Composable
+private fun KeyMetricsGrid2x2(summary: AnalyticsSummary) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Store,
+                title = stringResource(Res.string.total_vendors),
+                value = "${summary.total_vendors}",
+                subtitle = "${summary.active_vendors} ${stringResource(Res.string.active)}",
+                iconTint = Color(0xFF4CAF50),
+                iconBg = Color(0xFF4CAF50).copy(alpha = 0.12f),
+            )
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Receipt,
+                title = stringResource(Res.string.orders_today),
+                value = "${summary.orders_today}",
+                subtitle = null,
+                iconTint = Color(0xFF2196F3),
+                iconBg = Color(0xFF2196F3).copy(alpha = 0.12f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.CalendarMonth,
+                title = stringResource(Res.string.orders_this_month),
+                value = "${summary.orders_this_month}",
+                subtitle = null,
+                iconTint = Color(0xFF9C27B0),
+                iconBg = Color(0xFF9C27B0).copy(alpha = 0.12f),
+            )
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Warning,
+                title = stringResource(Res.string.suspended),
+                value = "${summary.suspended_vendors}",
+                subtitle = null,
+                iconTint = Color(0xFFFF9800),
+                iconBg = Color(0xFFFF9800).copy(alpha = 0.12f),
+            )
+        }
+    }
+}
+
+// ─── Key Metrics Expanded Row (EXPANDED) ────────────────────────
+
+@Composable
+private fun KeyMetricsExpandedRow(summary: AnalyticsSummary) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MetricCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.Store,
+            title = stringResource(Res.string.total_vendors),
+            value = "${summary.total_vendors}",
+            subtitle = "${summary.active_vendors} ${stringResource(Res.string.active)}",
+            iconTint = Color(0xFF4CAF50),
+            iconBg = Color(0xFF4CAF50).copy(alpha = 0.12f),
+        )
+        MetricCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.Receipt,
+            title = stringResource(Res.string.orders_today),
+            value = "${summary.orders_today}",
+            subtitle = null,
+            iconTint = Color(0xFF2196F3),
+            iconBg = Color(0xFF2196F3).copy(alpha = 0.12f),
+        )
+        MetricCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.CalendarMonth,
+            title = stringResource(Res.string.orders_this_month),
+            value = "${summary.orders_this_month}",
+            subtitle = null,
+            iconTint = Color(0xFF9C27B0),
+            iconBg = Color(0xFF9C27B0).copy(alpha = 0.12f),
+        )
+        MetricCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.Warning,
+            title = stringResource(Res.string.suspended),
+            value = "${summary.suspended_vendors}",
+            subtitle = null,
+            iconTint = Color(0xFFFF9800),
+            iconBg = Color(0xFFFF9800).copy(alpha = 0.12f),
+        )
+    }
+}
+
+// ─── Team Cards Row ─────────────────────────────────────────────
+
+@Composable
+private fun TeamCardsRow(summary: AnalyticsSummary) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        TeamCard(
+            modifier = Modifier.weight(1f),
+            title = stringResource(Res.string.users),
+            icon = Icons.Filled.Person,
+            active = summary.active_users,
+            total = summary.total_users,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        TeamCard(
+            modifier = Modifier.weight(1f),
+            title = stringResource(Res.string.workers),
+            icon = Icons.Filled.Groups,
+            active = summary.active_workers,
+            total = summary.total_workers,
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+    }
+}
+
 @Composable
 private fun MetricCard(
+    modifier: Modifier = Modifier.width(170.dp),
     icon: ImageVector,
     title: String,
     value: String,
@@ -282,7 +460,7 @@ private fun MetricCard(
     iconBg: Color,
 ) {
     ElevatedCard(
-        modifier = Modifier.width(170.dp),
+        modifier = modifier,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(
@@ -360,7 +538,7 @@ private fun RevenueSection(summary: AnalyticsSummary) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "EGP ${"%.2f".format(summary.revenue_today)}",
+                        text = "EGP ${formatDecimal(summary.revenue_today, 2)}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50),
@@ -374,7 +552,7 @@ private fun RevenueSection(summary: AnalyticsSummary) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "EGP ${"%.2f".format(summary.revenue_this_month)}",
+                        text = "EGP ${formatDecimal(summary.revenue_this_month, 2)}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
@@ -590,7 +768,7 @@ private fun TopVendorsSection(vendors: List<VendorAnalytics>) {
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            text = "EGP ${"%.0f".format(vendor.revenue_this_month)}",
+                            text = "EGP ${formatDecimal(vendor.revenue_this_month, 0)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

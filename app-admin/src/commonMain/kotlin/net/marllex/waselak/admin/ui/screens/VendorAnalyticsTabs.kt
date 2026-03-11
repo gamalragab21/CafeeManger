@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.*
+import net.marllex.waselak.admin.util.formatDecimal
+import net.marllex.waselak.admin.util.formatPercent
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
 
 // ══════════════════════════════════════════════════════════════════════
@@ -44,7 +46,7 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MetricCard(
                         title = "Revenue",
-                        value = "%.2f".format(s.current.total_revenue),
+                        value = formatDecimal(s.current.total_revenue, 2),
                         change = s.revenue_change_percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -56,7 +58,7 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
                     )
                     MetricCard(
                         title = "AOV",
-                        value = "%.2f".format(s.current.average_order_value),
+                        value = formatDecimal(s.current.average_order_value, 2),
                         change = s.aov_change_percent,
                         modifier = Modifier.weight(1f)
                     )
@@ -65,7 +67,7 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SmallInfoCard("Active Orders", s.active_orders.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Net Revenue", "%.2f".format(s.current.net_revenue), Modifier.weight(1f))
+                    SmallInfoCard("Net Revenue", formatDecimal(s.current.net_revenue, 2), Modifier.weight(1f))
                     SmallInfoCard("Attendance", s.attendance_today.toString(), Modifier.weight(1f))
                 }
             }
@@ -80,13 +82,13 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoRowSimple("Gross Revenue", "%.2f".format(r.gross_revenue))
-                        InfoRowSimple("Delivery Fees", "%.2f".format(r.total_delivery_fees))
-                        InfoRowSimple("Net Revenue", "%.2f".format(r.net_revenue))
+                        InfoRowSimple("Gross Revenue", formatDecimal(r.gross_revenue, 2))
+                        InfoRowSimple("Delivery Fees", formatDecimal(r.total_delivery_fees, 2))
+                        InfoRowSimple("Net Revenue", formatDecimal(r.net_revenue, 2))
                         Divider()
                         Text("Payment Methods", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                         r.payment_methods.forEach { pm ->
-                            InfoRowSimple("${pm.method} (${pm.order_count})", "%.2f".format(pm.revenue))
+                            InfoRowSimple("${pm.method} (${pm.order_count})", formatDecimal(pm.revenue, 2))
                         }
                     }
                 }
@@ -113,7 +115,7 @@ fun RevenueOrdersTab(viewModel: VendorDetailViewModel) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Channel Breakdown", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             o.channel_breakdown.forEach { ch ->
-                                InfoRowSimple("${ch.channel} (${ch.count})", "%.1f%%".format(ch.percent))
+                                InfoRowSimple("${ch.channel} (${ch.count})", formatPercent(ch.percent, 1))
                             }
                         }
                     }
@@ -152,7 +154,7 @@ fun PeakTimesTab(viewModel: VendorDetailViewModel) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         pt.hourly_data.filter { it.order_count > 0 }.forEach { h ->
-                            InfoRowSimple("${h.hour}:00 - ${h.hour + 1}:00", "${h.order_count} orders (%.2f)".format(h.revenue))
+                            InfoRowSimple("${h.hour}:00 - ${h.hour + 1}:00", "${h.order_count} orders (${formatDecimal(h.revenue, 2)})")
                         }
                         if (pt.hourly_data.all { it.order_count == 0 }) {
                             Text("No orders in this period", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -167,7 +169,7 @@ fun PeakTimesTab(viewModel: VendorDetailViewModel) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         pt.day_of_week.forEach { d ->
-                            InfoRowSimple("${d.name} (${d.order_count} orders)", "%.2f".format(d.revenue))
+                            InfoRowSimple("${d.name} (${d.order_count} orders)", formatDecimal(d.revenue, 2))
                         }
                     }
                 }
@@ -203,9 +205,9 @@ fun StaffPerformanceTab(viewModel: VendorDetailViewModel) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(c.cashier_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     InfoRowSimple("Orders", c.order_count.toString())
-                    InfoRowSimple("Revenue", "%.2f".format(c.revenue))
-                    InfoRowSimple("AOV", "%.2f".format(c.average_order_value))
-                    InfoRowSimple("Cancelled", "${c.cancelled_orders} (%.1f%%)".format(c.cancellation_rate))
+                    InfoRowSimple("Revenue", formatDecimal(c.revenue, 2))
+                    InfoRowSimple("AOV", formatDecimal(c.average_order_value, 2))
+                    InfoRowSimple("Cancelled", "${c.cancelled_orders} (${formatPercent(c.cancellation_rate, 1)})")
                 }
             }
         }
@@ -222,8 +224,8 @@ fun StaffPerformanceTab(viewModel: VendorDetailViewModel) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(d.driver_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     InfoRowSimple("Completed Orders", d.orders_completed.toString())
-                    InfoRowSimple("Fees Collected", "%.2f".format(d.fees_collected))
-                    InfoRowSimple("Revenue", "%.2f".format(d.revenue))
+                    InfoRowSimple("Fees Collected", formatDecimal(d.fees_collected, 2))
+                    InfoRowSimple("Revenue", formatDecimal(d.revenue, 2))
                 }
             }
         }
@@ -253,7 +255,7 @@ fun ProductsTab(viewModel: VendorDetailViewModel) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("${cat.category_name} (${cat.item_count} items)", style = MaterialTheme.typography.bodyMedium)
-                            Text("%.2f".format(cat.revenue), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(formatDecimal(cat.revenue, 2), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -293,12 +295,12 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SmallInfoCard("Total", ci.total_customers.toString(), Modifier.weight(1f))
-                    SmallInfoCard("New", "%.0f%%".format(ci.new_customers_percent), Modifier.weight(1f))
-                    SmallInfoCard("Returning", "%.0f%%".format(ci.returning_customers_percent), Modifier.weight(1f))
+                    SmallInfoCard("New", formatPercent(ci.new_customers_percent, 0), Modifier.weight(1f))
+                    SmallInfoCard("Returning", formatPercent(ci.returning_customers_percent, 0), Modifier.weight(1f))
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmallInfoCard("Avg Spend", "%.2f".format(ci.average_spend), Modifier.weight(1f))
-                    SmallInfoCard("LTV", "%.2f".format(ci.lifetime_value), Modifier.weight(1f))
+                    SmallInfoCard("Avg Spend", formatDecimal(ci.average_spend, 2), Modifier.weight(1f))
+                    SmallInfoCard("LTV", formatDecimal(ci.lifetime_value, 2), Modifier.weight(1f))
                 }
             }
         }
@@ -348,7 +350,7 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                             }
                             InfoRowSimple("Phone", customer.phone)
                             InfoRowSimple("Orders", customer.order_count.toString())
-                            InfoRowSimple("Total Spent", "%.2f EGP".format(customer.total_spent))
+                            InfoRowSimple("Total Spent", "${formatDecimal(customer.total_spent, 2)} EGP")
                         }
                     }
                 }
@@ -380,7 +382,7 @@ fun CustomersTab(viewModel: VendorDetailViewModel) {
                                     Text(c.customer_name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                     InfoRowSimple("Phone", c.phone)
                                     InfoRowSimple("Orders", c.order_count.toString())
-                                    InfoRowSimple("Total Spent", "%.2f".format(c.total_spent))
+                                    InfoRowSimple("Total Spent", formatDecimal(c.total_spent, 2))
                                 }
                             }
                         }
@@ -412,8 +414,8 @@ fun StockTab(viewModel: VendorDetailViewModel) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SmallInfoCard("Items", s.total_items.toString(), Modifier.weight(1f))
-                    SmallInfoCard("Stock Value", "%.2f".format(s.total_stock_value), Modifier.weight(1f))
-                    SmallInfoCard("Profit", "%.2f".format(s.potential_profit), Modifier.weight(1f))
+                    SmallInfoCard("Stock Value", formatDecimal(s.total_stock_value, 2), Modifier.weight(1f))
+                    SmallInfoCard("Profit", formatDecimal(s.potential_profit, 2), Modifier.weight(1f))
                 }
             }
 
@@ -474,8 +476,8 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
                                 }
                             }
                             InfoRowSimple("Uses", offer.usage_count.toString())
-                            InfoRowSimple("Discount Given", "%.2f".format(offer.total_discount_given))
-                            InfoRowSimple("Revenue", "%.2f".format(offer.total_revenue_from_offer_orders))
+                            InfoRowSimple("Discount Given", formatDecimal(offer.total_discount_given, 2))
+                            InfoRowSimple("Revenue", formatDecimal(offer.total_revenue_from_offer_orders, 2))
                         }
                     }
                 }
@@ -490,13 +492,13 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         InfoRowSimple("Orders with Discount", d.total_orders_with_discount.toString())
-                        InfoRowSimple("Total Discount", "%.2f".format(d.total_discount_given))
-                        InfoRowSimple("Avg per Order", "%.2f".format(d.average_discount_per_order))
-                        InfoRowSimple("Discount Rate", "%.1f%%".format(d.discount_rate))
+                        InfoRowSimple("Total Discount", formatDecimal(d.total_discount_given, 2))
+                        InfoRowSimple("Avg per Order", formatDecimal(d.average_discount_per_order, 2))
+                        InfoRowSimple("Discount Rate", formatPercent(d.discount_rate, 1))
                         if (d.breakdown.isNotEmpty()) {
                             Divider(modifier = Modifier.padding(vertical = 4.dp))
                             d.breakdown.forEach { b ->
-                                InfoRowSimple("${b.type} (${b.count})", "%.2f (%.0f%%)".format(b.total_amount, b.percent_of_total))
+                                InfoRowSimple("${b.type} (${b.count})", "${formatDecimal(b.total_amount, 2)} (${formatPercent(b.percent_of_total, 0)})")
                             }
                         }
                     }
@@ -515,8 +517,8 @@ fun OffersDiscountsTab(viewModel: VendorDetailViewModel) {
                         InfoRowSimple("Points Redeemed", l.total_points_redeemed.toString())
                         InfoRowSimple("Outstanding", l.total_points_outstanding.toString())
                         InfoRowSimple("Active Customers", l.active_loyalty_customers.toString())
-                        InfoRowSimple("Redemption Rate", "%.1f%%".format(l.redemption_rate))
-                        InfoRowSimple("Points Revenue", "%.2f".format(l.points_to_revenue))
+                        InfoRowSimple("Redemption Rate", formatPercent(l.redemption_rate, 1))
+                        InfoRowSimple("Points Revenue", formatDecimal(l.points_to_revenue, 2))
                     }
                 }
             }
@@ -667,7 +669,7 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                                 StatusBadge(order.status)
                             }
                             InfoRowSimple("Channel", order.channel)
-                            InfoRowSimple("Total", "%.2f EGP".format(order.total))
+                            InfoRowSimple("Total", "${formatDecimal(order.total, 2)} EGP")
                             InfoRowSimple("Payment", "${order.payment_method} (${order.payment_status})")
                             if (order.client_phone.isNotBlank()) InfoRowSimple("Phone", order.client_phone)
                         }
@@ -737,13 +739,13 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                             HorizontalDivider()
 
                             // Price breakdown
-                            InfoRowSimple("Subtotal", "%.2f EGP".format(detail.subtotal))
-                            if (detail.delivery_fee > 0) InfoRowSimple("Delivery Fee", "%.2f EGP".format(detail.delivery_fee))
-                            if (detail.discount > 0) InfoRowSimple("Discount", "-%.2f EGP".format(detail.discount))
-                            if (detail.tax > 0) InfoRowSimple("Tax", "%.2f EGP".format(detail.tax))
+                            InfoRowSimple("Subtotal", "${formatDecimal(detail.subtotal, 2)} EGP")
+                            if (detail.delivery_fee > 0) InfoRowSimple("Delivery Fee", "${formatDecimal(detail.delivery_fee, 2)} EGP")
+                            if (detail.discount > 0) InfoRowSimple("Discount", "-${formatDecimal(detail.discount, 2)} EGP")
+                            if (detail.tax > 0) InfoRowSimple("Tax", "${formatDecimal(detail.tax, 2)} EGP")
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Total", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Text("%.2f EGP".format(detail.total), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("${formatDecimal(detail.total, 2)} EGP", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
 
                             InfoRowSimple("Payment", "${detail.payment_method} (${detail.payment_status})")
@@ -786,8 +788,8 @@ fun OrdersListTab(vendorId: String, viewModel: VendorDetailViewModel) {
                                                     }
                                                 }
                                             }
-                                            Text("${item.quantity} x %.2f".format(item.item_price), style = MaterialTheme.typography.bodySmall)
-                                            Text("%.2f".format(item.item_price * item.quantity), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                            Text("${item.quantity} x ${formatDecimal(item.item_price, 2)}", style = MaterialTheme.typography.bodySmall)
+                                            Text(formatDecimal(item.item_price * item.quantity, 2), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -830,7 +832,7 @@ fun WorkersTab(viewModel: VendorDetailViewModel) {
                         }
                         InfoRowSimple("ID", worker.worker_id)
                         InfoRowSimple("Role", worker.role)
-                        InfoRowSimple("Salary", "${worker.salary_type}: %.2f".format(worker.salary_amount))
+                        InfoRowSimple("Salary", "${worker.salary_type}: ${formatDecimal(worker.salary_amount, 2)}")
                         InfoRowSimple("Attendance (30d)", "${worker.attendance_days_30d} days")
                         val hours = worker.worked_minutes_30d / 60
                         val mins = worker.worked_minutes_30d % 60
@@ -861,7 +863,7 @@ fun MetricCard(title: String, value: String, change: Double, modifier: Modifier 
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             val changeColor = if (change >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
             val arrow = if (change >= 0) "\u2191" else "\u2193"
-            Text("$arrow %.1f%%".format(kotlin.math.abs(change)), style = MaterialTheme.typography.labelSmall, color = changeColor)
+            Text("$arrow ${formatPercent(kotlin.math.abs(change), 1)}", style = MaterialTheme.typography.labelSmall, color = changeColor)
         }
     }
 }
@@ -916,8 +918,8 @@ fun ProductRow(item: ProductItemDto) {
                 Text(item.category_name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             InfoRowSimple("Qty Sold", item.quantity_sold.toString())
-            InfoRowSimple("Revenue", "%.2f".format(item.revenue))
-            InfoRowSimple("Margin", "%.1f%%".format(item.profit_margin))
+            InfoRowSimple("Revenue", formatDecimal(item.revenue, 2))
+            InfoRowSimple("Margin", formatPercent(item.profit_margin, 1))
         }
     }
 }

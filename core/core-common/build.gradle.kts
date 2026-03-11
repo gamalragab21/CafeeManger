@@ -13,6 +13,15 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kermit)
+        }
+        androidMain.dependencies {
+            api(libs.sentry.kmp)
+        }
+        val desktopMain by getting
+        desktopMain.dependencies {
+            api(libs.sentry.kmp)
+        }
+        iosMain.dependencies {
             api(libs.sentry.kmp)
         }
     }

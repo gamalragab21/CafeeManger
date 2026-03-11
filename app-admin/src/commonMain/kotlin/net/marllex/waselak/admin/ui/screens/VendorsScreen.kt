@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -24,6 +27,8 @@ import net.marllex.waselak.admin.network.VendorDto
 import net.marllex.waselak.admin.util.CsvColumn
 import net.marllex.waselak.admin.util.FileSaver
 import net.marllex.waselak.admin.util.buildCsvString
+import net.marllex.waselak.admin.util.LocalWindowSizeClass
+import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
@@ -56,6 +61,8 @@ fun VendorsScreen(
     var typeFilter by remember { mutableStateOf<String?>(null) } // null = all types
     var sortOption by remember { mutableStateOf(VendorSortOption.NAME) }
     var sortAscending by remember { mutableStateOf(true) }
+
+    val widthClass = LocalWindowSizeClass.current
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -401,8 +408,15 @@ fun VendorsScreen(
                     )
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                val columns = when (widthClass) {
+                    WindowWidthSizeClass.COMPACT -> 1
+                    WindowWidthSizeClass.MEDIUM -> 2
+                    WindowWidthSizeClass.EXPANDED -> 3
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(columns),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(filteredVendors, key = { it.id }) { vendor ->
                         VendorCard(
