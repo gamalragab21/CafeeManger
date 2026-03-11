@@ -164,7 +164,7 @@ jobs:
       - name: Create keystore/keystore.properties
         run: |
           cat > keystore/keystore.properties << EOF
-          STORE_FILE=../keystore/waselak-release.jks
+          STORE_FILE=keystore/waselak-release.jks
           STORE_PASSWORD=${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEY_ALIAS=${{ secrets.KEYSTORE_KEY_ALIAS }}
           KEY_PASSWORD=${{ secrets.KEYSTORE_KEY_PASSWORD }}
