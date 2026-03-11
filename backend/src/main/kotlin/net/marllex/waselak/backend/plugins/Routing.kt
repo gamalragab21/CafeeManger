@@ -34,6 +34,8 @@ fun Application.configureRouting() {
         adminRoutes()
         // Admin API routes (JWT Bearer auth for CMP admin app)
         adminApiRoutes()
+        // Admin CMS analytics routes (vendor analytics via admin JWT)
+        adminAnalyticsRoutes()
         // Admin dashboard (cookie-based JWT)
         adminDashboardRoutes()
 

@@ -381,9 +381,21 @@ data class VendorDetailInfo(
     val default_tax_percent: Double = 0.0,
     val stock_mode: String = "NONE",
     val default_delivery_fee: Double = 0.0,
+    val offline_mode_enabled: Boolean = false,
+    val biometric_required: Boolean = false,
+    // Loyalty settings
+    val loyalty_enabled: Boolean = false,
+    val points_earn_rate: Double = 1.0,
+    val points_redeem_rate: Double = 0.1,
+    val min_points_redeem: Int = 100,
+    // Discount settings
+    val max_manual_discount_percent: Double = 100.0,
+    val manual_discount_requires_pin: Boolean = false,
     val plan_name: String? = null,
     val plan_display_name: String? = null,
     val subscription_status: String? = null,
+    val subscription_started_at: Long? = null,
+    val subscription_expires_at: Long? = null,
     val created_at: Long = 0,
     val updated_at: Long = 0
 )
@@ -439,4 +451,474 @@ data class VendorTaxStatsDto(
 data class VendorPlanUsageDto(
     val plan: PlanUsageInfo,
     val usage: UsageInfo
+)
+
+// ══════════════════════════════════════════════════════════════════════
+// Vendor Analytics DTOs (CMS wrapper of vendor dashboard analytics)
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Executive Summary ────────────────────────────────────────────────
+@Serializable
+data class PeriodMetricsDto(
+    val total_revenue: Double = 0.0,
+    val net_revenue: Double = 0.0,
+    val pending_revenue: Double = 0.0,
+    val total_orders: Int = 0,
+    val average_order_value: Double = 0.0,
+    val total_delivery_fees: Double = 0.0,
+    val total_discounts: Double = 0.0,
+    val total_tax: Double = 0.0,
+)
+
+@Serializable
+data class ExecutiveSummaryDto(
+    val current: PeriodMetricsDto = PeriodMetricsDto(),
+    val previous: PeriodMetricsDto = PeriodMetricsDto(),
+    val revenue_change_percent: Double = 0.0,
+    val orders_change_percent: Double = 0.0,
+    val aov_change_percent: Double = 0.0,
+    val active_orders: Int = 0,
+    val attendance_today: Int = 0,
+)
+
+// ── Revenue & Profit ─────────────────────────────────────────────────
+@Serializable
+data class PaymentMethodDetailDto(
+    val method: String = "",
+    val order_count: Int = 0,
+    val revenue: Double = 0.0,
+)
+
+@Serializable
+data class DailyRevenuePointDto(
+    val date: String = "",
+    val revenue: Double = 0.0,
+)
+
+@Serializable
+data class RevenueProfitDto(
+    val gross_revenue: Double = 0.0,
+    val total_delivery_fees: Double = 0.0,
+    val net_revenue: Double = 0.0,
+    val payment_methods: List<PaymentMethodDetailDto> = emptyList(),
+    val daily_trend: List<DailyRevenuePointDto> = emptyList(),
+)
+
+// ── Orders Intelligence ──────────────────────────────────────────────
+@Serializable
+data class DailyOrderTrendPointDto(
+    val date: String = "",
+    val total: Int = 0,
+    val completed: Int = 0,
+    val cancelled: Int = 0,
+)
+
+@Serializable
+data class ChannelBreakdownDto(
+    val channel: String = "",
+    val count: Int = 0,
+    val percent: Double = 0.0,
+)
+
+@Serializable
+data class OrdersIntelligenceDto(
+    val total_orders: Int = 0,
+    val completed_orders: Int = 0,
+    val cancelled_orders: Int = 0,
+    val refunded_orders: Int = 0,
+    val orders_by_channel: Map<String, Int> = emptyMap(),
+    val daily_trend: List<DailyOrderTrendPointDto> = emptyList(),
+    val channel_breakdown: List<ChannelBreakdownDto> = emptyList(),
+)
+
+// ── Peak Time Analysis ───────────────────────────────────────────────
+@Serializable
+data class HourlyDataDto(
+    val hour: Int = 0,
+    val order_count: Int = 0,
+    val revenue: Double = 0.0,
+)
+
+@Serializable
+data class HeatmapPointDto(
+    val day_of_week: Int = 0,
+    val hour: Int = 0,
+    val order_count: Int = 0,
+)
+
+@Serializable
+data class DayOfWeekDto(
+    val day_of_week: Int = 0,
+    val name: String = "",
+    val order_count: Int = 0,
+    val revenue: Double = 0.0,
+)
+
+@Serializable
+data class PeakTimeAnalysisDto(
+    val busiest_hour: Int = 0,
+    val busiest_day: String = "",
+    val hourly_data: List<HourlyDataDto> = emptyList(),
+    val heatmap: List<HeatmapPointDto> = emptyList(),
+    val day_of_week: List<DayOfWeekDto> = emptyList(),
+)
+
+// ── Staff Performance ────────────────────────────────────────────────
+@Serializable
+data class CashierPerformanceDto(
+    val cashier_id: String = "",
+    val cashier_name: String = "",
+    val revenue: Double = 0.0,
+    val order_count: Int = 0,
+    val average_order_value: Double = 0.0,
+    val cancelled_orders: Int = 0,
+    val cancellation_rate: Double = 0.0,
+)
+
+@Serializable
+data class DeliveryPerformanceDto(
+    val driver_id: String = "",
+    val driver_name: String = "",
+    val orders_completed: Int = 0,
+    val fees_collected: Double = 0.0,
+    val revenue: Double = 0.0,
+    val avg_delivery_time_minutes: Double = 0.0,
+    val late_delivery_percent: Double = 0.0,
+)
+
+// ── Product Intelligence ─────────────────────────────────────────────
+@Serializable
+data class ProductItemDto(
+    val item_id: String = "",
+    val item_name: String = "",
+    val category_name: String = "",
+    val quantity_sold: Int = 0,
+    val revenue: Double = 0.0,
+    val cost_price: Double = 0.0,
+    val profit_margin: Double = 0.0,
+)
+
+@Serializable
+data class CategoryRevenueDto(
+    val category_id: String = "",
+    val category_name: String = "",
+    val revenue: Double = 0.0,
+    val item_count: Int = 0,
+)
+
+@Serializable
+data class ProductIntelligenceDto(
+    val top_selling: List<ProductItemDto> = emptyList(),
+    val most_profitable: List<ProductItemDto> = emptyList(),
+    val least_selling: List<ProductItemDto> = emptyList(),
+    val revenue_by_category: List<CategoryRevenueDto> = emptyList(),
+    val low_margin_warnings: List<ProductItemDto> = emptyList(),
+)
+
+// ── Customer Intelligence ────────────────────────────────────────────
+@Serializable
+data class TopCustomerDto(
+    val customer_id: String = "",
+    val customer_name: String = "",
+    val phone: String = "",
+    val order_count: Int = 0,
+    val total_spent: Double = 0.0,
+)
+
+@Serializable
+data class CustomerIntelligenceDto(
+    val total_customers: Int = 0,
+    val new_customers_percent: Double = 0.0,
+    val returning_customers_percent: Double = 0.0,
+    val average_spend: Double = 0.0,
+    val lifetime_value: Double = 0.0,
+    val top_customers: List<TopCustomerDto> = emptyList(),
+    val frequency_buckets: Map<String, Int> = emptyMap(),
+)
+
+// ── Alerts ───────────────────────────────────────────────────────────
+@Serializable
+data class AlertItemDto(
+    val type: String = "",
+    val severity: String = "",
+    val title: String = "",
+    val message: String = "",
+    val value: Double = 0.0,
+    val threshold: Double = 0.0,
+)
+
+@Serializable
+data class AlertsResponseDto(
+    val alerts: List<AlertItemDto> = emptyList(),
+)
+
+// ── Stock Overview ───────────────────────────────────────────────────
+@Serializable
+data class StockOverviewItemDto(
+    val stock_id: String = "",
+    val item_name: String = "",
+    val quantity: Double = 0.0,
+    val min_quantity: Double = 0.0,
+    val cost_price: Double = 0.0,
+    val unit: String = "",
+    val status: String = "",
+)
+
+@Serializable
+data class StockMovementDto(
+    val date: String = "",
+    val added: Double = 0.0,
+    val deducted: Double = 0.0,
+)
+
+@Serializable
+data class StockOverviewDto(
+    val total_stock_value: Double = 0.0,
+    val total_selling_value: Double = 0.0,
+    val potential_profit: Double = 0.0,
+    val total_items: Int = 0,
+    val low_stock_items: List<StockOverviewItemDto> = emptyList(),
+    val out_of_stock_items: List<StockOverviewItemDto> = emptyList(),
+    val dead_stock_items: List<StockOverviewItemDto> = emptyList(),
+    val movement_summary: List<StockMovementDto> = emptyList(),
+)
+
+// ── Offers Analytics ─────────────────────────────────────────────────
+@Serializable
+data class OfferPerformanceItemDto(
+    val offer_id: String = "",
+    val offer_name: String = "",
+    val discount_type: String = "",
+    val discount_value: Double = 0.0,
+    val usage_count: Int = 0,
+    val total_discount_given: Double = 0.0,
+    val total_revenue_from_offer_orders: Double = 0.0,
+    val promo_code: String? = null,
+    val is_active: Boolean = false,
+)
+
+@Serializable
+data class DailyOfferUsageDto(
+    val date: String = "",
+    val usage_count: Int = 0,
+    val discount_amount: Double = 0.0,
+)
+
+@Serializable
+data class OffersAnalyticsDto(
+    val total_offers: Int = 0,
+    val active_offers: Int = 0,
+    val total_offer_uses: Int = 0,
+    val total_discount_from_offers: Double = 0.0,
+    val average_discount_per_use: Double = 0.0,
+    val top_offers: List<OfferPerformanceItemDto> = emptyList(),
+    val offer_usage_trend: List<DailyOfferUsageDto> = emptyList(),
+)
+
+// ── Discount Analytics ───────────────────────────────────────────────
+@Serializable
+data class DiscountBreakdownDto(
+    val type: String = "",
+    val count: Int = 0,
+    val total_amount: Double = 0.0,
+    val percent_of_total: Double = 0.0,
+)
+
+@Serializable
+data class DailyDiscountTrendDto(
+    val date: String = "",
+    val manual_discount: Double = 0.0,
+    val offer_discount: Double = 0.0,
+    val points_discount: Double = 0.0,
+)
+
+@Serializable
+data class DiscountAnalyticsDto(
+    val total_orders_with_discount: Int = 0,
+    val total_discount_given: Double = 0.0,
+    val average_discount_per_order: Double = 0.0,
+    val discount_rate: Double = 0.0,
+    val breakdown: List<DiscountBreakdownDto> = emptyList(),
+    val daily_trend: List<DailyDiscountTrendDto> = emptyList(),
+)
+
+// ── Loyalty Analytics ────────────────────────────────────────────────
+@Serializable
+data class DailyLoyaltyTrendDto(
+    val date: String = "",
+    val points_earned: Int = 0,
+    val points_redeemed: Int = 0,
+)
+
+@Serializable
+data class LoyaltyAnalyticsDto(
+    val total_points_earned: Long = 0,
+    val total_points_redeemed: Long = 0,
+    val total_points_outstanding: Long = 0,
+    val active_loyalty_customers: Int = 0,
+    val redemption_rate: Double = 0.0,
+    val points_to_revenue: Double = 0.0,
+    val daily_trend: List<DailyLoyaltyTrendDto> = emptyList(),
+)
+
+// ══════════════════════════════════════════════════════════════════════
+// CMS Orders, Customers, Workers DTOs
+// ══════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class CmsOrderListResponse(
+    val total: Int = 0,
+    val page: Int = 1,
+    val page_size: Int = 20,
+    val total_pages: Int = 0,
+    val orders: List<CmsOrderDto> = emptyList(),
+)
+
+@Serializable
+data class CmsOrderDto(
+    val id: String = "",
+    val channel: String = "",
+    val status: String = "",
+    val payment_method: String = "",
+    val payment_status: String = "",
+    val subtotal: Double = 0.0,
+    val delivery_fee: Double = 0.0,
+    val discount: Double = 0.0,
+    val tax: Double = 0.0,
+    val total: Double = 0.0,
+    val client_name: String = "",
+    val client_phone: String = "",
+    val notes: String = "",
+    val created_at: Long = 0,
+    val updated_at: Long = 0,
+    val refunded_at: Long? = null,
+    val refund_reason: String? = null,
+    val points_earned: Int = 0,
+    val points_redeemed: Int = 0,
+)
+
+@Serializable
+data class CmsOrderDetailDto(
+    val id: String = "",
+    val channel: String = "",
+    val status: String = "",
+    val payment_method: String = "",
+    val payment_status: String = "",
+    val subtotal: Double = 0.0,
+    val delivery_fee: Double = 0.0,
+    val discount: Double = 0.0,
+    val tax: Double = 0.0,
+    val total: Double = 0.0,
+    val client_name: String = "",
+    val client_phone: String = "",
+    val client_address: String? = null,
+    val geo_lat: Double? = null,
+    val geo_lng: Double? = null,
+    val notes: String = "",
+    val created_at: Long = 0,
+    val updated_at: Long = 0,
+    val refunded_at: Long? = null,
+    val refund_reason: String? = null,
+    val points_earned: Int = 0,
+    val points_redeemed: Int = 0,
+    val items: List<CmsOrderItemDto> = emptyList(),
+)
+
+@Serializable
+data class CmsOrderItemDto(
+    val id: String = "",
+    val item_id: String = "",
+    val item_name: String = "",
+    val item_price: Double = 0.0,
+    val quantity: Int = 0,
+    val note: String? = null,
+    val variant_options: String? = null,
+)
+
+@Serializable
+data class CmsCustomerListResponse(
+    val total: Int = 0,
+    val page: Int = 1,
+    val page_size: Int = 20,
+    val total_pages: Int = 0,
+    val customers: List<CmsCustomerDto> = emptyList(),
+)
+
+@Serializable
+data class CmsCustomerDto(
+    val id: String = "",
+    val name: String = "",
+    val phone: String = "",
+    val notes: String = "",
+    val order_count: Int = 0,
+    val total_spent: Double = 0.0,
+    val points_balance: Int = 0,
+    val last_order_at: Long? = null,
+    val created_at: Long = 0,
+)
+
+@Serializable
+data class CmsWorkerListResponse(
+    val total: Int = 0,
+    val workers: List<CmsWorkerDto> = emptyList(),
+)
+
+@Serializable
+data class CmsWorkerDto(
+    val id: String = "",
+    val worker_id: String = "",
+    val full_name: String = "",
+    val phone: String = "",
+    val role: String = "",
+    val salary_type: String = "",
+    val salary_amount: Double = 0.0,
+    val active: Boolean = true,
+    val created_at: Long = 0,
+    val attendance_days_30d: Int = 0,
+    val worked_minutes_30d: Int = 0,
+    val checked_in_today: Boolean = false,
+)
+
+// ─── Platform Analytics ────────────────────────────────────────────
+
+@Serializable
+data class PlatformAnalyticsDto(
+    val total_vendors: Int = 0,
+    val active_vendors: Int = 0,
+    val new_this_month: Int = 0,
+    val mrr: Long = 0,
+    val active_subscriptions: Int = 0,
+    val expired_subscriptions: Int = 0,
+    val orders_this_month: Int = 0,
+    val revenue_this_month: Double = 0.0,
+    val avg_revenue_per_vendor: Double = 0.0,
+    val plan_revenue: List<PlanRevenueDto> = emptyList(),
+    val top_vendors: List<TopVendorDto> = emptyList(),
+)
+
+@Serializable
+data class PlanRevenueDto(
+    val plan: String = "",
+    val count: Int = 0,
+    val revenue: Long = 0,
+)
+
+@Serializable
+data class TopVendorDto(
+    val vendor_id: String = "",
+    val vendor_name: String = "",
+    val revenue: Double = 0.0,
+    val orders: Int = 0,
+    val is_suspended: Boolean = false,
+)
+
+// ─── Platform Alerts ────────────────────────────────────────────
+
+@Serializable
+data class PlatformAlertDto(
+    val type: String = "",
+    val severity: String = "WARNING",
+    val vendor_id: String = "",
+    val vendor_name: String = "",
+    val message: String = "",
 )

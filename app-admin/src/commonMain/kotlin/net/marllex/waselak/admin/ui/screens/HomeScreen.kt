@@ -26,6 +26,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.admin.network.AnalyticsSummary
+import net.marllex.waselak.admin.network.PlatformAlertDto
 import net.marllex.waselak.admin.network.PlanDistribution
 import net.marllex.waselak.admin.network.VendorAnalytics
 import net.marllex.waselak.admin.viewmodel.HomeViewModel
@@ -40,6 +41,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val analytics by viewModel.analytics.collectAsState()
+    val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -62,6 +64,13 @@ fun HomeScreen(
                 // ─── Welcome Header ──────────────────────────────
                 item {
                     WelcomeHeader()
+                }
+
+                // ─── Alerts Section ──────────────────────────────
+                if (alerts.isNotEmpty()) {
+                    item {
+                        AlertsSection(alerts)
+                    }
                 }
 
                 // ─── Key Metrics Row ─────────────────────────────
@@ -588,6 +597,135 @@ private fun TopVendorsSection(vendors: List<VendorAnalytics>) {
                     }
                 }
             }
+        }
+    }
+}
+
+// ─── Alerts Section ──────────────────────────────────────────────
+
+@Composable
+private fun AlertsSection(alerts: List<PlatformAlertDto>) {
+    val criticalCount = alerts.count { it.severity == "CRITICAL" }
+    val warningCount = alerts.count { it.severity == "WARNING" }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (criticalCount > 0)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    if (criticalCount > 0) Icons.Filled.Error else Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = if (criticalCount > 0) MaterialTheme.colorScheme.error else Color(0xFFFF9800),
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(Res.string.alerts),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.weight(1f))
+                if (criticalCount > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(
+                            "$criticalCount critical",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (warningCount > 0) {
+                    Surface(
+                        color = Color(0xFFFF9800).copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(
+                            "$warningCount warnings",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFF9800),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Show first 5 alerts
+            alerts.take(5).forEach { alert ->
+                AlertRow(alert)
+                Spacer(Modifier.height(6.dp))
+            }
+
+            if (alerts.size > 5) {
+                Text(
+                    text = "+${alerts.size - 5} more alerts",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlertRow(alert: PlatformAlertDto) {
+    val iconTint = when (alert.severity) {
+        "CRITICAL" -> MaterialTheme.colorScheme.error
+        else -> Color(0xFFFF9800)
+    }
+    val typeIcon = when (alert.type) {
+        "PLAN_LIMIT" -> Icons.Outlined.DataUsage
+        "NO_ORDERS" -> Icons.Outlined.RemoveShoppingCart
+        "SUBSCRIPTION_EXPIRING" -> Icons.Outlined.Schedule
+        "SUBSCRIPTION_EXPIRED" -> Icons.Outlined.EventBusy
+        else -> Icons.Outlined.Warning
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(
+            typeIcon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = alert.vendor_name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = alert.message,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

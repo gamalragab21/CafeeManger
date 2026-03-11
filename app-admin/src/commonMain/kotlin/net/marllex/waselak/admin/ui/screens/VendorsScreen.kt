@@ -1,12 +1,19 @@
 package net.marllex.waselak.admin.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FilterList
+import kotlinx.coroutines.launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,12 +21,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.admin.network.VendorDto
+import net.marllex.waselak.admin.util.CsvColumn
+import net.marllex.waselak.admin.util.FileSaver
+import net.marllex.waselak.admin.util.buildCsvString
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.app_admin.generated.resources.*
 import waselak.app_admin.generated.resources.Res
+
+enum class VendorStatusFilter { ALL, ACTIVE, SUSPENDED }
+enum class VendorSortOption { NAME, CREATED, USERS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +48,14 @@ fun VendorsScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var vendorToDelete by remember { mutableStateOf<VendorDto?>(null) }
+    var showFilters by remember { mutableStateOf(false) }
+
+    // Filter states
+    var statusFilter by remember { mutableStateOf(VendorStatusFilter.ALL) }
+    var planFilter by remember { mutableStateOf<String?>(null) } // null = all plans
+    var typeFilter by remember { mutableStateOf<String?>(null) } // null = all types
+    var sortOption by remember { mutableStateOf(VendorSortOption.NAME) }
+    var sortAscending by remember { mutableStateOf(true) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -49,9 +70,62 @@ fun VendorsScreen(
         }
     }
 
-    val filteredVendors = remember(vendors, searchQuery) {
-        if (searchQuery.isBlank()) vendors
-        else vendors.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    // Distinct plan names and business types from actual data
+    val availablePlanNames = remember(vendors) {
+        vendors.mapNotNull { it.plan_name }.distinct().sorted()
+    }
+    val availableBusinessTypes = remember(vendors) {
+        vendors.map { it.business_type }.distinct().sorted()
+    }
+
+    val filteredVendors = remember(vendors, searchQuery, statusFilter, planFilter, typeFilter, sortOption, sortAscending) {
+        var result = vendors
+
+        // Search filter
+        if (searchQuery.isNotBlank()) {
+            result = result.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                        it.address.contains(searchQuery, ignoreCase = true) ||
+                        it.contact_phone.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        // Status filter
+        result = when (statusFilter) {
+            VendorStatusFilter.ALL -> result
+            VendorStatusFilter.ACTIVE -> result.filter { !it.is_suspended }
+            VendorStatusFilter.SUSPENDED -> result.filter { it.is_suspended }
+        }
+
+        // Plan filter
+        if (planFilter != null) {
+            result = result.filter { it.plan_name == planFilter }
+        }
+
+        // Business type filter
+        if (typeFilter != null) {
+            result = result.filter { it.business_type == typeFilter }
+        }
+
+        // Sort
+        result = when (sortOption) {
+            VendorSortOption.NAME -> if (sortAscending) result.sortedBy { it.name.lowercase() }
+            else result.sortedByDescending { it.name.lowercase() }
+            VendorSortOption.CREATED -> if (sortAscending) result.sortedBy { it.created_at }
+            else result.sortedByDescending { it.created_at }
+            VendorSortOption.USERS -> if (sortAscending) result.sortedBy { it.users_count }
+            else result.sortedByDescending { it.users_count }
+        }
+
+        result
+    }
+
+    val activeFilterCount = remember(statusFilter, planFilter, typeFilter) {
+        var count = 0
+        if (statusFilter != VendorStatusFilter.ALL) count++
+        if (planFilter != null) count++
+        if (typeFilter != null) count++
+        count
     }
 
     Scaffold(
@@ -68,24 +142,243 @@ fun VendorsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(
-                text = stringResource(Res.string.vendors),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Header with title and count
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(Res.string.vendors),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                if (vendors.isNotEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.vendors_count, filteredVendors.size),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             Spacer(Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text(stringResource(Res.string.search_vendors)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Search + filter toggle row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text(stringResource(Res.string.search_vendors)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
 
-            Spacer(Modifier.height(16.dp))
+                // Filter toggle button
+                FilledTonalIconButton(
+                    onClick = { showFilters = !showFilters }
+                ) {
+                    BadgedBox(
+                        badge = {
+                            if (activeFilterCount > 0) {
+                                Badge { Text("$activeFilterCount") }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = if (showFilters) stringResource(Res.string.hide_filters)
+                            else stringResource(Res.string.show_filters)
+                        )
+                    }
+                }
+
+                // Export CSV button
+                val coroutineScope = rememberCoroutineScope()
+                FilledTonalIconButton(
+                    onClick = {
+                        if (filteredVendors.isEmpty()) {
+                            coroutineScope.launch { snackbarHostState.showSnackbar("No data to export") }
+                            return@FilledTonalIconButton
+                        }
+                        val csv = buildCsvString(filteredVendors, vendorCsvColumns())
+                        val success = FileSaver.saveCsv(csv, "vendors_export.csv")
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (success) "CSV exported successfully" else "Export cancelled"
+                            )
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.Outlined.FileDownload,
+                        contentDescription = stringResource(Res.string.export_csv)
+                    )
+                }
+            }
+
+            // Collapsible filter section
+            AnimatedVisibility(
+                visible = showFilters,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    // Status filter chips
+                    Text(
+                        text = stringResource(Res.string.filter_by_status),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = statusFilter == VendorStatusFilter.ALL,
+                                onClick = { statusFilter = VendorStatusFilter.ALL },
+                                label = { Text(stringResource(Res.string.all_statuses)) }
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = statusFilter == VendorStatusFilter.ACTIVE,
+                                onClick = { statusFilter = VendorStatusFilter.ACTIVE },
+                                label = { Text(stringResource(Res.string.active)) }
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = statusFilter == VendorStatusFilter.SUSPENDED,
+                                onClick = { statusFilter = VendorStatusFilter.SUSPENDED },
+                                label = { Text(stringResource(Res.string.suspended)) }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Plan filter chips
+                    if (availablePlanNames.isNotEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.filter_by_plan),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = planFilter == null,
+                                    onClick = { planFilter = null },
+                                    label = { Text(stringResource(Res.string.all_plans)) }
+                                )
+                            }
+                            items(availablePlanNames) { plan ->
+                                FilterChip(
+                                    selected = planFilter == plan,
+                                    onClick = { planFilter = if (planFilter == plan) null else plan },
+                                    label = { Text(plan) }
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    // Business type filter chips
+                    if (availableBusinessTypes.isNotEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.filter_by_type),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = typeFilter == null,
+                                    onClick = { typeFilter = null },
+                                    label = { Text(stringResource(Res.string.all_types)) }
+                                )
+                            }
+                            items(availableBusinessTypes) { type ->
+                                FilterChip(
+                                    selected = typeFilter == type,
+                                    onClick = { typeFilter = if (typeFilter == type) null else type },
+                                    label = { Text("${VendorTypeConfigs.iconForType(type)} $type") }
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    // Sort options
+                    Text(
+                        text = stringResource(Res.string.sort_by),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = sortOption == VendorSortOption.NAME,
+                                onClick = {
+                                    if (sortOption == VendorSortOption.NAME) sortAscending = !sortAscending
+                                    else { sortOption = VendorSortOption.NAME; sortAscending = true }
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(Res.string.sort_name) +
+                                                if (sortOption == VendorSortOption.NAME) (if (sortAscending) " ↑" else " ↓") else ""
+                                    )
+                                }
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = sortOption == VendorSortOption.CREATED,
+                                onClick = {
+                                    if (sortOption == VendorSortOption.CREATED) sortAscending = !sortAscending
+                                    else { sortOption = VendorSortOption.CREATED; sortAscending = false }
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(Res.string.sort_created) +
+                                                if (sortOption == VendorSortOption.CREATED) (if (sortAscending) " ↑" else " ↓") else ""
+                                    )
+                                }
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = sortOption == VendorSortOption.USERS,
+                                onClick = {
+                                    if (sortOption == VendorSortOption.USERS) sortAscending = !sortAscending
+                                    else { sortOption = VendorSortOption.USERS; sortAscending = false }
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(Res.string.sort_users) +
+                                                if (sortOption == VendorSortOption.USERS) (if (sortAscending) " ↑" else " ↓") else ""
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider()
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             if (isLoading && vendors.isEmpty()) {
                 Box(
@@ -100,7 +393,8 @@ fun VendorsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (searchQuery.isNotBlank()) stringResource(Res.string.no_search_match)
+                        text = if (searchQuery.isNotBlank() || activeFilterCount > 0)
+                            stringResource(Res.string.no_search_match)
                         else stringResource(Res.string.no_vendors),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -318,3 +612,21 @@ private fun VendorCard(
         }
     }
 }
+
+private fun vendorCsvColumns(): List<CsvColumn<VendorDto>> = listOf(
+    CsvColumn("Name") { it.name },
+    CsvColumn("Address") { it.address },
+    CsvColumn("Phone") { it.contact_phone },
+    CsvColumn("Business Type") { it.business_type },
+    CsvColumn("Status") { if (it.is_suspended) "Suspended" else "Active" },
+    CsvColumn("Plan") { it.plan_display_name ?: it.plan_name ?: "No Plan" },
+    CsvColumn("Subscription") { it.subscription_status ?: "" },
+    CsvColumn("Users") { it.users_count.toString() },
+    CsvColumn("Tables") { if (it.enable_tables) "Yes" else "No" },
+    CsvColumn("Dine-In") { if (it.enable_dine_in) "Yes" else "No" },
+    CsvColumn("Delivery") { if (it.enable_delivery) "Yes" else "No" },
+    CsvColumn("Takeaway") { if (it.enable_takeaway) "Yes" else "No" },
+    CsvColumn("Tax Enabled") { if (it.tax_enabled) "Yes" else "No" },
+    CsvColumn("Tax %") { it.default_tax_percent.toString() },
+    CsvColumn("Stock Mode") { it.stock_mode },
+)

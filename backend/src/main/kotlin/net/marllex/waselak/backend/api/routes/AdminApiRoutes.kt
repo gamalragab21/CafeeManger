@@ -891,9 +891,25 @@ fun Route.adminApiRoutes() {
                             put("default_tax_percent", vendorRow[VendorsTable.defaultTaxPercent].toDouble())
                             put("stock_mode", vendorRow[VendorsTable.stockMode])
                             put("default_delivery_fee", vendorRow[VendorsTable.defaultDeliveryFee].toDouble())
+                            put("offline_mode_enabled", vendorRow[VendorsTable.offlineModeEnabled])
+                            put("biometric_required", vendorRow[VendorsTable.biometricRequired])
+                            // Loyalty settings
+                            put("loyalty_enabled", vendorRow[VendorsTable.loyaltyEnabled])
+                            put("points_earn_rate", vendorRow[VendorsTable.pointsEarnRate].toDouble())
+                            put("points_redeem_rate", vendorRow[VendorsTable.pointsRedeemRate].toDouble())
+                            put("min_points_redeem", vendorRow[VendorsTable.minPointsRedeem])
+                            // Discount settings
+                            put("max_manual_discount_percent", vendorRow[VendorsTable.maxManualDiscountPercent].toDouble())
+                            put("manual_discount_requires_pin", vendorRow[VendorsTable.manualDiscountRequiresPin])
                             put("plan_name", sub?.get(SubscriptionPlansTable.name))
                             put("plan_display_name", sub?.get(SubscriptionPlansTable.displayName))
                             put("subscription_status", sub?.get(VendorSubscriptionsTable.status))
+                            sub?.get(VendorSubscriptionsTable.startedAt)?.let {
+                                put("subscription_started_at", it.toEpochMilliseconds())
+                            }
+                            sub?.get(VendorSubscriptionsTable.expiresAt)?.let {
+                                put("subscription_expires_at", it.toEpochMilliseconds())
+                            }
                             put("created_at", vendorRow[VendorsTable.createdAt].toEpochMilliseconds())
                             put("updated_at", vendorRow[VendorsTable.updatedAt].toEpochMilliseconds())
                         }
@@ -1527,6 +1543,96 @@ fun Route.adminApiRoutes() {
                 trace.step("Analytics overview fetched")
                 call.respondText(analytics.toString(), ContentType.Application.Json)
                 trace.step("Get analytics overview completed")
+            }
+
+            get("/platform") {
+                val trace = call.routeTrace()
+                trace.step("Get platform analytics started")
+                val now = Clock.System.now()
+                val monthStart = Instant.parse(now.toString().substring(0, 7) + "-01T00:00:00Z")
+
+                val platform = transaction {
+                    // Total vendors
+                    val totalVendors = VendorsTable.selectAll().count().toInt()
+                    val activeVendors = VendorsTable.selectAll()
+                        .where { VendorsTable.isSuspended eq false }.count().toInt()
+
+                    // New vendors this month
+                    val newThisMonth = VendorsTable.selectAll()
+                        .where { VendorsTable.createdAt greaterEq monthStart }.count().toInt()
+
+                    // MRR = sum of plan prices for all active subscriptions
+                    val mrr = (VendorSubscriptionsTable innerJoin SubscriptionPlansTable)
+                        .selectAll()
+                        .where { VendorSubscriptionsTable.status eq "ACTIVE" }
+                        .sumOf { it[SubscriptionPlansTable.priceEgp].toLong() }
+
+                    // Active vs expired subscriptions
+                    val activeSubs = VendorSubscriptionsTable.selectAll()
+                        .where { VendorSubscriptionsTable.status eq "ACTIVE" }.count().toInt()
+                    val expiredSubs = VendorSubscriptionsTable.selectAll()
+                        .where { VendorSubscriptionsTable.status eq "EXPIRED" }.count().toInt()
+
+                    // Platform-wide orders & revenue this month
+                    val ordersThisMonth = OrdersTable.selectAll()
+                        .where { OrdersTable.createdAt greaterEq monthStart }.count().toInt()
+                    val revenueThisMonth = OrdersTable.selectAll()
+                        .where { (OrdersTable.createdAt greaterEq monthStart) and (OrdersTable.status eq "COMPLETED") }
+                        .sumOf { it[OrdersTable.total].toDouble() }
+
+                    val avgRevenuePerVendor = if (activeVendors > 0) revenueThisMonth / activeVendors else 0.0
+
+                    // Plan distribution with revenue
+                    val planRevenue = (VendorSubscriptionsTable innerJoin SubscriptionPlansTable)
+                        .selectAll()
+                        .where { VendorSubscriptionsTable.status eq "ACTIVE" }
+                        .groupBy { it[SubscriptionPlansTable.name] }
+                        .map { (planName, rows) ->
+                            buildJsonObject {
+                                put("plan", planName)
+                                put("count", rows.size)
+                                put("revenue", rows.sumOf { it[SubscriptionPlansTable.priceEgp].toLong() })
+                            }
+                        }
+
+                    // Top 10 vendors by revenue this month
+                    val topVendors = VendorsTable.selectAll().map { row ->
+                        val vid = row[VendorsTable.id].value
+                        val rev = OrdersTable.selectAll()
+                            .where { (OrdersTable.vendorId eq vid) and (OrdersTable.createdAt greaterEq monthStart) and (OrdersTable.status eq "COMPLETED") }
+                            .sumOf { it[OrdersTable.total].toDouble() }
+                        val orders = OrdersTable.selectAll()
+                            .where { (OrdersTable.vendorId eq vid) and (OrdersTable.createdAt greaterEq monthStart) }
+                            .count().toInt()
+                        Triple(row, rev, orders)
+                    }.sortedByDescending { it.second }.take(10).map { (row, rev, orders) ->
+                        buildJsonObject {
+                            put("vendor_id", row[VendorsTable.id].value.toString())
+                            put("vendor_name", row[VendorsTable.name])
+                            put("revenue", rev)
+                            put("orders", orders)
+                            put("is_suspended", row[VendorsTable.isSuspended])
+                        }
+                    }
+
+                    buildJsonObject {
+                        put("total_vendors", totalVendors)
+                        put("active_vendors", activeVendors)
+                        put("new_this_month", newThisMonth)
+                        put("mrr", mrr)
+                        put("active_subscriptions", activeSubs)
+                        put("expired_subscriptions", expiredSubs)
+                        put("orders_this_month", ordersThisMonth)
+                        put("revenue_this_month", revenueThisMonth)
+                        put("avg_revenue_per_vendor", avgRevenuePerVendor)
+                        put("plan_revenue", buildJsonArray { planRevenue.forEach { add(it) } })
+                        put("top_vendors", buildJsonArray { topVendors.forEach { add(it) } })
+                    }
+                }
+
+                trace.step("Platform analytics fetched")
+                call.respondText(platform.toString(), ContentType.Application.Json)
+                trace.step("Get platform analytics completed")
             }
         }
     }

@@ -356,6 +356,34 @@ class AdminApiClient(
         }
     }
 
+    suspend fun getPlatformAnalytics(): PlatformAnalyticsDto? {
+        val url = "$baseUrl/api/v1/cms/analytics/platform"
+        Logger.d(TAG) { "GET $url" }
+        return try {
+            val response: HttpResponse = client.get(url)
+            Logger.d(TAG) { "getPlatformAnalytics: ${response.status.value}" }
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getPlatformAnalytics EXCEPTION: ${e.message}" }
+            AppLogger.e(TAG, "getPlatformAnalytics EXCEPTION: ${e.message}", e)
+            null
+        }
+    }
+
+    suspend fun getPlatformAlerts(): List<PlatformAlertDto> {
+        val url = "$baseUrl/api/v1/cms/alerts"
+        Logger.d(TAG) { "GET $url" }
+        return try {
+            val response: HttpResponse = client.get(url)
+            Logger.d(TAG) { "getPlatformAlerts: ${response.status.value}" }
+            if (response.status.isSuccess()) response.body() else emptyList()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getPlatformAlerts EXCEPTION: ${e.message}" }
+            AppLogger.e(TAG, "getPlatformAlerts EXCEPTION: ${e.message}", e)
+            emptyList()
+        }
+    }
+
     // --- Logs ---
 
     suspend fun getLogs(
@@ -546,6 +574,306 @@ class AdminApiClient(
             response.status.isSuccess()
         } catch (e: Exception) {
             Logger.e(TAG, e) { "cleanupLogs EXCEPTION: ${e.message}" }
+            false
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Vendor Analytics (CMS wrapper endpoints)
+    // ═══════════════════════════════════════════════════════════════════
+
+    private fun analyticsUrl(vendorId: String, type: String, from: Long? = null, to: Long? = null): String {
+        val base = "$baseUrl/api/v1/cms/vendors/$vendorId/analytics/$type"
+        val params = mutableListOf<String>()
+        if (from != null) params.add("from=$from")
+        if (to != null) params.add("to=$to")
+        return if (params.isNotEmpty()) "$base?${params.joinToString("&")}" else base
+    }
+
+    suspend fun getVendorExecutiveSummary(vendorId: String, from: Long? = null, to: Long? = null): ExecutiveSummaryDto? {
+        val url = analyticsUrl(vendorId, "executive-summary", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorExecutiveSummary EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorRevenueProfit(vendorId: String, from: Long? = null, to: Long? = null): RevenueProfitDto? {
+        val url = analyticsUrl(vendorId, "revenue-profit", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorRevenueProfit EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorOrdersIntelligence(vendorId: String, from: Long? = null, to: Long? = null): OrdersIntelligenceDto? {
+        val url = analyticsUrl(vendorId, "orders-intelligence", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorOrdersIntelligence EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorPeakTimes(vendorId: String, from: Long? = null, to: Long? = null): PeakTimeAnalysisDto? {
+        val url = analyticsUrl(vendorId, "peak-times", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorPeakTimes EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorCashierPerformance(vendorId: String, from: Long? = null, to: Long? = null): List<CashierPerformanceDto> {
+        val url = analyticsUrl(vendorId, "cashier-performance", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else emptyList()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorCashierPerformance EXCEPTION" }
+            emptyList()
+        }
+    }
+
+    suspend fun getVendorDeliveryPerformance(vendorId: String, from: Long? = null, to: Long? = null): List<DeliveryPerformanceDto> {
+        val url = analyticsUrl(vendorId, "delivery-performance", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else emptyList()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorDeliveryPerformance EXCEPTION" }
+            emptyList()
+        }
+    }
+
+    suspend fun getVendorProductIntelligence(vendorId: String, from: Long? = null, to: Long? = null): ProductIntelligenceDto? {
+        val url = analyticsUrl(vendorId, "product-intelligence", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorProductIntelligence EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorCustomerIntelligence(vendorId: String, from: Long? = null, to: Long? = null): CustomerIntelligenceDto? {
+        val url = analyticsUrl(vendorId, "customer-intelligence", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorCustomerIntelligence EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorAlerts(vendorId: String, from: Long? = null, to: Long? = null): AlertsResponseDto? {
+        val url = analyticsUrl(vendorId, "alerts", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorAlerts EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorStockOverview(vendorId: String): StockOverviewDto? {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/analytics/stock-overview"
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorStockOverview EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorOffersAnalytics(vendorId: String, from: Long? = null, to: Long? = null): OffersAnalyticsDto? {
+        val url = analyticsUrl(vendorId, "offers-analytics", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorOffersAnalytics EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorDiscountAnalytics(vendorId: String, from: Long? = null, to: Long? = null): DiscountAnalyticsDto? {
+        val url = analyticsUrl(vendorId, "discount-analytics", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorDiscountAnalytics EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorLoyaltyAnalytics(vendorId: String, from: Long? = null, to: Long? = null): LoyaltyAnalyticsDto? {
+        val url = analyticsUrl(vendorId, "loyalty-analytics", from, to)
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorLoyaltyAnalytics EXCEPTION" }
+            null
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Vendor Orders, Customers, Workers (CMS endpoints)
+    // ═══════════════════════════════════════════════════════════════════
+
+    suspend fun getVendorOrders(
+        vendorId: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+        status: String? = null,
+        channel: String? = null,
+        search: String? = null,
+        from: Long? = null,
+        to: Long? = null,
+    ): CmsOrderListResponse? {
+        val params = mutableListOf("page=$page", "pageSize=$pageSize")
+        if (status != null) params.add("status=$status")
+        if (channel != null) params.add("channel=$channel")
+        if (search != null) params.add("search=$search")
+        if (from != null) params.add("from=$from")
+        if (to != null) params.add("to=$to")
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/orders?${params.joinToString("&")}"
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorOrders EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorOrderDetail(vendorId: String, orderId: String): CmsOrderDetailDto? {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/orders/$orderId"
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorOrderDetail EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorCustomers(
+        vendorId: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+        search: String? = null,
+        sortBy: String = "total_spent",
+        sortDir: String = "desc",
+    ): CmsCustomerListResponse? {
+        val params = mutableListOf("page=$page", "pageSize=$pageSize", "sortBy=$sortBy", "sortDir=$sortDir")
+        if (search != null) params.add("search=$search")
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/customers?${params.joinToString("&")}"
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorCustomers EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun getVendorWorkers(vendorId: String): CmsWorkerListResponse? {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/workers"
+        return try {
+            val response: HttpResponse = client.get(url)
+            if (response.status.isSuccess()) response.body() else null
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorWorkers EXCEPTION" }
+            null
+        }
+    }
+    // ── User Management (CMS) ──────────────────────────────────────────
+
+    suspend fun createVendorUser(
+        vendorId: String,
+        name: String,
+        phone: String,
+        password: String,
+        role: String = "CASHIER",
+        email: String? = null,
+    ): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/users"
+        return try {
+            val body = buildMap<String, String> {
+                put("name", name)
+                put("phone", phone)
+                put("password", password)
+                put("role", role)
+                if (email != null) put("email", email)
+            }
+            val response: HttpResponse = client.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "createVendorUser EXCEPTION" }
+            false
+        }
+    }
+
+    suspend fun updateVendorUser(vendorId: String, userId: String, name: String? = null, email: String? = null, active: Boolean? = null): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/users/$userId"
+        return try {
+            val body = buildMap<String, Any?> {
+                if (name != null) put("name", name)
+                if (email != null) put("email", email)
+                if (active != null) put("active", active)
+            }
+            val response: HttpResponse = client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "updateVendorUser EXCEPTION" }
+            false
+        }
+    }
+
+    suspend fun resetVendorUserPassword(vendorId: String, userId: String, newPassword: String): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/users/$userId/reset-password"
+        return try {
+            val response: HttpResponse = client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("new_password" to newPassword))
+            }
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "resetVendorUserPassword EXCEPTION" }
+            false
+        }
+    }
+
+    suspend fun deactivateVendorUser(vendorId: String, userId: String): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/users/$userId"
+        return try {
+            val response: HttpResponse = client.delete(url)
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "deactivateVendorUser EXCEPTION" }
             false
         }
     }

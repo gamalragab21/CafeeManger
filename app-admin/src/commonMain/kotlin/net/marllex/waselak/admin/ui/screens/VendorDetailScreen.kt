@@ -3,6 +3,8 @@ package net.marllex.waselak.admin.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,7 +19,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.admin.network.*
+import net.marllex.waselak.admin.ui.components.DateRangeSelector
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
 import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
@@ -114,7 +122,11 @@ fun VendorDetailScreen(
                     )
                 }
                 detail != null -> {
-                    VendorDetailContent(detail = detail!!)
+                    VendorTabbedContent(
+                        vendorId = vendorId,
+                        detail = detail!!,
+                        viewModel = viewModel
+                    )
                 }
             }
         }
@@ -431,11 +443,91 @@ private fun EditSwitchRow(
 
 // ─── View Mode (Read-Only) ─────────────────────────────────────
 
+// ─── Tabbed Layout ─────────────────────────────────────────────
+
+private val VENDOR_TABS = listOf(
+    "Overview", "Revenue", "Peak Times", "Staff",
+    "Products", "Customers", "Stock", "Offers", "Alerts",
+    "Orders", "Workers"
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VendorDetailContent(detail: VendorDetailDto) {
+private fun VendorTabbedContent(
+    vendorId: String,
+    detail: VendorDetailDto,
+    viewModel: VendorDetailViewModel
+) {
+    val selectedTab by viewModel.selectedTab.collectAsState()
+    val tabLoading by viewModel.tabLoading.collectAsState()
+    val selectedPeriod by viewModel.selectedPeriod.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Show date range picker for analytics tabs (1-8)
+    val showDatePicker = selectedTab in 1..8
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            edgePadding = 8.dp,
+        ) {
+            VENDOR_TABS.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { viewModel.selectTab(vendorId, index) },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        if (showDatePicker) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DateRangeSelector(
+                    selectedPeriod = selectedPeriod,
+                    onPeriodChanged = { viewModel.changeDateRange(vendorId, it) }
+                )
+            }
+        }
+
+        if (tabLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        when (selectedTab) {
+            0 -> VendorDetailContent(detail = detail, vendorId = vendorId, viewModel = viewModel)
+            1 -> RevenueOrdersTab(viewModel)
+            2 -> PeakTimesTab(viewModel)
+            3 -> StaffPerformanceTab(viewModel)
+            4 -> ProductsTab(viewModel)
+            5 -> CustomersTab(viewModel)
+            6 -> StockTab(viewModel)
+            7 -> OffersDiscountsTab(viewModel)
+            8 -> AlertsTab(viewModel)
+            9 -> OrdersListTab(vendorId, viewModel)
+            10 -> WorkersTab(viewModel)
+        }
+    }
+}
+
+@Composable
+private fun VendorDetailContent(
+    detail: VendorDetailDto,
+    vendorId: String = "",
+    viewModel: VendorDetailViewModel? = null
+) {
     val vendor = detail.vendor
     val stats = detail.stats
     val planUsage = detail.plan_usage
+
+    // User management dialogs
+    var showAddUserDialog by remember { mutableStateOf(false) }
+    var showResetPasswordDialog by remember { mutableStateOf<VendorUserDto?>(null) }
+    var showDeactivateDialog by remember { mutableStateOf<VendorUserDto?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -454,9 +546,44 @@ private fun VendorDetailContent(detail: VendorDetailDto) {
             VendorInfoCard(vendor)
         }
 
+        // ─── Subscription Card ──────────────────
+        if (vendor.subscription_status != null) {
+            item {
+                VendorSubscriptionCard(vendor)
+            }
+        }
+
+        // ─── Loyalty Card ───────────────────────
+        item {
+            VendorLoyaltyCard(vendor)
+        }
+
+        // ─── Discount Card ──────────────────────
+        item {
+            VendorDiscountCard(vendor)
+        }
+
+        // ─── Device Settings Card ───────────────
+        item {
+            VendorDeviceCard(vendor)
+        }
+
         // ─── Users Section ───────────────────────
         item {
-            SectionTitle("Users (${detail.users.size})")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SectionTitle("Users (${detail.users.size})")
+                if (viewModel != null) {
+                    TextButton(onClick = { showAddUserDialog = true }) {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add User")
+                    }
+                }
+            }
         }
         if (detail.users.isEmpty()) {
             item {
@@ -469,7 +596,12 @@ private fun VendorDetailContent(detail: VendorDetailDto) {
             }
         } else {
             items(detail.users, key = { it.id }) { user ->
-                UserRow(user)
+                UserRowWithActions(
+                    user = user,
+                    onResetPassword = { showResetPasswordDialog = user },
+                    onDeactivate = { showDeactivateDialog = user },
+                    showActions = viewModel != null
+                )
             }
         }
 
@@ -505,6 +637,256 @@ private fun VendorDetailContent(detail: VendorDetailDto) {
         // Bottom spacer
         item {
             Spacer(Modifier.height(16.dp))
+        }
+    }
+
+    // ─── Add User Dialog ─────────────────────────────────
+    if (showAddUserDialog && viewModel != null) {
+        AddUserDialog(
+            onDismiss = { showAddUserDialog = false },
+            onConfirm = { name, phone, password, role, email ->
+                viewModel.createUser(vendorId, name, phone, password, role, email)
+                showAddUserDialog = false
+            }
+        )
+    }
+
+    // ─── Reset Password Dialog ──────────────────────────
+    showResetPasswordDialog?.let { user ->
+        if (viewModel != null) {
+            ResetPasswordDialog(
+                userName = user.name,
+                onDismiss = { showResetPasswordDialog = null },
+                onConfirm = { newPassword ->
+                    viewModel.resetUserPassword(vendorId, user.id, newPassword)
+                    showResetPasswordDialog = null
+                }
+            )
+        }
+    }
+
+    // ─── Deactivate User Dialog ─────────────────────────
+    showDeactivateDialog?.let { user ->
+        if (viewModel != null) {
+            AlertDialog(
+                onDismissRequest = { showDeactivateDialog = null },
+                title = { Text("Deactivate User") },
+                text = { Text("Are you sure you want to deactivate ${user.name}? They will no longer be able to log in.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deactivateUser(vendorId, user.id)
+                            showDeactivateDialog = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Deactivate") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeactivateDialog = null }) { Text(stringResource(Res.string.cancel)) }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddUserDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, phone: String, password: String, role: String, email: String?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("CASHIER") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New User") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text(stringResource(Res.string.name)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = phone, onValueChange = { phone = it },
+                    label = { Text(stringResource(Res.string.vendor_phone)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = email, onValueChange = { email = it },
+                    label = { Text(stringResource(Res.string.email)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = password, onValueChange = { password = it },
+                    label = { Text(stringResource(Res.string.password)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+
+                // Role selection
+                Text("Role", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("MANAGER", "CASHIER", "DELIVERY").forEach { r ->
+                        FilterChip(
+                            selected = role == r,
+                            onClick = { role = r },
+                            label = { Text(r) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank() && phone.isNotBlank() && password.length >= 6) {
+                        onConfirm(name.trim(), phone.trim(), password, role, email.ifBlank { null })
+                    }
+                },
+                enabled = name.isNotBlank() && phone.isNotBlank() && password.length >= 6
+            ) { Text(stringResource(Res.string.create)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+        }
+    )
+}
+
+@Composable
+private fun ResetPasswordDialog(
+    userName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var newPassword by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reset Password") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Reset password for $userName")
+                OutlinedTextField(
+                    value = newPassword, onValueChange = { newPassword = it },
+                    label = { Text(stringResource(Res.string.new_password)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                if (newPassword.isNotBlank() && newPassword.length < 6) {
+                    Text(
+                        stringResource(Res.string.password_min_length),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(newPassword) },
+                enabled = newPassword.length >= 6
+            ) { Text("Reset") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+        }
+    )
+}
+
+@Composable
+private fun UserRowWithActions(
+    user: VendorUserDto,
+    onResetPassword: () -> Unit,
+    onDeactivate: () -> Unit,
+    showActions: Boolean = false,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = user.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = user.phone,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    user.email?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Role badge
+                    val roleColor = when (user.role.uppercase()) {
+                        "MANAGER" -> MaterialTheme.colorScheme.primary
+                        "CASHIER" -> MaterialTheme.colorScheme.secondary
+                        "DELIVERY" -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.outline
+                    }
+                    Surface(
+                        color = roleColor.copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = user.role,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = roleColor
+                        )
+                    }
+
+                    // Active status
+                    val activeColor = if (user.active) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                    Surface(
+                        color = activeColor.copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = if (user.active) "Active" else "Inactive",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = activeColor
+                        )
+                    }
+                }
+            }
+
+            if (showActions && user.active) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onResetPassword,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Reset Password", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = onDeactivate,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Deactivate", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
         }
     }
 }
@@ -622,10 +1004,15 @@ private fun VendorHeaderCard(vendor: VendorDetailInfo) {
 
 @Composable
 private fun VendorInfoCard(vendor: VendorDetailInfo) {
+    val enabledText = stringResource(Res.string.enabled)
+    val disabledText = stringResource(Res.string.disabled)
+    val yesText = stringResource(Res.string.yes)
+    val noText = stringResource(Res.string.no)
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Contact & Settings",
+                stringResource(Res.string.contact_settings),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -634,7 +1021,13 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
             InfoRow("Address", vendor.address)
             InfoRow("Phone", vendor.contact_phone)
             vendor.wallet_phone?.let { InfoRow("Wallet", it) }
-            InfoRow("Delivery Fee", "%.2f EGP".format(vendor.default_delivery_fee))
+            InfoRow(stringResource(Res.string.delivery_fee), "%.2f EGP".format(vendor.default_delivery_fee))
+
+            // Digital Menu URL
+            vendor.digital_menu_url?.let {
+                Spacer(Modifier.height(4.dp))
+                InfoRow(stringResource(Res.string.digital_menu), it)
+            }
 
             Spacer(Modifier.height(12.dp))
             Text(
@@ -656,11 +1049,152 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
             }
 
             Spacer(Modifier.height(12.dp))
-            InfoRow("Tables", if (vendor.enable_tables) "Enabled" else "Disabled")
-            InfoRow("Tax", if (vendor.tax_enabled) "Enabled (${vendor.default_tax_percent}%)" else "Disabled")
-            InfoRow("Stock Mode", vendor.stock_mode)
+            InfoRow("Tables", if (vendor.enable_tables) enabledText else disabledText)
+            InfoRow("Tax", if (vendor.tax_enabled) "$enabledText (${vendor.default_tax_percent}%)" else disabledText)
+            InfoRow(stringResource(Res.string.stock_mode), vendor.stock_mode)
         }
     }
+}
+
+@Composable
+private fun VendorLoyaltyCard(vendor: VendorDetailInfo) {
+    val enabledText = stringResource(Res.string.enabled)
+    val disabledText = stringResource(Res.string.disabled)
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.loyalty_settings),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            InfoRow(stringResource(Res.string.loyalty_enabled), if (vendor.loyalty_enabled) enabledText else disabledText)
+            if (vendor.loyalty_enabled) {
+                InfoRow(stringResource(Res.string.earn_rate), "${vendor.points_earn_rate} pts/EGP")
+                InfoRow(stringResource(Res.string.redeem_rate), "${vendor.points_redeem_rate} EGP/pt")
+                InfoRow(stringResource(Res.string.min_points), vendor.min_points_redeem.toString())
+            }
+        }
+    }
+}
+
+@Composable
+private fun VendorDiscountCard(vendor: VendorDetailInfo) {
+    val yesText = stringResource(Res.string.yes)
+    val noText = stringResource(Res.string.no)
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.discount_settings),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            InfoRow(stringResource(Res.string.max_discount), "${vendor.max_manual_discount_percent}%")
+            InfoRow(stringResource(Res.string.pin_required), if (vendor.manual_discount_requires_pin) yesText else noText)
+        }
+    }
+}
+
+@Composable
+private fun VendorDeviceCard(vendor: VendorDetailInfo) {
+    val enabledText = stringResource(Res.string.enabled)
+    val disabledText = stringResource(Res.string.disabled)
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.device_settings),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            InfoRow(stringResource(Res.string.offline_mode), if (vendor.offline_mode_enabled) enabledText else disabledText)
+            InfoRow(stringResource(Res.string.biometric_auth), if (vendor.biometric_required) enabledText else disabledText)
+        }
+    }
+}
+
+@Composable
+private fun VendorSubscriptionCard(vendor: VendorDetailInfo) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.subscription_info),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            vendor.subscription_status?.let {
+                val statusColor = when (it.uppercase()) {
+                    "ACTIVE" -> Color(0xFF4CAF50)
+                    "EXPIRED" -> MaterialTheme.colorScheme.error
+                    "TRIAL" -> Color(0xFFFF9800)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.status),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        color = statusColor.copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = it,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor
+                        )
+                    }
+                }
+            }
+
+            vendor.subscription_started_at?.let {
+                val dateStr = formatEpochMillis(it)
+                InfoRow(stringResource(Res.string.subscription_started), dateStr)
+            }
+            vendor.subscription_expires_at?.let {
+                val dateStr = formatEpochMillis(it)
+                val isExpired = it < Clock.System.now().toEpochMilliseconds()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.subscription_expires),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = dateStr,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isExpired) MaterialTheme.colorScheme.error else Color.Unspecified
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatEpochMillis(epochMs: Long): String {
+    val instant = Instant.fromEpochMilliseconds(epochMs)
+    val tz = TimeZone.currentSystemDefault()
+    val dt = instant.toLocalDateTime(tz)
+    return "${dt.year}/${dt.monthNumber.toString().padStart(2, '0')}/${dt.dayOfMonth.toString().padStart(2, '0')}"
 }
 
 @Composable
@@ -696,77 +1230,6 @@ private fun ChannelChip(label: String) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
-    }
-}
-
-@Composable
-private fun UserRow(user: VendorUserDto) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = user.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = user.phone,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                user.email?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Role badge
-                val roleColor = when (user.role.uppercase()) {
-                    "MANAGER" -> MaterialTheme.colorScheme.primary
-                    "CASHIER" -> MaterialTheme.colorScheme.secondary
-                    "DELIVERY" -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.outline
-                }
-                Surface(
-                    color = roleColor.copy(alpha = 0.15f),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = user.role,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = roleColor
-                    )
-                }
-
-                // Active status
-                val activeColor = if (user.active)
-                    Color(0xFF4CAF50)
-                else
-                    MaterialTheme.colorScheme.error
-                Surface(
-                    color = activeColor.copy(alpha = 0.15f),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = if (user.active) "Active" else "Inactive",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = activeColor
-                    )
-                }
-            }
-        }
     }
 }
 

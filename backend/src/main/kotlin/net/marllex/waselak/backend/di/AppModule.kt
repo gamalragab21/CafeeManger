@@ -19,4 +19,5 @@ val appModule = module {
     single { PinService() }
     single { QrCodeService() }
     single { net.marllex.waselak.backend.domain.service.ExportService() }
+    single { AnalyticsQueryService() }
 }

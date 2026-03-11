@@ -56,6 +56,38 @@
     <string name="no_search_match">No vendors match your search</string>
     <string name="no_plan">No Plan</string>
     <string name="change_plan">Change Plan</string>
+    <string name="filter_by_status">Status</string>
+    <string name="filter_by_plan">Plan</string>
+    <string name="filter_by_type">Type</string>
+    <string name="sort_by">Sort by</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_created">Created</string>
+    <string name="sort_users">Users</string>
+    <string name="show_filters">Filters</string>
+    <string name="hide_filters">Hide Filters</string>
+    <string name="all_statuses">All</string>
+    <string name="all_plans">All Plans</string>
+    <string name="all_types">All Types</string>
+    <string name="vendors_count">%1$d vendors</string>
+    <string name="loyalty_settings">Loyalty Settings</string>
+    <string name="loyalty_enabled">Loyalty Enabled</string>
+    <string name="earn_rate">Earn Rate</string>
+    <string name="redeem_rate">Redeem Rate</string>
+    <string name="min_points">Min Points to Redeem</string>
+    <string name="discount_settings">Discount Settings</string>
+    <string name="max_discount">Max Manual Discount</string>
+    <string name="pin_required">PIN Required</string>
+    <string name="device_settings">Device Settings</string>
+    <string name="offline_mode">Offline Mode</string>
+    <string name="biometric_auth">Biometric Auth</string>
+    <string name="subscription_info">Subscription</string>
+    <string name="subscription_started">Started</string>
+    <string name="subscription_expires">Expires</string>
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="digital_menu">Digital Menu</string>
     <string name="vendor_updated">Vendor updated successfully</string>
     <string name="vendor_update_failed">Failed to update vendor</string>
     <string name="delivery_fee">Delivery Fee</string>
@@ -196,4 +228,34 @@
     <string name="use_system_theme">Use System Theme</string>
     <string name="language">Language</string>
     <string name="logout">Logout</string>
+
+    <!-- Export -->
+    <string name="export_csv">Export CSV</string>
+    <string name="export_success">CSV exported successfully</string>
+    <string name="export_failed">Failed to export CSV</string>
+    <string name="export_no_data">No data to export</string>
+
+    <!-- Platform Analytics -->
+    <string name="platform_analytics">Platform Analytics</string>
+    <string name="total_revenue">Total Revenue</string>
+    <string name="monthly_recurring">Monthly Recurring</string>
+    <string name="vendor_growth">Vendor Growth</string>
+    <string name="new_this_month">New This Month</string>
+    <string name="active_subscriptions">Active Subscriptions</string>
+    <string name="expired_subscriptions">Expired Subscriptions</string>
+    <string name="total_orders_platform">Total Orders</string>
+    <string name="total_revenue_platform">Total Revenue</string>
+    <string name="avg_revenue_vendor">Avg Revenue/Vendor</string>
+    <string name="top_vendors">Top Vendors</string>
+    <string name="plan_revenue">Plan Revenue</string>
+
+    <!-- Alerts -->
+    <string name="alerts">Alerts</string>
+    <string name="no_alerts">No alerts</string>
+    <string name="alert_plan_limit">Plan Limit Warning</string>
+    <string name="alert_no_orders">No Recent Orders</string>
+    <string name="alert_subscription_expiring">Subscription Expiring</string>
+    <string name="alert_subscription_expired">Subscription Expired</string>
+    <string name="alert_high_error_rate">High Error Rate</string>
+    <string name="view_vendor">View Vendor</string>
 </resources>

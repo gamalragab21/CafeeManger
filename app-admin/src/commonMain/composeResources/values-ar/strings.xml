@@ -56,6 +56,38 @@
     <string name="no_search_match">مفيش محلات بتطابق البحث</string>
     <string name="no_plan">مفيش باقه</string>
     <string name="change_plan">تغيير الباقه</string>
+    <string name="filter_by_status">الحاله</string>
+    <string name="filter_by_plan">الباقه</string>
+    <string name="filter_by_type">النوع</string>
+    <string name="sort_by">ترتيب حسب</string>
+    <string name="sort_name">الاسم</string>
+    <string name="sort_created">تاريخ الانشاء</string>
+    <string name="sort_users">المستخدمين</string>
+    <string name="show_filters">الفلاتر</string>
+    <string name="hide_filters">اخفاء الفلاتر</string>
+    <string name="all_statuses">الكل</string>
+    <string name="all_plans">كل الباقات</string>
+    <string name="all_types">كل الانواع</string>
+    <string name="vendors_count">%1$d محل</string>
+    <string name="loyalty_settings">اعدادات الولاء</string>
+    <string name="loyalty_enabled">الولاء مفعل</string>
+    <string name="earn_rate">معدل الكسب</string>
+    <string name="redeem_rate">معدل الاستبدال</string>
+    <string name="min_points">اقل نقاط للاستبدال</string>
+    <string name="discount_settings">اعدادات الخصم</string>
+    <string name="max_discount">اقصى خصم يدوي</string>
+    <string name="pin_required">يتطلب PIN</string>
+    <string name="device_settings">اعدادات الجهاز</string>
+    <string name="offline_mode">وضع اوفلاين</string>
+    <string name="biometric_auth">تسجيل بالبصمه</string>
+    <string name="subscription_info">الاشتراك</string>
+    <string name="subscription_started">بدأ</string>
+    <string name="subscription_expires">ينتهي</string>
+    <string name="enabled">مفعل</string>
+    <string name="disabled">معطل</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="digital_menu">المنيو الديجيتال</string>
     <string name="vendor_updated">المحل اتحدث بنجاح</string>
     <string name="vendor_update_failed">فشل تحديث المحل</string>
     <string name="delivery_fee">رسوم التوصيل</string>
@@ -196,4 +228,34 @@
     <string name="use_system_theme">استخدام ثيم النظام</string>
     <string name="language">اللغه</string>
     <string name="logout">تسجيل الخروج</string>
+
+    <!-- Export -->
+    <string name="export_csv">تصدير CSV</string>
+    <string name="export_success">تم تصدير الملف بنجاح</string>
+    <string name="export_failed">فشل تصدير الملف</string>
+    <string name="export_no_data">مفيش بيانات للتصدير</string>
+
+    <!-- Platform Analytics -->
+    <string name="platform_analytics">تحليلات المنصه</string>
+    <string name="total_revenue">اجمالي الايرادات</string>
+    <string name="monthly_recurring">الايراد الشهري المتكرر</string>
+    <string name="vendor_growth">نمو المحلات</string>
+    <string name="new_this_month">جديد الشهر ده</string>
+    <string name="active_subscriptions">اشتراكات نشطه</string>
+    <string name="expired_subscriptions">اشتراكات منتهيه</string>
+    <string name="total_orders_platform">اجمالي الطلبات</string>
+    <string name="total_revenue_platform">اجمالي الايرادات</string>
+    <string name="avg_revenue_vendor">متوسط الايراد/محل</string>
+    <string name="top_vendors">اعلى المحلات</string>
+    <string name="plan_revenue">ايراد الباقات</string>
+
+    <!-- Alerts -->
+    <string name="alerts">التنبيهات</string>
+    <string name="no_alerts">مفيش تنبيهات</string>
+    <string name="alert_plan_limit">تحذير حد الباقه</string>
+    <string name="alert_no_orders">مفيش طلبات حديثه</string>
+    <string name="alert_subscription_expiring">الاشتراك قرب ينتهي</string>
+    <string name="alert_subscription_expired">الاشتراك انتهى</string>
+    <string name="alert_high_error_rate">نسبة اخطاء عاليه</string>
+    <string name="view_vendor">عرض المحل</string>
 </resources>
