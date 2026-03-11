@@ -157,9 +157,21 @@ jobs:
           SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
           EOF
 
-      - name: Decode keystore
+      - name: Decode and convert keystore to legacy PKCS12 format
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release-src.jks
+          keytool -importkeystore \
+            -srckeystore keystore/waselak-release-src.jks \
+            -destkeystore keystore/waselak-release.jks \
+            -srcstorepass "${{ secrets.KEYSTORE_STORE_PASSWORD }}" \
+            -deststorepass "${{ secrets.KEYSTORE_STORE_PASSWORD }}" \
+            -srcalias "${{ secrets.KEYSTORE_KEY_ALIAS }}" \
+            -destalias "${{ secrets.KEYSTORE_KEY_ALIAS }}" \
+            -srckeypass "${{ secrets.KEYSTORE_KEY_PASSWORD }}" \
+            -destkeypass "${{ secrets.KEYSTORE_KEY_PASSWORD }}" \
+            -J-Dkeystore.pkcs12.legacy \
+            -noprompt
+          rm keystore/waselak-release-src.jks
 
       - name: Create keystore/keystore.properties
         run: |
