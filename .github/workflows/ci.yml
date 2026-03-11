@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JAVA_VERSION: "21"
+  JAVA_VERSION: "24"
   JAVA_DISTRIBUTION: "temurin"
   GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.parallel=true"
 
