@@ -157,29 +157,27 @@ jobs:
           SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
           EOF
 
-      - name: Decode and convert keystore to legacy PKCS12 format
+      - name: Validate keystore secret
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release-src.jks
-          keytool -importkeystore \
-            -srckeystore keystore/waselak-release-src.jks \
-            -destkeystore keystore/waselak-release.jks \
-            -srcstorepass "${{ secrets.KEYSTORE_STORE_PASSWORD }}" \
-            -deststorepass "${{ secrets.KEYSTORE_STORE_PASSWORD }}" \
-            -srcalias "${{ secrets.KEYSTORE_KEY_ALIAS }}" \
-            -destalias "${{ secrets.KEYSTORE_KEY_ALIAS }}" \
-            -srckeypass "${{ secrets.KEYSTORE_KEY_PASSWORD }}" \
-            -destkeypass "${{ secrets.KEYSTORE_KEY_PASSWORD }}" \
-            -J-Dkeystore.pkcs12.legacy \
-            -noprompt
-          rm keystore/waselak-release-src.jks
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is empty or not set!"
+            echo "Go to: Settings → Secrets and variables → Actions → Repository secrets"
+            echo "Add secret named: KEYSTORE_BASE64"
+            exit 1
+          fi
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release.jks
+          echo "Keystore decoded, size: $(wc -c < keystore/waselak-release.jks) bytes"
 
       - name: Create keystore/keystore.properties
         run: |
-          cat > keystore/keystore.properties << EOF
+          cat > keystore/keystore.properties << 'EOF'
           STORE_FILE=keystore/waselak-release.jks
-          STORE_PASSWORD=${{ secrets.KEYSTORE_STORE_PASSWORD }}
-          KEY_ALIAS=${{ secrets.KEYSTORE_KEY_ALIAS }}
-          KEY_PASSWORD=${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          STORE_PASSWORD=waselak2024
+          KEY_ALIAS=waselak
+          KEY_PASSWORD=waselak2024
           EOF
 
       # ── Build APKs ──────────────────────────────────────────────────────
