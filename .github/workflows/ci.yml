@@ -190,18 +190,32 @@ jobs:
             name="${module#app-}"
 
             # Debug APK
-            cp "$module/build/outputs/apk/debug/${module}-debug.apk" \
-               "artifacts/debug/${name}-v${VERSION}-${DATE}-debug-android.apk"
+            DEBUG_APK=$(find "$module/build/outputs/apk/debug" \
+                             -name "*.apk" -type f 2>/dev/null | head -1)
+            if [ -n "$DEBUG_APK" ]; then
+              cp "$DEBUG_APK" \
+                 "artifacts/debug/${name}-v${VERSION}-${DATE}-debug-android.apk"
+              echo "OK: ${name} debug APK"
+            else
+              echo "WARNING: No debug APK found for $module"
+            fi
 
             # Release APK
-            cp "$module/build/outputs/apk/release/${module}-release.apk" \
-               "artifacts/release/${name}-v${VERSION}-${DATE}-release-android.apk"
+            RELEASE_APK=$(find "$module/build/outputs/apk/release" \
+                               -name "*.apk" -type f 2>/dev/null | head -1)
+            if [ -n "$RELEASE_APK" ]; then
+              cp "$RELEASE_APK" \
+                 "artifacts/release/${name}-v${VERSION}-${DATE}-release-android.apk"
+              echo "OK: ${name} release APK"
+            else
+              echo "WARNING: No release APK found for $module"
+            fi
           done
 
           echo "=== Debug artifacts ==="
           ls -la artifacts/debug/
           echo "=== Release artifacts ==="
-          ls -la artifacts/release/
+          ls -la artifacts/release/ 2>/dev/null || echo "(none)"
 
       # ── Upload as GitHub artifacts ──────────────────────────────────────
       - name: Upload debug APKs
