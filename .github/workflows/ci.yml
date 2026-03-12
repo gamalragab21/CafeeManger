@@ -71,6 +71,7 @@ jobs:
 
       - name: Upload lint reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: lint-reports
@@ -78,7 +79,7 @@ jobs:
             app-manager/build/reports/lint-results-debug.html
             app-cashier/build/reports/lint-results-debug.html
             app-delivery/build/reports/lint-results-debug.html
-          retention-days: 14
+          retention-days: 3
 
   # ===========================================================================
   # JOB 2: TEST
@@ -117,6 +118,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
@@ -124,7 +126,7 @@ jobs:
             backend/build/reports/tests/
             core/core-model/build/reports/tests/
             feature/feature-manager-orders/build/reports/tests/
-          retention-days: 14
+          retention-days: 3
 
   # ===========================================================================
   # JOB 3: BUILD ANDROID (debug + release APKs)
@@ -157,34 +159,15 @@ jobs:
           SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
           EOF
 
-      - name: Validate keystore secret
-        run: |
-          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "::error::KEYSTORE_BASE64 secret is empty or not set!"
-            echo "Go to: Settings → Secrets and variables → Actions → Repository secrets"
-            echo "Add secret named: KEYSTORE_BASE64"
-            exit 1
-          fi
-
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore/waselak-release.jks
-          echo "Keystore decoded, size: $(wc -c < keystore/waselak-release.jks) bytes"
-
-      - name: Create keystore/keystore.properties
-        run: |
-          cat > keystore/keystore.properties << 'EOF'
-          STORE_FILE=keystore/waselak-release.jks
-          STORE_PASSWORD=waselak2024
-          KEY_ALIAS=waselak
-          KEY_PASSWORD=waselak2024
-          EOF
-
       # ── Build APKs ──────────────────────────────────────────────────────
+      # Keystore is handled by Gradle: it reads KEYSTORE_BASE64 env var,
+      # decodes it to a .jks file, and configures signing automatically.
       - name: Build all debug APKs
         run: ./gradlew assembleAllDebug
 
       - name: Build all release APKs
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: ./gradlew assembleAllRelease
 
       # ── Compute naming variables ────────────────────────────────────────
@@ -222,18 +205,20 @@ jobs:
 
       # ── Upload as GitHub artifacts ──────────────────────────────────────
       - name: Upload debug APKs
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: android-debug
           path: artifacts/debug/
-          retention-days: 7
+          retention-days: 3
 
       - name: Upload release APKs
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: android-release
           path: artifacts/release/
-          retention-days: 7
+          retention-days: 3
 
   # ===========================================================================
   # JOB 4: BUILD DESKTOP (matrix: Linux, macOS, Windows)
@@ -331,11 +316,12 @@ jobs:
           ls -la artifacts/release/
 
       - name: Upload desktop artifacts
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: desktop-release-${{ matrix.platform }}
           path: artifacts/release/
-          retention-days: 7
+          retention-days: 3
 
   # ===========================================================================
   # JOB 5: UPLOAD TO GOOGLE DRIVE

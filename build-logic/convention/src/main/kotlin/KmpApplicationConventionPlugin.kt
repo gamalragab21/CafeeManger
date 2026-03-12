@@ -109,27 +109,60 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                 }
 
                 // ── Release signing config ──────────────────────────────────
+                // Priority:
+                //   1. keystore/keystore.properties (local development)
+                //   2. KEYSTORE_BASE64 env var (CI — auto-decode + hardcoded creds)
                 val keystorePropsFile = rootProject.file("keystore/keystore.properties")
-                if (keystorePropsFile.exists()) {
-                    val keystoreProps = Properties()
-                    keystorePropsFile.inputStream().use { keystoreProps.load(it) }
+                val keystoreBase64 = System.getenv("KEYSTORE_BASE64")
 
-                    signingConfigs {
-                        create("release") {
-                            storeFile = rootProject.file(keystoreProps.getProperty("STORE_FILE"))
-                            storePassword = keystoreProps.getProperty("STORE_PASSWORD")
-                            keyAlias = keystoreProps.getProperty("KEY_ALIAS")
-                            keyPassword = keystoreProps.getProperty("KEY_PASSWORD")
+                val signingReady = when {
+                    // ── Local dev: read from properties file ──
+                    keystorePropsFile.exists() -> {
+                        val keystoreProps = Properties()
+                        keystorePropsFile.inputStream().use { keystoreProps.load(it) }
+
+                        signingConfigs {
+                            create("release") {
+                                storeFile = rootProject.file(keystoreProps.getProperty("STORE_FILE"))
+                                storePassword = keystoreProps.getProperty("STORE_PASSWORD")
+                                keyAlias = keystoreProps.getProperty("KEY_ALIAS")
+                                keyPassword = keystoreProps.getProperty("KEY_PASSWORD")
+                            }
                         }
+                        true
                     }
+                    // ── CI: decode base64 keystore from env var ──
+                    !keystoreBase64.isNullOrBlank() -> {
+                        val keystoreDir = rootProject.file("keystore")
+                        if (!keystoreDir.exists()) keystoreDir.mkdirs()
+                        val keystoreFile = keystoreDir.resolve("waselak-release.jks")
+                        keystoreFile.writeBytes(
+                            java.util.Base64.getDecoder().decode(keystoreBase64)
+                        )
+                        logger.lifecycle("Decoded KEYSTORE_BASE64 → ${keystoreFile.absolutePath} (${keystoreFile.length()} bytes)")
 
+                        signingConfigs {
+                            create("release") {
+                                storeFile = keystoreFile
+                                storePassword = "waselak2024"
+                                keyAlias = "waselak"
+                                keyPassword = "waselak2024"
+                            }
+                        }
+                        true
+                    }
+                    else -> {
+                        logger.warn("keystore/keystore.properties not found and KEYSTORE_BASE64 not set — release APKs will not be signed")
+                        false
+                    }
+                }
+
+                if (signingReady) {
                     buildTypes {
                         getByName("release") {
                             signingConfig = signingConfigs.getByName("release")
                         }
                     }
-                } else {
-                    logger.warn("keystore/keystore.properties not found — release APKs will not be signed")
                 }
 
                 compileOptions {
