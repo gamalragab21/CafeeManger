@@ -99,6 +99,7 @@ import net.marllex.waselak.feature.delivery.orders.navigation.deliveryReceiptScr
 import net.marllex.waselak.feature.delivery.orders.navigation.navigateToDeliveryReceipt
 import net.marllex.waselak.feature.delivery.status.navigation.deliveryStatusScreen
 import net.marllex.waselak.feature.delivery.status.navigation.navigateToDeliveryStatus
+import net.marllex.waselak.delivery.notifications.DeliveryNotificationsScreen
 import net.marllex.waselak.feature.manager.staff.AnnouncementsScreen
 
 enum class DeliveryTab(
@@ -126,6 +127,7 @@ private fun localizedRoleLabel(role: UserRole?): String = when (role) {
     UserRole.MANAGER -> stringResource(CoreRes.string.role_manager)
     UserRole.CASHIER -> stringResource(CoreRes.string.role_cashier)
     UserRole.DELIVERY -> stringResource(CoreRes.string.role_delivery)
+    UserRole.KITCHEN -> stringResource(CoreRes.string.role_kitchen)
     null -> ""
 }
 
@@ -730,7 +732,17 @@ fun DeliveryNavHost(
             },
         )
 
-        composable(DeliveryTab.ANNOUNCEMENTS.route) { AnnouncementsScreen() }
+        composable(DeliveryTab.ANNOUNCEMENTS.route) {
+            DeliveryNotificationsScreen(
+                onNavigateBack = {
+                    navController.navigate(DeliveryTab.ORDERS.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
+        }
 
         composable(DeliveryTab.PROFILE.route) {
             DeliveryProfileScreen(

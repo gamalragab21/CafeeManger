@@ -173,6 +173,7 @@ fun UsersScreen(
                             UserRole.MANAGER -> MaterialTheme.colorScheme.primary
                             UserRole.CASHIER -> MaterialTheme.colorScheme.tertiary
                             UserRole.DELIVERY -> MaterialTheme.colorScheme.secondary
+                            UserRole.KITCHEN -> MaterialTheme.colorScheme.tertiary
                         }
                         FilterChip(
                             selected = uiState.selectedRole == role,
@@ -250,6 +251,7 @@ private fun UserPermissionCard(
         UserRole.MANAGER -> MaterialTheme.colorScheme.primary
         UserRole.CASHIER -> MaterialTheme.colorScheme.tertiary
         UserRole.DELIVERY -> MaterialTheme.colorScheme.secondary
+        UserRole.KITCHEN -> MaterialTheme.colorScheme.tertiary
     }
 
     Card(

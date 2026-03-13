@@ -150,6 +150,16 @@ import net.marllex.waselak.feature.manager.orders.OrdersScreen
 import net.marllex.waselak.feature.manager.staff.AnnouncementsScreen
 import net.marllex.waselak.feature.manager.staff.DeliveryDashboardScreen
 import net.marllex.waselak.feature.manager.tables.TablesScreen
+import net.marllex.waselak.cashier.cashdrawer.CashDrawerScreen
+import net.marllex.waselak.cashier.customercredit.CashierCustomerCreditScreen
+import net.marllex.waselak.cashier.kds.KdsScreen
+import net.marllex.waselak.cashier.notifications.CashierNotificationsScreen
+import net.marllex.waselak.cashier.prescriptions.PrescriptionsScreen
+import net.marllex.waselak.cashier.splitpayment.SplitPaymentScreen
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Restaurant
 
 // Tabs in bottom navigation (most-used)
 enum class CashierTab(
@@ -172,6 +182,12 @@ enum class CashierDrawerItem(
     ANNOUNCEMENTS("cashier/announcements", "Alerts", Icons.Filled.Notifications),
     ATTENDANCE("cashier/attendance", "Attendance", Icons.Filled.Fingerprint),
     OVERTIME("cashier/overtime", "Overtime", Icons.Filled.Timer),
+    KDS("cashier/kds", "Kitchen Display", Icons.Filled.Restaurant),
+    CASH_DRAWER("cashier/cash_drawer", "Cash Drawer", Icons.Filled.Store),
+    NOTIFICATIONS("cashier/notifications", "Notifications", Icons.Filled.Notifications),
+    PRESCRIPTIONS("cashier/prescriptions", "Prescriptions", Icons.Filled.LocalPharmacy),
+    SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
+    CUSTOMER_CREDIT("cashier/customer_credit", "Customer Credit", Icons.Filled.CreditCard),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
 }
 
@@ -198,6 +214,12 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.ANNOUNCEMENTS -> stringResource(CoreRes.string.nav_alerts)
     CashierDrawerItem.ATTENDANCE -> stringResource(CoreRes.string.nav_attendance)
     CashierDrawerItem.OVERTIME -> stringResource(CoreRes.string.nav_overtime)
+    CashierDrawerItem.KDS -> stringResource(CoreRes.string.kitchen_display)
+    CashierDrawerItem.CASH_DRAWER -> stringResource(CoreRes.string.cash_drawer)
+    CashierDrawerItem.NOTIFICATIONS -> stringResource(CoreRes.string.notifications)
+    CashierDrawerItem.PRESCRIPTIONS -> stringResource(CoreRes.string.prescriptions)
+    CashierDrawerItem.SPLIT_PAYMENT -> stringResource(CoreRes.string.split_payment)
+    CashierDrawerItem.CUSTOMER_CREDIT -> stringResource(CoreRes.string.customer_credit)
     CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
 }
 
@@ -206,6 +228,7 @@ private fun localizedRoleLabel(role: UserRole?): String = when (role) {
     UserRole.MANAGER -> stringResource(CoreRes.string.role_manager)
     UserRole.CASHIER -> stringResource(CoreRes.string.role_cashier)
     UserRole.DELIVERY -> stringResource(CoreRes.string.role_delivery)
+    UserRole.KITCHEN -> stringResource(CoreRes.string.role_kitchen)
     null -> ""
 }
 
@@ -325,6 +348,7 @@ private fun CashierDrawerContent(
     userRole: String?,
     vendor: Vendor?,
     onItemClick: () -> Unit,
+    visibleDrawerItems: List<CashierDrawerItem> = CashierDrawerItem.entries,
 ) {
     ModalDrawerSheet(
         modifier = Modifier.width(300.dp),
@@ -380,7 +404,7 @@ private fun CashierDrawerContent(
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(8.dp))
 
-        CashierDrawerItem.entries.forEach { item ->
+        visibleDrawerItems.forEach { item ->
             val isSelected =
                 currentDestination?.hierarchy?.any { it.route == item.route } == true
 
@@ -662,7 +686,7 @@ private fun CashierOvertimeScreen() {
                                 value = selectedWorker?.fullName ?: "",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Worker") },
+                                label = { Text(stringResource(CoreRes.string.worker)) },
                                 trailingIcon = {
                                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerDropdownExpanded)
                                 },
@@ -701,24 +725,24 @@ private fun CashierOvertimeScreen() {
                     OutlinedTextField(
                         value = overtimeDate,
                         onValueChange = { overtimeDate = it },
-                        label = { Text("Date") },
+                        label = { Text(stringResource(CoreRes.string.date)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        placeholder = { Text("YYYY-MM-DD") },
+                        placeholder = { Text(stringResource(CoreRes.string.date_placeholder)) },
                     )
                     OutlinedTextField(
                         value = overtimeHours,
                         onValueChange = { overtimeHours = it },
-                        label = { Text("Hours") },
+                        label = { Text(stringResource(CoreRes.string.hours)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        placeholder = { Text("e.g. 2.5") },
+                        placeholder = { Text(stringResource(CoreRes.string.hours_placeholder)) },
                     )
                     OutlinedTextField(
                         value = overtimeNote,
                         onValueChange = { overtimeNote = it },
-                        label = { Text("Note (optional)") },
+                        label = { Text(stringResource(CoreRes.string.note_optional)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = false,
                         minLines = 2,
@@ -759,13 +783,13 @@ private fun CashierOvertimeScreen() {
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                     } else {
-                        Text("Save")
+                        Text(stringResource(CoreRes.string.save))
                     }
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(CoreRes.string.cancel))
                 }
             },
         )
@@ -1436,6 +1460,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     var shiftSummaryFeatureNotAvailable by remember { mutableStateOf(false) }
     var shiftSummaryFeatureMessage by remember { mutableStateOf("") }
 
+    val failedLoadShiftSummaryText = stringResource(CoreRes.string.failed_load_shift_summary)
     val fetchShiftSummary: () -> Unit = remember(scope) {
         {
             scope.launch {
@@ -1463,7 +1488,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         shiftSummaryFeatureNotAvailable = true
                         shiftSummaryFeatureMessage = e.message ?: ""
                     } else {
-                        shiftSummaryError = e.message ?: "Failed to load shift summary"
+                        shiftSummaryError = e.message ?: failedLoadShiftSummaryText
                     }
                 }
                 shiftSummaryLoading = false
@@ -1490,6 +1515,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     }
 
     if (showShiftSummary) {
+        val signOutVerificationText = stringResource(CoreRes.string.sign_out_verification)
         net.marllex.waselak.core.ui.components.ShiftSummaryBottomSheet(
             shiftSummary = shiftSummaryData,
             isLoading = shiftSummaryLoading,
@@ -1499,7 +1525,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 {
                     scope.launch {
                         val canProceed = if (biometricAuth.isAvailable()) {
-                            when (biometricAuth.authenticate("Sign out verification")) {
+                            when (biometricAuth.authenticate(signOutVerificationText)) {
                                 is BiometricResult.Success -> true
                                 is BiometricResult.NotAvailable -> true
                                 else -> false
@@ -1536,12 +1562,29 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
     }
 
-    // Compute visible tabs — hide Tables tab when vendor.enableTables == false (works offline)
-    val visibleTabs = remember(vendor?.enableTables) {
-        if (vendor?.enableTables == false) {
-            CashierTab.entries.filter { it != CashierTab.TABLES }
-        } else {
-            CashierTab.entries.toList()
+    // Compute visible tabs/drawer using domain features (works offline via cached vendor)
+    val domainFeatures = remember(vendor?.businessType) {
+        net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+    }
+
+    val visibleTabs = remember(vendor?.enableTables, domainFeatures) {
+        CashierTab.entries.filter { tab ->
+            when (tab) {
+                CashierTab.TABLES -> vendor?.enableTables != false && domainFeatures.hasTables
+                else -> true
+            }
+        }
+    }
+
+    val visibleDrawerItems = remember(domainFeatures) {
+        CashierDrawerItem.entries.filter { item ->
+            when (item) {
+                CashierDrawerItem.KDS -> domainFeatures.hasKDS
+                CashierDrawerItem.PRESCRIPTIONS -> domainFeatures.hasPrescriptions
+                CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments
+                CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit
+                else -> true
+            }
         }
     }
 
@@ -1590,6 +1633,24 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         composable(CashierDrawerItem.ATTENDANCE.route) { AttendanceScreen() }
         composable(CashierDrawerItem.OVERTIME.route) {
             CashierOvertimeScreen()
+        }
+        composable(CashierDrawerItem.KDS.route) {
+            KdsScreen()
+        }
+        composable(CashierDrawerItem.CASH_DRAWER.route) {
+            CashDrawerScreen()
+        }
+        composable(CashierDrawerItem.NOTIFICATIONS.route) {
+            CashierNotificationsScreen()
+        }
+        composable(CashierDrawerItem.PRESCRIPTIONS.route) {
+            PrescriptionsScreen()
+        }
+        composable(CashierDrawerItem.SPLIT_PAYMENT.route) {
+            SplitPaymentScreen()
+        }
+        composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
+            CashierCustomerCreditScreen()
         }
         composable(CashierDrawerItem.PROFILE.route) {
             CashierProfileScreen(
@@ -1667,6 +1728,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         userRole = roleLabel,
                         vendor = vendor,
                         onItemClick = { scope.launch { drawerState.close() } },
+                        visibleDrawerItems = visibleDrawerItems,
                     )
                 },
             ) {
@@ -1694,7 +1756,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 },
                                 navigationIcon = {
                                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                        Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                                        Icon(Icons.Filled.Menu, contentDescription = stringResource(CoreRes.string.menu))
                                     }
                                 },
                                 colors = TopAppBarDefaults.topAppBarColors(
@@ -1739,6 +1801,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         userRole = roleLabel,
                         vendor = vendor,
                         onItemClick = { scope.launch { drawerState.close() } },
+                        visibleDrawerItems = visibleDrawerItems,
                     )
                 },
             ) {
@@ -1757,7 +1820,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 },
                                 navigationIcon = {
                                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                        Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                                        Icon(Icons.Filled.Menu, contentDescription = stringResource(CoreRes.string.menu))
                                     }
                                 },
                                 colors = TopAppBarDefaults.topAppBarColors(

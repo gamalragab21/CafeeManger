@@ -736,7 +736,7 @@ private fun AddUserDialog(
                 // Role selection
                 Text(stringResource(Res.string.role), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("MANAGER", "CASHIER", "DELIVERY").forEach { r ->
+                    listOf("MANAGER", "CASHIER", "DELIVERY", "KITCHEN").forEach { r ->
                         FilterChip(
                             selected = role == r,
                             onClick = { role = r },
@@ -842,6 +842,7 @@ private fun UserRowWithActions(
                         "MANAGER" -> MaterialTheme.colorScheme.primary
                         "CASHIER" -> MaterialTheme.colorScheme.secondary
                         "DELIVERY" -> MaterialTheme.colorScheme.tertiary
+                        "KITCHEN" -> MaterialTheme.colorScheme.tertiary
                         else -> MaterialTheme.colorScheme.outline
                     }
                     Surface(

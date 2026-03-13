@@ -17,6 +17,12 @@ import net.marllex.waselak.feature.manager.staff.AnnouncementsViewModel
 import net.marllex.waselak.feature.manager.staff.DeliveryDashboardViewModel
 import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
 import net.marllex.waselak.feature.manager.tables.TablesViewModel
+import net.marllex.waselak.cashier.cashdrawer.CashDrawerViewModel
+import net.marllex.waselak.cashier.customercredit.CashierCustomerCreditViewModel
+import net.marllex.waselak.cashier.kds.KdsViewModel
+import net.marllex.waselak.cashier.notifications.CashierNotificationsViewModel
+import net.marllex.waselak.cashier.prescriptions.PrescriptionsViewModel
+import net.marllex.waselak.cashier.splitpayment.SplitPaymentViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -49,4 +55,10 @@ private val cashierAppModule = module {
     viewModelOf(::AnnouncementsViewModel)
     viewModelOf(::DeliveryDashboardViewModel)
     viewModelOf(::ReceiptViewModel)
+    viewModelOf(::KdsViewModel)
+    viewModelOf(::CashDrawerViewModel)
+    viewModelOf(::CashierNotificationsViewModel)
+    viewModelOf(::PrescriptionsViewModel)
+    viewModelOf(::SplitPaymentViewModel)
+    viewModelOf(::CashierCustomerCreditViewModel)
 }

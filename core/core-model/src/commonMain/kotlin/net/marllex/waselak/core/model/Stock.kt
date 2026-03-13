@@ -40,14 +40,14 @@ data class StockTransaction(
     val newQuantity: Double get() = when (type) {
         StockTransactionType.ADD, StockTransactionType.PURCHASE, StockTransactionType.RETURN -> previousQuantity + quantity
         StockTransactionType.DEDUCT, StockTransactionType.SALE_DIRECT, StockTransactionType.SALE_RECIPE,
-        StockTransactionType.WASTE, StockTransactionType.TRANSFER -> (previousQuantity - quantity).coerceAtLeast(0.0)
+        StockTransactionType.WASTE, StockTransactionType.TRANSFER, StockTransactionType.BATCH_DEDUCT -> (previousQuantity - quantity).coerceAtLeast(0.0)
         StockTransactionType.ADJUST -> quantity
     }
 }
 
 @Serializable
 enum class StockTransactionType {
-    ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, WASTE, TRANSFER
+    ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, WASTE, TRANSFER, BATCH_DEDUCT
 }
 
 data class StockSummary(
@@ -74,3 +74,44 @@ data class StockAlert(
     val isOutOfStock: Boolean,
     val isMenuItem: Boolean,
 )
+
+@Serializable
+data class StockBatch(
+    val id: String,
+    val stockId: String,
+    val vendorId: String,
+    val batchNumber: String? = null,
+    val quantity: Double,
+    val initialQuantity: Double,
+    val costPrice: Double = 0.0,
+    val expiryDate: String? = null,       // ISO date string (yyyy-MM-dd)
+    val receivedAt: Long? = null,
+    val status: String = "ACTIVE",
+    val createdAt: Long? = null,
+    val itemName: String? = null,
+) {
+    val isDepleted: Boolean get() = quantity <= 0
+    val isExpired: Boolean get() {
+        if (expiryDate == null) return false
+        val today = Clock.System.now().toString().substring(0, 10)
+        return expiryDate < today
+    }
+    val usedQuantity: Double get() = initialQuantity - quantity
+    val usagePercent: Double get() = if (initialQuantity > 0) (usedQuantity / initialQuantity) * 100 else 0.0
+}
+
+@Serializable
+data class ExpiryAlert(
+    val id: String,
+    val stockId: String,
+    val itemName: String,
+    val batchNumber: String? = null,
+    val quantity: Double,
+    val expiryDate: String,
+    val daysUntilExpiry: Int,
+    val status: String,                   // EXPIRING_SOON, EXPIRED
+    val unit: String,
+) {
+    val isExpired: Boolean get() = daysUntilExpiry < 0
+    val isUrgent: Boolean get() = daysUntilExpiry in 0..7
+}

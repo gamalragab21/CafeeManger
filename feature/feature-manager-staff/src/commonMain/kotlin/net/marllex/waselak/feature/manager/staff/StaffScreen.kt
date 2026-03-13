@@ -1429,7 +1429,7 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
                 workerPhotoUrl = worker.photoUrl,
                 workerRole = worker.role,
                 salaryType = worker.salaryType.name,
-                unpaidAmount = unpaid.sumOf { it.amount },
+                unpaidAmount = unpaid.sumOf { it.totalAmount },
                 unpaidCount = unpaid.size,
             )
             when (uiState.salaryPaidFilter) {
@@ -1443,20 +1443,28 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         // Filter Section with a subtle background
         Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // ... (Filter Chips - Use ElevatedFilterChip for better UX)
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == null,
-                        onClick = { viewModel.filterSalaryByPaid(null) },
-                        label = { Text(stringResource(Res.string.all)) },
-                        leadingIcon = { if(uiState.salaryPaidFilter == null) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
-                    )
-                }
-                // Repeat for Unpaid (use error colors) and Paid (use primary)
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == null,
+                    onClick = { viewModel.filterSalaryByPaid(null) },
+                    label = { Text(stringResource(Res.string.all)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == null) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == false,
+                    onClick = { viewModel.filterSalaryByPaid(false) },
+                    label = { Text(stringResource(Res.string.unpaid)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == false) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == true,
+                    onClick = { viewModel.filterSalaryByPaid(true) },
+                    label = { Text(stringResource(Res.string.paid)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == true) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
             }
         }
 
@@ -1593,31 +1601,25 @@ private fun WorkerSalaryDetailView(uiState: StaffViewModel.UiState, viewModel: S
     ) { padding ->
         Column(Modifier.padding(padding)) {
             // Filter chips
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == null,
-                        onClick = { viewModel.filterSalaryByPaid(null) },
-                        label = { Text(stringResource(Res.string.all)) },
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == false,
-                        onClick = { viewModel.filterSalaryByPaid(false) },
-                        label = { Text(stringResource(Res.string.unpaid)) },
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == true,
-                        onClick = { viewModel.filterSalaryByPaid(true) },
-                        label = { Text(stringResource(Res.string.paid)) },
-                    )
-                }
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == null,
+                    onClick = { viewModel.filterSalaryByPaid(null) },
+                    label = { Text(stringResource(Res.string.all)) },
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == false,
+                    onClick = { viewModel.filterSalaryByPaid(false) },
+                    label = { Text(stringResource(Res.string.unpaid)) },
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == true,
+                    onClick = { viewModel.filterSalaryByPaid(true) },
+                    label = { Text(stringResource(Res.string.paid)) },
+                )
             }
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
@@ -1678,11 +1680,48 @@ private fun SelectableSalaryPaymentCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (payment.overtimeHours > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(
+                                Res.string.overtime_included,
+                                payment.overtimeHours.toString(),
+                                payment.overtimeAmount.toInt().toString()
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                if (payment.overtimeHours > 0) {
+                    // Show base salary
+                    Text(
+                        text = "${payment.amount.toInt()} ${stringResource(Res.string.egp)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Show overtime amount
+                    Text(
+                        text = "+ ${payment.overtimeAmount.toInt()} ${stringResource(Res.string.egp)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    HorizontalDivider(modifier = Modifier.width(60.dp).padding(vertical = 2.dp))
+                }
+                // Show total (or just amount if no overtime)
                 Text(
-                    text = "${payment.amount.toInt()} EGP",
+                    text = "${payment.totalAmount.toInt()} ${stringResource(Res.string.egp)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (payment.paid) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
@@ -1694,7 +1733,7 @@ private fun SelectableSalaryPaymentCard(
                     Box(Modifier.size(8.dp).background(statusColor, CircleShape))
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = if (payment.paid) "Paid" else "Unpaid",
+                        text = stringResource(if (payment.paid) Res.string.paid else Res.string.unpaid),
                         style = MaterialTheme.typography.labelSmall,
                         color = statusColor
                     )

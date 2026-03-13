@@ -201,6 +201,16 @@
     <string name="loyalty_points">نقاط الولاء</string>
     <string name="manual_discount">الخصم اليدوي</string>
     <string name="offers_management">اداره العروض</string>
+    <string name="cash_drawer">صندوق النقد</string>
+    <string name="split_payment">الدفع المقسم</string>
+    <string name="customer_credit">ائتمان العملاء</string>
+    <string name="suppliers_management">الموردين</string>
+    <string name="returns_management">المرتجعات</string>
+    <string name="prescriptions">الوصفات الطبية</string>
+    <string name="drug_interactions">التفاعلات الدوائية</string>
+    <string name="scheduled_orders">الطلبات المجدولة</string>
+    <string name="kds_display">شاشة المطبخ (KDS)</string>
+    <string name="notifications">الإشعارات</string>
     <string name="analytics_level">التحليلات</string>
     <string name="digital_menu_level">المنيو الديجيتال</string>
     <string name="unlimited">غير محدود</string>

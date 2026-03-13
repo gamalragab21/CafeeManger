@@ -20,6 +20,8 @@ import net.marllex.waselak.admin.util.UiMessage
 import net.marllex.waselak.admin.util.WindowWidthSizeClass
 import net.marllex.waselak.admin.util.resolve
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
+import net.marllex.waselak.core.model.DomainFeatures
+import net.marllex.waselak.core.model.VendorTypeConfigs
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.app_admin.generated.resources.*
@@ -42,12 +44,11 @@ fun CreateVendorScreen(
     var vendorAddress by remember { mutableStateOf("") }
     var vendorPhone by remember { mutableStateOf("") }
     var walletPhone by remember { mutableStateOf("") }
-    var businessType by remember { mutableStateOf("RESTAURANT") }
 
-    // Store Type
-    val storeTypes = listOf("RESTAURANT", "CAFE", "RETAIL", "GROCERY")
-    var storeType by remember { mutableStateOf("RESTAURANT") }
-    var storeTypeExpanded by remember { mutableStateOf(false) }
+    // Business Type (drives auto-config of channels, tax, stock)
+    val allBusinessTypes = VendorTypeConfigs.allTypes
+    var businessType by remember { mutableStateOf("RESTAURANT") }
+    var businessTypeExpanded by remember { mutableStateOf(false) }
 
     // Manager Info
     var managerName by remember { mutableStateOf("") }
@@ -60,7 +61,7 @@ fun CreateVendorScreen(
     var selectedPlan by remember { mutableStateOf("STARTER") }
     var planExpanded by remember { mutableStateOf(false) }
 
-    // Channel Config
+    // Channel Config — initialized from domain features, user can override
     var enableTables by remember { mutableStateOf(true) }
     var enableDineIn by remember { mutableStateOf(true) }
     var enableDelivery by remember { mutableStateOf(true) }
@@ -74,6 +75,20 @@ fun CreateVendorScreen(
     val stockModes = listOf("NONE", "WARN", "ENFORCE")
     var stockMode by remember { mutableStateOf("NONE") }
     var stockModeExpanded by remember { mutableStateOf(false) }
+
+    // Auto-configure when business type changes
+    LaunchedEffect(businessType) {
+        val features = DomainFeatures.forType(businessType)
+        enableTables = features.hasTables
+        enableDineIn = features.hasDineIn
+        enableDelivery = features.hasDelivery
+        enableTakeaway = features.hasTakeaway
+        enableInStore = features.hasInStore
+        enablePickupLater = features.hasPickupLater
+        taxEnabled = features.defaultTaxEnabled
+        defaultTaxPercent = features.defaultTaxPercent.toString()
+        stockMode = features.defaultStockMode
+    }
 
     var formError by remember { mutableStateOf<String?>(null) }
 
@@ -158,42 +173,35 @@ fun CreateVendorScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
             )
 
-            // Store Type Dropdown
+            // Business Type Dropdown (all 8 types with icons)
             ExposedDropdownMenuBox(
-                expanded = storeTypeExpanded,
-                onExpandedChange = { storeTypeExpanded = it }
+                expanded = businessTypeExpanded,
+                onExpandedChange = { businessTypeExpanded = it }
             ) {
+                val currentConfig = VendorTypeConfigs.forType(businessType)
                 OutlinedTextField(
-                    value = storeType,
+                    value = "${currentConfig.icon} ${currentConfig.displayNameEn} — ${currentConfig.displayNameAr}",
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text(stringResource(Res.string.store_type)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = storeTypeExpanded) },
+                    label = { Text(stringResource(Res.string.business_type)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = businessTypeExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(
-                    expanded = storeTypeExpanded,
-                    onDismissRequest = { storeTypeExpanded = false }
+                    expanded = businessTypeExpanded,
+                    onDismissRequest = { businessTypeExpanded = false }
                 ) {
-                    storeTypes.forEach { type ->
+                    allBusinessTypes.forEach { config ->
                         DropdownMenuItem(
-                            text = { Text(type) },
+                            text = { Text("${config.icon} ${config.displayNameEn} — ${config.displayNameAr}") },
                             onClick = {
-                                storeType = type
-                                storeTypeExpanded = false
+                                businessType = config.type
+                                businessTypeExpanded = false
                             }
                         )
                     }
                 }
             }
-
-            OutlinedTextField(
-                value = businessType,
-                onValueChange = { businessType = it },
-                label = { Text(stringResource(Res.string.business_type)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
 
             Spacer(Modifier.height(8.dp))
 
@@ -357,8 +365,8 @@ fun CreateVendorScreen(
                                 vendor_address = vendorAddress.trim(),
                                 vendor_phone = vendorPhone.trim(),
                                 wallet_phone = walletPhone.ifBlank { null },
-                                store_type = storeType,
-                                business_type = businessType.trim(),
+                                store_type = businessType,
+                                business_type = businessType,
                                 manager_name = managerName.trim(),
                                 manager_phone = managerPhone.trim(),
                                 manager_email = managerEmail.ifBlank { null },

@@ -123,6 +123,9 @@
     <string name="unpaid_records_count">%1$d unpaid</string>
     <string name="pay_selected">Pay %1$d</string>
     <string name="back">Back</string>
+    <string name="base_salary_label">Base Salary</string>
+    <string name="overtime_included">+ Overtime: %1$s hrs (%2$s EGP)</string>
+    <string name="total_label">Total</string>
 
     <!-- Common -->
     <string name="save">Save</string>

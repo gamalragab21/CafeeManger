@@ -10,6 +10,7 @@ import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.data.database.*
+import net.marllex.waselak.backend.domain.model.DomainDefaults
 import net.marllex.waselak.backend.domain.service.AdminAuthService
 import net.marllex.waselak.backend.domain.service.AuthService
 import net.marllex.waselak.backend.domain.service.PlanService
@@ -50,6 +51,19 @@ data class AdminUpdatePlanRequest(
     val table_management: Boolean? = null,
     val digital_receipt: Boolean? = null,
     val worker_qrcode: Boolean? = null,
+    val loyalty_points: Boolean? = null,
+    val manual_discount: Boolean? = null,
+    val offers_management: Boolean? = null,
+    val cash_drawer: Boolean? = null,
+    val split_payment: Boolean? = null,
+    val customer_credit: Boolean? = null,
+    val suppliers: Boolean? = null,
+    val returns: Boolean? = null,
+    val prescriptions: Boolean? = null,
+    val drug_interactions: Boolean? = null,
+    val scheduled_orders: Boolean? = null,
+    val kds: Boolean? = null,
+    val notifications: Boolean? = null,
     val analytics: String? = null,
     val digital_menu: String? = null,
 )
@@ -222,6 +236,19 @@ fun Route.adminApiRoutes() {
                             put("table_management", plan[SubscriptionPlansTable.tableManagement])
                             put("digital_receipt", plan[SubscriptionPlansTable.digitalReceipt])
                             put("worker_qrcode", plan[SubscriptionPlansTable.workerQrcode])
+                            put("loyalty_points", plan[SubscriptionPlansTable.loyaltyPoints])
+                            put("manual_discount", plan[SubscriptionPlansTable.manualDiscount])
+                            put("offers_management", plan[SubscriptionPlansTable.offersManagement])
+                            put("cash_drawer", plan[SubscriptionPlansTable.cashDrawer])
+                            put("split_payment", plan[SubscriptionPlansTable.splitPayment])
+                            put("customer_credit", plan[SubscriptionPlansTable.customerCredit])
+                            put("suppliers", plan[SubscriptionPlansTable.suppliers])
+                            put("returns", plan[SubscriptionPlansTable.returns])
+                            put("prescriptions", plan[SubscriptionPlansTable.prescriptions])
+                            put("drug_interactions", plan[SubscriptionPlansTable.drugInteractions])
+                            put("scheduled_orders", plan[SubscriptionPlansTable.scheduledOrders])
+                            put("kds", plan[SubscriptionPlansTable.kds])
+                            put("notifications", plan[SubscriptionPlansTable.notifications])
                             put("analytics", plan[SubscriptionPlansTable.analytics])
                             put("digital_menu", plan[SubscriptionPlansTable.digitalMenu])
                             put("active", plan[SubscriptionPlansTable.active])
@@ -266,6 +293,19 @@ fun Route.adminApiRoutes() {
                         request.table_management?.let { stmt[tableManagement] = it }
                         request.digital_receipt?.let { stmt[digitalReceipt] = it }
                         request.worker_qrcode?.let { stmt[workerQrcode] = it }
+                        request.loyalty_points?.let { stmt[loyaltyPoints] = it }
+                        request.manual_discount?.let { stmt[manualDiscount] = it }
+                        request.offers_management?.let { stmt[offersManagement] = it }
+                        request.cash_drawer?.let { stmt[cashDrawer] = it }
+                        request.split_payment?.let { stmt[splitPayment] = it }
+                        request.customer_credit?.let { stmt[customerCredit] = it }
+                        request.suppliers?.let { stmt[suppliers] = it }
+                        request.returns?.let { stmt[returns] = it }
+                        request.prescriptions?.let { stmt[prescriptions] = it }
+                        request.drug_interactions?.let { stmt[drugInteractions] = it }
+                        request.scheduled_orders?.let { stmt[scheduledOrders] = it }
+                        request.kds?.let { stmt[kds] = it }
+                        request.notifications?.let { stmt[notifications] = it }
                         request.analytics?.let { stmt[analytics] = it }
                         request.digital_menu?.let { stmt[digitalMenu] = it }
                         stmt[updatedAt] = Clock.System.now()
@@ -297,6 +337,19 @@ fun Route.adminApiRoutes() {
                         put("table_management", updated[SubscriptionPlansTable.tableManagement])
                         put("digital_receipt", updated[SubscriptionPlansTable.digitalReceipt])
                         put("worker_qrcode", updated[SubscriptionPlansTable.workerQrcode])
+                        put("loyalty_points", updated[SubscriptionPlansTable.loyaltyPoints])
+                        put("manual_discount", updated[SubscriptionPlansTable.manualDiscount])
+                        put("offers_management", updated[SubscriptionPlansTable.offersManagement])
+                        put("cash_drawer", updated[SubscriptionPlansTable.cashDrawer])
+                        put("split_payment", updated[SubscriptionPlansTable.splitPayment])
+                        put("customer_credit", updated[SubscriptionPlansTable.customerCredit])
+                        put("suppliers", updated[SubscriptionPlansTable.suppliers])
+                        put("returns", updated[SubscriptionPlansTable.returns])
+                        put("prescriptions", updated[SubscriptionPlansTable.prescriptions])
+                        put("drug_interactions", updated[SubscriptionPlansTable.drugInteractions])
+                        put("scheduled_orders", updated[SubscriptionPlansTable.scheduledOrders])
+                        put("kds", updated[SubscriptionPlansTable.kds])
+                        put("notifications", updated[SubscriptionPlansTable.notifications])
                         put("analytics", updated[SubscriptionPlansTable.analytics])
                         put("digital_menu", updated[SubscriptionPlansTable.digitalMenu])
                     }
@@ -388,17 +441,16 @@ fun Route.adminApiRoutes() {
                 require(request.plan.uppercase() in validPlans) { "Invalid plan. Must be one of: ${validPlans.joinToString()}" }
 
                 val bt = request.business_type.uppercase()
-                val isRetailLike = bt in listOf("RETAIL", "GROCERY", "SUPERMARKET", "PHARMACY")
-                val isDineIn = bt in listOf("RESTAURANT", "CAFE", "BAKERY", "JUICE_BAR")
-                val enableTables = request.enable_tables ?: isDineIn
-                val enableDineIn = request.enable_dine_in ?: isDineIn
-                val enableDelivery = request.enable_delivery ?: (bt != "RETAIL")
-                val enableTakeaway = request.enable_takeaway ?: true
-                val enableInStore = request.enable_in_store ?: isRetailLike
-                val enablePickupLater = request.enable_pickup_later ?: isRetailLike
-                val taxEnabled = request.tax_enabled ?: isRetailLike
-                val defaultTaxPercent = request.default_tax_percent ?: if (isRetailLike) 14.0 else 0.0
-                val stockMode = request.stock_mode ?: if (isRetailLike) "ENFORCE" else "NONE"
+                val defaults = DomainDefaults.forType(bt)
+                val enableTables = request.enable_tables ?: defaults.enableTables
+                val enableDineIn = request.enable_dine_in ?: defaults.enableDineIn
+                val enableDelivery = request.enable_delivery ?: defaults.enableDelivery
+                val enableTakeaway = request.enable_takeaway ?: defaults.enableTakeaway
+                val enableInStore = request.enable_in_store ?: defaults.enableInStore
+                val enablePickupLater = request.enable_pickup_later ?: defaults.enablePickupLater
+                val taxEnabled = request.tax_enabled ?: defaults.taxEnabled
+                val defaultTaxPercent = request.default_tax_percent ?: defaults.defaultTaxPercent
+                val stockMode = request.stock_mode ?: defaults.stockMode
 
                 trace.step("Creating vendor and manager in transaction")
                 val result = transaction {

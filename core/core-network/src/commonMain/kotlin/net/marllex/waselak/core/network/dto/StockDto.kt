@@ -90,3 +90,50 @@ data class StockAnalyticsSummaryResponse(
     @SerialName("total_added_today") val totalAddedToday: Double,
     @SerialName("total_deducted_today") val totalDeductedToday: Double,
 )
+
+// ─── Stock Batch DTOs ───────────────────────────────────────────
+
+@Serializable
+data class StockBatchResponse(
+    val id: String,
+    @SerialName("stock_id") val stockId: String,
+    @SerialName("vendor_id") val vendorId: String,
+    @SerialName("batch_number") val batchNumber: String? = null,
+    val quantity: Double,
+    @SerialName("initial_quantity") val initialQuantity: Double,
+    @SerialName("cost_price") val costPrice: Double = 0.0,
+    @SerialName("expiry_date") val expiryDate: String? = null,
+    @SerialName("received_at") val receivedAt: Long? = null,
+    val status: String = "ACTIVE",
+    @SerialName("created_at") val createdAt: Long? = null,
+    @SerialName("item_name") val itemName: String? = null,
+)
+
+@Serializable
+data class CreateBatchRequest(
+    @SerialName("stock_id") val stockId: String,
+    @SerialName("batch_number") val batchNumber: String? = null,
+    val quantity: Double,
+    @SerialName("cost_price") val costPrice: Double = 0.0,
+    @SerialName("expiry_date") val expiryDate: String? = null,
+)
+
+@Serializable
+data class UpdateBatchRequest(
+    @SerialName("batch_number") val batchNumber: String? = null,
+    @SerialName("expiry_date") val expiryDate: String? = null,
+    @SerialName("cost_price") val costPrice: Double? = null,
+)
+
+@Serializable
+data class ExpiryAlertResponse(
+    val id: String,
+    @SerialName("stock_id") val stockId: String,
+    @SerialName("item_name") val itemName: String,
+    @SerialName("batch_number") val batchNumber: String? = null,
+    val quantity: Double,
+    @SerialName("expiry_date") val expiryDate: String,
+    @SerialName("days_until_expiry") val daysUntilExpiry: Int,
+    val status: String,
+    val unit: String,
+)

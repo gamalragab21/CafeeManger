@@ -201,6 +201,16 @@
     <string name="loyalty_points">Loyalty Points</string>
     <string name="manual_discount">Manual Discount</string>
     <string name="offers_management">Offers Management</string>
+    <string name="cash_drawer">Cash Drawer</string>
+    <string name="split_payment">Split Payment</string>
+    <string name="customer_credit">Customer Credit</string>
+    <string name="suppliers_management">Suppliers</string>
+    <string name="returns_management">Returns</string>
+    <string name="prescriptions">Prescriptions</string>
+    <string name="drug_interactions">Drug Interactions</string>
+    <string name="scheduled_orders">Scheduled Orders</string>
+    <string name="kds_display">Kitchen Display (KDS)</string>
+    <string name="notifications">Notifications</string>
     <string name="analytics_level">Analytics</string>
     <string name="digital_menu_level">Digital Menu</string>
     <string name="unlimited">Unlimited</string>

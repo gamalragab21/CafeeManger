@@ -164,7 +164,7 @@ fun Route.userManagementRoutes() {
             require(request.phone.isNotBlank()) { "Phone is required" }
             require(request.password.length >= 6) { "Password must be at least 6 characters" }
 
-            val validRoles = listOf("MANAGER", "CASHIER", "DELIVERY")
+            val validRoles = listOf("MANAGER", "CASHIER", "DELIVERY", "KITCHEN")
             require(request.role in validRoles) {
                 "Invalid role. Must be one of: ${validRoles.joinToString()}"
             }
@@ -219,7 +219,7 @@ fun Route.userManagementRoutes() {
             ))
 
             request.role?.let { role ->
-                val validRoles = listOf("MANAGER", "CASHIER", "DELIVERY")
+                val validRoles = listOf("MANAGER", "CASHIER", "DELIVERY", "KITCHEN")
                 require(role in validRoles) {
                     "Invalid role. Must be one of: ${validRoles.joinToString()}"
                 }

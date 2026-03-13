@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>وصّلِك | Waselak - نظام ERP متكامل للمطاعم والكافيهات والمحلات التجارية</title>
-    <meta name="description" content="نظام إدارة متكامل للمطاعم، الكافيهات، المحلات التجارية وأي نشاط تجاري. يجمع بين نقاط البيع، المخزون، الموظفين، التوصيل، العروض، نقاط الولاء والتحليلات المتقدمة">
-    <meta name="keywords" content="نظام إدارة مطاعم, كافيه, محلات تجارية, POS, نقاط بيع, إدارة مخزون, توصيل, كاشير, مخابز, حلواني">
+    <meta name="description" content="نظام إدارة متكامل للمطاعم، الكافيهات، الصيدليات، المحلات التجارية وأي نشاط تجاري. يجمع بين نقاط البيع، شاشة المطبخ KDS، المخزون، الموظفين، التوصيل، الموردين، المرتجعات، والتحليلات المتقدمة">
+    <meta name="keywords" content="نظام إدارة مطاعم, كافيه, صيدلية, محلات تجارية, POS, نقاط بيع, إدارة مخزون, توصيل, كاشير, مخابز, حلواني, KDS, شاشة مطبخ, موردين, مرتجعات">
     <meta property="og:title" content="وصّلِك | Waselak - نظام ERP متكامل للمطاعم والكافيهات والمحلات التجارية">
-    <meta property="og:description" content="نظام إدارة متكامل للمطاعم، الكافيهات، المحلات وأي نشاط تجاري - ثلاث تطبيقات لكل فريقك">
+    <meta property="og:description" content="نظام إدارة متكامل للمطاعم، الكافيهات، الصيدليات، المحلات وأي نشاط تجاري - أربع تطبيقات لكل فريقك">
     <meta property="og:type" content="website">
 
     <!-- Fonts -->
@@ -458,7 +458,7 @@
         /* ========== APPS SECTION ========== */
         .apps-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 28px;
         }
 
@@ -1120,7 +1120,7 @@
             .hero-actions { justify-content: center; }
             .hero-stats { max-width: 500px; margin: 0 auto; }
             .hero-visual { margin-top: 40px; }
-            .apps-grid { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
+            .apps-grid { grid-template-columns: repeat(2, 1fr); max-width: 700px; margin: 0 auto; }
             .features-showcase { grid-template-columns: 1fr; gap: 40px; }
             .plans-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
             .plan-card.popular { transform: none; }
@@ -1135,6 +1135,7 @@
             .section { padding: 80px 0; }
             .hero-stats { grid-template-columns: repeat(2, 1fr); }
             .trust-cards { grid-template-columns: 1fr 1fr; }
+            .apps-grid { grid-template-columns: 1fr; max-width: 420px; }
             .footer-grid { grid-template-columns: 1fr; gap: 32px; }
             .contact-cards { flex-direction: column; align-items: center; }
         }
@@ -1667,8 +1668,8 @@
                     <span class="gradient-text">نظام وصّلِك - Waselak</span>
                 </h1>
                 <p class="hero-desc">
-                    نظام إدارة متكامل للمطاعم، الكافيهات، المحلات التجارية، المخابز، وأي نشاط تجاري.
-                    يجمع بين نقاط البيع، إدارة الطلبات، المخزون، الموظفين، التوصيل، العروض، نقاط الولاء، والتحليلات
+                    نظام إدارة متكامل للمطاعم، الكافيهات، الصيدليات، المحلات التجارية، المخابز، وأي نشاط تجاري.
+                    يجمع بين نقاط البيع، شاشة المطبخ، المخزون، الموظفين، التوصيل، الموردين، العروض، والتحليلات المتقدمة
                 </p>
                 <div class="hero-actions">
                     <a href="https://wa.me/201017026531" target="_blank" class="btn btn-primary">
@@ -1682,16 +1683,16 @@
                 </div>
                 <div class="hero-stats">
                     <div class="stat-card" data-aos="fade-up" data-aos-delay="100">
-                        <span class="stat-num counter" data-target="3">0</span>
+                        <span class="stat-num counter" data-target="4">0</span>
                         <span class="stat-label">تطبيقات متكاملة</span>
                     </div>
                     <div class="stat-card" data-aos="fade-up" data-aos-delay="200">
-                        <span class="stat-num counter" data-target="25">0</span>
-                        <span class="stat-label">وحدة نظام +</span>
+                        <span class="stat-num counter" data-target="29">0</span>
+                        <span class="stat-label">ميزة متكاملة +</span>
                     </div>
                     <div class="stat-card" data-aos="fade-up" data-aos-delay="300">
-                        <span class="stat-num counter" data-target="19">0</span>
-                        <span class="stat-label">شاشة متخصصة +</span>
+                        <span class="stat-num counter" data-target="8">0</span>
+                        <span class="stat-label">أنواع أنشطة تجارية</span>
                     </div>
                     <div class="stat-card" data-aos="fade-up" data-aos-delay="400">
                         <span class="stat-num counter" data-target="3">0</span>
@@ -1766,7 +1767,7 @@
         <div class="trust-cards">
             <div class="trust-card" data-aos="fade-up" data-aos-delay="0">
                 <span class="t-icon">🏪</span>
-                <span class="t-num counter" data-target="3">0</span>
+                <span class="t-num counter" data-target="4">0</span>
                 <span class="t-label">تطبيقات متخصصة</span>
             </div>
             <div class="trust-card" data-aos="fade-up" data-aos-delay="100">
@@ -1793,7 +1794,7 @@
     <div class="container">
         <div class="section-header" data-aos="fade-up">
             <div class="section-tag"><i class="fas fa-mobile-alt"></i> التطبيقات</div>
-            <h2>ثلاث تطبيقات لكل فريقك</h2>
+            <h2>أربع تطبيقات لكل فريقك</h2>
             <p>كل عضو في فريقك له تطبيقه الخاص - لأي نوع من الأنشطة التجارية</p>
         </div>
 
@@ -1808,7 +1809,11 @@
                     <li>إدارة الموظفين والحضور والرواتب</li>
                     <li>إدارة المخزون والوصفات</li>
                     <li>إدارة العملاء ونقاط الولاء</li>
-                    <li>العروض والخصومات</li>
+                    <li>الموردين وأوامر الشراء</li>
+                    <li>المرتجعات والاستبدال</li>
+                    <li>ائتمان العملاء</li>
+                    <li>الطلبات المجدولة</li>
+                    <li>التفاعلات الدوائية (صيدليات)</li>
                     <li>تحليلات وتقارير متقدمة</li>
                     <li>تصدير التقارير (PDF / Excel)</li>
                 </ul>
@@ -1824,8 +1829,11 @@
                     <li>خصومات يدوية وعروض ونقاط ولاء</li>
                     <li>إدارة الطاولات وحالاتها</li>
                     <li>طباعة الإيصالات ومشاركتها</li>
+                    <li>صندوق النقد والدفع المقسم</li>
+                    <li>ائتمان العملاء والوصفات الطبية</li>
+                    <li>شاشة المطبخ (KDS)</li>
                     <li>تسجيل الحضور (PIN / QR)</li>
-                    <li>لوحة التوصيل</li>
+                    <li>لوحة التوصيل والإشعارات</li>
                     <li>دعم العمل بدون إنترنت</li>
                 </ul>
             </div>
@@ -1843,6 +1851,21 @@
                     <li>إشعارات فورية</li>
                 </ul>
             </div>
+
+            <div class="app-card" data-aos="fade-up" data-aos-delay="450">
+                <div class="app-icon-wrap kds" style="background: linear-gradient(135deg, #FF6F00, #FFB300);">🍳</div>
+                <h3>شاشة المطبخ (KDS)</h3>
+                <p class="desc">شاشة عرض مخصصة للمطبخ</p>
+                <ul class="app-features">
+                    <li>عرض الطلبات لحظياً للمطبخ</li>
+                    <li>تحديث حالة كل صنف (انتظار - تحضير - جاهز)</li>
+                    <li>تحديث تلقائي كل 1.5 ثانية</li>
+                    <li>فلترة حسب محطة التحضير</li>
+                    <li>ملخص الطلبات ومتوسط وقت التحضير</li>
+                    <li>دعم كامل للعربية والإنجليزية</li>
+                    <li>يعمل على Android و Desktop</li>
+                </ul>
+            </div>
         </div>
     </div>
 </section>
@@ -1853,7 +1876,7 @@
         <div class="section-header" data-aos="fade-up">
             <div class="section-tag"><i class="fas fa-star"></i> المميزات</div>
             <h2>كل اللي محتاجه في مكان واحد</h2>
-            <p>نظام متكامل يغطي كل جوانب إدارة مطعمك، كافيهك، محلك أو أي نشاط تجاري</p>
+            <p>نظام متكامل يغطي كل جوانب إدارة مطعمك، كافيهك، صيدليتك، محلك أو أي نشاط تجاري</p>
         </div>
 
         <!-- Feature 1: POS + Payment -->
@@ -1956,10 +1979,61 @@
             </div>
         </div>
 
+        <!-- Feature 5: KDS -->
+        <div class="features-showcase" data-aos="fade-up">
+            <div class="feature-text-block">
+                <h3>شاشة المطبخ (KDS)</h3>
+                <p class="subtitle">
+                    تطبيق مخصص للمطبخ يعرض الطلبات لحظياً مع تحديث تلقائي كل 1.5 ثانية،
+                    فلترة حسب المحطة، وتتبع وقت التحضير لكل طلب
+                </p>
+                <div class="feature-pills">
+                    <span class="feature-pill"><i class="fas fa-tv"></i> شاشة عرض مخصصة</span>
+                    <span class="feature-pill"><i class="fas fa-sync"></i> تحديث لحظي</span>
+                    <span class="feature-pill"><i class="fas fa-tasks"></i> تتبع حالة التحضير</span>
+                    <span class="feature-pill"><i class="fas fa-stopwatch"></i> متوسط وقت التحضير</span>
+                    <span class="feature-pill"><i class="fas fa-filter"></i> فلترة المحطات</span>
+                </div>
+            </div>
+            <div class="feature-lottie">
+                <lottie-player
+                    src="https://assets-v2.lottiefiles.com/a/2c7a7eee-1177-11ee-8fc3-035cedf36401/HexJGVn01i.json"
+                    background="transparent" speed="1"
+                    style="width: 100%; max-width: 400px;" loop autoplay>
+                </lottie-player>
+            </div>
+        </div>
+
+        <!-- Feature 6: Supply Chain & Operations -->
+        <div class="features-showcase" data-aos="fade-up">
+            <div class="feature-lottie">
+                <lottie-player
+                    src="https://assets-v2.lottiefiles.com/a/24e70b06-116b-11ee-893d-eba53a3e2541/K26wVVz0l3.json"
+                    background="transparent" speed="1"
+                    style="width: 100%; max-width: 400px;" loop autoplay>
+                </lottie-player>
+            </div>
+            <div class="feature-text-block">
+                <h3>سلسلة التوريد والعمليات</h3>
+                <p class="subtitle">
+                    إدارة شاملة للموردين وأوامر الشراء، المرتجعات والاستبدال،
+                    صندوق النقد، الدفع المقسم، ائتمان العملاء، والطلبات المجدولة
+                </p>
+                <div class="feature-pills">
+                    <span class="feature-pill"><i class="fas fa-truck-loading"></i> الموردين والمشتريات</span>
+                    <span class="feature-pill"><i class="fas fa-undo"></i> المرتجعات</span>
+                    <span class="feature-pill"><i class="fas fa-cash-register"></i> صندوق النقد</span>
+                    <span class="feature-pill"><i class="fas fa-divide"></i> الدفع المقسم</span>
+                    <span class="feature-pill"><i class="fas fa-credit-card"></i> ائتمان العملاء</span>
+                    <span class="feature-pill"><i class="fas fa-calendar-check"></i> طلبات مجدولة</span>
+                </div>
+            </div>
+        </div>
+
         <!-- All Features Grid -->
         <div class="section-header" data-aos="fade-up" style="margin-top: 80px;">
             <div class="section-tag"><i class="fas fa-th"></i> كل المميزات</div>
-            <h2>+19 ميزة متكاملة</h2>
+            <h2>+29 ميزة متكاملة</h2>
         </div>
 
         <div class="features-grid">
@@ -2058,6 +2132,56 @@
                 <h4>متعدد المنصات</h4>
                 <p>Android - iOS - Desktop مع بصمة و Face ID</p>
             </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="0">
+                <div class="f-icon green">💵</div>
+                <h4>صندوق النقد</h4>
+                <p>فتح وإغلاق الصندوق مع حركات النقد والأرصدة</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="50">
+                <div class="f-icon teal">💳</div>
+                <h4>الدفع المقسم</h4>
+                <p>تقسيم الفاتورة على أكثر من طريقة دفع</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="100">
+                <div class="f-icon amber">🏦</div>
+                <h4>ائتمان العملاء</h4>
+                <p>حسابات ائتمان مع حدود وتسجيل المدفوعات</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="150">
+                <div class="f-icon indigo">🏭</div>
+                <h4>الموردين وأوامر الشراء</h4>
+                <p>إدارة الموردين والمشتريات والفواتير</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="200">
+                <div class="f-icon red">🔄</div>
+                <h4>المرتجعات والاستبدال</h4>
+                <p>إدارة مرتجعات العملاء مع الموافقة والرفض</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="0">
+                <div class="f-icon orange">🍳</div>
+                <h4>شاشة المطبخ (KDS)</h4>
+                <p>شاشة عرض مخصصة للمطبخ مع تتبع حالة التحضير</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="50">
+                <div class="f-icon green">💊</div>
+                <h4>الوصفات الطبية</h4>
+                <p>إدارة الوصفات الطبية للصيدليات مع بيانات المريض</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="100">
+                <div class="f-icon red">⚠️</div>
+                <h4>التفاعلات الدوائية</h4>
+                <p>تنبيهات التفاعلات الدوائية بين الأصناف للصيدليات</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="150">
+                <div class="f-icon purple">📅</div>
+                <h4>الطلبات المجدولة</h4>
+                <p>جدولة الطلبات للاستلام أو التوصيل في وقت محدد</p>
+            </div>
+            <div class="f-card" data-aos="fade-up" data-aos-delay="200">
+                <div class="f-icon blue">🔔</div>
+                <h4>الإشعارات</h4>
+                <p>إشعارات فورية للطلبات والمخزون والتحديثات</p>
+            </div>
         </div>
     </div>
 </section>
@@ -2070,7 +2194,7 @@
                 <i class="fas fa-chart-line"></i> التحليلات
             </div>
             <h2>تحليلات متقدمة لقرارات أذكى</h2>
-            <p>اعرف كل حاجة عن مشروعك بالأرقام والرسوم البيانية - يناسب كل الأنشطة التجارية</p>
+            <p>اعرف كل حاجة عن مشروعك بالأرقام والرسوم البيانية - يناسب المطاعم، الصيدليات، وكل الأنشطة التجارية</p>
         </div>
 
         <!-- Analytics Lottie -->
@@ -2148,7 +2272,7 @@
         <div class="section-header" data-aos="fade-up">
             <div class="section-tag"><i class="fas fa-images"></i> صور</div>
             <h2>مصمم لكل الأنشطة التجارية</h2>
-            <p>واجهة عصرية مصممة للسوق العربي - مطاعم، كافيهات، محلات، مخابز، وأكثر</p>
+            <p>واجهة عصرية مصممة للسوق العربي - مطاعم، كافيهات، صيدليات، محلات، مخابز، وأكثر</p>
         </div>
 
         <!-- Vendor Types -->
@@ -2285,17 +2409,28 @@
                     <li class="yes">إدارة الطلبات</li>
                     <li class="yes">إدارة القائمة</li>
                     <li class="yes">إدارة الموظفين الأساسية</li>
+                    <li class="yes">نقاط الولاء</li>
+                    <li class="yes">الخصومات اليدوية</li>
+                    <li class="yes">صندوق النقد</li>
+                    <li class="yes">الإشعارات</li>
                     <li class="no">المخزون</li>
                     <li class="no">الحضور والانصراف</li>
                     <li class="no">التوصيل</li>
                     <li class="no">الطاولات</li>
                     <li class="no">العملاء</li>
                     <li class="no">التحليلات</li>
-                    <li class="no">نقاط الولاء</li>
-                    <li class="no">الخصومات اليدوية</li>
                     <li class="no">إدارة العروض</li>
+                    <li class="no">الدفع المقسم</li>
+                    <li class="no">ائتمان العملاء</li>
+                    <li class="no">الموردين</li>
+                    <li class="no">المرتجعات</li>
+                    <li class="no">الوصفات الطبية</li>
+                    <li class="no">التفاعلات الدوائية</li>
+                    <li class="no">شاشة المطبخ (KDS)</li>
+                    <li class="no">الطلبات المجدولة</li>
                     <li class="no">الأوفرتايم</li>
                     <li class="no">الإيصالات الرقمية</li>
+                    <li class="no">القائمة الرقمية</li>
                 </ul>
             </div>
 
@@ -2328,8 +2463,17 @@
                     <li class="yes">نقاط الولاء</li>
                     <li class="yes">الخصومات اليدوية</li>
                     <li class="yes">إدارة العروض</li>
+                    <li class="yes">الدفع المقسم</li>
+                    <li class="yes">ائتمان العملاء</li>
+                    <li class="yes">الموردين وأوامر الشراء</li>
+                    <li class="yes">المرتجعات</li>
+                    <li class="yes">الوصفات الطبية</li>
+                    <li class="yes">التفاعلات الدوائية</li>
+                    <li class="yes">شاشة المطبخ (KDS)</li>
+                    <li class="no">الطلبات المجدولة</li>
                     <li class="no">الأوفرتايم</li>
                     <li class="no">الإيصالات الرقمية</li>
+                    <li class="no">القائمة الرقمية</li>
                 </ul>
             </div>
 
@@ -2353,13 +2497,12 @@
                     <li class="yes">أوفرتايم الموظفين</li>
                     <li class="yes">الإيصالات الرقمية</li>
                     <li class="yes">القائمة الرقمية (Digital Menu)</li>
-                    <li class="yes">نقاط الولاء</li>
-                    <li class="yes">الخصومات اليدوية</li>
-                    <li class="yes">إدارة العروض</li>
+                    <li class="yes">الطلبات المجدولة</li>
                     <li class="yes">حتى ٥ فروع</li>
                     <li class="yes">عدد غير محدود من الموظفين</li>
                     <li class="yes">عدد غير محدود من الطلبات</li>
                     <li class="yes">عدد غير محدود من الأصناف</li>
+                    <li class="yes">جميع المميزات بلا استثناء</li>
                     <li class="yes">دعم أولوية</li>
                 </ul>
             </div>

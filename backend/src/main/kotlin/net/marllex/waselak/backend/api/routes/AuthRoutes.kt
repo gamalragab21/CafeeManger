@@ -179,6 +179,7 @@ fun Route.authRoutes() {
                     "MANAGER" -> userRole == "MANAGER"
                     "CASHIER" -> userRole == "CASHIER" || userRole == "MANAGER"
                     "DELIVERY" -> userRole == "DELIVERY" || userRole == "MANAGER"
+                    "KDS" -> userRole == "KITCHEN" || userRole == "MANAGER"
                     else -> true
                 }
                 if (!allowed) {

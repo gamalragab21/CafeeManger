@@ -45,9 +45,12 @@ ksp/
 env/release.properties
 backend/.env.prod
 
-# Signing keys
+# Signing keys & credentials
 keystore/waselak-release.jks
 keystore/keystore.properties
+keystore/gdrive-sa-key.json
+keystore/gdrive-oauth-client.json
+keystore/gdrive-oauth-token.json
 
 # Claude Code
 .claude/worktrees/

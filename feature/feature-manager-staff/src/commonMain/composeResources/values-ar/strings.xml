@@ -121,6 +121,9 @@
     <string name="unpaid_records_count">%1$d مش مدفوع</string>
     <string name="pay_selected">ادفع %1$d</string>
     <string name="back">رجوع</string>
+    <string name="base_salary_label">المرتب الأساسي</string>
+    <string name="overtime_included">+ أوفرتايم: %1$s ساعة (%2$s ج.م)</string>
+    <string name="total_label">الإجمالي</string>
 
     <!-- Common -->
     <string name="save">حفظ</string>

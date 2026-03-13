@@ -83,6 +83,16 @@ fun Application.configureRouting() {
             announcementRoutes()
             overtimeRoutes()
             chatbotRoutes()
+            returnRoutes() // Product returns & exchanges
+            kdsRoutes() // Kitchen Display System
+            cashDrawerRoutes() // Cash drawer management
+            splitPaymentRoutes() // Split payments per order
+            prescriptionRoutes() // Pharmacy prescriptions
+            drugInteractionRoutes() // Drug interaction warnings
+            customerCreditRoutes() // Customer credit accounts
+            scheduledOrderRoutes() // Pre-orders / scheduled orders
+            supplierRoutes() // Suppliers & purchase orders
+            notificationRoutes() // Unified notifications & device tokens
             exportRoutes() // Export data as PDF/Excel (MANAGER only)
             uploadRoutes() // File upload (multipart)
             logRoutes() // App log upload

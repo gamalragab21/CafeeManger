@@ -40,6 +40,7 @@
     <string name="role_manager">مدير</string>
     <string name="role_cashier">كاشير</string>
     <string name="role_delivery">توصيل</string>
+    <string name="role_kitchen">مطبخ</string>
     <string name="role_admin">مشرف</string>
 
     <!-- Stock Transaction Types -->
@@ -315,6 +316,200 @@
     <string name="vendor_type_grocery">بقالة</string>
     <string name="vendor_type_retail">محل</string>
     <string name="vendor_type_juice_bar">عصائر</string>
+
+    <!-- Cash Drawer -->
+    <string name="cash_drawer">درج الكاش</string>
+    <string name="open_cash_drawer">فتح درج الكاش</string>
+    <string name="close_cash_drawer">قفل درج الكاش</string>
+    <string name="cash_movement">حركة كاش</string>
+    <string name="opening_balance">رصيد الفتح</string>
+    <string name="closing_balance">رصيد الإغلاق الفعلي</string>
+    <string name="expected_balance">الرصيد المتوقع</string>
+    <string name="expected_balance_value">الرصيد المتوقع: %1$s</string>
+    <string name="cash_in">كاش داخل</string>
+    <string name="cash_out">كاش خارج</string>
+    <string name="sales">المبيعات</string>
+    <string name="current_session">الجلسة الحالية</string>
+    <string name="session_active">الجلسة شغّالة</string>
+    <string name="no_open_drawer">مفيش جلسة درج مفتوحة. اضغط الزرار عشان تفتح واحدة.</string>
+    <string name="no_session_history">مفيش سجل جلسات</string>
+    <string name="open">فتح</string>
+    <string name="movements_count">حركات (%1$d)</string>
+    <string name="session_open_balance">فتح: %1$s</string>
+    <string name="session_close_balance">قفل: %1$s</string>
+    <string name="session_discrepancy">الفرق: %1$s</string>
+    <string name="movement">حركة</string>
+    <string name="close_drawer">قفل الدرج</string>
+    <string name="open_drawer">فتح الدرج</string>
+
+    <!-- Customer Credit -->
+    <string name="customer_credit">رصيد العميل</string>
+    <string name="customer">العميل</string>
+    <string name="record_payment">تسجيل دفعة</string>
+    <string name="charge_credit">شحن رصيد</string>
+    <string name="charge">شحن</string>
+    <string name="record">تسجيل</string>
+    <string name="balance">الرصيد</string>
+    <string name="balance_value">الرصيد: %1$s</string>
+    <string name="available_value">المتاح: %1$s</string>
+    <string name="credit_limit">حد الائتمان</string>
+    <string name="available">المتاح</string>
+    <string name="available_credit">الرصيد المتاح</string>
+    <string name="outstanding_balance">الرصيد المعلّق</string>
+    <string name="no_customer_credit">مفيش حسابات رصيد عملاء</string>
+    <string name="no_transactions_yet">مفيش معاملات لسه</string>
+    <string name="transactions_count">المعاملات (%1$d)</string>
+    <string name="transaction_history_count">سجل المعاملات (%1$d)</string>
+    <string name="transaction_balance">رصيد: %1$s</string>
+    <string name="set_credit_limit">تحديد حد الائتمان</string>
+    <string name="current_limit">الحد الحالي: %1$s</string>
+    <string name="new_limit">الحد الجديد</string>
+    <string name="update">تحديث</string>
+    <string name="at_limit">وصل الحد</string>
+    <string name="debtors_summary">%1$d مدينين | الإجمالي: %2$s</string>
+    <string name="set_limit">تحديد الحد</string>
+
+    <!-- Kitchen Display -->
+    <string name="kitchen_display">شاشة المطبخ</string>
+    <string name="no_active_orders">مفيش طلبات شغّالة</string>
+    <string name="table_label">- ترابيزة %1$s</string>
+    <string name="elapsed_minutes">%1$d د</string>
+    <string name="all_ready">الكل جاهز</string>
+    <string name="note_prefix">ملاحظة: %1$s</string>
+    <string name="start">ابدأ</string>
+    <string name="served">اتقدّم</string>
+    <string name="kds_summary">م:%1$d ت:%2$d ج:%3$d</string>
+    <string name="pending">مستني</string>
+    <string name="cooking">بيتحضّر</string>
+    <string name="ready">جاهز</string>
+    <string name="avg_prep_time">متوسط: %1$d د</string>
+
+    <!-- Notifications -->
+    <string name="notifications">الإشعارات</string>
+    <string name="read_all">قراءة الكل</string>
+    <string name="mark_all_read">تعليم الكل مقروء</string>
+    <string name="no_notifications">مفيش إشعارات</string>
+    <string name="no_notifications_yet">مفيش إشعارات لسه</string>
+    <string name="no_unread_notifications">مفيش إشعارات جديدة</string>
+
+    <!-- Prescriptions -->
+    <string name="prescriptions">الروشتات</string>
+    <string name="new_prescription">روشتة جديدة</string>
+    <string name="dispensed">تم الصرف</string>
+    <string name="no_prescriptions_found">مفيش روشتات</string>
+    <string name="patient_name">اسم المريض</string>
+    <string name="patient_phone">تليفون المريض</string>
+    <string name="doctor_name">اسم الدكتور</string>
+    <string name="diagnosis">التشخيص</string>
+    <string name="notes">ملاحظات</string>
+    <string name="create">إنشاء</string>
+    <string name="dispense_prescription">صرف الروشتة</string>
+    <string name="patient_label">المريض: %1$s</string>
+    <string name="items_to_dispense">أصناف للصرف: %1$d</string>
+    <string name="dispense_confirm_message">هيتم تعليم كل الأصناف المستنية إنها اتصرفت.</string>
+    <string name="dispense">صرف</string>
+    <string name="doctor_prefix">د. %1$s</string>
+    <string name="items_dispensed_count">%1$d/%2$d صنف اتصرف</string>
+    <string name="prescription_details">تفاصيل الروشتة</string>
+    <string name="patient">المريض</string>
+    <string name="doctor">الدكتور</string>
+    <string name="items_count">الأصناف (%1$d)</string>
+    <string name="dosage_label">الجرعة: %1$s</string>
+    <string name="frequency_label">التكرار: %1$s</string>
+    <string name="duration_label">المدة: %1$s</string>
+
+    <!-- Split Payment -->
+    <string name="split_payment">تقسيم الدفع</string>
+    <string name="add_payment">إضافة دفعة</string>
+    <string name="order_id">رقم الطلب</string>
+    <string name="load">تحميل</string>
+    <string name="enter_order_id_message">ادخل رقم الطلب عشان تشوف الدفعات</string>
+    <string name="remaining_value">المتبقي: %1$s</string>
+    <string name="payment_method">طريقة الدفع</string>
+    <string name="amount">المبلغ</string>
+    <string name="note">ملاحظة</string>
+    <string name="order_total">إجمالي الطلب</string>
+    <string name="total_paid">المدفوع</string>
+    <string name="remaining">المتبقي</string>
+    <string name="fully_paid">مدفوع بالكامل</string>
+    <string name="payments_count">الدفعات (%1$d)</string>
+    <string name="no_payments_yet">مفيش دفعات لسه</string>
+    <string name="remove">إزالة</string>
+
+    <!-- Drug Interactions -->
+    <string name="drug_interactions">التداخلات الدوائية</string>
+    <string name="add_interaction">إضافة تداخل</string>
+    <string name="search_interactions">بحث في التداخلات...</string>
+    <string name="no_drug_interactions">مفيش تداخلات دوائية محددة</string>
+    <string name="add_drug_interaction">إضافة تداخل دوائي</string>
+    <string name="item_a_id">معرف الصنف أ</string>
+    <string name="item_b_id">معرف الصنف ب</string>
+    <string name="description">الوصف</string>
+    <string name="recommendation">التوصية</string>
+    <string name="recommendation_prefix">التوصية: %1$s</string>
+    <string name="enable">تفعيل</string>
+    <string name="disable">تعطيل</string>
+
+    <!-- Returns -->
+    <string name="returns_exchanges">المرتجعات والاستبدال</string>
+    <string name="completed">مكتمل</string>
+    <string name="rejected">مرفوض</string>
+    <string name="no_returns_found">مفيش مرتجعات</string>
+    <string name="reason_prefix">السبب: %1$s</string>
+    <string name="return_items_refund">أصناف: %1$d | استرداد: %2$s</string>
+    <string name="approve">موافقة</string>
+    <string name="reject">رفض</string>
+    <string name="total_label">الإجمالي: %1$s</string>
+    <string name="pending_label">معلّق: %1$s</string>
+    <string name="refunded_label">مسترد: %1$s</string>
+
+    <!-- Scheduled Orders -->
+    <string name="scheduled_orders">طلبات مجدولة</string>
+    <string name="scheduled">مجدول</string>
+    <string name="confirmed">مؤكد</string>
+    <string name="preparing">بيتجهّز</string>
+    <string name="active_count">%1$d شغّال</string>
+    <string name="no_scheduled_orders">مفيش طلبات مجدولة</string>
+    <string name="order_channel_items">القناة: %1$s | أصناف: %2$d</string>
+    <string name="order_total_payment">الإجمالي: %1$s | الدفع: %2$s</string>
+
+    <!-- Suppliers -->
+    <string name="suppliers_purchase_orders">الموردين وأوامر الشراء</string>
+    <string name="suppliers">الموردين</string>
+    <string name="purchase_orders">أوامر الشراء</string>
+    <string name="add_supplier">إضافة مورد</string>
+    <string name="edit_supplier">تعديل مورد</string>
+    <string name="delete_supplier">حذف مورد</string>
+    <string name="delete_supplier_confirm">أنت متأكد إنك عايز تحذف %1$s؟</string>
+    <string name="search_suppliers">بحث في الموردين...</string>
+    <string name="no_suppliers_yet">مفيش موردين لسه</string>
+    <string name="no_purchase_orders_yet">مفيش أوامر شراء لسه</string>
+    <string name="contact_name">اسم التواصل</string>
+    <string name="phone">التليفون</string>
+    <string name="inactive">غير نشط</string>
+    <string name="supplier_label">المورد: %1$s</string>
+    <string name="po_items_total">أصناف: %1$d | الإجمالي: %2$s</string>
+
+    <!-- Common - new -->
+    <string name="refresh">تحديث</string>
+    <string name="reason">السبب</string>
+    <string name="history">السجل</string>
+    <string name="menu">القائمة</string>
+    <string name="profile">الملف الشخصي</string>
+    <string name="cashier">الكاشير</string>
+    <string name="worker">العامل</string>
+    <string name="date">التاريخ</string>
+    <string name="date_placeholder">سنة-شهر-يوم</string>
+    <string name="hours">الساعات</string>
+    <string name="hours_placeholder">مثلاً 2.5</string>
+    <string name="note_optional">ملاحظة (اختياري)</string>
+    <string name="sign_out_verification">تأكيد تسجيل الخروج</string>
+    <string name="share_link">مشاركة اللينك</string>
+    <string name="failed_load_shift_summary">فشل تحميل ملخص الشيفت</string>
+    <string name="no_logs_available_msg">مفيش سجلات متاحة</string>
+    <string name="logs_uploaded_success">تم رفع السجلات بنجاح</string>
+    <string name="logs_upload_failed_msg">فشل رفع السجلات: %1$s</string>
+    <string name="logs_cleared_msg">تم مسح السجلات</string>
 
     <!-- Vendor-specific order type labels -->
     <string name="order_label_default">طلب</string>

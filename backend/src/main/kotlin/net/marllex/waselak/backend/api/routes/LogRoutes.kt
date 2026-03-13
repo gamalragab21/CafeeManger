@@ -32,7 +32,7 @@ fun Route.logRoutes() {
         post("/upload") {
             val trace = call.routeTrace()
             trace.step("Log upload started")
-            val principal = requireRole("MANAGER", "CASHIER", "DELIVERY")
+            val principal = requireRole("MANAGER", "CASHIER", "DELIVERY", "KITCHEN")
             trace.step("Authenticated", mapOf("vendorId" to principal.vendorId, "role" to principal.role))
 
             // Get vendor name for folder organization
@@ -81,6 +81,7 @@ fun Route.logRoutes() {
                     "MANAGER" -> "manager"
                     "CASHIER" -> "cashier"
                     "DELIVERY" -> "delivery"
+                    "KITCHEN" -> "kds"
                     else -> "app"
                 }
 

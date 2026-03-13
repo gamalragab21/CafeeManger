@@ -10,6 +10,7 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.data.database.*
+import net.marllex.waselak.backend.domain.model.DomainDefaults
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
@@ -518,17 +519,16 @@ fun Route.adminRoutes() {
 
             // Auto-configure channel flags based on business_type
             val bt = request.business_type.uppercase()
-            val isRetailLike = bt in listOf("RETAIL", "GROCERY", "SUPERMARKET", "PHARMACY")
-            val isDineIn = bt in listOf("RESTAURANT", "CAFE", "BAKERY", "JUICE_BAR")
-            val enableTables = request.enable_tables ?: isDineIn
-            val enableDineIn = request.enable_dine_in ?: isDineIn
-            val enableDelivery = request.enable_delivery ?: (bt != "RETAIL")
-            val enableTakeaway = request.enable_takeaway ?: true
-            val enableInStore = request.enable_in_store ?: isRetailLike
-            val enablePickupLater = request.enable_pickup_later ?: isRetailLike
-            val taxEnabled = request.tax_enabled ?: isRetailLike
-            val defaultTaxPercent = request.default_tax_percent ?: if (isRetailLike) 14.0 else 0.0
-            val stockMode = request.stock_mode ?: if (isRetailLike) "ENFORCE" else "NONE"
+            val defaults = DomainDefaults.forType(bt)
+            val enableTables = request.enable_tables ?: defaults.enableTables
+            val enableDineIn = request.enable_dine_in ?: defaults.enableDineIn
+            val enableDelivery = request.enable_delivery ?: defaults.enableDelivery
+            val enableTakeaway = request.enable_takeaway ?: defaults.enableTakeaway
+            val enableInStore = request.enable_in_store ?: defaults.enableInStore
+            val enablePickupLater = request.enable_pickup_later ?: defaults.enablePickupLater
+            val taxEnabled = request.tax_enabled ?: defaults.taxEnabled
+            val defaultTaxPercent = request.default_tax_percent ?: defaults.defaultTaxPercent
+            val stockMode = request.stock_mode ?: defaults.stockMode
 
             trace.step("Creating vendor and manager in transaction")
             val result = transaction {
