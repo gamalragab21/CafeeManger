@@ -254,18 +254,21 @@ jobs:
           - os: ubuntu-latest
             os-label: Linux
             task: packageAllDesktopDeb
+            gradle-args: ""
             platform: linux
             ext: deb
 
           - os: macos-latest
             os-label: macOS
             task: packageAllDesktopDmg
+            gradle-args: ""
             platform: macos
             ext: dmg
 
           - os: windows-latest
             os-label: Windows
             task: packageAllDesktopMsi
+            gradle-args: -PtargetOs=windows
             platform: windows
             ext: msi
 
@@ -294,7 +297,7 @@ jobs:
           EOF
 
       - name: Build desktop packages
-        run: ./gradlew ${{ matrix.task }}
+        run: ./gradlew ${{ matrix.task }} ${{ matrix.gradle-args }}
 
       - name: Compute version and date
         id: vars

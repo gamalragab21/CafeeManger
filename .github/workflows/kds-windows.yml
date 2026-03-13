@@ -1,4 +1,4 @@
-name: KDS Windows Build
+name: Desktop Windows Build
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -18,20 +19,40 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build KDS Windows MSI
-        run: ./gradlew :app-kds:packageMsi -PtargetOs=windows
+      - name: Create stub env/release.properties
+        shell: bash
+        run: cp env/release.properties.template env/release.properties
 
-      - name: Build KDS Windows Uber JAR
-        run: ./gradlew :app-kds:packageUberJarForCurrentOS -PtargetOs=windows
+      - name: Build all Windows MSI installers
+        run: ./gradlew packageAllDesktopMsi -PtargetOs=windows
 
-      - name: Upload MSI Installer
+      - name: Compute version
+        id: vars
+        shell: bash
+        run: |
+          VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Manager MSI
         uses: actions/upload-artifact@v4
         with:
-          name: Waselak-KDS-Windows-Installer
+          name: Waselak-Manager-v${{ steps.vars.outputs.version }}-windows.msi
+          path: app-manager/build/compose/binaries/main/msi/*.msi
+
+      - name: Upload Cashier MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Waselak-Cashier-v${{ steps.vars.outputs.version }}-windows.msi
+          path: app-cashier/build/compose/binaries/main/msi/*.msi
+
+      - name: Upload Delivery MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Waselak-Delivery-v${{ steps.vars.outputs.version }}-windows.msi
+          path: app-delivery/build/compose/binaries/main/msi/*.msi
+
+      - name: Upload KDS MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Waselak-KDS-v${{ steps.vars.outputs.version }}-windows.msi
           path: app-kds/build/compose/binaries/main/msi/*.msi
-
-      - name: Upload Uber JAR
-        uses: actions/upload-artifact@v4
-        with:
-          name: Waselak-KDS-Windows-JAR
-          path: app-kds/build/compose/jars/*.jar

@@ -75,7 +75,16 @@ kotlin {
 
         val desktopMain by getting
         desktopMain.dependencies {
-            implementation(compose.desktop.currentOs)
+            val targetOs = project.findProperty("targetOs")?.toString() ?: "current"
+            implementation(
+                when (targetOs) {
+                    "windows" -> compose.desktop.windows_x64
+                    "linux" -> compose.desktop.linux_x64
+                    "macos-x64" -> compose.desktop.macos_x64
+                    "macos-arm64" -> compose.desktop.macos_arm64
+                    else -> compose.desktop.currentOs
+                }
+            )
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.ktor.client.cio)
         }
