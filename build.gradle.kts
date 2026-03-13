@@ -54,6 +54,17 @@ tasks.register("packageAllDesktopDeb") {
     dependsOn(desktopAppModules.map { ":$it:packageDeb" })
 }
 
+// ── Desktop cross-platform JARs (can build from any OS) ──────────────────────
+// Usage: ./gradlew packageAllDesktopJars -PtargetOs=windows
+//        ./gradlew packageAllDesktopJars -PtargetOs=linux
+//        ./gradlew packageAllDesktopJars  (defaults to current OS)
+
+tasks.register("packageAllDesktopJars") {
+    group = "build"
+    description = "Package uber JARs for all desktop apps (use -PtargetOs=windows|linux|macos-x64|macos-arm64)"
+    dependsOn(desktopAppModules.map { ":$it:packageUberJarForCurrentOS" })
+}
+
 // ── Combined: Debug (Android APKs + Desktop packages, debug env) ────────────
 
 tasks.register("buildAllDebug") {
