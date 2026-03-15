@@ -9,7 +9,7 @@ import net.marllex.waselak.feature.auth.LoginScreen
 const val AUTH_ROUTE = "auth"
 
 /**
- * @param appType identifies the app: "MANAGER", "CASHIER", or "DELIVERY"
+ * @param appType identifies the app: "MANAGER", "CASHIER", "DELIVERY", or "KDS"
  */
 fun NavGraphBuilder.authScreen(
     onLoginSuccess: () -> Unit,

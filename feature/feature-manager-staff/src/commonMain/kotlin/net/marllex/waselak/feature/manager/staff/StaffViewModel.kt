@@ -44,6 +44,8 @@ class StaffViewModel constructor(
         val showEditRateDialog: Boolean = false,
         val editRateOvertimeId: String? = null,
         val editRateValue: String = "",
+        // Overtime batch pay
+        val selectedOvertimeIds: Set<String> = emptySet(),
 
         // Add Worker Dialog - Multi-Step
         val showAddWorkerDialog: Boolean = false,
@@ -953,6 +955,50 @@ class StaffViewModel constructor(
         viewModelScope.launch {
             workerRepository.refreshOvertime(workerId = workerId).onSuccess { entries ->
                 _uiState.update { it.copy(overtimeEntries = entries) }
+            }
+        }
+    }
+
+    fun markOvertimePaid(overtimeId: String) {
+        viewModelScope.launch {
+            workerRepository.markOvertimePaid(overtimeId).onSuccess {
+                val workerId = _uiState.value.overtimeWorkerId
+                if (workerId != null) refreshOvertimeForWorker(workerId)
+                workerRepository.refreshSalaryPayments()
+            }
+        }
+    }
+
+    fun markOvertimeUnpaid(overtimeId: String) {
+        viewModelScope.launch {
+            workerRepository.markOvertimeUnpaid(overtimeId).onSuccess {
+                val workerId = _uiState.value.overtimeWorkerId
+                if (workerId != null) refreshOvertimeForWorker(workerId)
+                workerRepository.refreshSalaryPayments()
+            }
+        }
+    }
+
+    fun toggleOvertimeSelection(overtimeId: String) {
+        _uiState.update {
+            val current = it.selectedOvertimeIds
+            it.copy(selectedOvertimeIds = if (overtimeId in current) current - overtimeId else current + overtimeId)
+        }
+    }
+
+    fun clearOvertimeSelection() {
+        _uiState.update { it.copy(selectedOvertimeIds = emptySet()) }
+    }
+
+    fun batchPayOvertime() {
+        val ids = _uiState.value.selectedOvertimeIds
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            workerRepository.batchPayOvertime(ids.toList()).onSuccess {
+                _uiState.update { it.copy(selectedOvertimeIds = emptySet()) }
+                val workerId = _uiState.value.overtimeWorkerId
+                if (workerId != null) refreshOvertimeForWorker(workerId)
+                workerRepository.refreshSalaryPayments()
             }
         }
     }

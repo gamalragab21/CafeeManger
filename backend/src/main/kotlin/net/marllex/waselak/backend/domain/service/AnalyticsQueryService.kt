@@ -964,4 +964,176 @@ class AnalyticsQueryService {
             )
         }
     }
+
+    // ── 14. Staff Costs Analytics ──────────────────────────────────────
+
+    fun getStaffCostsAnalytics(vendorId: UUID, from: Instant, to: Instant): StaffCostsAnalyticsDto {
+        return transaction {
+            // Salary payments in the period (by period_start falling within range)
+            val fromDate = from.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+            val toDate = to.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+
+            val salaryPayments = SalaryPaymentsTable.selectAll().where {
+                (SalaryPaymentsTable.vendorId eq vendorId) and
+                        (SalaryPaymentsTable.periodStart greaterEq fromDate) and
+                        (SalaryPaymentsTable.periodStart lessEq toDate)
+            }.toList()
+
+            val totalSalaries = salaryPayments.sumOf { it[SalaryPaymentsTable.amount].toDouble() }
+            val totalOvertimeFromSalary = salaryPayments.sumOf { it[SalaryPaymentsTable.overtimeAmount].toDouble() }
+            val totalOvertimeHoursFromSalary = salaryPayments.sumOf { it[SalaryPaymentsTable.overtimeHours].toDouble() }
+
+            val paidPayments = salaryPayments.filter { it[SalaryPaymentsTable.paid] }
+            val unpaidPayments = salaryPayments.filter { !it[SalaryPaymentsTable.paid] }
+
+            val paidAmount = paidPayments.sumOf {
+                it[SalaryPaymentsTable.amount].toDouble() + it[SalaryPaymentsTable.overtimeAmount].toDouble()
+            }
+            val unpaidAmount = unpaidPayments.sumOf {
+                it[SalaryPaymentsTable.amount].toDouble() + it[SalaryPaymentsTable.overtimeAmount].toDouble()
+            }
+
+            val totalCompensation = totalSalaries + totalOvertimeFromSalary
+            val overtimePercentage = if (totalCompensation > 0) (totalOvertimeFromSalary / totalCompensation) * 100.0 else 0.0
+
+            val workerIds = salaryPayments.map { it[SalaryPaymentsTable.workerId] }.distinct()
+
+            // Top overtime workers from overtime_entries table
+            val overtimeEntries = OvertimeTable.selectAll().where {
+                (OvertimeTable.vendorId eq vendorId) and
+                        (OvertimeTable.date greaterEq fromDate) and
+                        (OvertimeTable.date lessEq toDate)
+            }.toList()
+
+            val workerOvertimeMap = overtimeEntries.groupBy { it[OvertimeTable.workerId] }
+            val topOvertimeWorkers = workerOvertimeMap.entries
+                .map { (wId, entries) ->
+                    val workerName = WorkersTable.selectAll()
+                        .where { WorkersTable.id eq wId }
+                        .firstOrNull()?.get(WorkersTable.fullName) ?: "Unknown"
+                    WorkerOvertimeSummaryDto(
+                        worker_id = wId.value.toString(),
+                        worker_name = workerName,
+                        overtime_hours = entries.sumOf { it[OvertimeTable.hours].toDouble() },
+                        overtime_amount = entries.sumOf { it[OvertimeTable.amount].toDouble() },
+                    )
+                }
+                .sortedByDescending { it.overtime_amount }
+                .take(5)
+
+            StaffCostsAnalyticsDto(
+                total_salaries = totalSalaries,
+                total_overtime = totalOvertimeFromSalary,
+                total_compensation = totalCompensation,
+                paid_amount = paidAmount,
+                unpaid_amount = unpaidAmount,
+                overtime_hours = totalOvertimeHoursFromSalary,
+                workers_count = workerIds.size,
+                overtime_percentage = overtimePercentage,
+                top_overtime_workers = topOvertimeWorkers,
+            )
+        }
+    }
+
+    // ── 15. Supplier Analytics ────────────────────────────────────────────
+
+    fun getSupplierAnalytics(vendorId: UUID, from: Instant, to: Instant): SupplierAnalyticsDto {
+        return transaction {
+            // All suppliers for this vendor
+            val allSuppliers = SuppliersTable.selectAll().where {
+                SuppliersTable.vendorId eq vendorId
+            }.toList()
+
+            val totalSuppliers = allSuppliers.size
+            val activeSuppliers = allSuppliers.count { it[SuppliersTable.active] }
+
+            // Purchase orders in the date range
+            val purchaseOrders = PurchaseOrdersTable.selectAll().where {
+                (PurchaseOrdersTable.vendorId eq vendorId) and
+                        (PurchaseOrdersTable.createdAt greaterEq from) and
+                        (PurchaseOrdersTable.createdAt lessEq to)
+            }.toList()
+
+            val totalPurchaseOrders = purchaseOrders.size
+            val totalSpent = purchaseOrders
+                .filter { it[PurchaseOrdersTable.status] != "CANCELLED" }
+                .sumOf { it[PurchaseOrdersTable.total].toDouble() }
+            val pendingOrders = purchaseOrders.count { it[PurchaseOrdersTable.status] in listOf("DRAFT", "SUBMITTED") }
+            val receivedOrders = purchaseOrders.count { it[PurchaseOrdersTable.status] in listOf("RECEIVED", "PARTIALLY_RECEIVED") }
+            val avgOrderValue = if (totalPurchaseOrders > 0) totalSpent / totalPurchaseOrders else 0.0
+
+            // Top suppliers by total spent
+            val poBySupplier = purchaseOrders
+                .filter { it[PurchaseOrdersTable.status] != "CANCELLED" }
+                .groupBy { it[PurchaseOrdersTable.supplierId] }
+
+            val topSuppliers = poBySupplier.entries.map { (suppId, orders) ->
+                val supplierName = allSuppliers.find { it[SuppliersTable.id] == suppId }
+                    ?.get(SuppliersTable.name) ?: "Unknown"
+                TopSupplierDto(
+                    supplier_id = suppId.value.toString(),
+                    supplier_name = supplierName,
+                    total_orders = orders.size,
+                    total_spent = orders.sumOf { it[PurchaseOrdersTable.total].toDouble() },
+                    received_orders = orders.count { it[PurchaseOrdersTable.status] in listOf("RECEIVED", "PARTIALLY_RECEIVED") },
+                    pending_orders = orders.count { it[PurchaseOrdersTable.status] in listOf("DRAFT", "SUBMITTED") },
+                )
+            }.sortedByDescending { it.total_spent }.take(10)
+
+            // Top purchased items
+            val poIds = purchaseOrders
+                .filter { it[PurchaseOrdersTable.status] != "CANCELLED" }
+                .map { it[PurchaseOrdersTable.id] }
+
+            val topItems = if (poIds.isNotEmpty()) {
+                val poItems = PurchaseOrderItemsTable.selectAll().where {
+                    PurchaseOrderItemsTable.purchaseOrderId inList poIds
+                }.toList()
+
+                poItems.groupBy { it[PurchaseOrderItemsTable.stockId] }.entries.map { (stockId, items) ->
+                    val stockName = StockTable.selectAll()
+                        .where { StockTable.id eq stockId }
+                        .firstOrNull()?.get(StockTable.itemName) ?: "Unknown"
+                    SupplierItemDto(
+                        stock_id = stockId.value.toString(),
+                        item_name = stockName,
+                        total_quantity = items.sumOf { it[PurchaseOrderItemsTable.requestedQuantity].toDouble() },
+                        total_cost = items.sumOf { it[PurchaseOrderItemsTable.totalCost].toDouble() },
+                        order_count = items.map { it[PurchaseOrderItemsTable.purchaseOrderId] }.distinct().size,
+                        unit = items.first()[PurchaseOrderItemsTable.unit],
+                    )
+                }.sortedByDescending { it.total_cost }.take(10)
+            } else emptyList()
+
+            // Monthly purchase trend
+            val tz = TimeZone.currentSystemDefault()
+            val monthlyTrend = purchaseOrders
+                .filter { it[PurchaseOrdersTable.status] != "CANCELLED" }
+                .groupBy {
+                    val ldt = it[PurchaseOrdersTable.createdAt].toLocalDateTime(tz)
+                    "${ldt.year}-${ldt.monthNumber.toString().padStart(2, '0')}"
+                }
+                .map { (month, orders) ->
+                    MonthlyPurchaseDto(
+                        month = month,
+                        total = orders.sumOf { it[PurchaseOrdersTable.total].toDouble() },
+                        order_count = orders.size,
+                    )
+                }
+                .sortedBy { it.month }
+
+            SupplierAnalyticsDto(
+                total_suppliers = totalSuppliers,
+                active_suppliers = activeSuppliers,
+                total_purchase_orders = totalPurchaseOrders,
+                total_spent = totalSpent,
+                pending_orders = pendingOrders,
+                received_orders = receivedOrders,
+                average_order_value = avgOrderValue,
+                top_suppliers = topSuppliers,
+                top_items = topItems,
+                monthly_trend = monthlyTrend,
+            )
+        }
+    }
 }

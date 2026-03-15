@@ -115,6 +115,12 @@ class AnalyticsRepositoryImpl(
     override suspend fun getLoyaltyAnalytics(from: Long?, to: Long?): Result<LoyaltyAnalytics> =
         runCatching { api.getLoyaltyAnalytics(from, to).toDomain() }
 
+    override suspend fun getStaffCostsAnalytics(from: Long?, to: Long?): Result<StaffCostsAnalytics> =
+        runCatching { api.getStaffCostsAnalytics(from, to).toDomain() }
+
+    override suspend fun getSupplierAnalytics(from: Long?, to: Long?): Result<SupplierAnalytics> =
+        runCatching { api.getSupplierAnalytics(from, to).toDomain() }
+
     override suspend fun exportOrdersPDF(fromDate: Long, toDate: Long): Result<ByteArray> = runCatching {
         AppLogger.d(TAG, "Exporting orders PDF")
         val response = api.exportOrdersPDF(fromDate, toDate)

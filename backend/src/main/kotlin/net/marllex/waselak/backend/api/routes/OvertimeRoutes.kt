@@ -10,12 +10,14 @@ import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.OvertimeTable
+import net.marllex.waselak.backend.data.database.SalaryPaymentsTable
 import net.marllex.waselak.backend.data.database.WorkersTable
 import net.marllex.waselak.backend.domain.service.PlanService
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
+import java.time.YearMonth
 import java.util.UUID
 
 @Serializable
@@ -29,6 +31,7 @@ data class OvertimeDto(
     @SerialName("rate_per_hour") val ratePerHour: Double,
     val amount: Double,
     val note: String? = null,
+    val paid: Boolean = false,
     @SerialName("created_by") val createdBy: String,
     @SerialName("created_at") val createdAt: Long,
 )
@@ -46,6 +49,11 @@ data class CreateOvertimeDto(
 data class UpdateOvertimeDto(
     @SerialName("rate_per_hour") val ratePerHour: Double? = null,
     val note: String? = null,
+)
+
+@Serializable
+data class BatchPayOvertimeDto(
+    val ids: List<String>,
 )
 
 fun Route.overtimeRoutes() {
@@ -132,6 +140,8 @@ fun Route.overtimeRoutes() {
                     OvertimeTable.id eq id
                 }.first().toOvertimeDto()
             }
+            // Sync overtime totals to the salary payment covering this date
+            syncOvertimeToSalaryPayment(vendorUUID, UUID.fromString(entry.workerId), entry.date)
             trace.step("Overtime entry created", mapOf("id" to entry.id, "workerId" to entry.workerId, "date" to entry.date, "hours" to entry.hours.toString()))
             trace.step("Create overtime entry completed")
             call.respond(HttpStatusCode.Created, entry)
@@ -170,9 +180,100 @@ fun Route.overtimeRoutes() {
                     OvertimeTable.id eq overtimeUUID
                 }.first().toOvertimeDto()
             }
+            // Sync overtime totals to the salary payment covering this date
+            syncOvertimeToSalaryPayment(vendorUUID, UUID.fromString(entry.workerId), entry.date)
             trace.step("Overtime entry updated", mapOf("id" to entry.id, "workerId" to entry.workerId, "hours" to entry.hours.toString(), "ratePerHour" to entry.ratePerHour.toString()))
             trace.step("Update overtime entry completed")
             call.respond(HttpStatusCode.OK, entry)
+        }
+
+        // PATCH - mark overtime as paid (MANAGER only)
+        patch("/{id}/pay") {
+            val trace = call.routeTrace()
+            trace.step("Mark overtime as paid started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "OVERTIME")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            val entry = transaction {
+                val overtimeUUID = UUID.fromString(id)
+                OvertimeTable.update({
+                    (OvertimeTable.id eq overtimeUUID) and (OvertimeTable.vendorId eq vendorUUID)
+                }) {
+                    it[paid] = true
+                }
+                OvertimeTable.innerJoin(
+                    WorkersTable, { OvertimeTable.workerId }, { WorkersTable.id }
+                ).selectAll().where {
+                    OvertimeTable.id eq overtimeUUID
+                }.firstOrNull()?.toOvertimeDto()
+                    ?: throw NoSuchElementException("Overtime entry not found")
+            }
+            syncOvertimeToSalaryPayment(vendorUUID, UUID.fromString(entry.workerId), entry.date)
+            trace.step("Mark overtime as paid completed", mapOf("id" to entry.id))
+            call.respond(HttpStatusCode.OK, entry)
+        }
+
+        // PATCH - mark overtime as unpaid (MANAGER only)
+        patch("/{id}/unpay") {
+            val trace = call.routeTrace()
+            trace.step("Mark overtime as unpaid started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "OVERTIME")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+            val entry = transaction {
+                val overtimeUUID = UUID.fromString(id)
+                OvertimeTable.update({
+                    (OvertimeTable.id eq overtimeUUID) and (OvertimeTable.vendorId eq vendorUUID)
+                }) {
+                    it[paid] = false
+                }
+                OvertimeTable.innerJoin(
+                    WorkersTable, { OvertimeTable.workerId }, { WorkersTable.id }
+                ).selectAll().where {
+                    OvertimeTable.id eq overtimeUUID
+                }.firstOrNull()?.toOvertimeDto()
+                    ?: throw NoSuchElementException("Overtime entry not found")
+            }
+            syncOvertimeToSalaryPayment(vendorUUID, UUID.fromString(entry.workerId), entry.date)
+            trace.step("Mark overtime as unpaid completed", mapOf("id" to entry.id))
+            call.respond(HttpStatusCode.OK, entry)
+        }
+
+        // PATCH - batch pay overtime entries (MANAGER only)
+        patch("/batch-pay") {
+            val trace = call.routeTrace()
+            trace.step("Batch pay overtime started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "OVERTIME")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val request = call.receive<BatchPayOvertimeDto>()
+            require(request.ids.isNotEmpty()) { "At least one overtime ID is required" }
+
+            val entries = transaction {
+                request.ids.map { idStr ->
+                    val overtimeUUID = UUID.fromString(idStr)
+                    OvertimeTable.update({
+                        (OvertimeTable.id eq overtimeUUID) and (OvertimeTable.vendorId eq vendorUUID)
+                    }) {
+                        it[paid] = true
+                    }
+                    OvertimeTable.innerJoin(
+                        WorkersTable, { OvertimeTable.workerId }, { WorkersTable.id }
+                    ).selectAll().where {
+                        OvertimeTable.id eq overtimeUUID
+                    }.first().toOvertimeDto()
+                }
+            }
+            // Re-sync salary for each affected worker+date
+            entries.map { UUID.fromString(it.workerId) to it.date }.distinct().forEach { (wId, d) ->
+                syncOvertimeToSalaryPayment(vendorUUID, wId, d)
+            }
+            trace.step("Batch pay overtime completed", mapOf("count" to entries.size.toString()))
+            call.respond(HttpStatusCode.OK, entries)
         }
 
         // DELETE - delete overtime entry (MANAGER only)
@@ -185,16 +286,108 @@ fun Route.overtimeRoutes() {
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
             trace.step("Deleting overtime entry", mapOf("overtimeId" to id, "vendorId" to vendorUUID.toString()))
 
-            transaction {
-                val deleted = OvertimeTable.deleteWhere {
-                    (OvertimeTable.id eq UUID.fromString(id)) and
-                    (OvertimeTable.vendorId eq vendorUUID)
+            // Capture workerId and date before deleting so we can sync the salary payment
+            val (deletedWorkerId, deletedDate) = transaction {
+                val overtimeUUID = UUID.fromString(id)
+                val existing = OvertimeTable.selectAll().where {
+                    (OvertimeTable.id eq overtimeUUID) and (OvertimeTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Overtime entry not found")
+
+                val wId = existing[OvertimeTable.workerId].value
+                val d = existing[OvertimeTable.date]
+
+                OvertimeTable.deleteWhere {
+                    (OvertimeTable.id eq overtimeUUID) and (OvertimeTable.vendorId eq vendorUUID)
                 }
-                if (deleted == 0) throw NoSuchElementException("Overtime entry not found")
+                Pair(wId, d)
             }
+            // Sync overtime totals to the salary payment covering this date
+            syncOvertimeToSalaryPayment(vendorUUID, deletedWorkerId, deletedDate)
             trace.step("Overtime entry deleted", mapOf("overtimeId" to id))
             trace.step("Delete overtime entry completed")
             call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+    }
+}
+
+/**
+ * Aggregates all overtime entries for a worker within the salary period covering [date],
+ * then updates the salary payment's overtimeHours and overtimeAmount.
+ * If no salary payment exists for the date, one is auto-created based on the worker's salary type.
+ */
+private fun syncOvertimeToSalaryPayment(vendorId: UUID, workerId: UUID, date: String) {
+    transaction {
+        // Find the salary payment whose period covers this date
+        var salaryPayment = SalaryPaymentsTable.selectAll().where {
+            (SalaryPaymentsTable.vendorId eq vendorId) and
+            (SalaryPaymentsTable.workerId eq workerId) and
+            (SalaryPaymentsTable.periodStart lessEq date) and
+            (SalaryPaymentsTable.periodEnd greaterEq date)
+        }.firstOrNull()
+
+        // Auto-create salary payment if none exists
+        if (salaryPayment == null) {
+            val worker = WorkersTable.selectAll().where {
+                (WorkersTable.id eq workerId) and (WorkersTable.vendorId eq vendorId)
+            }.firstOrNull() ?: return@transaction
+
+            val salaryType = worker[WorkersTable.salaryType]
+            val salaryAmount = worker[WorkersTable.salaryAmount]
+            val now = Clock.System.now()
+
+            val (pType, pStart, pEnd) = when (salaryType) {
+                "DAILY" -> Triple("DAY", date, date)
+                "MONTHLY" -> {
+                    val month = date.substring(0, 7)
+                    val monthStart = "$month-01"
+                    val ym = YearMonth.parse(month)
+                    val monthEnd = "$month-${ym.lengthOfMonth().toString().padStart(2, '0')}"
+                    Triple("MONTH", monthStart, monthEnd)
+                }
+                else -> return@transaction
+            }
+
+            SalaryPaymentsTable.insertAndGetId {
+                it[SalaryPaymentsTable.vendorId] = vendorId
+                it[SalaryPaymentsTable.workerId] = workerId
+                it[SalaryPaymentsTable.periodType] = pType
+                it[periodStart] = pStart
+                it[periodEnd] = pEnd
+                it[workedDays] = 0
+                it[amount] = salaryAmount
+                it[paid] = false
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+
+            salaryPayment = SalaryPaymentsTable.selectAll().where {
+                (SalaryPaymentsTable.vendorId eq vendorId) and
+                (SalaryPaymentsTable.workerId eq workerId) and
+                (SalaryPaymentsTable.periodStart lessEq date) and
+                (SalaryPaymentsTable.periodEnd greaterEq date)
+            }.first()
+        }
+
+        val salaryId = salaryPayment[SalaryPaymentsTable.id]
+        val periodStart = salaryPayment[SalaryPaymentsTable.periodStart]
+        val periodEnd = salaryPayment[SalaryPaymentsTable.periodEnd]
+
+        // Sum only UNPAID overtime entries (paid ones were already paid separately)
+        val overtimeEntries = OvertimeTable.selectAll().where {
+            (OvertimeTable.vendorId eq vendorId) and
+            (OvertimeTable.workerId eq workerId) and
+            (OvertimeTable.date greaterEq periodStart) and
+            (OvertimeTable.date lessEq periodEnd) and
+            (OvertimeTable.paid eq false)
+        }.toList()
+
+        val totalOtHours = overtimeEntries.sumOf { it[OvertimeTable.hours].toDouble() }
+        val totalOtAmount = overtimeEntries.sumOf { it[OvertimeTable.amount].toDouble() }
+
+        SalaryPaymentsTable.update({ SalaryPaymentsTable.id eq salaryId }) {
+            it[overtimeHours] = totalOtHours.toBigDecimal()
+            it[overtimeAmount] = totalOtAmount.toBigDecimal()
+            it[updatedAt] = Clock.System.now()
         }
     }
 }
@@ -209,6 +402,7 @@ private fun ResultRow.toOvertimeDto() = OvertimeDto(
     ratePerHour = this[OvertimeTable.ratePerHour].toDouble(),
     amount = this[OvertimeTable.amount].toDouble(),
     note = this[OvertimeTable.note],
+    paid = this[OvertimeTable.paid],
     createdBy = this[OvertimeTable.createdBy].toString(),
     createdAt = this[OvertimeTable.createdAt].toEpochMilliseconds(),
 )

@@ -24,6 +24,7 @@ fun OffersAnalyticsSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.offers_analytics_hint),
     ) { data ->
         // KPI cards row 1: total offers, active, total uses
         Row(

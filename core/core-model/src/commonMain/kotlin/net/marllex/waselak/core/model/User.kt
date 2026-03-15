@@ -20,5 +20,6 @@ data class User(
 enum class UserRole {
     MANAGER,
     CASHIER,
-    DELIVERY
+    DELIVERY,
+    KITCHEN
 }

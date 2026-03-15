@@ -445,6 +445,21 @@ fun Route.attendanceRoutes() {
                                 it[createdAt] = now
                                 it[updatedAt] = now
                             }
+                        } else {
+                            // Increment workedDays if this is the first check-in today
+                            val attendanceTodayCount = AttendanceTable.selectAll().where {
+                                (AttendanceTable.workerId eq workerUUID) and
+                                (AttendanceTable.date eq today) and
+                                (AttendanceTable.vendorId eq vendorUUID)
+                            }.count()
+                            if (attendanceTodayCount <= 1L) {
+                                SalaryPaymentsTable.update({
+                                    SalaryPaymentsTable.id eq existingMonthly[SalaryPaymentsTable.id]
+                                }) {
+                                    it[workedDays] = existingMonthly[SalaryPaymentsTable.workedDays] + 1
+                                    it[updatedAt] = Clock.System.now()
+                                }
+                            }
                         }
                     }
                 }
@@ -627,6 +642,21 @@ fun Route.attendanceRoutes() {
                                 it[createdAt] = now
                                 it[updatedAt] = now
                             }
+                        } else {
+                            // Increment workedDays if this is the first check-in today
+                            val attendanceTodayCount = AttendanceTable.selectAll().where {
+                                (AttendanceTable.workerId eq workerUUID) and
+                                (AttendanceTable.date eq today) and
+                                (AttendanceTable.vendorId eq vendorUUID)
+                            }.count()
+                            if (attendanceTodayCount <= 1L) {
+                                SalaryPaymentsTable.update({
+                                    SalaryPaymentsTable.id eq existingMonthly[SalaryPaymentsTable.id]
+                                }) {
+                                    it[workedDays] = existingMonthly[SalaryPaymentsTable.workedDays] + 1
+                                    it[updatedAt] = Clock.System.now()
+                                }
+                            }
                         }
                     }
                 }
@@ -782,6 +812,21 @@ fun Route.attendanceRoutes() {
                                 it[paid] = false
                                 it[createdAt] = now
                                 it[updatedAt] = now
+                            }
+                        } else {
+                            // Increment workedDays if this is the first check-in today
+                            val attendanceTodayCount = AttendanceTable.selectAll().where {
+                                (AttendanceTable.workerId eq workerUUID) and
+                                (AttendanceTable.date eq today) and
+                                (AttendanceTable.vendorId eq vendorUUID)
+                            }.count()
+                            if (attendanceTodayCount <= 1L) {
+                                SalaryPaymentsTable.update({
+                                    SalaryPaymentsTable.id eq existingMonthly[SalaryPaymentsTable.id]
+                                }) {
+                                    it[workedDays] = existingMonthly[SalaryPaymentsTable.workedDays] + 1
+                                    it[updatedAt] = Clock.System.now()
+                                }
                             }
                         }
                     }

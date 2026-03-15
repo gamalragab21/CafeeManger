@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,6 +73,7 @@ private val navItems = listOf(
     NavItem(Res.string.nav_vendors, Icons.Default.Store),
     NavItem(Res.string.nav_plans, Icons.Default.CreditCard),
     NavItem(Res.string.nav_analytics, Icons.Default.BarChart),
+    NavItem(Res.string.nav_notifications, Icons.Default.Notifications),
     NavItem(Res.string.nav_logs, Icons.Default.BugReport),
     NavItem(Res.string.nav_settings, Icons.Default.Settings),
 )
@@ -373,8 +375,9 @@ private fun ScreenContent(
             )
             2 -> PlansScreen()
             3 -> AnalyticsScreen()
-            4 -> LogsDashboardScreen()
-            5 -> SettingsScreen(onLogout = onLogout)
+            4 -> AdminNotificationsScreen()
+            5 -> LogsDashboardScreen()
+            6 -> SettingsScreen(onLogout = onLogout)
         }
     }
 }

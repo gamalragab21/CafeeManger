@@ -48,9 +48,13 @@ object DatabaseConfig {
                 CustomerAddressesTable,
                 OrdersTable,
                 OrderItemsTable,
+                OrderPaymentsTable,
+                CashDrawerSessionsTable,
+                CashMovementsTable,
                 StockTable,
                 RecipesTable,
                 RecipeIngredientsTable,
+                StockBatchesTable,
                 StockTransactionsTable,
                 WorkersTable,
                 WorkerRolesTable,
@@ -70,6 +74,20 @@ object DatabaseConfig {
                 OffersTable,
                 OfferItemsTable,
                 PointsTransactionsTable,
+                ProductReturnsTable,
+                ReturnItemsTable,
+                PrescriptionsTable,
+                PrescriptionItemsTable,
+                DrugInteractionsTable,
+                CustomerCreditsTable,
+                CreditTransactionsTable,
+                ScheduledOrdersTable,
+                ScheduledOrderItemsTable,
+                SuppliersTable,
+                PurchaseOrdersTable,
+                PurchaseOrderItemsTable,
+                NotificationsTable,
+                DeviceTokensTable,
                 RequestLogsTable,
                 ReservationsTable,
             )
@@ -78,7 +96,8 @@ object DatabaseConfig {
                 VendorsTable, UsersTable, OrdersTable, OrderItemsTable, ItemsTable,
                 ItemVariantGroupsTable, ItemVariantOptionsTable,
                 TablesTable, TaxPlacesTable,
-                StockTable,
+                OrderPaymentsTable, CashDrawerSessionsTable, CashMovementsTable,
+                StockTable, StockBatchesTable,
                 RecipesTable, RecipeIngredientsTable, StockTransactionsTable,
                 WorkersTable, WorkerRolesTable, AttendanceTable, AttendanceAuthLogsTable,
                 SalaryPaymentsTable, OvertimeTable,
@@ -87,6 +106,13 @@ object DatabaseConfig {
                 AdminUsersTable, AdminRefreshTokensTable, RequestLogsTable,
                 SubscriptionPlansTable, VendorSubscriptionsTable,
                 OffersTable, OfferItemsTable, PointsTransactionsTable,
+                ProductReturnsTable, ReturnItemsTable,
+                PrescriptionsTable, PrescriptionItemsTable,
+                DrugInteractionsTable,
+                CustomerCreditsTable, CreditTransactionsTable,
+                ScheduledOrdersTable, ScheduledOrderItemsTable,
+                SuppliersTable, PurchaseOrdersTable, PurchaseOrderItemsTable,
+                NotificationsTable, DeviceTokensTable,
                 ReservationsTable,
             )
 
@@ -153,8 +179,11 @@ object DatabaseConfig {
         // Seed default subscription plans
         seedDefaultPlans()
 
-        // Auto-seed demo data if database is empty
-        seedIfEmpty()
+        // Auto-seed demo data if database is empty (debug only)
+        val seedDemo = dbConfig.propertyOrNull("seedDemoData")?.getString()?.toBoolean() ?: false
+        if (seedDemo) {
+            seedIfEmpty()
+        }
 
         // Migrate existing vendors without a subscription to Enterprise plan
         // (must run AFTER seedIfEmpty so new vendors get assigned)
@@ -195,6 +224,11 @@ object DatabaseConfig {
                 val analytics: String, val digitalMenu: String,
                 val overtime: Boolean, val salaries: Boolean, val customerManagement: Boolean,
                 val tableManagement: Boolean, val workerQrcode: Boolean, val digitalReceipt: Boolean,
+                val loyaltyPoints: Boolean, val manualDiscount: Boolean, val offersManagement: Boolean,
+                val cashDrawer: Boolean, val splitPayment: Boolean, val customerCredit: Boolean,
+                val suppliers: Boolean, val returns: Boolean, val prescriptions: Boolean,
+                val drugInteractions: Boolean, val scheduledOrders: Boolean, val kds: Boolean,
+                val notifications: Boolean,
                 val displayOrder: Int
             )
 
@@ -206,6 +240,11 @@ object DatabaseConfig {
                     analytics = "NONE", digitalMenu = "NONE",
                     overtime = false, salaries = false, customerManagement = false,
                     tableManagement = false, workerQrcode = false, digitalReceipt = false,
+                    loyaltyPoints = true, manualDiscount = true, offersManagement = false,
+                    cashDrawer = true, splitPayment = false, customerCredit = false,
+                    suppliers = false, returns = false, prescriptions = false,
+                    drugInteractions = false, scheduledOrders = false, kds = false,
+                    notifications = true,
                     displayOrder = 1),
                 PlanSeed("BUSINESS", "Business", 599,
                     maxManagers = 2, maxCashiers = 3, maxDelivery = 3,
@@ -214,6 +253,11 @@ object DatabaseConfig {
                     analytics = "FULL", digitalMenu = "NONE",
                     overtime = false, salaries = true, customerManagement = true,
                     tableManagement = true, workerQrcode = true, digitalReceipt = false,
+                    loyaltyPoints = true, manualDiscount = true, offersManagement = true,
+                    cashDrawer = true, splitPayment = true, customerCredit = true,
+                    suppliers = true, returns = true, prescriptions = true,
+                    drugInteractions = true, scheduledOrders = false, kds = true,
+                    notifications = true,
                     displayOrder = 2),
                 PlanSeed("ENTERPRISE", "Enterprise", 999,
                     maxManagers = -1, maxCashiers = -1, maxDelivery = -1,
@@ -222,6 +266,11 @@ object DatabaseConfig {
                     analytics = "FULL", digitalMenu = "FULL",
                     overtime = true, salaries = true, customerManagement = true,
                     tableManagement = true, workerQrcode = true, digitalReceipt = true,
+                    loyaltyPoints = true, manualDiscount = true, offersManagement = true,
+                    cashDrawer = true, splitPayment = true, customerCredit = true,
+                    suppliers = true, returns = true, prescriptions = true,
+                    drugInteractions = true, scheduledOrders = true, kds = true,
+                    notifications = true,
                     displayOrder = 3),
             )
 
@@ -252,12 +301,45 @@ object DatabaseConfig {
                         it[tableManagement] = plan.tableManagement
                         it[workerQrcode] = plan.workerQrcode
                         it[digitalReceipt] = plan.digitalReceipt
+                        it[loyaltyPoints] = plan.loyaltyPoints
+                        it[manualDiscount] = plan.manualDiscount
+                        it[offersManagement] = plan.offersManagement
+                        it[cashDrawer] = plan.cashDrawer
+                        it[splitPayment] = plan.splitPayment
+                        it[customerCredit] = plan.customerCredit
+                        it[suppliers] = plan.suppliers
+                        it[returns] = plan.returns
+                        it[prescriptions] = plan.prescriptions
+                        it[drugInteractions] = plan.drugInteractions
+                        it[scheduledOrders] = plan.scheduledOrders
+                        it[kds] = plan.kds
+                        it[notifications] = plan.notifications
                         it[active] = true
                         it[displayOrder] = plan.displayOrder
                         it[createdAt] = Clock.System.now()
                         it[updatedAt] = Clock.System.now()
                     }
                     logger.info("Subscription plan seeded: ${plan.name} (${plan.priceEgp} EGP/mo)")
+                }
+            }
+
+            // Migrate existing plans: ensure all feature columns are set correctly
+            for (plan in plans) {
+                SubscriptionPlansTable.update({ SubscriptionPlansTable.name eq plan.name }) {
+                    it[loyaltyPoints] = plan.loyaltyPoints
+                    it[manualDiscount] = plan.manualDiscount
+                    it[offersManagement] = plan.offersManagement
+                    it[cashDrawer] = plan.cashDrawer
+                    it[splitPayment] = plan.splitPayment
+                    it[customerCredit] = plan.customerCredit
+                    it[suppliers] = plan.suppliers
+                    it[returns] = plan.returns
+                    it[prescriptions] = plan.prescriptions
+                    it[drugInteractions] = plan.drugInteractions
+                    it[scheduledOrders] = plan.scheduledOrders
+                    it[kds] = plan.kds
+                    it[notifications] = plan.notifications
+                    it[updatedAt] = Clock.System.now()
                 }
             }
         }
@@ -643,6 +725,7 @@ object DatabaseConfig {
                 if (vendor.enableDelivery) {
                     userRoles.add(Triple("DELIVERY", "سائق ${vendor.name}", "+20${prefix}0${prefix}0${prefix}003"))
                 }
+                userRoles.add(Triple("KITCHEN", "مطبخ ${vendor.name}", "+20${prefix}0${prefix}0${prefix}004"))
 
                 val userIdMap = mutableMapOf<String, java.util.UUID>() // role -> userId
                 userRoles.forEach { (role, userName, phone) ->
@@ -1194,6 +1277,391 @@ object DatabaseConfig {
                     }
                 }
 
+                // ─── Worker Roles (table) ──────────────────────────────────────
+                val workerRoleDefs = when (bt) {
+                    "RESTAURANT" -> listOf("شيف رئيسي", "سفرجي", "عامل نظافة", "مساعد مطبخ")
+                    "PHARMACY" -> listOf("صيدلي", "صيدلي مساعد", "أمين مخزن")
+                    "CAFE" -> listOf("باريستا", "ويتر", "عامل نظافة")
+                    "BAKERY" -> listOf("خباز رئيسي", "مساعد خباز", "عامل تغليف")
+                    "SUPERMARKET" -> listOf("محاسب", "عامل رفوف", "أمين مخزن", "مسؤول خضار")
+                    "RETAIL" -> listOf("أمين مخزن", "مسؤولة مبيعات", "عامل تغليف")
+                    else -> listOf("موظف")
+                }
+                workerRoleDefs.forEach { roleName ->
+                    WorkerRolesTable.insertAndGetId {
+                        it[WorkerRolesTable.vendorId] = vendorId.value
+                        it[name] = roleName
+                        it[description] = "وظيفة $roleName في ${vendor.name}"
+                        it[createdAt] = now
+                    }
+                }
+
+                // ─── Order Payments ────────────────────────────────────────────
+                val paidOrders = createdOrders.filter { it.status in listOf("COMPLETED", "SERVED", "DELIVERED", "PICKED_UP") }
+                paidOrders.forEach { order ->
+                    OrderPaymentsTable.insertAndGetId {
+                        it[orderId] = order.id
+                        it[OrderPaymentsTable.vendorId] = vendorId.value
+                        it[paymentMethod] = listOf("CASH", "CARD", "WALLET")[paidOrders.indexOf(order) % 3]
+                        it[amount] = order.total.toBigDecimal()
+                        it[paidBy] = cashierId
+                        it[createdAt] = order.time
+                    }
+                }
+
+                // ─── Cash Drawer Sessions + Movements ──────────────────────────
+                val yesterdayTime = now.minus(kotlin.time.Duration.parse("24h"))
+                val closedSessionId = CashDrawerSessionsTable.insertAndGetId {
+                    it[CashDrawerSessionsTable.vendorId] = vendorId.value
+                    it[CashDrawerSessionsTable.cashierId] = cashierId
+                    it[openedAt] = yesterdayTime.minus(kotlin.time.Duration.parse("10h"))
+                    it[closedAt] = yesterdayTime
+                    it[openingBalance] = java.math.BigDecimal("500.00")
+                    it[closingBalance] = java.math.BigDecimal("2350.00")
+                    it[expectedBalance] = java.math.BigDecimal("2400.00")
+                    it[difference] = java.math.BigDecimal("-50.00")
+                    it[status] = "CLOSED"
+                    it[notes] = "وردية أمس - فرق بسيط في الجرد"
+                    it[createdAt] = yesterdayTime.minus(kotlin.time.Duration.parse("10h"))
+                }
+                val openSessionId = CashDrawerSessionsTable.insertAndGetId {
+                    it[CashDrawerSessionsTable.vendorId] = vendorId.value
+                    it[CashDrawerSessionsTable.cashierId] = cashierId
+                    it[openedAt] = now.minus(kotlin.time.Duration.parse("6h"))
+                    it[openingBalance] = java.math.BigDecimal("500.00")
+                    it[status] = "OPEN"
+                    it[createdAt] = now.minus(kotlin.time.Duration.parse("6h"))
+                }
+                // Cash movements for closed session
+                listOf(
+                    Triple("CASH_IN", 500.0, "رصيد افتتاحي"),
+                    Triple("SALE", 1200.0, "مبيعات نقدية"),
+                    Triple("CASH_OUT", 200.0, "مصروفات يومية"),
+                    Triple("SALE", 850.0, "مبيعات نقدية")
+                ).forEachIndexed { mIdx, (mType, mAmount, mReason) ->
+                    CashMovementsTable.insertAndGetId {
+                        it[sessionId] = closedSessionId.value
+                        it[CashMovementsTable.vendorId] = vendorId.value
+                        it[type] = mType
+                        it[amount] = mAmount.toBigDecimal()
+                        it[reason] = mReason
+                        it[createdBy] = cashierId
+                        it[createdAt] = yesterdayTime.minus(kotlin.time.Duration.parse("${(4 - mIdx) * 2}h"))
+                    }
+                }
+                // Cash movements for open session
+                listOf(
+                    Triple("CASH_IN", 500.0, "رصيد افتتاحي"),
+                    Triple("SALE", 650.0, "مبيعات صباحية")
+                ).forEachIndexed { mIdx, (mType, mAmount, mReason) ->
+                    CashMovementsTable.insertAndGetId {
+                        it[sessionId] = openSessionId.value
+                        it[CashMovementsTable.vendorId] = vendorId.value
+                        it[type] = mType
+                        it[amount] = mAmount.toBigDecimal()
+                        it[reason] = mReason
+                        it[createdBy] = cashierId
+                        it[createdAt] = now.minus(kotlin.time.Duration.parse("${(2 - mIdx) * 2}h"))
+                    }
+                }
+
+                // ─── Suppliers ─────────────────────────────────────────────────
+                val supplierDefs = when (bt) {
+                    "RESTAURANT" -> listOf(Triple("مورد اللحوم الطازجة", "عبدالله حسن", "+20100100001"), Triple("مورد الخضار والفاكهة", "محمد السيد", "+20100100002"), Triple("شركة التوابل والبهارات", "أحمد فتحي", "+20100100003"))
+                    "PHARMACY" -> listOf(Triple("شركة فارما إيجيبت", "د. هشام", "+20100200001"), Triple("مستودع الدواء المركزي", "محمود كامل", "+20100200002"), Triple("شركة المستلزمات الطبية", "سامي عادل", "+20100200003"))
+                    "CAFE" -> listOf(Triple("محمصة القهوة الذهبية", "كريم وائل", "+20100300001"), Triple("مورد الألبان الطازجة", "حسن علي", "+20100300002"), Triple("مصنع الحلويات الفاخرة", "نورهان أحمد", "+20100300003"))
+                    "BAKERY" -> listOf(Triple("مطاحن مصر العليا", "خالد إبراهيم", "+20100400001"), Triple("مورد الزبدة والسمن", "عمر طارق", "+20100400002"), Triple("مورد المكسرات", "سعيد محمد", "+20100400003"))
+                    "SUPERMARKET" -> listOf(Triple("شركة المشروبات الوطنية", "ماجد عبدالله", "+20100500001"), Triple("مصنع الألبان الطبيعية", "فتحي حسين", "+20100500002"), Triple("شركة المنظفات العالمية", "رامي خالد", "+20100500003"))
+                    "RETAIL" -> listOf(Triple("مصنع ألعاب النجمة", "عماد سالم", "+20100600001"), Triple("موزع ليجو المعتمد", "ياسر حسن", "+20100600002"), Triple("مستورد الألعاب الإلكترونية", "أمير فوزي", "+20100600003"))
+                    else -> listOf(Triple("مورد عام", "محمد", "+20100000001"))
+                }
+                val supplierIds = mutableListOf<java.util.UUID>()
+                supplierDefs.forEach { (sName, sContact, sPhone) ->
+                    val sId = SuppliersTable.insertAndGetId {
+                        it[SuppliersTable.vendorId] = vendorId.value
+                        it[name] = sName
+                        it[contactName] = sContact
+                        it[phone] = sPhone
+                        it[email] = "${sName.take(5).replace(" ", "")}@supplier.com"
+                        it[address] = "المنطقة الصناعية، القاهرة"
+                        it[notes] = "مورد معتمد - توصيل خلال ٢٤ ساعة"
+                        it[active] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    supplierIds.add(sId.value)
+                }
+
+                // ─── Purchase Orders + Items ──────────────────────────────────
+                if (supplierIds.isNotEmpty() && createdStocks.isNotEmpty()) {
+                    val poStatuses = listOf("RECEIVED", "SUBMITTED")
+                    poStatuses.forEachIndexed { poIdx, poStatus ->
+                        val poId = PurchaseOrdersTable.insertAndGetId {
+                            it[PurchaseOrdersTable.vendorId] = vendorId.value
+                            it[supplierId] = supplierIds[poIdx % supplierIds.size]
+                            it[orderNumber] = "PO-${bt.take(3)}-${poIdx + 1}"
+                            it[status] = poStatus
+                            it[notes] = if (poIdx == 0) "تم الاستلام بالكامل" else "في انتظار التوصيل"
+                            it[subtotal] = java.math.BigDecimal("1500.00")
+                            it[tax] = if (vendor.taxEnabled) java.math.BigDecimal("210.00") else java.math.BigDecimal.ZERO
+                            it[total] = if (vendor.taxEnabled) java.math.BigDecimal("1710.00") else java.math.BigDecimal("1500.00")
+                            if (poIdx == 1) it[expectedDeliveryDate] = kotlinx.datetime.LocalDate.parse(now.plus(kotlin.time.Duration.parse("3d")).toString().take(10))
+                            if (poStatus == "RECEIVED") it[receivedAt] = now.minus(kotlin.time.Duration.parse("2d"))
+                            it[createdBy] = managerId
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("${(poIdx + 1) * 3}d"))
+                            it[updatedAt] = now
+                        }
+                        createdStocks.take(3).forEachIndexed { piIdx, stock ->
+                            val reqQty = 50.0 + piIdx * 20
+                            val unitCost = 25.0 + piIdx * 10
+                            PurchaseOrderItemsTable.insertAndGetId {
+                                it[purchaseOrderId] = poId.value
+                                it[stockId] = stock.id
+                                it[requestedQuantity] = reqQty.toBigDecimal()
+                                it[receivedQuantity] = if (poStatus == "RECEIVED") reqQty.toBigDecimal() else java.math.BigDecimal.ZERO
+                                it[PurchaseOrderItemsTable.unitCost] = unitCost.toBigDecimal()
+                                it[totalCost] = (reqQty * unitCost).toBigDecimal()
+                                it[unit] = stock.unit
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Product Returns + Return Items ────────────────────────────
+                val completedOrders2 = createdOrders.filter { it.status == "COMPLETED" }
+                if (completedOrders2.size >= 2) {
+                    val returnStatuses = listOf("PENDING", "APPROVED", "REJECTED")
+                    returnStatuses.take(minOf(returnStatuses.size, completedOrders2.size)).forEachIndexed { rIdx, retStatus ->
+                        val retOrder = completedOrders2[rIdx]
+                        val retAmount = retOrder.total * 0.5
+                        val retId = ProductReturnsTable.insertAndGetId {
+                            it[ProductReturnsTable.vendorId] = vendorId.value
+                            it[orderId] = retOrder.id
+                            if (customerIds.isNotEmpty()) it[customerId] = customerIds[rIdx % customerIds.size]
+                            it[returnType] = if (rIdx == 1) "EXCHANGE" else "RETURN"
+                            it[status] = retStatus
+                            it[reason] = when (rIdx) { 0 -> "المنتج غير مطابق للمواصفات"; 1 -> "العميل يريد استبدال المنتج"; else -> "تم الإلغاء من العميل" }
+                            it[refundAmount] = retAmount.toBigDecimal()
+                            it[refundMethod] = if (rIdx == 0) "CASH" else "CREDIT"
+                            if (retStatus != "PENDING") {
+                                it[processedBy] = managerId
+                                it[processedAt] = now.minus(kotlin.time.Duration.parse("${rIdx}d"))
+                            }
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("${rIdx + 1}d"))
+                        }
+                        // Return items - find order items for this order
+                        val orderItemRows = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq retOrder.id }.toList()
+                        orderItemRows.take(1).forEach { oiRow ->
+                            ReturnItemsTable.insertAndGetId {
+                                it[returnId] = retId.value
+                                it[orderItemId] = oiRow[OrderItemsTable.id].value
+                                it[itemId] = oiRow[OrderItemsTable.itemId]
+                                it[quantity] = 1
+                                it[ReturnItemsTable.reason] = if (rIdx == 2) "CHANGED_MIND" else "DEFECTIVE"
+                                it[condition] = if (rIdx == 2) "GOOD" else "DAMAGED"
+                                it[restockable] = rIdx != 2
+                                it[refundAmount] = oiRow[OrderItemsTable.itemPriceSnapshot]
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Prescriptions + Items (PHARMACY only) ────────────────────
+                if (bt == "PHARMACY" && createdItems.size >= 4) {
+                    val rxStatuses = listOf("PENDING", "DISPENSED", "CANCELLED")
+                    val rxDoctors = listOf("د. أحمد محمود", "د. سارة عبدالله", "د. خالد حسن")
+                    val rxPatients = listOf("محمد أحمد" to 35, "فاطمة علي" to 28, "إبراهيم حسن" to 55)
+                    rxStatuses.forEachIndexed { rxIdx, rxStatus ->
+                        val (patientName, patientAge) = rxPatients[rxIdx]
+                        val rxId = PrescriptionsTable.insertAndGetId {
+                            it[PrescriptionsTable.vendorId] = vendorId.value
+                            if (customerIds.isNotEmpty()) it[customerId] = customerIds[rxIdx % customerIds.size]
+                            if (rxStatus == "DISPENSED" && completedOrders2.isNotEmpty()) it[orderId] = completedOrders2[rxIdx % completedOrders2.size].id
+                            it[doctorName] = rxDoctors[rxIdx]
+                            it[doctorPhone] = "+2010000${2000 + rxIdx}"
+                            it[PrescriptionsTable.patientName] = patientName
+                            it[patientPhone] = "+2010000${3000 + rxIdx}"
+                            it[PrescriptionsTable.patientAge] = patientAge
+                            it[diagnosis] = when (rxIdx) { 0 -> "التهاب حاد في الحلق"; 1 -> "نقص فيتامين د"; else -> "ارتفاع ضغط الدم" }
+                            it[notes] = "روشتة تجريبية"
+                            it[status] = rxStatus
+                            if (rxStatus == "DISPENSED") {
+                                it[dispensedAt] = now.minus(kotlin.time.Duration.parse("1d"))
+                                it[dispensedBy] = cashierId
+                            }
+                            it[createdBy] = cashierId
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("${rxIdx + 1}d"))
+                            it[updatedAt] = now
+                        }
+                        // Prescription items
+                        createdItems.take(3).forEachIndexed { piIdx, item ->
+                            PrescriptionItemsTable.insertAndGetId {
+                                it[prescriptionId] = rxId.value
+                                it[itemId] = item.id
+                                it[quantity] = piIdx + 1
+                                it[dosage] = when (piIdx) { 0 -> "٥٠٠ مجم"; 1 -> "١٠٠٠ مجم"; else -> "قرص واحد" }
+                                it[frequency] = when (piIdx) { 0 -> "٣ مرات يومياً"; 1 -> "مرة يومياً"; else -> "كل ٨ ساعات" }
+                                it[duration] = when (piIdx) { 0 -> "٧ أيام"; 1 -> "٣٠ يوم"; else -> "١٤ يوم" }
+                                it[instructions] = if (piIdx == 0) "بعد الأكل" else null
+                                it[dispensedQuantity] = if (rxStatus == "DISPENSED") piIdx + 1 else 0
+                                it[PrescriptionItemsTable.status] = if (rxStatus == "DISPENSED") "DISPENSED" else "PENDING"
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Drug Interactions (PHARMACY only) ─────────────────────────
+                if (bt == "PHARMACY" && createdItems.size >= 4) {
+                    val interactions = listOf(
+                        Triple(0, 1, Triple("MODERATE", "تفاعل متوسط - يجب المراقبة", "ممنوع الاستخدام المتزامن بدون إشراف طبي")),
+                        Triple(0, 3, Triple("MILD", "تفاعل خفيف - تقليل الجرعة", "يمكن الاستخدام مع مراقبة")),
+                        Triple(1, 2, Triple("SEVERE", "تفاعل شديد - ممنوع الاستخدام المتزامن", "يجب استبدال أحد الدواءين")),
+                        Triple(2, 3, Triple("CONTRAINDICATED", "ممنوع تماماً", "يجب عدم صرف الدواءين معاً")),
+                    )
+                    interactions.forEach { (idxA, idxB, details) ->
+                        val (severity, desc, recommendation) = details
+                        DrugInteractionsTable.insertAndGetId {
+                            it[DrugInteractionsTable.vendorId] = vendorId.value
+                            it[itemIdA] = createdItems[idxA].id
+                            it[itemIdB] = createdItems[idxB].id
+                            it[DrugInteractionsTable.severity] = severity
+                            it[description] = desc
+                            it[descriptionAr] = desc
+                            it[DrugInteractionsTable.recommendation] = recommendation
+                            it[active] = true
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
+                // ─── Customer Credits + Transactions ──────────────────────────
+                if (customerIds.size >= 2) {
+                    customerIds.take(3).forEachIndexed { ccIdx, custId ->
+                        val balance = 150.0 + ccIdx * 100
+                        val credId = CustomerCreditsTable.insertAndGetId {
+                            it[CustomerCreditsTable.vendorId] = vendorId.value
+                            it[CustomerCreditsTable.customerId] = custId
+                            it[CustomerCreditsTable.balance] = balance.toBigDecimal()
+                            it[creditLimit] = java.math.BigDecimal("1000.00")
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                        // Credit transactions
+                        val chargeAmount = 300.0 + ccIdx * 50
+                        CreditTransactionsTable.insertAndGetId {
+                            it[creditId] = credId.value
+                            it[CreditTransactionsTable.vendorId] = vendorId.value
+                            it[type] = "CHARGE"
+                            it[amount] = chargeAmount.toBigDecimal()
+                            it[previousBalance] = java.math.BigDecimal.ZERO
+                            it[newBalance] = chargeAmount.toBigDecimal()
+                            it[note] = "شراء بالأجل"
+                            it[createdBy] = cashierId
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("5d"))
+                        }
+                        val payAmount = chargeAmount - balance
+                        CreditTransactionsTable.insertAndGetId {
+                            it[creditId] = credId.value
+                            it[CreditTransactionsTable.vendorId] = vendorId.value
+                            it[type] = "PAYMENT"
+                            it[amount] = payAmount.toBigDecimal()
+                            it[previousBalance] = chargeAmount.toBigDecimal()
+                            it[newBalance] = balance.toBigDecimal()
+                            it[note] = "سداد جزئي"
+                            it[createdBy] = cashierId
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("2d"))
+                        }
+                    }
+                }
+
+                // ─── Scheduled Orders + Items ─────────────────────────────────
+                if (createdItems.size >= 3) {
+                    val schedDefs = listOf(
+                        Triple("SCHEDULED", "PICKUP_LATER", "طلب أسبوعي متكرر"),
+                        Triple("CONFIRMED", "DELIVERY", "طلب محجوز مسبقاً"),
+                        Triple("CANCELLED", "PICKUP_LATER", "طلب ملغي")
+                    )
+                    schedDefs.forEachIndexed { sIdx, (sStatus, sChannel, sNote) ->
+                        val schedItems = createdItems.shuffled().take(3)
+                        val schedSubtotal = schedItems.sumOf { it.price }
+                        val schedId = ScheduledOrdersTable.insertAndGetId {
+                            it[ScheduledOrdersTable.vendorId] = vendorId.value
+                            if (customerIds.isNotEmpty()) it[customerId] = customerIds[sIdx % customerIds.size]
+                            it[clientName] = if (sIdx == 1) "عميل جديد" else null
+                            it[clientPhone] = if (sIdx == 1) "+20100009999" else null
+                            it[channel] = sChannel
+                            it[scheduledFor] = now.plus(kotlin.time.Duration.parse("${(sIdx + 1) * 24}h"))
+                            it[status] = sStatus
+                            it[notes] = sNote
+                            it[paymentMethod] = "CASH"
+                            it[paymentStatus] = if (sStatus == "CONFIRMED") "PAID" else "PENDING"
+                            it[subtotal] = schedSubtotal.toBigDecimal()
+                            it[total] = schedSubtotal.toBigDecimal()
+                            it[createdBy] = cashierId
+                            it[createdAt] = now.minus(kotlin.time.Duration.parse("${sIdx + 1}d"))
+                            it[updatedAt] = now
+                        }
+                        schedItems.forEach { sItem ->
+                            ScheduledOrderItemsTable.insertAndGetId {
+                                it[scheduledOrderId] = schedId.value
+                                it[itemId] = sItem.id
+                                it[ScheduledOrderItemsTable.itemName] = sItem.name
+                                it[itemPrice] = sItem.price.toBigDecimal()
+                                it[quantity] = 1
+                                it[createdAt] = now
+                            }
+                        }
+                    }
+                }
+
+                // ─── Notifications ─────────────────────────────────────────────
+                val notifDefs = listOf(
+                    Triple("ORDER_NEW", "طلب جديد", "تم استلام طلب جديد رقم #${orderCounter}"),
+                    Triple("ORDER_STATUS", "تحديث حالة الطلب", "تم تغيير حالة الطلب إلى جاري التحضير"),
+                    Triple("LOW_STOCK", "تنبيه مخزون منخفض", "المخزون منخفض لبعض المنتجات - يرجى إعادة الطلب"),
+                    Triple("SYSTEM", "تحديث النظام", "تم تحديث النظام بنجاح - إصدار ١.١.٠"),
+                    Triple("ANNOUNCEMENT", "إعلان جديد", "تم نشر إعلان جديد من الإدارة")
+                )
+                notifDefs.forEachIndexed { nIdx, (nType, nTitle, nBody) ->
+                    val nTime = now.minus(kotlin.time.Duration.parse("${(nIdx + 1) * 6}h"))
+                    NotificationsTable.insertAndGetId {
+                        it[NotificationsTable.vendorId] = vendorId.value
+                        it[userId] = if (nIdx < 3) cashierId else null
+                        it[type] = nType
+                        it[title] = nTitle
+                        it[body] = nBody
+                        it[channel] = "IN_APP"
+                        it[priority] = if (nType == "LOW_STOCK") "HIGH" else "NORMAL"
+                        it[read] = nIdx > 2
+                        if (nIdx > 2) it[readAt] = nTime.plus(kotlin.time.Duration.parse("1h"))
+                        it[createdAt] = nTime
+                    }
+                }
+
+                // ─── Stock Batches ─────────────────────────────────────────────
+                createdStocks.forEachIndexed { bIdx, stock ->
+                    val batchCount = if (bt == "PHARMACY") 2 else 1
+                    (0 until batchCount).forEach { bNum ->
+                        val batchQty = stock.qty / batchCount
+                        val daysUntilExpiry = if (bt == "PHARMACY") 180 + bNum * 90 else 365
+                        StockBatchesTable.insertAndGetId {
+                            it[stockId] = stock.id
+                            it[StockBatchesTable.vendorId] = vendorId.value
+                            it[batchNumber] = "LOT-${bt.take(3)}-${bIdx + 1}-${bNum + 1}"
+                            it[quantity] = batchQty.toBigDecimal()
+                            it[initialQuantity] = (batchQty * 1.5).toBigDecimal()
+                            it[costPrice] = java.math.BigDecimal("50.00")
+                            it[expiryDate] = kotlinx.datetime.LocalDate.parse(now.plus(kotlin.time.Duration.parse("${daysUntilExpiry * 24}h")).toString().take(10))
+                            it[receivedAt] = now.minus(kotlin.time.Duration.parse("${(bNum + 1) * 30 * 24}h"))
+                            it[status] = "ACTIVE"
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
                 // ─── Activity Logs (for recent orders) ───────────────────────
                 createdOrders.take(minOf(10, createdOrders.size)).forEach { order ->
                     val actions = when (order.status) {
@@ -1220,12 +1688,12 @@ object DatabaseConfig {
 
             logger.info("=== Test data seeded successfully! ===")
             logger.info("All accounts use password: password123")
-            logger.info("1. مطعم الشام (RESTAURANT)       → Manager: +2010101001  Cashier: +2010101002  Delivery: +2010101003")
-            logger.info("2. صيدلية الشفاء (PHARMACY)       → Manager: +2020202001  Cashier: +2020202002  Delivery: +2020202003")
-            logger.info("3. كافيه لافندر (CAFE)            → Manager: +2030303001  Cashier: +2030303002  Delivery: +2030303003")
-            logger.info("4. مخبز السنابل (BAKERY)          → Manager: +2040404001  Cashier: +2040404002  Delivery: +2040404003")
-            logger.info("5. سوبر ماركت الخير (SUPERMARKET)  → Manager: +2050505001  Cashier: +2050505002  Delivery: +2050505003")
-            logger.info("6. محل لعب أطفال توي لاند (RETAIL)  → Manager: +2060606001  Cashier: +2060606002  Delivery: +2060606003")
+            logger.info("1. مطعم الشام (RESTAURANT)       → Manager: +2010101001  Cashier: +2010101002  Delivery: +2010101003  Kitchen: +2010101004")
+            logger.info("2. صيدلية الشفاء (PHARMACY)       → Manager: +2020202001  Cashier: +2020202002  Delivery: +2020202003  Kitchen: +2020202004")
+            logger.info("3. كافيه لافندر (CAFE)            → Manager: +2030303001  Cashier: +2030303002  Delivery: +2030303003  Kitchen: +2030303004")
+            logger.info("4. مخبز السنابل (BAKERY)          → Manager: +2040404001  Cashier: +2040404002  Delivery: +2040404003  Kitchen: +2040404004")
+            logger.info("5. سوبر ماركت الخير (SUPERMARKET)  → Manager: +2050505001  Cashier: +2050505002  Delivery: +2050505003  Kitchen: +2050505004")
+            logger.info("6. محل لعب أطفال توي لاند (RETAIL)  → Manager: +2060606001  Cashier: +2060606002  Delivery: +2060606003  Kitchen: +2060606004")
         }
     }
 }

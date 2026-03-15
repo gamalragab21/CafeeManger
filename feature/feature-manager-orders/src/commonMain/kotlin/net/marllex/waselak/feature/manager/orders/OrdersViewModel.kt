@@ -138,7 +138,8 @@ class OrdersViewModel constructor(
                     )
                 }
             }.onFailure { e ->
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                AppLogger.e("Orders", "loadOrders failed: ${e::class.simpleName}: ${e.message}", e)
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error loading orders") }
             }
         }
     }

@@ -27,6 +27,7 @@ rootProject.name = "Waselak"
 include(":app-manager")
 include(":app-cashier")
 include(":app-delivery")
+include(":app-kds")
 include(":app-admin")
 include(":backend")
 

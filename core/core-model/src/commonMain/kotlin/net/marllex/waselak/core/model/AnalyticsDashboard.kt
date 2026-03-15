@@ -251,3 +251,61 @@ data class LoyaltyAnalytics(
     val pointsToRevenue: Double,
     val dailyTrend: List<DailyLoyalty>,
 )
+
+// ─── Supplier Analytics ──────────────────────────────────────
+data class TopSupplier(
+    val supplierId: String,
+    val supplierName: String,
+    val totalOrders: Int,
+    val totalSpent: Double,
+    val receivedOrders: Int,
+    val pendingOrders: Int,
+)
+
+data class SupplierItem(
+    val stockId: String,
+    val itemName: String,
+    val totalQuantity: Double,
+    val totalCost: Double,
+    val orderCount: Int,
+    val unit: String,
+)
+
+data class MonthlyPurchase(
+    val month: String,
+    val total: Double,
+    val orderCount: Int,
+)
+
+data class SupplierAnalytics(
+    val totalSuppliers: Int,
+    val activeSuppliers: Int,
+    val totalPurchaseOrders: Int,
+    val totalSpent: Double,
+    val pendingOrders: Int,
+    val receivedOrders: Int,
+    val averageOrderValue: Double,
+    val topSuppliers: List<TopSupplier>,
+    val topItems: List<SupplierItem>,
+    val monthlyTrend: List<MonthlyPurchase>,
+)
+
+// ─── Staff Costs Analytics ────────────────────────────────────
+data class WorkerOvertimeSummary(
+    val workerId: String,
+    val workerName: String,
+    val overtimeHours: Double,
+    val overtimeAmount: Double,
+)
+
+data class StaffCostsAnalytics(
+    val totalSalaries: Double,
+    val totalOvertime: Double,
+    val totalCompensation: Double,
+    val paidAmount: Double,
+    val unpaidAmount: Double,
+    val overtimeHours: Double,
+    val workersCount: Int,
+    val overtimePercentage: Double,
+    val topOvertimeWorkers: List<WorkerOvertimeSummary>,
+)

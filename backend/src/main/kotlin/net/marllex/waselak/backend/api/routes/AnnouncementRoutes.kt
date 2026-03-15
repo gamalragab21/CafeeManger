@@ -125,6 +125,7 @@ fun Route.announcementRoutes() {
                 val roleTarget = when (principal.role) {
                     "CASHIER" -> "CASHIERS"
                     "DELIVERY" -> "DELIVERY"
+                    "KITCHEN" -> "CASHIERS"
                     else -> null
                 }
 
@@ -190,6 +191,7 @@ fun Route.announcementRoutes() {
                 val roleTarget = when (principal.role) {
                     "CASHIER" -> "CASHIERS"
                     "DELIVERY" -> "DELIVERY"
+                    "KITCHEN" -> "CASHIERS"
                     else -> null
                 }
 

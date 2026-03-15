@@ -24,6 +24,7 @@ fun StockOverviewSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.stock_overview_hint),
     ) { data ->
         Row(
             modifier = Modifier.fillMaxWidth(),

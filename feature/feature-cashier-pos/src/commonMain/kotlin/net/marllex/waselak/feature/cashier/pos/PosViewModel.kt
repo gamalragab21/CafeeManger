@@ -19,6 +19,7 @@ import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.domain.repository.OfferRepository
 import net.marllex.waselak.core.domain.repository.OrderRepository
+import net.marllex.waselak.core.domain.repository.ScheduledOrderRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
@@ -30,6 +31,7 @@ import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Offer
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderChannel
+import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Table
@@ -37,6 +39,8 @@ import net.marllex.waselak.core.model.VariantSelection
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
+import net.marllex.waselak.core.network.dto.CreateScheduledOrderItemRequest
+import net.marllex.waselak.core.network.dto.CreateScheduledOrderRequest
 import net.marllex.waselak.core.network.dto.VariantSelectionRequest
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.WaselakApiClient
@@ -49,6 +53,7 @@ class PosViewModel constructor(
     private val categoryRepository: CategoryRepository,
     private val tableRepository: TableRepository,
     private val orderRepository: OrderRepository,
+    private val scheduledOrderRepository: ScheduledOrderRepository,
     private val taxPlaceRepository: TaxPlaceRepository,
     private val vendorRepository: VendorRepository,
     private val customerRepository: CustomerRepository,
@@ -130,6 +135,8 @@ class PosViewModel constructor(
         val pinApproved: Boolean = false,
         // Offline confirmation dialog
         val showOfflineConfirmation: Boolean = false,
+        // Scheduled order (PICKUP_LATER)
+        val scheduledFor: Long? = null,
         // Plan limit / feature gating
         val showPlanLimitDialog: Boolean = false,
         val planLimitMessage: String = "",
@@ -156,7 +163,7 @@ class PosViewModel constructor(
                 OrderChannel.TAKEAWAY -> clientPhone.isNotBlank()
                 OrderChannel.DINE_IN -> true
                 OrderChannel.IN_STORE -> true
-                OrderChannel.PICKUP_LATER -> clientPhone.isNotBlank()
+                OrderChannel.PICKUP_LATER -> clientPhone.isNotBlank() && scheduledFor != null
             }
         }
     }
@@ -380,11 +387,16 @@ class PosViewModel constructor(
         }
     }
 
+    fun setScheduledFor(epochMs: Long?) {
+        _uiState.update { it.copy(scheduledFor = epochMs) }
+    }
+
     fun setChannel(channel: OrderChannel) {
         AppLogger.d("POS", "Setting channel: ${channel.name}")
         _uiState.update {
             it.copy(
                 channel = channel,
+                scheduledFor = if (channel == OrderChannel.PICKUP_LATER) it.scheduledFor else null,
                 selectedTaxPlaceId = if (channel == OrderChannel.DELIVERY) {
                     it.selectedTaxPlaceId ?: it.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id
                 } else null,
@@ -752,46 +764,100 @@ class PosViewModel constructor(
             if (s.pointsToRedeem > 0) reasons.add("Points: ${s.pointsToRedeem}")
             val discountReason = reasons.joinToString("; ").ifBlank { null }
 
-            orderRepository.createOrder(
-                channel = s.channel,
-                tableId = if (s.channel == OrderChannel.DINE_IN) s.selectedTableId else null,
-                clientName = s.clientName.ifBlank { null },
-                clientPhone = s.clientPhone.ifBlank { null },
-                clientAddress = clientAddress,
-                customerId = customerId,
-                geoLat = null, geoLng = null,
-                paymentMethod = paymentMethod,
-                paymentTiming = paymentTiming,
-                taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
-                reservationId = s.reservationId,
-                notes = s.notes.ifBlank { null },
-                items = orderItems,
-                discount = totalDiscount,
-                discountType = "FIXED",
-                offerId = s.appliedOffer?.id,
-                pointsRedeemed = s.pointsToRedeem,
-                discountReason = discountReason,
-            ).onSuccess { order ->
-                AppLogger.i("POS", "Order submitted: id=${order.id}")
-                // Call onSuccess first (dismiss sheet) while cart is still non-empty,
-                // so the BottomSheet is still in the composition tree
-                onSuccess(order)
-                _uiState.update { it.copy(isSubmitting = false, createdOrder = order, cart = emptyList()) }
-                // Table is automatically set to OCCUPIED by backend for dine-in orders
-                // Refresh tables to reflect the new status locally
-                if (s.channel == OrderChannel.DINE_IN && s.selectedTableId != null) {
-                    tableRepository.refreshTables()
+            // Route PICKUP_LATER with scheduledFor to scheduled orders API
+            if (s.channel == OrderChannel.PICKUP_LATER && s.scheduledFor != null) {
+                val scheduledItems = s.cart.map { cartItem ->
+                    CreateScheduledOrderItemRequest(
+                        itemId = cartItem.item.id,
+                        quantity = cartItem.quantity,
+                        note = cartItem.note,
+                        variantOptions = if (cartItem.variantSelections.isNotEmpty()) {
+                            cartItem.variantSelections.joinToString(", ") { "${it.groupName}: ${it.optionName}" }
+                        } else null,
+                    )
                 }
-            }.onFailure { e ->
-                AppLogger.e("POS", "Order submission failed", e)
-                when {
-                    e.isPlanLimitExceeded() -> _uiState.update {
-                        it.copy(isSubmitting = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
+                val request = CreateScheduledOrderRequest(
+                    customerId = customerId,
+                    clientName = s.clientName.ifBlank { null },
+                    clientPhone = s.clientPhone.ifBlank { null },
+                    channel = "PICKUP_LATER",
+                    scheduledFor = s.scheduledFor,
+                    notes = s.notes.ifBlank { null },
+                    paymentMethod = paymentMethod.name,
+                    discount = totalDiscount,
+                    items = scheduledItems,
+                )
+                scheduledOrderRepository.createScheduledOrder(request)
+                    .onSuccess { scheduled ->
+                        AppLogger.i("POS", "Scheduled order created: id=${scheduled.id}")
+                        // Create a stub Order to pass to onSuccess for receipt/navigation
+                        val stubOrder = Order(
+                            id = scheduled.id,
+                            vendorId = scheduled.vendorId,
+                            channel = OrderChannel.PICKUP_LATER,
+                            status = OrderStatus.CREATED,
+                            cashierId = "",
+                            subtotal = scheduled.subtotal,
+                            total = scheduled.total,
+                            discount = scheduled.discount,
+                            tax = scheduled.tax,
+                            paymentMethod = paymentMethod,
+                            createdAt = scheduled.createdAt,
+                            updatedAt = scheduled.updatedAt,
+                        )
+                        onSuccess(stubOrder)
+                        _uiState.update { it.copy(isSubmitting = false, createdOrder = stubOrder, cart = emptyList()) }
                     }
-                    e.isFeatureNotAvailableOrOffline() -> _uiState.update {
-                        it.copy(isSubmitting = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                    .onFailure { e ->
+                        AppLogger.e("POS", "Scheduled order creation failed", e)
+                        when {
+                            e.isPlanLimitExceeded() -> _uiState.update {
+                                it.copy(isSubmitting = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
+                            }
+                            e.isFeatureNotAvailableOrOffline() -> _uiState.update {
+                                it.copy(isSubmitting = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                            }
+                            else -> _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+                        }
                     }
-                    else -> _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+            } else {
+                orderRepository.createOrder(
+                    channel = s.channel,
+                    tableId = if (s.channel == OrderChannel.DINE_IN) s.selectedTableId else null,
+                    clientName = s.clientName.ifBlank { null },
+                    clientPhone = s.clientPhone.ifBlank { null },
+                    clientAddress = clientAddress,
+                    customerId = customerId,
+                    geoLat = null, geoLng = null,
+                    paymentMethod = paymentMethod,
+                    paymentTiming = paymentTiming,
+                    taxPlaceId = if (s.channel == OrderChannel.DELIVERY) s.selectedTaxPlaceId else null,
+                    reservationId = s.reservationId,
+                    notes = s.notes.ifBlank { null },
+                    items = orderItems,
+                    discount = totalDiscount,
+                    discountType = "FIXED",
+                    offerId = s.appliedOffer?.id,
+                    pointsRedeemed = s.pointsToRedeem,
+                    discountReason = discountReason,
+                ).onSuccess { order ->
+                    AppLogger.i("POS", "Order submitted: id=${order.id}")
+                    onSuccess(order)
+                    _uiState.update { it.copy(isSubmitting = false, createdOrder = order, cart = emptyList()) }
+                    if (s.channel == OrderChannel.DINE_IN && s.selectedTableId != null) {
+                        tableRepository.refreshTables()
+                    }
+                }.onFailure { e ->
+                    AppLogger.e("POS", "Order submission failed", e)
+                    when {
+                        e.isPlanLimitExceeded() -> _uiState.update {
+                            it.copy(isSubmitting = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
+                        }
+                        e.isFeatureNotAvailableOrOffline() -> _uiState.update {
+                            it.copy(isSubmitting = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                        }
+                        else -> _uiState.update { it.copy(isSubmitting = false, error = e.message) }
+                    }
                 }
             }
         }
@@ -803,7 +869,7 @@ class PosViewModel constructor(
         _uiState.update {
             it.copy(
                 cart = emptyList(), createdOrder = null, appliedOffer = null,
-                searchQuery = "",
+                searchQuery = "", scheduledFor = null,
                 clientName = "", clientPhone = "", clientAddress = "",
                 notes = "", selectedTableId = null, reservationId = null,
                 selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id,

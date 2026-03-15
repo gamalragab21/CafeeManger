@@ -1670,7 +1670,8 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
-        net.marllex.waselak.core.model.StockTransactionType.WASTE -> StockOut
+        net.marllex.waselak.core.model.StockTransactionType.WASTE,
+        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> StockOut
         net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> MaterialTheme.colorScheme.tertiary
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> MaterialTheme.colorScheme.primary
     }
@@ -1682,7 +1683,8 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.DEDUCT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
         net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
-        net.marllex.waselak.core.model.StockTransactionType.WASTE -> Icons.Outlined.TrendingDown
+        net.marllex.waselak.core.model.StockTransactionType.WASTE,
+        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> Icons.Outlined.TrendingDown
         net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> Icons.Filled.Remove
         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> Icons.Filled.Edit
     }
@@ -1697,6 +1699,7 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.RETURN -> stringResource(Res.string.stock_returned)
         net.marllex.waselak.core.model.StockTransactionType.WASTE -> "Waste"
         net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> "Transfer"
+        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> "Batch Deduct"
     }
 
     Card(
@@ -1762,7 +1765,8 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
                         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT,
                         net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE,
                         net.marllex.waselak.core.model.StockTransactionType.WASTE,
-                        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> "-${transaction.quantity}"
+                        net.marllex.waselak.core.model.StockTransactionType.TRANSFER,
+                        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> "-${transaction.quantity}"
                         net.marllex.waselak.core.model.StockTransactionType.ADJUST -> "${transaction.quantity}"
                     },
                     style = MaterialTheme.typography.titleMedium,

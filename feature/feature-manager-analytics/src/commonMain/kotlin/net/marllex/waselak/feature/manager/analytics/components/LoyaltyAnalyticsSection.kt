@@ -24,6 +24,7 @@ fun LoyaltyAnalyticsSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.loyalty_analytics_hint),
     ) { data ->
         // KPI cards row 1: total earned, total redeemed, outstanding
         Row(
@@ -59,7 +60,7 @@ fun LoyaltyAnalyticsSection(
             )
             KpiCard(
                 label = stringResource(Res.string.redemption_rate_label),
-                value = "${String.format("%.1f", data.redemptionRate)}%",
+                value = "${String.format(java.util.Locale.US, "%.1f", data.redemptionRate)}%",
                 modifier = Modifier.weight(1f),
             )
             KpiCard(

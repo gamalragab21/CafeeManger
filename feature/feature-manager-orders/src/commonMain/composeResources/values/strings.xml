@@ -53,6 +53,8 @@
     <string name="processing_refund">Processing refund…</string>
     <string name="no_orders">No orders found</string>
     <string name="pay_now">Pay Now</string>
+    <string name="split_payment">Split Payment</string>
+    <string name="copy_order_id">Copy ID</string>
     <string name="processing_payment">Processing payment…</string>
     <string name="load_more">Load More</string>
     <string name="table_filter">Table</string>
@@ -61,4 +63,5 @@
     <string name="discount">Discount</string>
     <string name="points_redeemed">Points Redeemed</string>
     <string name="discount_reason">Reason</string>
+    <string name="scroll_to_top">Back to Top</string>
 </resources>

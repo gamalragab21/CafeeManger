@@ -27,8 +27,15 @@ import net.marllex.waselak.feature.manager.users.UsersViewModel
 import net.marllex.waselak.manager.navigation.PlansComparisonViewModel
 import net.marllex.waselak.manager.navigation.RestaurantProfileViewModel
 import net.marllex.waselak.feature.manager.offers.OffersViewModel
+import net.marllex.waselak.manager.customercredit.CustomerCreditViewModel
+import net.marllex.waselak.manager.druginteractions.DrugInteractionsViewModel
+import net.marllex.waselak.manager.notifications.NotificationsViewModel
 import net.marllex.waselak.manager.offline.OfflineSettingsViewModel
+import net.marllex.waselak.manager.returns.ReturnsViewModel
+import net.marllex.waselak.manager.scheduledorders.ScheduledOrdersViewModel
+import net.marllex.waselak.manager.suppliers.SuppliersViewModel
 import net.marllex.waselak.manager.taxplaces.TaxPlacesViewModel
+import net.marllex.waselak.manager.cashdrawer.ManagerCashDrawerViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -73,4 +80,11 @@ private val managerAppModule = module {
     viewModelOf(::CustomersViewModel)
     viewModelOf(::OfflineSettingsViewModel)
     viewModelOf(::OffersViewModel)
+    viewModelOf(::SuppliersViewModel)
+    viewModelOf(::ReturnsViewModel)
+    viewModelOf(::ScheduledOrdersViewModel)
+    viewModelOf(::NotificationsViewModel)
+    viewModelOf(::DrugInteractionsViewModel)
+    viewModelOf(::CustomerCreditViewModel)
+    viewModelOf(::ManagerCashDrawerViewModel)
 }

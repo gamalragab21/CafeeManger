@@ -118,6 +118,10 @@ class OrderRepositoryImpl constructor(
                 orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
             }
             PaginatedResult(orders, response.total, response.hasMore)
+        }.also { result ->
+            result.onFailure { e ->
+                AppLogger.e("OrderRepo", "refreshOrders FAILED: ${e::class.simpleName}: ${e.message}", e)
+            }
         }
 
     override suspend fun refreshMyDeliveryOrders(status: String?, limit: Int, offset: Int): Result<PaginatedResult<Order>> =

@@ -325,6 +325,70 @@ data class LoyaltyAnalyticsResponseDto(
     val daily_trend: List<DailyLoyaltyTrendDto>,
 )
 
+// ── Supplier Analytics ───────────────────────────────────────────
+@Serializable
+data class TopSupplierDto(
+    val supplier_id: String,
+    val supplier_name: String,
+    val total_orders: Int,
+    val total_spent: Double,
+    val received_orders: Int,
+    val pending_orders: Int,
+)
+
+@Serializable
+data class SupplierItemDto(
+    val stock_id: String,
+    val item_name: String,
+    val total_quantity: Double,
+    val total_cost: Double,
+    val order_count: Int,
+    val unit: String,
+)
+
+@Serializable
+data class MonthlyPurchaseDto(
+    val month: String,
+    val total: Double,
+    val order_count: Int,
+)
+
+@Serializable
+data class SupplierAnalyticsDto(
+    val total_suppliers: Int,
+    val active_suppliers: Int,
+    val total_purchase_orders: Int,
+    val total_spent: Double,
+    val pending_orders: Int,
+    val received_orders: Int,
+    val average_order_value: Double,
+    val top_suppliers: List<TopSupplierDto>,
+    val top_items: List<SupplierItemDto>,
+    val monthly_trend: List<MonthlyPurchaseDto>,
+)
+
+// ── Staff Costs Analytics ─────────────────────────────────────────
+@Serializable
+data class WorkerOvertimeSummaryDto(
+    val worker_id: String,
+    val worker_name: String,
+    val overtime_hours: Double,
+    val overtime_amount: Double,
+)
+
+@Serializable
+data class StaffCostsAnalyticsDto(
+    val total_salaries: Double,
+    val total_overtime: Double,
+    val total_compensation: Double,
+    val paid_amount: Double,
+    val unpaid_amount: Double,
+    val overtime_hours: Double,
+    val workers_count: Int,
+    val overtime_percentage: Double,
+    val top_overtime_workers: List<WorkerOvertimeSummaryDto>,
+)
+
 // ══════════════════════════════════════════════════════════════════════
 // Helper: Parse epoch millis from query param
 // ══════════════════════════════════════════════════════════════════════
@@ -1584,6 +1648,38 @@ fun Route.analyticsDashboardRoutes() {
                 )
             }
             trace.step("Loyalty analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // ── 14. Staff Costs Analytics ─────────────────────────────────
+        get("/staff-costs") {
+            val trace = call.routeTrace()
+            trace.step("Staff costs analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val (from, to) = parseDateRange(call)
+
+            val analyticsService by KoinJavaComponent.inject<net.marllex.waselak.backend.domain.service.AnalyticsQueryService>(
+                clazz = net.marllex.waselak.backend.domain.service.AnalyticsQueryService::class.java
+            )
+            val result = analyticsService.getStaffCostsAnalytics(vendorUUID, from, to)
+            trace.step("Staff costs analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        // ── 15. Supplier Analytics ──────────────────────────────────────
+        get("/supplier-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Supplier analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val (from, to) = parseDateRange(call)
+
+            val analyticsService by KoinJavaComponent.inject<net.marllex.waselak.backend.domain.service.AnalyticsQueryService>(
+                clazz = net.marllex.waselak.backend.domain.service.AnalyticsQueryService::class.java
+            )
+            val result = analyticsService.getSupplierAnalytics(vendorUUID, from, to)
+            trace.step("Supplier analytics completed")
             call.respond(HttpStatusCode.OK, result)
         }
     }

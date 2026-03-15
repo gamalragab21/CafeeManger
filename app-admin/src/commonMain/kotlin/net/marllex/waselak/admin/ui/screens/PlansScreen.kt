@@ -48,8 +48,8 @@ fun PlansScreen(
 
     LaunchedEffect(message) {
         resolvedMessage?.let {
-            snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
+            snackbarHostState.showSnackbar(it)
         }
     }
 
@@ -154,6 +154,16 @@ private fun PlanCard(
     var loyaltyPoints by remember(plan) { mutableStateOf(plan.loyalty_points) }
     var manualDiscount by remember(plan) { mutableStateOf(plan.manual_discount) }
     var offersManagement by remember(plan) { mutableStateOf(plan.offers_management) }
+    var cashDrawer by remember(plan) { mutableStateOf(plan.cash_drawer) }
+    var splitPayment by remember(plan) { mutableStateOf(plan.split_payment) }
+    var customerCredit by remember(plan) { mutableStateOf(plan.customer_credit) }
+    var suppliers by remember(plan) { mutableStateOf(plan.suppliers) }
+    var returns by remember(plan) { mutableStateOf(plan.returns) }
+    var prescriptions by remember(plan) { mutableStateOf(plan.prescriptions) }
+    var drugInteractions by remember(plan) { mutableStateOf(plan.drug_interactions) }
+    var scheduledOrders by remember(plan) { mutableStateOf(plan.scheduled_orders) }
+    var kds by remember(plan) { mutableStateOf(plan.kds) }
+    var notifications by remember(plan) { mutableStateOf(plan.notifications) }
     var analytics by remember(plan) { mutableStateOf(plan.analytics) }
     var digitalMenu by remember(plan) { mutableStateOf(plan.digital_menu) }
 
@@ -253,6 +263,16 @@ private fun PlanCard(
                     PlanSwitchRow(stringResource(Res.string.loyalty_points), loyaltyPoints) { loyaltyPoints = it }
                     PlanSwitchRow(stringResource(Res.string.manual_discount), manualDiscount) { manualDiscount = it }
                     PlanSwitchRow(stringResource(Res.string.offers_management), offersManagement) { offersManagement = it }
+                    PlanSwitchRow(stringResource(Res.string.cash_drawer), cashDrawer) { cashDrawer = it }
+                    PlanSwitchRow(stringResource(Res.string.split_payment), splitPayment) { splitPayment = it }
+                    PlanSwitchRow(stringResource(Res.string.customer_credit), customerCredit) { customerCredit = it }
+                    PlanSwitchRow(stringResource(Res.string.suppliers_management), suppliers) { suppliers = it }
+                    PlanSwitchRow(stringResource(Res.string.returns_management), returns) { returns = it }
+                    PlanSwitchRow(stringResource(Res.string.prescriptions), prescriptions) { prescriptions = it }
+                    PlanSwitchRow(stringResource(Res.string.drug_interactions), drugInteractions) { drugInteractions = it }
+                    PlanSwitchRow(stringResource(Res.string.scheduled_orders), scheduledOrders) { scheduledOrders = it }
+                    PlanSwitchRow(stringResource(Res.string.kds_display), kds) { kds = it }
+                    PlanSwitchRow(stringResource(Res.string.notifications), notifications) { notifications = it }
 
                     // Analytics dropdown
                     PlanDropdown(
@@ -300,6 +320,16 @@ private fun PlanCard(
                                     loyalty_points = loyaltyPoints,
                                     manual_discount = manualDiscount,
                                     offers_management = offersManagement,
+                                    cash_drawer = cashDrawer,
+                                    split_payment = splitPayment,
+                                    customer_credit = customerCredit,
+                                    suppliers = suppliers,
+                                    returns = returns,
+                                    prescriptions = prescriptions,
+                                    drug_interactions = drugInteractions,
+                                    scheduled_orders = scheduledOrders,
+                                    kds = kds,
+                                    notifications = notifications,
                                     analytics = analytics,
                                     digital_menu = digitalMenu
                                 )

@@ -33,6 +33,7 @@ data class VendorResponse(
     val default_delivery_fee: Double = 0.0,
     val store_type: String? = null,
     val enable_tables: Boolean = true,
+    val enable_kds: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
     val enable_takeaway: Boolean = true,
@@ -67,6 +68,7 @@ data class UpdateVendorRequest(
     val default_delivery_fee: Double? = null,
     val store_type: String? = null,
     val enable_tables: Boolean? = null,
+    val enable_kds: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
@@ -276,6 +278,7 @@ fun Route.vendorRoutes() {
                 default_delivery_fee = vendor[VendorsTable.defaultDeliveryFee].toDouble(),
                 store_type = vendor[VendorsTable.storeType],
                 enable_tables = vendor[VendorsTable.enableTables],
+                enable_kds = vendor[VendorsTable.enableKds],
                 enable_dine_in = vendor[VendorsTable.enableDineIn],
                 enable_delivery = vendor[VendorsTable.enableDelivery],
                 enable_takeaway = vendor[VendorsTable.enableTakeaway],
@@ -329,6 +332,7 @@ fun Route.vendorRoutes() {
             request.default_delivery_fee?.let { settingsChanged.add("default_delivery_fee") }
             request.store_type?.let { settingsChanged.add("store_type") }
             request.enable_tables?.let { settingsChanged.add("enable_tables") }
+            request.enable_kds?.let { settingsChanged.add("enable_kds") }
             request.enable_dine_in?.let { settingsChanged.add("enable_dine_in") }
             request.enable_delivery?.let { settingsChanged.add("enable_delivery") }
             request.enable_takeaway?.let { settingsChanged.add("enable_takeaway") }
@@ -368,6 +372,7 @@ fun Route.vendorRoutes() {
                     request.default_delivery_fee?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
                     request.store_type?.let { stmt[storeType] = it }
                     request.enable_tables?.let { stmt[enableTables] = it }
+                    request.enable_kds?.let { stmt[enableKds] = it }
                     request.enable_dine_in?.let { stmt[enableDineIn] = it }
                     request.enable_delivery?.let { stmt[enableDelivery] = it }
                     request.enable_takeaway?.let { stmt[enableTakeaway] = it }
@@ -412,6 +417,7 @@ fun Route.vendorRoutes() {
                 default_delivery_fee = updated[VendorsTable.defaultDeliveryFee].toDouble(),
                 store_type = updated[VendorsTable.storeType],
                 enable_tables = updated[VendorsTable.enableTables],
+                enable_kds = updated[VendorsTable.enableKds],
                 enable_dine_in = updated[VendorsTable.enableDineIn],
                 enable_delivery = updated[VendorsTable.enableDelivery],
                 enable_takeaway = updated[VendorsTable.enableTakeaway],

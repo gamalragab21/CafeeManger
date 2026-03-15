@@ -85,6 +85,7 @@ class LoginViewModel constructor(
             "MANAGER" -> false // Only MANAGER role allowed
             "CASHIER" -> role == UserRole.CASHIER
             "DELIVERY" -> role == UserRole.DELIVERY
+            "KDS" -> role == UserRole.KITCHEN
             else -> false
         }
     }

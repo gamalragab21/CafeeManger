@@ -259,6 +259,69 @@
     <string name="redemption_rate_label">Redemption Rate</string>
     <string name="points_revenue_label">Points Revenue</string>
     <string name="loyalty_trend">Points Trend</string>
+    <!-- Staff Costs Analytics -->
+    <string name="staff_costs">Staff Costs &amp; Salaries</string>
+    <string name="total_salaries">Base Salaries</string>
+    <string name="total_overtime">Overtime Pay</string>
+    <string name="total_compensation">Total (Salary + Overtime)</string>
+    <string name="paid_salaries">Amount Paid</string>
+    <string name="unpaid_salaries">Amount Unpaid</string>
+    <string name="workers_count">Workers Count</string>
+    <string name="overtime_percentage">Overtime %% of Total</string>
+    <string name="overtime_hours_total">Total overtime hours: %1$s</string>
+    <string name="top_overtime_workers">Top Overtime Workers</string>
+    <string name="paid_percentage">Paid %%</string>
+    <!-- Supplier Analytics -->
+    <string name="supplier_analytics">Supplier Analytics</string>
+    <string name="supplier_analytics_hint">Supplier performance, purchase orders, and procurement metrics</string>
+    <string name="total_suppliers">Total Suppliers</string>
+    <string name="active_suppliers_count">Active</string>
+    <string name="total_purchase_orders">Purchase Orders</string>
+    <string name="total_spent">Total Spent</string>
+    <string name="avg_po_value">Avg PO Value</string>
+    <string name="pending_po">Pending</string>
+    <string name="received_po">Received</string>
+    <string name="top_suppliers_label">Top Suppliers</string>
+    <string name="top_purchased_items">Top Purchased Items</string>
+    <string name="monthly_purchase_trend">Monthly Purchase Trend</string>
+
+    <!-- Date picker -->
+    <string name="from_date">From</string>
+    <string name="to_date">To</string>
+    <string name="select_start_date">Select Start Date</string>
+    <string name="select_end_date">Select End Date</string>
+    <string name="ok">OK</string>
+
+    <!-- Alert translations -->
+    <string name="alert_title_revenue_drop">Revenue Drop Detected</string>
+    <string name="alert_msg_revenue_drop">Revenue dropped by %1$s%% compared to previous period</string>
+    <string name="alert_title_high_cancellation">High Cancellation Rate</string>
+    <string name="alert_msg_high_cancellation">Cancellation rate is %1$s%%</string>
+    <string name="alert_title_high_refund">High Refund Rate</string>
+    <string name="alert_msg_high_refund">Refund rate is %1$s%%</string>
+    <string name="alert_title_out_of_stock">Items Out of Stock</string>
+    <string name="alert_msg_out_of_stock">%1$d item(s) are out of stock</string>
+    <string name="alert_title_low_stock">Low Stock Warning</string>
+    <string name="alert_msg_low_stock">%1$d item(s) below minimum</string>
+    <string name="alert_severity_critical">Critical</string>
+    <string name="alert_severity_warning">Warning</string>
+
+    <!-- Section descriptions / hints -->
+    <string name="executive_summary_hint">Key metrics at a glance for your business</string>
+    <string name="revenue_profit_hint">Revenue breakdown, profit analysis and payment methods</string>
+    <string name="orders_intelligence_hint">Order volume, channels, and daily trends</string>
+    <string name="peak_time_hint">Discover your busiest hours and days</string>
+    <string name="cashier_performance_hint">Orders handled and performance by each cashier</string>
+    <string name="delivery_performance_hint">Delivery team metrics and order counts</string>
+    <string name="product_intelligence_hint">Best and least selling products with revenue by category</string>
+    <string name="customer_intelligence_hint">Customer types, spending patterns, and loyalty</string>
+    <string name="offers_analytics_hint">Offer usage, performance, and trends</string>
+    <string name="discount_analytics_hint">Discount patterns and impact on revenue</string>
+    <string name="loyalty_analytics_hint">Points earned, redeemed, and customer engagement</string>
+    <string name="staff_costs_hint">Base salaries, overtime pay, paid and unpaid amounts</string>
+    <string name="alerts_hint">Important alerts that need your attention</string>
+    <string name="stock_overview_hint">Inventory levels, stock value, and movement</string>
+    <string name="export_hint">Download your analytics report as PDF or Excel</string>
 
     <!-- Day abbreviations for charts -->
     <string name="day_mon">Mon</string>

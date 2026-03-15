@@ -78,4 +78,15 @@
     <string name="offer_discount_row">خصم العرض</string>
     <string name="manual_discount_row">الخصم اليدوي</string>
     <string name="points_discount_row">خصم النقاط</string>
+    <!-- Cart Actions -->
+    <string name="clear_cart">مسح السلة</string>
+    <string name="remove_offer">إزالة</string>
+    <string name="applied_offer_label">عرض: %1$s</string>
+    <string name="order_summary">ملخص الطلب</string>
+    <!-- Scheduled Order -->
+    <string name="scheduled_pickup_time">تاريخ ووقت الاستلام</string>
+    <string name="select_date">اختار التاريخ</string>
+    <string name="select_time">اختار الوقت</string>
+    <string name="scheduled_for_label">موعد الاستلام: %1$s</string>
+    <string name="scheduled_time_required">تاريخ ووقت الاستلام مطلوب</string>
 </resources>

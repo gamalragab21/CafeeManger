@@ -108,7 +108,7 @@
     <string name="net_profit">صافي الربح</string>
     <string name="new_customers">عملاء جداد</string>
     <string name="no_comparison">مفيش بيانات مقارنة</string>
-    <string name="no_delivery_fees">مفيش مصاريف توصيل لسه</string>
+    <string name="no_delivery_fees">لا توجد مصاريف توصيل بعد</string>
     <string name="order_types">أنواع الطلبات</string>
     <string name="orders_hint">إجمالي عدد الطلبات</string>
     <string name="peak_hours">ساعات الزحمة</string>
@@ -140,15 +140,15 @@
 
     <!-- ── New Dashboard V2 strings ────────────────────────────── -->
     <!-- Section titles -->
-    <string name="executive_summary">الملخص التنفيذي</string>
+    <string name="executive_summary">ملخص الأداء العام</string>
     <string name="revenue_and_profit">الإيرادات والأرباح</string>
-    <string name="orders_intelligence">تحليلات الطلبات</string>
-    <string name="peak_time_analysis">تحليل أوقات الزحمة</string>
-    <string name="product_intelligence">تحليلات المنتجات</string>
-    <string name="customer_intelligence">تحليلات العملاء</string>
+    <string name="orders_intelligence">تحليل الطلبات</string>
+    <string name="peak_time_analysis">أوقات الذروة</string>
+    <string name="product_intelligence">تحليل المنتجات والأصناف</string>
+    <string name="customer_intelligence">تحليل العملاء</string>
     <string name="alerts_and_risks">التنبيهات والمخاطر</string>
-    <string name="stock_overview">نظرة على المخزون</string>
-    <string name="export_report">صدّر التقرير</string>
+    <string name="stock_overview">حالة المخزون</string>
+    <string name="export_report">تصدير التقرير</string>
 
     <!-- Time periods -->
     <string name="yesterday">إمبارح</string>
@@ -157,25 +157,25 @@
     <string name="last_3_months">آخر 3 شهور</string>
 
     <!-- Executive Summary KPIs -->
-    <string name="avg_order">متوسط الطلب</string>
-    <string name="active_orders">الطلبات النشطة</string>
-    <string name="attendance_today">الحضور النهارده</string>
+    <string name="avg_order">متوسط قيمة الطلب</string>
+    <string name="active_orders">الطلبات الجارية</string>
+    <string name="attendance_today">حضور اليوم</string>
 
     <!-- Revenue & Profit -->
     <string name="payment_methods">طرق الدفع</string>
-    <string name="daily_revenue_trend">اتجاه الإيرادات اليومي</string>
+    <string name="daily_revenue_trend">حركة الإيرادات اليومية</string>
 
     <!-- Orders Intelligence -->
     <string name="total">الإجمالي</string>
     <string name="cancelled">ملغي</string>
     <string name="refunded">مسترد</string>
-    <string name="channel_breakdown">توزيع القنوات</string>
-    <string name="daily_order_trend">اتجاه الطلبات اليومي</string>
+    <string name="channel_breakdown">توزيع الطلبات حسب القناة</string>
+    <string name="daily_order_trend">حركة الطلبات اليومية</string>
 
     <!-- Peak Time -->
-    <string name="busiest_hour">أكتر ساعة زحمة</string>
-    <string name="busiest_day">أكتر يوم زحمة</string>
-    <string name="hourly_orders">الطلبات بالساعة</string>
+    <string name="busiest_hour">أكثر ساعة ذروة</string>
+    <string name="busiest_day">أكثر يوم ذروة</string>
+    <string name="hourly_orders">عدد الطلبات لكل ساعة</string>
     <string name="weekly_heatmap">خريطة الأسبوع الحرارية</string>
     <string name="revenue_by_day">الإيرادات حسب اليوم</string>
 
@@ -184,23 +184,23 @@
     <string name="cancel_percent">نسبة الإلغاء</string>
     <string name="driver">السواق</string>
     <string name="fees">المصاريف</string>
-    <string name="no_cashier_data">مفيش بيانات كاشير</string>
-    <string name="no_delivery_data">مفيش بيانات توصيل</string>
+    <string name="no_cashier_data">لا توجد بيانات للكاشير</string>
+    <string name="no_delivery_data">لا توجد بيانات توصيل</string>
 
     <!-- Product Intelligence -->
-    <string name="top_selling">الأكتر مبيعاً</string>
-    <string name="item_sold_count">%1$d اتباع</string>
+    <string name="top_selling">الأكثر مبيعاً</string>
+    <string name="item_sold_count">تم بيع %1$d</string>
     <string name="revenue_by_category">الإيرادات حسب القسم</string>
-    <string name="low_margin_items">أصناف بهامش ربح قليل</string>
+    <string name="low_margin_items">أصناف بهامش ربح منخفض</string>
     <string name="margin_percent">%.1f%% هامش</string>
 
     <!-- Customer Intelligence -->
-    <string name="new_percent">جداد %%</string>
-    <string name="returning_percent">راجعين %%</string>
+    <string name="new_percent">نسبة العملاء الجدد %%</string>
+    <string name="returning_percent">نسبة العملاء المتكررين %%</string>
     <string name="avg_spend">متوسط الإنفاق</string>
-    <string name="lifetime_value">القيمة الدايمة</string>
-    <string name="top_customers">أحسن العملاء</string>
-    <string name="order_frequency">تكرار الطلبات</string>
+    <string name="lifetime_value">القيمة الإجمالية للعميل</string>
+    <string name="top_customers">أفضل العملاء</string>
+    <string name="order_frequency">معدل تكرار الطلبات</string>
     <string name="one_order">طلب واحد</string>
     <string name="two_to_five_orders">2-5 طلبات</string>
     <string name="six_to_ten_orders">6-10 طلبات</string>
@@ -208,7 +208,7 @@
     <string name="orders_suffix">طلبات</string>
 
     <!-- Alerts -->
-    <string name="no_active_alerts">مفيش تنبيهات دلوقتي</string>
+    <string name="no_active_alerts">لا توجد تنبيهات حالياً</string>
 
     <!-- Stock Overview -->
     <string name="stock_value">قيمة المخزون</string>
@@ -231,34 +231,97 @@
     <string name="refresh">حدّث</string>
 
     <!-- Offers Analytics -->
-    <string name="offers_analytics">أداء العروض</string>
-    <string name="total_offers_count">إجمالي العروض</string>
-    <string name="active_offers_count">نشطة</string>
-    <string name="total_offer_uses">إجمالي الاستخدامات</string>
-    <string name="avg_discount_per_use">متوسط الخصم/استخدام</string>
-    <string name="top_offers">أفضل العروض</string>
-    <string name="offer_usage_trend">اتجاه الاستخدام</string>
-    <string name="uses_label">استخدام</string>
+    <string name="offers_analytics">تحليل العروض والترويج</string>
+    <string name="total_offers_count">عدد العروض الإجمالي</string>
+    <string name="active_offers_count">العروض النشطة</string>
+    <string name="total_offer_uses">عدد مرات الاستخدام</string>
+    <string name="avg_discount_per_use">متوسط الخصم لكل استخدام</string>
+    <string name="top_offers">أفضل العروض أداءً</string>
+    <string name="offer_usage_trend">حركة استخدام العروض</string>
+    <string name="uses_label">مرة</string>
     <!-- Discount Analytics -->
-    <string name="discount_analytics">تحليلات الخصومات</string>
-    <string name="orders_with_discount">طلبات بخصم</string>
-    <string name="total_discount_given">إجمالي الخصم</string>
-    <string name="avg_discount_per_order">متوسط/طلب</string>
-    <string name="discount_rate_label">معدل الخصم</string>
-    <string name="discount_breakdown">التوزيع</string>
-    <string name="discount_type_manual">يدوي</string>
-    <string name="discount_type_offer">عرض</string>
-    <string name="discount_type_points">نقاط</string>
-    <string name="discount_daily_trend">الاتجاه اليومي</string>
+    <string name="discount_analytics">تحليل الخصومات</string>
+    <string name="orders_with_discount">طلبات تم خصمها</string>
+    <string name="total_discount_given">إجمالي قيمة الخصومات</string>
+    <string name="avg_discount_per_order">متوسط الخصم لكل طلب</string>
+    <string name="discount_rate_label">نسبة الطلبات المخصومة</string>
+    <string name="discount_breakdown">توزيع أنواع الخصومات</string>
+    <string name="discount_type_manual">خصم يدوي</string>
+    <string name="discount_type_offer">خصم عرض</string>
+    <string name="discount_type_points">خصم نقاط</string>
+    <string name="discount_daily_trend">حركة الخصومات اليومية</string>
     <!-- Loyalty Analytics -->
-    <string name="loyalty_analytics">تحليلات الولاء</string>
-    <string name="total_points_earned">إجمالي المكتسبة</string>
-    <string name="total_points_redeemed">إجمالي المستبدلة</string>
-    <string name="outstanding_points">النقاط المعلقة</string>
-    <string name="active_loyalty_customers">العملاء النشطون</string>
-    <string name="redemption_rate_label">معدل الاستبدال</string>
-    <string name="points_revenue_label">إيراد النقاط</string>
-    <string name="loyalty_trend">اتجاه النقاط</string>
+    <string name="loyalty_analytics">تحليل نقاط الولاء</string>
+    <string name="total_points_earned">إجمالي النقاط المكتسبة</string>
+    <string name="total_points_redeemed">إجمالي النقاط المستبدلة</string>
+    <string name="outstanding_points">النقاط المتبقية عند العملاء</string>
+    <string name="active_loyalty_customers">العملاء المشاركين في الولاء</string>
+    <string name="redemption_rate_label">نسبة استبدال النقاط</string>
+    <string name="points_revenue_label">الإيراد من استبدال النقاط</string>
+    <string name="loyalty_trend">حركة النقاط</string>
+    <!-- Staff Costs Analytics -->
+    <string name="staff_costs">تكاليف الموظفين والمرتبات</string>
+    <string name="total_salaries">إجمالي المرتبات الأساسية</string>
+    <string name="total_overtime">إجمالي الأجر الإضافي</string>
+    <string name="total_compensation">إجمالي الراتب مع الأجر الإضافي</string>
+    <string name="paid_salaries">المبالغ المدفوعة</string>
+    <string name="unpaid_salaries">المبالغ غير المدفوعة</string>
+    <string name="workers_count">عدد الموظفين</string>
+    <string name="overtime_percentage">نسبة الأجر الإضافي من الإجمالي</string>
+    <string name="overtime_hours_total">إجمالي ساعات الأجر الإضافي: %1$s ساعة</string>
+    <string name="top_overtime_workers">أكثر الموظفين ساعات إضافية</string>
+    <string name="paid_percentage">نسبة المبالغ المدفوعة</string>
+    <!-- Supplier Analytics -->
+    <string name="supplier_analytics">تحليل الموردين</string>
+    <string name="supplier_analytics_hint">أداء الموردين وأوامر الشراء ومقاييس التوريد</string>
+    <string name="total_suppliers">إجمالي الموردين</string>
+    <string name="active_suppliers_count">النشطين</string>
+    <string name="total_purchase_orders">أوامر الشراء</string>
+    <string name="total_spent">إجمالي المصروفات</string>
+    <string name="avg_po_value">متوسط قيمة الطلب</string>
+    <string name="pending_po">قيد الانتظار</string>
+    <string name="received_po">تم الاستلام</string>
+    <string name="top_suppliers_label">أفضل الموردين</string>
+    <string name="top_purchased_items">أكثر الأصناف شراءً</string>
+    <string name="monthly_purchase_trend">حركة المشتريات الشهرية</string>
+
+    <!-- Date picker -->
+    <string name="from_date">من</string>
+    <string name="to_date">لحد</string>
+    <string name="select_start_date">اختار تاريخ البداية</string>
+    <string name="select_end_date">اختار تاريخ النهاية</string>
+    <string name="ok">موافق</string>
+
+    <!-- Alert translations -->
+    <string name="alert_title_revenue_drop">تم رصد انخفاض في الإيرادات</string>
+    <string name="alert_msg_revenue_drop">الإيرادات انخفضت بنسبة %1$s%% مقارنة بالفترة السابقة</string>
+    <string name="alert_title_high_cancellation">نسبة إلغاء عالية</string>
+    <string name="alert_msg_high_cancellation">نسبة الإلغاء %1$s%%</string>
+    <string name="alert_title_high_refund">نسبة استرداد عالية</string>
+    <string name="alert_msg_high_refund">نسبة الاسترداد %1$s%%</string>
+    <string name="alert_title_out_of_stock">أصناف نفذت من المخزون</string>
+    <string name="alert_msg_out_of_stock">%1$d صنف/أصناف نفذت من المخزون</string>
+    <string name="alert_title_low_stock">تحذير مخزون قليل</string>
+    <string name="alert_msg_low_stock">%1$d صنف/أصناف تحت الحد الأدنى</string>
+    <string name="alert_severity_critical">حرج</string>
+    <string name="alert_severity_warning">تحذير</string>
+
+    <!-- Section descriptions / hints -->
+    <string name="executive_summary_hint">نظرة سريعة على أهم مؤشرات الأداء</string>
+    <string name="revenue_profit_hint">تفصيل الإيرادات والأرباح وطرق الدفع المستخدمة</string>
+    <string name="orders_intelligence_hint">عدد الطلبات وتوزيعها حسب القنوات والحركة اليومية</string>
+    <string name="peak_time_hint">اكتشف أكثر الساعات والأيام ازدحاماً</string>
+    <string name="cashier_performance_hint">عدد الطلبات ومستوى أداء كل كاشير</string>
+    <string name="delivery_performance_hint">أداء فريق التوصيل وعدد الطلبات لكل مندوب</string>
+    <string name="product_intelligence_hint">الأصناف الأكثر والأقل مبيعاً والإيرادات حسب القسم</string>
+    <string name="customer_intelligence_hint">أنواع العملاء ومعدل الإنفاق والولاء</string>
+    <string name="offers_analytics_hint">عدد مرات استخدام العروض وأداء كل عرض</string>
+    <string name="discount_analytics_hint">أنواع الخصومات وتأثيرها على الإيرادات</string>
+    <string name="loyalty_analytics_hint">النقاط المكتسبة والمستبدلة ومشاركة العملاء</string>
+    <string name="staff_costs_hint">المرتبات الأساسية والأجر الإضافي والمبالغ المدفوعة وغير المدفوعة</string>
+    <string name="alerts_hint">تنبيهات مهمة محتاجة اهتمامك</string>
+    <string name="stock_overview_hint">مستويات المخزون وقيمته وحركة الأصناف</string>
+    <string name="export_hint">تحميل تقرير التحليلات بصيغة PDF أو Excel</string>
 
     <!-- Day abbreviations for charts -->
     <string name="day_mon">إثنين</string>

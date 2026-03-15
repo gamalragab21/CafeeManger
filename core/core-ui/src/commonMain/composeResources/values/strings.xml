@@ -40,6 +40,7 @@
     <string name="role_manager">Manager</string>
     <string name="role_cashier">Cashier</string>
     <string name="role_delivery">Delivery</string>
+    <string name="role_kitchen">Kitchen</string>
     <string name="role_admin">Admin</string>
 
     <!-- Stock Transaction Types -->
@@ -315,6 +316,234 @@
     <string name="vendor_type_grocery">Grocery</string>
     <string name="vendor_type_retail">Retail</string>
     <string name="vendor_type_juice_bar">Juice Bar</string>
+
+    <!-- Cash Drawer -->
+    <string name="cash_drawer">Cash Drawer</string>
+    <string name="open_cash_drawer">Open Cash Drawer</string>
+    <string name="close_cash_drawer">Close Cash Drawer</string>
+    <string name="cash_movement">Cash Movement</string>
+    <string name="opening_balance">Opening Balance</string>
+    <string name="closing_balance">Actual Closing Balance</string>
+    <string name="expected_balance">Expected Balance</string>
+    <string name="expected_balance_value">Expected balance: %1$s</string>
+    <string name="cash_in">Cash In</string>
+    <string name="cash_out">Cash Out</string>
+    <string name="sales">Sales</string>
+    <string name="current_session">Current Session</string>
+    <string name="session_active">Session Active</string>
+    <string name="no_open_drawer">No open drawer session. Tap the button to open one.</string>
+    <string name="no_session_history">No session history</string>
+    <string name="open">Open</string>
+    <string name="movements_count">Movements (%1$d)</string>
+    <string name="session_open_balance">Open: %1$s</string>
+    <string name="session_close_balance">Close: %1$s</string>
+    <string name="session_discrepancy">Discrepancy: %1$s</string>
+    <string name="movement">Movement</string>
+    <string name="close_drawer">Close Drawer</string>
+    <string name="open_drawer">Open Drawer</string>
+
+    <!-- Customer Credit -->
+    <string name="customer_credit">Customer Credit</string>
+    <string name="customer">Customer</string>
+    <string name="record_payment">Record Payment</string>
+    <string name="charge_credit">Charge Credit</string>
+    <string name="charge">Charge</string>
+    <string name="record">Record</string>
+    <string name="balance">Balance</string>
+    <string name="balance_value">Balance: %1$s</string>
+    <string name="available_value">Available: %1$s</string>
+    <string name="credit_limit">Credit Limit</string>
+    <string name="available">Available</string>
+    <string name="available_credit">Available Credit</string>
+    <string name="outstanding_balance">Outstanding Balance</string>
+    <string name="no_customer_credit">No customer credit accounts</string>
+    <string name="no_transactions_yet">No transactions yet</string>
+    <string name="transactions_count">Transactions (%1$d)</string>
+    <string name="transaction_history_count">Transaction History (%1$d)</string>
+    <string name="transaction_balance">Bal: %1$s</string>
+    <string name="set_credit_limit">Set Credit Limit</string>
+    <string name="current_limit">Current limit: %1$s</string>
+    <string name="new_limit">New Limit</string>
+    <string name="update">Update</string>
+    <string name="at_limit">AT LIMIT</string>
+    <string name="debtors_summary">%1$d debtors | Total: %2$s</string>
+    <string name="set_limit">Set Limit</string>
+
+    <!-- Kitchen Display -->
+    <string name="kitchen_display">Kitchen Display</string>
+    <string name="no_active_orders">No active orders</string>
+    <string name="table_label">- Table %1$s</string>
+    <string name="elapsed_minutes">%1$d min</string>
+    <string name="all_ready">All Ready</string>
+    <string name="note_prefix">Note: %1$s</string>
+    <string name="start">Start</string>
+    <string name="served">Served</string>
+    <string name="kds_summary">P:%1$d C:%2$d R:%3$d</string>
+    <string name="pending">Pending</string>
+    <string name="cooking">Cooking</string>
+    <string name="ready">Ready</string>
+    <string name="avg_prep_time">Avg: %1$d min</string>
+
+    <!-- Notifications -->
+    <string name="notifications">Notifications</string>
+    <string name="read_all">Read all</string>
+    <string name="mark_all_read">Mark all read</string>
+    <string name="no_notifications">No notifications</string>
+    <string name="no_notifications_yet">No notifications yet</string>
+    <string name="no_unread_notifications">No unread notifications</string>
+
+    <!-- Prescriptions -->
+    <string name="prescriptions">Prescriptions</string>
+    <string name="new_prescription">New Prescription</string>
+    <string name="dispensed">Dispensed</string>
+    <string name="no_prescriptions_found">No prescriptions found</string>
+    <string name="patient_name">Patient Name</string>
+    <string name="patient_phone">Patient Phone</string>
+    <string name="doctor_name">Doctor Name</string>
+    <string name="diagnosis">Diagnosis</string>
+    <string name="notes">Notes</string>
+    <string name="create">Create</string>
+    <string name="dispense_prescription">Dispense Prescription</string>
+    <string name="patient_label">Patient: %1$s</string>
+    <string name="items_to_dispense">Items to dispense: %1$d</string>
+    <string name="dispense_confirm_message">This will mark all pending items as dispensed.</string>
+    <string name="dispense">Dispense</string>
+    <string name="doctor_prefix">Dr. %1$s</string>
+    <string name="items_dispensed_count">%1$d/%2$d items dispensed</string>
+    <string name="prescription_details">Prescription Details</string>
+    <string name="patient">Patient</string>
+    <string name="doctor">Doctor</string>
+    <string name="items_count">Items (%1$d)</string>
+    <string name="dosage_label">Dosage: %1$s</string>
+    <string name="frequency_label">Freq: %1$s</string>
+    <string name="duration_label">Duration: %1$s</string>
+
+    <!-- Split Payment -->
+    <string name="split_payment">Split Payment</string>
+    <string name="copy_order_id">Copy ID</string>
+    <string name="order_id_copied">Order ID copied</string>
+    <string name="add_payment">Add Payment</string>
+    <string name="order_id">Order ID</string>
+    <string name="load">Load</string>
+    <string name="enter_order_id_message">Enter an order ID to view split payments</string>
+    <string name="remaining_value">Remaining: %1$s</string>
+    <string name="payment_method">Payment Method</string>
+    <string name="amount">Amount</string>
+    <string name="note">Note</string>
+    <string name="order_total">Order Total</string>
+    <string name="total_paid">Total Paid</string>
+    <string name="remaining">Remaining</string>
+    <string name="fully_paid">Fully Paid</string>
+    <string name="payments_count">Payments (%1$d)</string>
+    <string name="no_payments_yet">No payments yet</string>
+    <string name="remove">Remove</string>
+
+    <!-- Drug Interactions -->
+    <string name="drug_interactions">Drug Interactions</string>
+    <string name="add_interaction">Add interaction</string>
+    <string name="search_interactions">Search interactions...</string>
+    <string name="no_drug_interactions">No drug interactions defined</string>
+    <string name="add_drug_interaction">Add Drug Interaction</string>
+    <string name="item_a_id">Item A ID</string>
+    <string name="item_b_id">Item B ID</string>
+    <string name="description">Description</string>
+    <string name="recommendation">Recommendation</string>
+    <string name="recommendation_prefix">Rec: %1$s</string>
+    <string name="enable">Enable</string>
+    <string name="disable">Disable</string>
+
+    <!-- Returns -->
+    <string name="returns_exchanges">Returns &amp; Exchanges</string>
+    <string name="completed">Completed</string>
+    <string name="rejected">Rejected</string>
+    <string name="no_returns_found">No returns found</string>
+    <string name="reason_prefix">Reason: %1$s</string>
+    <string name="return_items_refund">Items: %1$d | Refund: %2$s</string>
+    <string name="approve">Approve</string>
+    <string name="reject">Reject</string>
+    <string name="total_label">Total: %1$s</string>
+    <string name="pending_label">Pending: %1$s</string>
+    <string name="refunded_label">Refunded: %1$s</string>
+
+    <!-- Scheduled Orders -->
+    <string name="scheduled_orders">Scheduled Orders</string>
+    <string name="scheduled">Scheduled</string>
+    <string name="confirmed">Confirmed</string>
+    <string name="preparing">Preparing</string>
+    <string name="active_count">%1$d active</string>
+    <string name="no_scheduled_orders">No scheduled orders</string>
+    <string name="order_channel_items">Channel: %1$s | Items: %2$d</string>
+    <string name="order_total_payment">Total: %1$s | Payment: %2$s</string>
+
+    <!-- Suppliers -->
+    <string name="suppliers_purchase_orders">Suppliers &amp; Purchase Orders</string>
+    <string name="suppliers">Suppliers</string>
+    <string name="purchase_orders">Purchase Orders</string>
+    <string name="add_supplier">Add Supplier</string>
+    <string name="edit_supplier">Edit Supplier</string>
+    <string name="delete_supplier">Delete Supplier</string>
+    <string name="delete_supplier_confirm">Are you sure you want to delete %1$s?</string>
+    <string name="search_suppliers">Search suppliers...</string>
+    <string name="no_suppliers_yet">No suppliers yet</string>
+    <string name="no_purchase_orders_yet">No purchase orders yet</string>
+    <string name="contact_name">Contact Name</string>
+    <string name="phone">Phone</string>
+    <string name="inactive">Inactive</string>
+    <string name="supplier_label">Supplier: %1$s</string>
+    <string name="po_items_total">Items: %1$d | Total: %2$s</string>
+    <!-- Purchase Order Management -->
+    <string name="create_purchase_order">Create Purchase Order</string>
+    <string name="select_supplier">Select Supplier</string>
+    <string name="add_item">Add Item</string>
+    <string name="select_item">Select Item</string>
+    <string name="quantity">Quantity</string>
+    <string name="unit_cost">Unit Cost</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="expected_delivery">Expected Delivery Date</string>
+    <string name="create_order">Create Order</string>
+    <string name="submit_order">Submit Order</string>
+    <string name="receive_items">Receive Items</string>
+    <string name="cancel_order">Cancel Order</string>
+    <string name="cancel_po_confirm">Are you sure you want to cancel this purchase order?</string>
+    <string name="po_details">Purchase Order Details</string>
+    <string name="requested_qty">Requested</string>
+    <string name="received_qty">Received</string>
+    <string name="batch_number">Batch Number</string>
+    <string name="expiry_date">Expiry Date</string>
+    <string name="no_items_added">No items added yet</string>
+    <string name="po_status_draft">Draft</string>
+    <string name="po_status_submitted">Submitted</string>
+    <string name="po_status_partially_received">Partially Received</string>
+    <string name="po_status_received">Received</string>
+    <string name="po_status_cancelled">Cancelled</string>
+    <string name="po_created_success">Purchase order created</string>
+    <string name="po_submitted_success">Purchase order submitted</string>
+    <string name="items_received_success">Items received successfully</string>
+    <string name="po_cancelled_success">Purchase order cancelled</string>
+    <string name="order_number">Order #%1$s</string>
+    <string name="no_expiry">No Expiry</string>
+    <string name="select_date">Select Date</string>
+
+    <!-- Common - new -->
+    <string name="refresh">Refresh</string>
+    <string name="reason">Reason</string>
+    <string name="history">History</string>
+    <string name="menu">Menu</string>
+    <string name="profile">Profile</string>
+    <string name="cashier">Cashier</string>
+    <string name="worker">Worker</string>
+    <string name="date">Date</string>
+    <string name="date_placeholder">YYYY-MM-DD</string>
+    <string name="hours">Hours</string>
+    <string name="hours_placeholder">e.g. 2.5</string>
+    <string name="note_optional">Note (optional)</string>
+    <string name="sign_out_verification">Sign out verification</string>
+    <string name="share_link">Share Link</string>
+    <string name="failed_load_shift_summary">Failed to load shift summary</string>
+    <string name="no_logs_available_msg">No logs available</string>
+    <string name="logs_uploaded_success">Logs uploaded successfully</string>
+    <string name="logs_upload_failed_msg">Failed to upload logs: %1$s</string>
+    <string name="logs_cleared_msg">Logs cleared</string>
 
     <!-- Vendor-specific order type labels -->
     <string name="order_label_default">Order</string>

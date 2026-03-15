@@ -182,6 +182,7 @@ data class OvertimeResponse(
     @SerialName("rate_per_hour") val ratePerHour: Double,
     val amount: Double,
     val note: String? = null,
+    val paid: Boolean = false,
     @SerialName("created_by") val createdBy: String,
     @SerialName("created_at") val createdAt: Long,
 )
@@ -210,4 +211,9 @@ data class MarkPaidRequest(
 data class BatchPayRequest(
     @SerialName("payment_ids") val paymentIds: List<String>,
     val note: String? = null,
+)
+
+@Serializable
+data class BatchPayOvertimeRequest(
+    val ids: List<String>,
 )

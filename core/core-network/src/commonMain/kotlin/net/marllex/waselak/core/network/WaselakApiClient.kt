@@ -478,6 +478,24 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("to", to)
         }.body()
 
+    suspend fun getStaffCostsAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): StaffCostsAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/staff-costs") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getSupplierAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): SupplierAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/supplier-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
     // ─── Export (streaming) ──────────────────────────────────────
 
     suspend fun exportOrdersPDF(from: Long, to: Long): HttpResponse =
@@ -749,6 +767,17 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun deleteOvertime(id: String): ApiSuccessResponse =
         client.delete("api/v1/overtime/$id").body()
 
+    suspend fun markOvertimePaid(id: String): OvertimeResponse =
+        client.patch("api/v1/overtime/$id/pay").body()
+
+    suspend fun markOvertimeUnpaid(id: String): OvertimeResponse =
+        client.patch("api/v1/overtime/$id/unpay").body()
+
+    suspend fun batchPayOvertime(ids: List<String>): List<OvertimeResponse> =
+        client.patch("api/v1/overtime/batch-pay") {
+            setBody(BatchPayOvertimeRequest(ids = ids))
+        }.body()
+
     // ─── Tax Places ──────────────────────────────────────────────────
 
     suspend fun getTaxPlaces(): List<TaxPlaceResponse> =
@@ -931,4 +960,331 @@ class WaselakApiClient(private val client: HttpClient) {
             }
         ).body()
     }
+
+    // ─── KDS (Kitchen Display) ──────────────────────────────────
+
+    suspend fun getKdsOrders(
+        station: String? = null,
+        status: String? = null,
+    ): List<KdsOrderResponse> =
+        client.get("api/v1/kds/orders") {
+            parameter("station", station)
+            parameter("status", status)
+        }.body()
+
+    suspend fun updateKdsItemStatus(itemId: String, request: UpdateKitchenStatusRequest): ApiSuccessResponse =
+        client.patch("api/v1/kds/items/$itemId/status") {
+            setBody(request)
+        }.body()
+
+    suspend fun bulkUpdateKdsStatus(orderId: String, request: BulkUpdateKitchenStatusRequest): ApiSuccessResponse =
+        client.patch("api/v1/kds/orders/$orderId/bulk-status") {
+            setBody(request)
+        }.body()
+
+    suspend fun getKdsSummary(): KdsSummaryResponse =
+        client.get("api/v1/kds/summary").body()
+
+    suspend fun assignKdsStation(itemId: String, request: AssignStationRequest): ApiSuccessResponse =
+        client.patch("api/v1/kds/items/$itemId/station") {
+            setBody(request)
+        }.body()
+
+    // ─── Cash Drawer ────────────────────────────────────────────
+
+    suspend fun openCashDrawer(request: OpenDrawerRequest): CashDrawerSessionResponse =
+        client.post("api/v1/cash-drawer/open") {
+            setBody(request)
+        }.body()
+
+    suspend fun closeCashDrawer(request: CloseDrawerRequest): CashDrawerSessionResponse =
+        client.post("api/v1/cash-drawer/close") {
+            setBody(request)
+        }.body()
+
+    suspend fun getCurrentDrawerSession(): CashDrawerSessionResponse? {
+        val response = client.get("api/v1/cash-drawer/current")
+        return if (response.status.value == 204) null else response.body()
+    }
+
+    suspend fun createCashMovement(request: CreateCashMovementRequest): CashMovementResponse =
+        client.post("api/v1/cash-drawer/movements") {
+            setBody(request)
+        }.body()
+
+    suspend fun getCashMovements(
+        sessionId: String? = null,
+        type: String? = null,
+    ): List<CashMovementResponse> =
+        client.get("api/v1/cash-drawer/movements") {
+            parameter("session_id", sessionId)
+            parameter("type", type)
+        }.body()
+
+    suspend fun getCashDrawerSessions(
+        limit: Int = 20,
+        offset: Int = 0,
+    ): List<CashDrawerSessionResponse> =
+        client.get("api/v1/cash-drawer/sessions") {
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getCashDrawerSummary(): DrawerSummaryResponse =
+        client.get("api/v1/cash-drawer/summary").body()
+
+    // ─── Split Payments ─────────────────────────────────────────
+
+    suspend fun getOrderPayments(orderId: String): SplitPaymentSummaryResponse =
+        client.get("api/v1/orders/$orderId/payments").body()
+
+    suspend fun addOrderPayment(orderId: String, request: CreateOrderPaymentRequest): OrderPaymentResponse =
+        client.post("api/v1/orders/$orderId/payments") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteOrderPayment(orderId: String, paymentId: String): ApiSuccessResponse =
+        client.delete("api/v1/orders/$orderId/payments/$paymentId").body()
+
+    // ─── Prescriptions ──────────────────────────────────────────
+
+    suspend fun getPrescriptions(
+        status: String? = null,
+        customerId: String? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<PrescriptionResponse> =
+        client.get("api/v1/prescriptions") {
+            parameter("status", status)
+            parameter("customer_id", customerId)
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getPrescription(id: String): PrescriptionResponse =
+        client.get("api/v1/prescriptions/$id").body()
+
+    suspend fun createPrescription(request: CreatePrescriptionRequest): PrescriptionResponse =
+        client.post("api/v1/prescriptions") {
+            setBody(request)
+        }.body()
+
+    suspend fun dispensePrescription(id: String, request: DispensePrescriptionRequest): PrescriptionResponse =
+        client.patch("api/v1/prescriptions/$id/dispense") {
+            setBody(request)
+        }.body()
+
+    suspend fun cancelPrescription(id: String): PrescriptionResponse =
+        client.patch("api/v1/prescriptions/$id/cancel").body()
+
+    // ─── Drug Interactions ──────────────────────────────────────
+
+    suspend fun getDrugInteractions(): List<DrugInteractionResponse> =
+        client.get("api/v1/drug-interactions").body()
+
+    suspend fun createDrugInteraction(request: CreateDrugInteractionRequest): DrugInteractionResponse =
+        client.post("api/v1/drug-interactions") {
+            setBody(request)
+        }.body()
+
+    suspend fun checkDrugInteractions(request: CheckInteractionsRequest): InteractionCheckResultResponse =
+        client.post("api/v1/drug-interactions/check") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteDrugInteraction(id: String): ApiSuccessResponse =
+        client.delete("api/v1/drug-interactions/$id").body()
+
+    suspend fun toggleDrugInteraction(id: String): DrugInteractionResponse =
+        client.patch("api/v1/drug-interactions/$id/toggle").body()
+
+    // ─── Customer Credit ────────────────────────────────────────
+
+    suspend fun getCustomerCredit(customerId: String): CustomerCreditResponse =
+        client.get("api/v1/customers/$customerId/credit").body()
+
+    suspend fun setCustomerCreditLimit(customerId: String, request: SetCreditLimitRequest): CustomerCreditResponse =
+        client.put("api/v1/customers/$customerId/credit/limit") {
+            setBody(request)
+        }.body()
+
+    suspend fun chargeCustomerCredit(customerId: String, request: CreditChargeRequest): CreditTransactionResponse =
+        client.post("api/v1/customers/$customerId/credit/charge") {
+            setBody(request)
+        }.body()
+
+    suspend fun payCustomerCredit(customerId: String, request: CreditPaymentRequest): CreditTransactionResponse =
+        client.post("api/v1/customers/$customerId/credit/payment") {
+            setBody(request)
+        }.body()
+
+    suspend fun getCustomerCreditTransactions(
+        customerId: String,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<CreditTransactionResponse> =
+        client.get("api/v1/customers/$customerId/credit/transactions") {
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getCreditDebtors(): List<CustomerCreditResponse> =
+        client.get("api/v1/credit/debtors").body()
+
+    // ─── Scheduled Orders ───────────────────────────────────────
+
+    suspend fun getScheduledOrders(
+        status: String? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<ScheduledOrderResponse> =
+        client.get("api/v1/scheduled-orders") {
+            parameter("status", status)
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getScheduledOrder(id: String): ScheduledOrderResponse =
+        client.get("api/v1/scheduled-orders/$id").body()
+
+    suspend fun createScheduledOrder(request: CreateScheduledOrderRequest): ScheduledOrderResponse =
+        client.post("api/v1/scheduled-orders") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateScheduledOrderStatus(id: String, request: UpdateScheduledOrderStatusRequest): ScheduledOrderResponse =
+        client.patch("api/v1/scheduled-orders/$id/status") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteScheduledOrder(id: String): ApiSuccessResponse =
+        client.delete("api/v1/scheduled-orders/$id").body()
+
+    // ─── Suppliers ──────────────────────────────────────────────
+
+    suspend fun getSuppliers(active: Boolean? = null): List<SupplierResponse> =
+        client.get("api/v1/suppliers") {
+            parameter("active", active)
+        }.body()
+
+    suspend fun getSupplier(id: String): SupplierResponse =
+        client.get("api/v1/suppliers/$id").body()
+
+    suspend fun createSupplier(request: CreateSupplierRequest): SupplierResponse =
+        client.post("api/v1/suppliers") {
+            setBody(request)
+        }.body()
+
+    suspend fun updateSupplier(id: String, request: UpdateSupplierRequest): SupplierResponse =
+        client.put("api/v1/suppliers/$id") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteSupplier(id: String): ApiSuccessResponse =
+        client.delete("api/v1/suppliers/$id").body()
+
+    // ─── Purchase Orders ────────────────────────────────────────
+
+    suspend fun getPurchaseOrders(
+        status: String? = null,
+        supplierId: String? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<PurchaseOrderResponse> =
+        client.get("api/v1/purchase-orders") {
+            parameter("status", status)
+            parameter("supplier_id", supplierId)
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getPurchaseOrder(id: String): PurchaseOrderResponse =
+        client.get("api/v1/purchase-orders/$id").body()
+
+    suspend fun createPurchaseOrder(request: CreatePurchaseOrderRequest): PurchaseOrderResponse =
+        client.post("api/v1/purchase-orders") {
+            setBody(request)
+        }.body()
+
+    suspend fun submitPurchaseOrder(id: String): PurchaseOrderResponse =
+        client.patch("api/v1/purchase-orders/$id/submit").body()
+
+    suspend fun receivePurchaseOrder(id: String, request: ReceivePurchaseOrderRequest): PurchaseOrderResponse =
+        client.post("api/v1/purchase-orders/$id/receive") {
+            setBody(request)
+        }.body()
+
+    suspend fun deletePurchaseOrder(id: String): ApiSuccessResponse =
+        client.delete("api/v1/purchase-orders/$id").body()
+
+    // ─── Returns & Exchanges ────────────────────────────────────
+
+    suspend fun getReturns(
+        status: String? = null,
+        orderId: String? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<ProductReturnResponse> =
+        client.get("api/v1/returns") {
+            parameter("status", status)
+            parameter("order_id", orderId)
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getReturn(id: String): ProductReturnResponse =
+        client.get("api/v1/returns/$id").body()
+
+    suspend fun createReturn(request: CreateReturnRequest): ProductReturnResponse =
+        client.post("api/v1/returns") {
+            setBody(request)
+        }.body()
+
+    suspend fun processReturn(id: String, request: ProcessReturnRequest): ProductReturnResponse =
+        client.patch("api/v1/returns/$id/process") {
+            setBody(request)
+        }.body()
+
+    suspend fun getReturnsSummary(): ReturnsSummaryResponse =
+        client.get("api/v1/returns/summary").body()
+
+    // ─── Notifications ──────────────────────────────────────────
+
+    suspend fun getNotifications(
+        type: String? = null,
+        unreadOnly: Boolean? = null,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): List<NotificationResponse> =
+        client.get("api/v1/notifications") {
+            parameter("type", type)
+            parameter("unread_only", unreadOnly)
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }.body()
+
+    suspend fun getNotificationCount(): NotificationCountResponse =
+        client.get("api/v1/notifications/count").body()
+
+    suspend fun markNotificationRead(id: String): ApiSuccessResponse =
+        client.patch("api/v1/notifications/$id/read").body()
+
+    suspend fun markAllNotificationsRead(): ApiSuccessResponse =
+        client.patch("api/v1/notifications/read-all").body()
+
+    suspend fun createNotification(request: CreateNotificationRequest): NotificationResponse =
+        client.post("api/v1/notifications") {
+            setBody(request)
+        }.body()
+
+    suspend fun deleteNotification(id: String): ApiSuccessResponse =
+        client.delete("api/v1/notifications/$id").body()
+
+    suspend fun registerDevice(request: RegisterDeviceRequest): DeviceTokenResponse =
+        client.post("api/v1/devices/register") {
+            setBody(request)
+        }.body()
+
+    suspend fun unregisterDevice(token: String): ApiSuccessResponse =
+        client.delete("api/v1/devices/$token").body()
 }

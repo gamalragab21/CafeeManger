@@ -36,6 +36,12 @@ fun ExportSection(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                stringResource(Res.string.export_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(12.dp))
 
             when (exportState) {

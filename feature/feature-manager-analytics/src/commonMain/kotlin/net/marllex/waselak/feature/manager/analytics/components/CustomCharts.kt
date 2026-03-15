@@ -32,33 +32,40 @@ fun SimpleBarChart(
     Column(modifier = modifier.fillMaxWidth()) {
         items.forEach { (label, value) ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(48.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(52.dp),
+                    maxLines = 1,
                 )
-                Box(modifier = Modifier.weight(1f).height(16.dp)) {
+                Box(modifier = Modifier.weight(1f).height(20.dp)) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val fraction = (value / maxValue).toFloat().coerceIn(0f, 1f)
+                        val radius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
                         drawRoundRect(
-                            color = barColor.copy(alpha = 0.15f),
+                            color = barColor.copy(alpha = 0.1f),
                             size = Size(size.width, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+                            cornerRadius = radius,
                         )
-                        drawRoundRect(
-                            color = barColor,
-                            size = Size(size.width * fraction, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-                        )
+                        if (fraction > 0f) {
+                            drawRoundRect(
+                                color = barColor.copy(alpha = 0.8f),
+                                size = Size(size.width * fraction, size.height),
+                                cornerRadius = radius,
+                            )
+                        }
                     }
                 }
                 Text(
                     text = formatCurrency(value),
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 8.dp).width(60.dp),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 8.dp).width(72.dp),
+                    maxLines = 1,
                 )
             }
         }
@@ -80,9 +87,10 @@ fun DonutChart(
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        Canvas(modifier = Modifier.size(80.dp)) {
-            val strokeWidth = 16.dp.toPx()
+        Canvas(modifier = Modifier.size(100.dp)) {
+            val strokeWidth = 20.dp.toPx()
             var startAngle = -90f
             segments.forEachIndexed { index, (_, value) ->
                 val sweep = (value / total) * 360f
@@ -98,17 +106,17 @@ fun DonutChart(
                 startAngle += sweep
             }
         }
-        Spacer(Modifier.width(16.dp))
-        Column {
+        Spacer(Modifier.width(20.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             segments.forEachIndexed { index, (label, value) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Canvas(modifier = Modifier.size(8.dp)) {
+                    Canvas(modifier = Modifier.size(10.dp)) {
                         drawCircle(color = colors[index % colors.size])
                     }
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "$label (${String.format("%.1f", (value / total) * 100)}%)",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "$label (${String.format(java.util.Locale.US, "%.1f", (value / total) * 100)}%)",
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -142,34 +150,41 @@ fun HeatmapChart(
     Column(modifier = modifier.fillMaxWidth()) {
         dayNames.forEachIndexed { dayIndex, dayName ->
             Row(
-                modifier = Modifier.fillMaxWidth().height(16.dp),
+                modifier = Modifier.fillMaxWidth().height(20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = dayName,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(32.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(36.dp),
                 )
                 Canvas(modifier = Modifier.weight(1f).fillMaxHeight()) {
                     val cellWidth = size.width / 24f
                     for (hour in 0..23) {
                         val count = data.find { it.first == dayIndex + 1 && it.second == hour }?.third ?: 0
                         val alpha = if (maxCount > 0) (count.toFloat() / maxCount).coerceIn(0.05f, 1f) else 0.05f
-                        drawRect(
+                        drawRoundRect(
                             color = baseColor.copy(alpha = alpha),
-                            topLeft = Offset(hour * cellWidth, 0f),
-                            size = Size(cellWidth - 1f, size.height),
+                            topLeft = Offset(hour * cellWidth + 0.5f, 1f),
+                            size = Size(cellWidth - 1f, size.height - 2f),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
                         )
                     }
                 }
             }
         }
+        Spacer(Modifier.height(4.dp))
         // Hour labels
         Row(modifier = Modifier.fillMaxWidth()) {
-            Spacer(Modifier.width(32.dp))
+            Spacer(Modifier.width(36.dp))
             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
                 listOf("0", "6", "12", "18", "23").forEach {
-                    Text(it, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

@@ -953,14 +953,49 @@ fun Route.orderRoutes() {
                                     it[quantity] = newQty
                                     it[updatedAt] = now
                                 }
-                                StockTransactionsTable.insert {
-                                    it[stockId] = stockRow[StockTable.id]
-                                    it[type] = "SALE_DIRECT"
-                                    it[StockTransactionsTable.quantity] = deductAmt
-                                    it[previousQuantity] = oldQty
-                                    it[StockTransactionsTable.orderId] = orderId
-                                    it[note] = "Order deduction (direct)"
-                                    it[createdAt] = now
+                                // FIFO batch deduction — if batches exist, deduct from oldest first
+                                val batchesAffected = fifoDeductBatches(
+                                    stockUUID = stockRow[StockTable.id].value,
+                                    vendorUUID = vendorUUID,
+                                    amount = deductAmt,
+                                    transactionType = "SALE_DIRECT",
+                                    orderId = orderId.value,
+                                    note = "Order deduction (direct)"
+                                )
+                                // If no batches exist, record legacy aggregate transaction
+                                if (batchesAffected.isEmpty()) {
+                                    StockTransactionsTable.insert {
+                                        it[stockId] = stockRow[StockTable.id]
+                                        it[type] = "SALE_DIRECT"
+                                        it[StockTransactionsTable.quantity] = deductAmt
+                                        it[previousQuantity] = oldQty
+                                        it[StockTransactionsTable.orderId] = orderId
+                                        it[note] = "Order deduction (direct)"
+                                        it[createdAt] = now
+                                    }
+                                }
+                                // Stock alert notifications
+                                if (stockRow[StockTable.alertEnabled]) {
+                                    val minQty = stockRow[StockTable.minQuantity]
+                                    val itemName = stockRow[StockTable.itemName]
+                                    if (newQty <= BigDecimal.ZERO && oldQty > BigDecimal.ZERO) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "OUT_OF_STOCK",
+                                            title = "Out of Stock",
+                                            body = "'$itemName' is now out of stock",
+                                            priority = "HIGH",
+                                            actionUrl = "/stock",
+                                        )
+                                    } else if (newQty <= minQty && oldQty > minQty) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "LOW_STOCK",
+                                            title = "Low Stock Alert",
+                                            body = "'$itemName' is running low (${newQty.toPlainString()} remaining)",
+                                            actionUrl = "/stock",
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -993,15 +1028,50 @@ fun Route.orderRoutes() {
                                     it[quantity] = newQty
                                     it[updatedAt] = now
                                 }
-                                StockTransactionsTable.insert {
-                                    it[stockId] = stockRow[StockTable.id]
-                                    it[type] = "SALE_RECIPE"
-                                    it[StockTransactionsTable.quantity] = convertedRequiredDecimal
-                                    it[previousQuantity] = oldQty
-                                    it[StockTransactionsTable.orderId] = orderId
-                                    it[StockTransactionsTable.recipeId] = recipeId
-                                    it[note] = "Recipe deduction: ${item[ItemsTable.name]} x${orderItem.quantity}"
-                                    it[createdAt] = now
+                                // FIFO batch deduction for recipe ingredients
+                                val batchesAffected = fifoDeductBatches(
+                                    stockUUID = stockRow[StockTable.id].value,
+                                    vendorUUID = vendorUUID,
+                                    amount = convertedRequiredDecimal,
+                                    transactionType = "SALE_RECIPE",
+                                    orderId = orderId.value,
+                                    recipeId = recipeId.value,
+                                    note = "Recipe deduction: ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                )
+                                if (batchesAffected.isEmpty()) {
+                                    StockTransactionsTable.insert {
+                                        it[stockId] = stockRow[StockTable.id]
+                                        it[type] = "SALE_RECIPE"
+                                        it[StockTransactionsTable.quantity] = convertedRequiredDecimal
+                                        it[previousQuantity] = oldQty
+                                        it[StockTransactionsTable.orderId] = orderId
+                                        it[StockTransactionsTable.recipeId] = recipeId
+                                        it[note] = "Recipe deduction: ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                        it[createdAt] = now
+                                    }
+                                }
+                                // Stock alert notifications for recipe ingredients
+                                if (stockRow[StockTable.alertEnabled]) {
+                                    val minQty = stockRow[StockTable.minQuantity]
+                                    val ingredientName = stockRow[StockTable.itemName]
+                                    if (newQty <= BigDecimal.ZERO && oldQty > BigDecimal.ZERO) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "OUT_OF_STOCK",
+                                            title = "Out of Stock",
+                                            body = "'$ingredientName' is now out of stock",
+                                            priority = "HIGH",
+                                            actionUrl = "/stock",
+                                        )
+                                    } else if (newQty <= minQty && oldQty > minQty) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "LOW_STOCK",
+                                            title = "Low Stock Alert",
+                                            body = "'$ingredientName' is running low (${newQty.toPlainString()} remaining)",
+                                            actionUrl = "/stock",
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1249,6 +1319,7 @@ fun Route.orderRoutes() {
                         // Deduct stock for new item — branches on stockBehavior
                         val editBehavior = item[ItemsTable.stockBehavior]
                         val editNow = Clock.System.now()
+                        val editOrderUUID = UUID.fromString(id)
                         when (editBehavior) {
                             "DIRECT" -> {
                                 val stockRow = StockTable.selectAll().where {
@@ -1256,19 +1327,30 @@ fun Route.orderRoutes() {
                                 }.firstOrNull()
                                 if (stockRow != null) {
                                     val sOldQty = stockRow[StockTable.quantity]
-                                    val sNewQty = (sOldQty - BigDecimal(orderItem.quantity)).coerceAtLeast(BigDecimal.ZERO)
+                                    val deductAmt = BigDecimal(orderItem.quantity)
+                                    val sNewQty = (sOldQty - deductAmt).coerceAtLeast(BigDecimal.ZERO)
                                     StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
                                         it[quantity] = sNewQty
                                         it[updatedAt] = editNow
                                     }
-                                    StockTransactionsTable.insert {
-                                        it[stockId] = stockRow[StockTable.id]
-                                        it[type] = "SALE_DIRECT"
-                                        it[StockTransactionsTable.quantity] = BigDecimal(orderItem.quantity)
-                                        it[previousQuantity] = sOldQty
-                                        it[StockTransactionsTable.orderId] = UUID.fromString(id)
-                                        it[note] = "Order edit deduction (direct)"
-                                        it[createdAt] = editNow
+                                    val batchesAffected = fifoDeductBatches(
+                                        stockUUID = stockRow[StockTable.id].value,
+                                        vendorUUID = vendorUUID,
+                                        amount = deductAmt,
+                                        transactionType = "SALE_DIRECT",
+                                        orderId = editOrderUUID,
+                                        note = "Order edit deduction (direct)"
+                                    )
+                                    if (batchesAffected.isEmpty()) {
+                                        StockTransactionsTable.insert {
+                                            it[stockId] = stockRow[StockTable.id]
+                                            it[type] = "SALE_DIRECT"
+                                            it[StockTransactionsTable.quantity] = deductAmt
+                                            it[previousQuantity] = sOldQty
+                                            it[StockTransactionsTable.orderId] = editOrderUUID
+                                            it[note] = "Order edit deduction (direct)"
+                                            it[createdAt] = editNow
+                                        }
                                     }
                                 }
                             }
@@ -1292,21 +1374,33 @@ fun Route.orderRoutes() {
                                         val effectiveMultiplier = if (isFixed) BigDecimal.ONE else multiplier
                                         val requiredQty = ingredient[RecipeIngredientsTable.quantity].toDouble() * effectiveMultiplier.toDouble()
                                         val convertedRequired = convertUnits(requiredQty, ingredient[RecipeIngredientsTable.unit], stockRow[StockTable.unit])
+                                        val convertedRequiredDecimal = BigDecimal.valueOf(convertedRequired)
                                         val sOldQty = stockRow[StockTable.quantity]
-                                        val sNewQty = (sOldQty - BigDecimal.valueOf(convertedRequired)).coerceAtLeast(BigDecimal.ZERO)
+                                        val sNewQty = (sOldQty - convertedRequiredDecimal).coerceAtLeast(BigDecimal.ZERO)
                                         StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
                                             it[quantity] = sNewQty
                                             it[updatedAt] = editNow
                                         }
-                                        StockTransactionsTable.insert {
-                                            it[stockId] = stockRow[StockTable.id]
-                                            it[type] = "SALE_RECIPE"
-                                            it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedRequired)
-                                            it[previousQuantity] = sOldQty
-                                            it[StockTransactionsTable.orderId] = UUID.fromString(id)
-                                            it[StockTransactionsTable.recipeId] = recipeId
-                                            it[note] = "Order edit deduction (recipe): ${item[ItemsTable.name]} x${orderItem.quantity}"
-                                            it[createdAt] = editNow
+                                        val batchesAffected = fifoDeductBatches(
+                                            stockUUID = stockRow[StockTable.id].value,
+                                            vendorUUID = vendorUUID,
+                                            amount = convertedRequiredDecimal,
+                                            transactionType = "SALE_RECIPE",
+                                            orderId = editOrderUUID,
+                                            recipeId = recipeId.value,
+                                            note = "Order edit deduction (recipe): ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                        )
+                                        if (batchesAffected.isEmpty()) {
+                                            StockTransactionsTable.insert {
+                                                it[stockId] = stockRow[StockTable.id]
+                                                it[type] = "SALE_RECIPE"
+                                                it[StockTransactionsTable.quantity] = convertedRequiredDecimal
+                                                it[previousQuantity] = sOldQty
+                                                it[StockTransactionsTable.orderId] = editOrderUUID
+                                                it[StockTransactionsTable.recipeId] = recipeId
+                                                it[note] = "Order edit deduction (recipe): ${item[ItemsTable.name]} x${orderItem.quantity}"
+                                                it[createdAt] = editNow
+                                            }
                                         }
                                     }
                                 }
@@ -1466,6 +1560,16 @@ fun Route.orderRoutes() {
                             }
                         }
                     }
+
+                    // Notification: ORDER_CANCELLED
+                    createSystemNotification(
+                        vendorUUID = UUID.fromString(principal.vendorId),
+                        type = "ORDER_CANCELLED",
+                        title = "Order Cancelled",
+                        body = "Order #${id.takeLast(6).uppercase()} has been cancelled",
+                        data = """{"orderId":"$id"}""",
+                        actionUrl = "/orders/$id",
+                    )
                 }
 
                 ActivityLogsTable.insert {
@@ -1570,6 +1674,16 @@ fun Route.orderRoutes() {
                     it[payload] = """{"reason":"${request.reason.replace("\"", "\\\"")}"}"""
                     it[createdAt] = now
                 }
+
+                // Notification: ORDER_REFUNDED
+                createSystemNotification(
+                    vendorUUID = UUID.fromString(principal.vendorId),
+                    type = "ORDER_REFUNDED",
+                    title = "Order Refunded",
+                    body = "Order #${id.takeLast(6).uppercase()} has been refunded. Reason: ${request.reason}",
+                    data = """{"orderId":"$id"}""",
+                    actionUrl = "/orders/$id",
+                )
 
                 // Return updated order DTO
                 val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }
@@ -1798,20 +1912,31 @@ private fun restoreStockForOrderItems(
                     (StockTable.itemId eq itemUUID) and (StockTable.vendorId eq vendorUUID)
                 }.firstOrNull()
                 if (stockRow != null) {
+                    val restoreAmount = BigDecimal(orderItem[OrderItemsTable.quantity])
                     val currentQty = stockRow[StockTable.quantity]
-                    val restoredQty = currentQty + BigDecimal(orderItem[OrderItemsTable.quantity])
+                    val restoredQty = currentQty + restoreAmount
                     StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
                         it[StockTable.quantity] = restoredQty
                         it[StockTable.updatedAt] = now
                     }
-                    StockTransactionsTable.insert {
-                        it[stockId] = stockRow[StockTable.id]
-                        it[type] = "RETURN"
-                        it[StockTransactionsTable.quantity] = BigDecimal(orderItem[OrderItemsTable.quantity])
-                        it[previousQuantity] = currentQty
-                        it[StockTransactionsTable.orderId] = orderUUID
-                        it[note] = "Stock restored (order cancel/edit)"
-                        it[createdAt] = now
+                    // FIFO batch restoration — restore to most recently depleted batches
+                    val batchesRestored = fifoRestoreBatches(
+                        stockUUID = stockRow[StockTable.id].value,
+                        vendorUUID = vendorUUID,
+                        amount = restoreAmount,
+                        orderId = orderUUID,
+                        note = "Stock restored (order cancel/edit)"
+                    )
+                    if (batchesRestored.isEmpty()) {
+                        StockTransactionsTable.insert {
+                            it[stockId] = stockRow[StockTable.id]
+                            it[type] = "RETURN"
+                            it[StockTransactionsTable.quantity] = restoreAmount
+                            it[previousQuantity] = currentQty
+                            it[StockTransactionsTable.orderId] = orderUUID
+                            it[note] = "Stock restored (order cancel/edit)"
+                            it[createdAt] = now
+                        }
                     }
                 }
             }
@@ -1842,21 +1967,32 @@ private fun restoreStockForOrderItems(
                             ingredient[RecipeIngredientsTable.unit],
                             stockRow[StockTable.unit]
                         )
+                        val restoreAmount = BigDecimal.valueOf(convertedRestore)
                         val currentQty = stockRow[StockTable.quantity]
-                        val newQty = currentQty + BigDecimal.valueOf(convertedRestore)
+                        val newQty = currentQty + restoreAmount
                         StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
                             it[StockTable.quantity] = newQty
                             it[StockTable.updatedAt] = now
                         }
-                        StockTransactionsTable.insert {
-                            it[stockId] = stockRow[StockTable.id]
-                            it[type] = "RETURN"
-                            it[StockTransactionsTable.quantity] = BigDecimal.valueOf(convertedRestore)
-                            it[previousQuantity] = currentQty
-                            it[StockTransactionsTable.orderId] = orderUUID
-                            it[StockTransactionsTable.recipeId] = recipeId
-                            it[note] = "Stock restored (order cancel/edit)"
-                            it[createdAt] = now
+                        // FIFO batch restoration for recipe ingredients
+                        val batchesRestored = fifoRestoreBatches(
+                            stockUUID = stockRow[StockTable.id].value,
+                            vendorUUID = vendorUUID,
+                            amount = restoreAmount,
+                            orderId = orderUUID,
+                            note = "Stock restored (order cancel/edit)"
+                        )
+                        if (batchesRestored.isEmpty()) {
+                            StockTransactionsTable.insert {
+                                it[stockId] = stockRow[StockTable.id]
+                                it[type] = "RETURN"
+                                it[StockTransactionsTable.quantity] = restoreAmount
+                                it[previousQuantity] = currentQty
+                                it[StockTransactionsTable.orderId] = orderUUID
+                                it[StockTransactionsTable.recipeId] = recipeId
+                                it[note] = "Stock restored (order cancel/edit)"
+                                it[createdAt] = now
+                            }
                         }
                     }
                 }

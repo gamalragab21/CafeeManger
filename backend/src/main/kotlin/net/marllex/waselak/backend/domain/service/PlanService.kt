@@ -37,6 +37,16 @@ data class VendorPlanLimits(
     val loyaltyPoints: Boolean,
     val manualDiscount: Boolean,
     val offersManagement: Boolean,
+    val cashDrawer: Boolean,
+    val splitPayment: Boolean,
+    val customerCredit: Boolean,
+    val suppliers: Boolean,
+    val returns: Boolean,
+    val prescriptions: Boolean,
+    val drugInteractions: Boolean,
+    val scheduledOrders: Boolean,
+    val kds: Boolean,
+    val notifications: Boolean,
     val analytics: String,      // NONE, FULL
     val digitalMenu: String,    // NONE, FULL
     // Override values from vendor subscription (nullable = use plan default)
@@ -99,6 +109,16 @@ class PlanService {
                 loyaltyPoints = plan[SubscriptionPlansTable.loyaltyPoints],
                 manualDiscount = plan[SubscriptionPlansTable.manualDiscount],
                 offersManagement = plan[SubscriptionPlansTable.offersManagement],
+                cashDrawer = plan[SubscriptionPlansTable.cashDrawer],
+                splitPayment = plan[SubscriptionPlansTable.splitPayment],
+                customerCredit = plan[SubscriptionPlansTable.customerCredit],
+                suppliers = plan[SubscriptionPlansTable.suppliers],
+                returns = plan[SubscriptionPlansTable.returns],
+                prescriptions = plan[SubscriptionPlansTable.prescriptions],
+                drugInteractions = plan[SubscriptionPlansTable.drugInteractions],
+                scheduledOrders = plan[SubscriptionPlansTable.scheduledOrders],
+                kds = plan[SubscriptionPlansTable.kds],
+                notifications = plan[SubscriptionPlansTable.notifications],
                 analytics = plan[SubscriptionPlansTable.analytics],
                 digitalMenu = plan[SubscriptionPlansTable.digitalMenu],
                 overrideMaxManagers = subscription[VendorSubscriptionsTable.overrideMaxManagers],
@@ -151,6 +171,20 @@ class PlanService {
                             throw PlanLimitExceededException(
                                 "Your ${limits.planDisplayName} plan allows a maximum of ${limits.effectiveMaxDelivery()} delivery user(s). " +
                                 "Current: $currentCount. Please upgrade your plan to add more delivery users."
+                            )
+                        }
+                    }
+                }
+                // KITCHEN users share the cashier limit (they work in the same venue context)
+                "KITCHEN" -> {
+                    if (!limits.isUnlimitedCashiers()) {
+                        val currentCount = UsersTable.selectAll()
+                            .where { (UsersTable.vendorId eq vendorId) and (UsersTable.role eq "KITCHEN") and (UsersTable.active eq true) }
+                            .count().toInt()
+                        if (currentCount >= limits.effectiveMaxCashiers()) {
+                            throw PlanLimitExceededException(
+                                "Your ${limits.planDisplayName} plan allows a maximum of ${limits.effectiveMaxCashiers()} kitchen user(s). " +
+                                "Current: $currentCount. Please upgrade your plan to add more kitchen users."
                             )
                         }
                     }
@@ -263,6 +297,33 @@ class PlanService {
             )
             "OFFERS" -> if (!limits.offersManagement) throw FeatureNotAvailableException(
                 "Offers management is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "CASH_DRAWER" -> if (!limits.cashDrawer) throw FeatureNotAvailableException(
+                "Cash drawer management is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "SPLIT_PAYMENT" -> if (!limits.splitPayment) throw FeatureNotAvailableException(
+                "Split payment is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "CUSTOMER_CREDIT" -> if (!limits.customerCredit) throw FeatureNotAvailableException(
+                "Customer credit is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "SUPPLIERS" -> if (!limits.suppliers) throw FeatureNotAvailableException(
+                "Supplier management is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "RETURNS" -> if (!limits.returns) throw FeatureNotAvailableException(
+                "Returns management is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "PRESCRIPTIONS" -> if (!limits.prescriptions) throw FeatureNotAvailableException(
+                "Prescriptions is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "DRUG_INTERACTIONS" -> if (!limits.drugInteractions) throw FeatureNotAvailableException(
+                "Drug interactions is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "SCHEDULED_ORDERS" -> if (!limits.scheduledOrders) throw FeatureNotAvailableException(
+                "Scheduled orders is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "KDS" -> if (!limits.kds) throw FeatureNotAvailableException(
+                "Kitchen display system is not available on the ${limits.planDisplayName} plan. Please upgrade."
             )
         }
     }

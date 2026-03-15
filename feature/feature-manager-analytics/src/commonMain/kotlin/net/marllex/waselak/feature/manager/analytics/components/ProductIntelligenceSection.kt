@@ -29,6 +29,7 @@ fun ProductIntelligenceSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.product_intelligence_hint),
     ) { data ->
         // Top Selling
         if (data.topSelling.isNotEmpty()) {
@@ -85,7 +86,7 @@ fun ProductIntelligenceSection(
                 ) {
                     Text(item.itemName, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Text(
-                        "${String.format("%.1f", item.profitMargin)}%",
+                        "${String.format(java.util.Locale.US, "%.1f", item.profitMargin)}%",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

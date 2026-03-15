@@ -31,6 +31,7 @@ fun Vendors.toDomain() = Vendor(
     contactPhone = contact_phone, walletPhone = wallet_phone,
     defaultDeliveryFee = default_delivery_fee,
     storeType = store_type, enableTables = enable_tables,
+    enableKds = enable_kds,
     enableDineIn = enable_dine_in, enableDelivery = enable_delivery,
     enableTakeaway = enable_takeaway,
     enableInStore = enable_in_store,
@@ -57,6 +58,7 @@ fun Vendor.toDbEntity() = Vendors(
     contact_phone = contactPhone, wallet_phone = walletPhone,
     default_delivery_fee = defaultDeliveryFee,
     store_type = storeType, enable_tables = enableTables,
+    enable_kds = enableKds,
     enable_dine_in = enableDineIn, enable_delivery = enableDelivery,
     enable_takeaway = enableTakeaway,
     enable_in_store = enableInStore,
@@ -376,14 +378,14 @@ fun Overtime_entries.toDomain() = Overtime(
     id = id, vendorId = vendor_id, workerId = worker_id,
     workerName = worker_name, date = date, hours = hours,
     ratePerHour = rate_per_hour, amount = amount, note = note,
-    createdBy = created_by, createdAt = created_at
+    paid = paid != 0L, createdBy = created_by, createdAt = created_at
 )
 
 fun Overtime.toDbEntity() = Overtime_entries(
     id = id, vendor_id = vendorId, worker_id = workerId,
     worker_name = workerName, date = date, hours = hours,
     rate_per_hour = ratePerHour, amount = amount, note = note,
-    created_by = createdBy, created_at = createdAt
+    paid = if (paid) 1L else 0L, created_by = createdBy, created_at = createdAt
 )
 
 // ─── Customer Mappers ───────────────────────────────────────────

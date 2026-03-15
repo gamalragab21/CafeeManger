@@ -13,6 +13,7 @@ data class Vendor(
     val defaultDeliveryFee: Double = 0.0,
     val storeType: String? = null,
     val enableTables: Boolean = true,
+    val enableKds: Boolean = true,
     val enableDineIn: Boolean = true,
     val enableDelivery: Boolean = true,
     val enableTakeaway: Boolean = true,

@@ -24,6 +24,7 @@ fun OrdersIntelligenceSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.orders_intelligence_hint),
     ) { data ->
         Row(
             modifier = Modifier.fillMaxWidth(),

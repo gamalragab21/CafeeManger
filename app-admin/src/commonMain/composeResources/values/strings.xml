@@ -163,6 +163,8 @@
     <string name="select_plan">Select Plan</string>
     <string name="channel_config">Channel Configuration</string>
     <string name="enable_tables">Enable Tables</string>
+    <string name="enable_kds">Enable Kitchen Display (KDS)</string>
+    <string name="kds_label">Kitchen Display</string>
     <string name="enable_dine_in">Enable Dine-In</string>
     <string name="enable_delivery">Enable Delivery</string>
     <string name="enable_takeaway">Enable Takeaway</string>
@@ -201,6 +203,16 @@
     <string name="loyalty_points">Loyalty Points</string>
     <string name="manual_discount">Manual Discount</string>
     <string name="offers_management">Offers Management</string>
+    <string name="cash_drawer">Cash Drawer</string>
+    <string name="split_payment">Split Payment</string>
+    <string name="customer_credit">Customer Credit</string>
+    <string name="suppliers_management">Suppliers</string>
+    <string name="returns_management">Returns</string>
+    <string name="prescriptions">Prescriptions</string>
+    <string name="drug_interactions">Drug Interactions</string>
+    <string name="scheduled_orders">Scheduled Orders</string>
+    <string name="kds_display">Kitchen Display (KDS)</string>
+    <string name="notifications">Notifications</string>
     <string name="analytics_level">Analytics</string>
     <string name="digital_menu_level">Digital Menu</string>
     <string name="unlimited">Unlimited</string>
@@ -373,6 +385,7 @@
 
     <!-- Logs Dashboard -->
     <string name="nav_logs">Logs</string>
+    <string name="nav_notifications">Notifications</string>
     <string name="logs_dashboard">API Logs Dashboard</string>
     <string name="total_requests">Total Requests</string>
     <string name="error_count">Errors</string>
@@ -485,4 +498,20 @@
     <string name="unknown_error">Unknown error</string>
     <string name="plan_updated_format">Plan \'%1$s\' updated</string>
     <string name="plan_update_failed">Failed to update plan</string>
+
+    <!-- Notifications Screen -->
+    <string name="send_notification">Send Notification</string>
+    <string name="notification_type">Notification Type</string>
+    <string name="admin_announcement">Announcement</string>
+    <string name="system_update">System Update</string>
+    <string name="notification_title">Title</string>
+    <string name="notification_body">Message</string>
+    <string name="download_link">Download Link</string>
+    <string name="target_platform">Target Platform</string>
+    <string name="all_platforms">All Platforms</string>
+    <string name="priority">Priority</string>
+    <string name="select_vendors">Target Vendors</string>
+    <string name="all_vendors">All Vendors</string>
+    <string name="notification_sent_success">Notification sent successfully</string>
+    <string name="send_to_vendors_count">Send this notification to %1$s?</string>
 </resources>

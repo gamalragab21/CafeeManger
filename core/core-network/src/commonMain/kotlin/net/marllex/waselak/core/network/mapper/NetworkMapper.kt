@@ -15,6 +15,7 @@ fun VendorResponse.toDomain() = Vendor(
     defaultDeliveryFee = defaultDeliveryFee,
     storeType = storeType,
     enableTables = enableTables,
+    enableKds = enableKds,
     enableDineIn = enableDineIn,
     enableDelivery = enableDelivery,
     enableTakeaway = enableTakeaway,
@@ -616,6 +617,66 @@ fun LoyaltyAnalyticsResponse.toDomain() = LoyaltyAnalytics(
     dailyTrend = dailyTrend.map { it.toDomain() },
 )
 
+// ─── Supplier Analytics Mappers ─────────────────────────────────
+
+fun TopSupplierResponse.toDomain() = TopSupplier(
+    supplierId = supplierId,
+    supplierName = supplierName,
+    totalOrders = totalOrders,
+    totalSpent = totalSpent,
+    receivedOrders = receivedOrders,
+    pendingOrders = pendingOrders,
+)
+
+fun SupplierItemResponse.toDomain() = SupplierItem(
+    stockId = stockId,
+    itemName = itemName,
+    totalQuantity = totalQuantity,
+    totalCost = totalCost,
+    orderCount = orderCount,
+    unit = unit,
+)
+
+fun MonthlyPurchaseResponse.toDomain() = MonthlyPurchase(
+    month = month,
+    total = total,
+    orderCount = orderCount,
+)
+
+fun SupplierAnalyticsResponse.toDomain() = SupplierAnalytics(
+    totalSuppliers = totalSuppliers,
+    activeSuppliers = activeSuppliers,
+    totalPurchaseOrders = totalPurchaseOrders,
+    totalSpent = totalSpent,
+    pendingOrders = pendingOrders,
+    receivedOrders = receivedOrders,
+    averageOrderValue = averageOrderValue,
+    topSuppliers = topSuppliers.map { it.toDomain() },
+    topItems = topItems.map { it.toDomain() },
+    monthlyTrend = monthlyTrend.map { it.toDomain() },
+)
+
+// ─── Staff Costs Analytics Mappers ──────────────────────────────
+
+fun WorkerOvertimeSummaryResponse.toDomain() = WorkerOvertimeSummary(
+    workerId = workerId,
+    workerName = workerName,
+    overtimeHours = overtimeHours,
+    overtimeAmount = overtimeAmount,
+)
+
+fun StaffCostsAnalyticsResponse.toDomain() = StaffCostsAnalytics(
+    totalSalaries = totalSalaries,
+    totalOvertime = totalOvertime,
+    totalCompensation = totalCompensation,
+    paidAmount = paidAmount,
+    unpaidAmount = unpaidAmount,
+    overtimeHours = overtimeHours,
+    workersCount = workersCount,
+    overtimePercentage = overtimePercentage,
+    topOvertimeWorkers = topOvertimeWorkers.map { it.toDomain() },
+)
+
 // ─── Worker Mappers ──────────────────────────────────────────────
 fun WorkerResponse.toDomain() = Worker(
     id = id, vendorId = vendorId, workerId = workerId,
@@ -656,7 +717,8 @@ fun SalaryPaymentResponse.toDomain() = SalaryPayment(
     workerName = workerName, periodType = periodType,
     periodStart = periodStart, periodEnd = periodEnd,
     workedDays = workedDays, workedHours = workedHours,
-    amount = amount, paid = paid, paidAt = paidAt,
+    amount = amount, overtimeHours = overtimeHours,
+    overtimeAmount = overtimeAmount, paid = paid, paidAt = paidAt,
     paidBy = paidBy, note = note, createdAt = createdAt
 )
 
@@ -665,7 +727,7 @@ fun OvertimeResponse.toDomain() = Overtime(
     id = id, vendorId = vendorId, workerId = workerId,
     workerName = workerName, date = date, hours = hours,
     ratePerHour = ratePerHour, amount = amount, note = note,
-    createdBy = createdBy, createdAt = createdAt
+    paid = paid, createdBy = createdBy, createdAt = createdAt
 )
 
 // ─── Customer Mappers ──────────────────────────────────────────
@@ -695,4 +757,354 @@ fun CustomerAddressResponse.toDomain() = CustomerAddress(
     deliveryFee = deliveryFee,
     isDefault = isDefault,
     createdAt = createdAt
+)
+
+// ─── KDS Mappers ────────────────────────────────────────────────
+fun KdsOrderResponse.toDomain() = KdsOrder(
+    orderId = orderId,
+    orderNumber = orderNumber,
+    channel = channel,
+    tableNumber = tableNumber,
+    clientName = clientName,
+    notes = notes,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+    elapsedMinutes = elapsedMinutes,
+)
+
+fun KdsOrderItemResponse.toDomain() = KdsOrderItem(
+    id = id,
+    orderId = orderId,
+    itemName = itemName,
+    quantity = quantity,
+    note = note,
+    variantOptions = variantOptions,
+    kitchenStatus = kitchenStatus,
+    kitchenStation = kitchenStation,
+    createdAt = createdAt,
+)
+
+fun KdsSummaryResponse.toDomain() = KdsSummary(
+    totalItems = totalItems,
+    pending = pending,
+    cooking = cooking,
+    ready = ready,
+    served = served,
+    avgPrepTimeMinutes = avgPrepTimeMinutes,
+)
+
+// ─── Cash Drawer Mappers ────────────────────────────────────────
+fun CashDrawerSessionResponse.toDomain() = CashDrawerSession(
+    id = id,
+    vendorId = vendorId,
+    cashierId = cashierId,
+    cashierName = cashierName,
+    openedAt = openedAt,
+    closedAt = closedAt,
+    openingBalance = openingBalance,
+    closingBalance = closingBalance,
+    expectedBalance = expectedBalance,
+    difference = difference,
+    status = status,
+    notes = notes,
+    movements = movements.map { it.toDomain() },
+    createdAt = createdAt,
+)
+
+fun CashMovementResponse.toDomain() = CashMovement(
+    id = id,
+    sessionId = sessionId,
+    vendorId = vendorId,
+    type = type,
+    amount = amount,
+    reason = reason,
+    orderId = orderId,
+    createdBy = createdBy,
+    createdByName = createdByName,
+    createdAt = createdAt,
+)
+
+fun DrawerSummaryResponse.toDomain() = DrawerSummary(
+    sessionId = sessionId,
+    openingBalance = openingBalance,
+    totalCashIn = totalCashIn,
+    totalCashOut = totalCashOut,
+    totalSales = totalSales,
+    totalRefunds = totalRefunds,
+    expectedBalance = expectedBalance,
+    movementCount = movementCount,
+)
+
+// ─── Split Payment Mappers ──────────────────────────────────────
+fun OrderPaymentResponse.toDomain() = OrderPayment(
+    id = id,
+    orderId = orderId,
+    vendorId = vendorId,
+    paymentMethod = paymentMethod,
+    amount = amount,
+    paidBy = paidBy,
+    paidByName = paidByName,
+    note = note,
+    createdAt = createdAt,
+)
+
+fun SplitPaymentSummaryResponse.toDomain() = SplitPaymentSummary(
+    orderId = orderId,
+    orderTotal = orderTotal,
+    totalPaid = totalPaid,
+    remaining = remaining,
+    isFullyPaid = isFullyPaid,
+    payments = payments.map { it.toDomain() },
+)
+
+// ─── Prescription Mappers ───────────────────────────────────────
+fun PrescriptionResponse.toDomain() = Prescription(
+    id = id,
+    vendorId = vendorId,
+    customerId = customerId,
+    orderId = orderId,
+    doctorName = doctorName,
+    doctorPhone = doctorPhone,
+    patientName = patientName,
+    patientPhone = patientPhone,
+    patientAge = patientAge,
+    diagnosis = diagnosis,
+    notes = notes,
+    imageUrl = imageUrl,
+    status = status,
+    expiresAt = expiresAt,
+    dispensedAt = dispensedAt,
+    dispensedBy = dispensedBy,
+    createdBy = createdBy,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun PrescriptionItemResponse.toDomain() = PrescriptionItem(
+    id = id,
+    prescriptionId = prescriptionId,
+    itemId = itemId,
+    itemName = itemName,
+    quantity = quantity,
+    dosage = dosage,
+    frequency = frequency,
+    duration = duration,
+    instructions = instructions,
+    dispensedQuantity = dispensedQuantity,
+    status = status,
+    substituteItemId = substituteItemId,
+    substituteItemName = substituteItemName,
+    createdAt = createdAt,
+)
+
+// ─── Drug Interaction Mappers ───────────────────────────────────
+fun DrugInteractionResponse.toDomain() = DrugInteraction(
+    id = id,
+    vendorId = vendorId,
+    itemIdA = itemIdA,
+    itemNameA = itemNameA,
+    itemIdB = itemIdB,
+    itemNameB = itemNameB,
+    severity = severity,
+    description = description,
+    descriptionAr = descriptionAr,
+    recommendation = recommendation,
+    active = active,
+    createdAt = createdAt,
+)
+
+fun InteractionCheckResultResponse.toDomain() = InteractionCheckResult(
+    hasInteractions = hasInteractions,
+    interactions = interactions.map { it.toDomain() },
+)
+
+// ─── Customer Credit Mappers ────────────────────────────────────
+fun CustomerCreditResponse.toDomain() = CustomerCredit(
+    id = id,
+    vendorId = vendorId,
+    customerId = customerId,
+    customerName = customerName,
+    customerPhone = customerPhone,
+    balance = balance,
+    creditLimit = creditLimit,
+    availableCredit = availableCredit,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun CreditTransactionResponse.toDomain() = CreditTransaction(
+    id = id,
+    creditId = creditId,
+    vendorId = vendorId,
+    orderId = orderId,
+    type = type,
+    amount = amount,
+    previousBalance = previousBalance,
+    newBalance = newBalance,
+    note = note,
+    createdBy = createdBy,
+    createdByName = createdByName,
+    createdAt = createdAt,
+)
+
+// ─── Scheduled Order Mappers ────────────────────────────────────
+fun ScheduledOrderResponse.toDomain() = ScheduledOrder(
+    id = id,
+    vendorId = vendorId,
+    customerId = customerId,
+    clientName = clientName,
+    clientPhone = clientPhone,
+    channel = channel,
+    scheduledFor = scheduledFor,
+    reminderSentAt = reminderSentAt,
+    status = status,
+    notes = notes,
+    paymentMethod = paymentMethod,
+    paymentStatus = paymentStatus,
+    subtotal = subtotal,
+    total = total,
+    discount = discount,
+    tax = tax,
+    deliveryFee = deliveryFee,
+    orderId = orderId,
+    createdBy = createdBy,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun ScheduledOrderItemResponse.toDomain() = ScheduledOrderItem(
+    id = id,
+    scheduledOrderId = scheduledOrderId,
+    itemId = itemId,
+    itemName = itemName,
+    itemPrice = itemPrice,
+    quantity = quantity,
+    note = note,
+    variantOptions = variantOptions,
+    createdAt = createdAt,
+)
+
+// ─── Supplier Mappers ───────────────────────────────────────────
+fun SupplierResponse.toDomain() = Supplier(
+    id = id,
+    vendorId = vendorId,
+    name = name,
+    contactName = contactName,
+    phone = phone,
+    email = email,
+    address = address,
+    notes = notes,
+    active = active,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun PurchaseOrderResponse.toDomain() = PurchaseOrder(
+    id = id,
+    vendorId = vendorId,
+    supplierId = supplierId,
+    supplierName = supplierName,
+    orderNumber = orderNumber,
+    status = status,
+    notes = notes,
+    subtotal = subtotal,
+    tax = tax,
+    total = total,
+    expectedDeliveryDate = expectedDeliveryDate,
+    receivedAt = receivedAt,
+    createdBy = createdBy,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun PurchaseOrderItemResponse.toDomain() = PurchaseOrderItem(
+    id = id,
+    purchaseOrderId = purchaseOrderId,
+    stockId = stockId,
+    stockName = stockName,
+    requestedQuantity = requestedQuantity,
+    receivedQuantity = receivedQuantity,
+    unitCost = unitCost,
+    totalCost = totalCost,
+    unit = unit,
+    notes = notes,
+    createdAt = createdAt,
+)
+
+// ─── Returns Mappers ────────────────────────────────────────────
+fun ProductReturnResponse.toDomain() = ProductReturn(
+    id = id,
+    vendorId = vendorId,
+    orderId = orderId,
+    customerId = customerId,
+    returnType = returnType,
+    status = status,
+    reason = reason,
+    refundAmount = refundAmount,
+    refundMethod = refundMethod,
+    processedBy = processedBy,
+    processedAt = processedAt,
+    notes = notes,
+    items = items.map { it.toDomain() },
+    createdAt = createdAt,
+)
+
+fun ReturnItemResponse.toDomain() = ReturnItem(
+    id = id,
+    returnId = returnId,
+    orderItemId = orderItemId,
+    itemId = itemId,
+    itemName = itemName,
+    quantity = quantity,
+    reason = reason,
+    itemCondition = itemCondition,
+    restockable = restockable,
+    refundAmount = refundAmount,
+    createdAt = createdAt,
+)
+
+fun ReturnsSummaryResponse.toDomain() = ReturnsSummary(
+    total = total,
+    pending = pending,
+    completed = completed,
+    rejected = rejected,
+    totalRefunded = totalRefunded,
+)
+
+// ─── Notification Mappers ───────────────────────────────────────
+fun NotificationResponse.toDomain() = AppNotification(
+    id = id,
+    vendorId = vendorId,
+    userId = userId,
+    type = type,
+    title = title,
+    body = body,
+    data = data,
+    channel = channel,
+    priority = priority,
+    read = read,
+    readAt = readAt,
+    actionUrl = actionUrl,
+    platform = platform,
+    createdAt = createdAt,
+)
+
+fun NotificationCountResponse.toDomain() = NotificationCount(
+    total = total,
+    unread = unread,
+)
+
+fun DeviceTokenResponse.toDomain() = DeviceToken(
+    id = id,
+    userId = userId,
+    vendorId = vendorId,
+    token = token,
+    platform = platform,
+    deviceName = deviceName,
+    active = active,
+    lastUsedAt = lastUsedAt,
+    createdAt = createdAt,
 )

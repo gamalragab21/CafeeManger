@@ -1,9 +1,9 @@
 # =============================================================================
 # Waselak CI/CD Pipeline
 # =============================================================================
-# 1. Lint      — Android lint on all 3 apps
+# 1. Lint      — Android lint on all 5 apps
 # 2. Test      — Backend (48) + KMP (28+) unit tests
-# 3. Android   — Debug + Release APKs for manager, cashier, delivery
+# 3. Android   — Debug + Release APKs for manager, cashier, delivery, kds, admin
 # 4. Desktop   — Linux .deb, macOS .dmg, Windows .msi (matrix)
 # 5. Upload    — All artifacts → Google Drive under v{VERSION}/debug|release/
 #
@@ -15,7 +15,7 @@ name: Waselak CI/CD
 
 on:
   push:
-    branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Create stub env/release.properties
         run: cp env/release.properties.template env/release.properties
@@ -67,6 +67,8 @@ jobs:
           ./gradlew :app-manager:lintDebug \
                     :app-cashier:lintDebug \
                     :app-delivery:lintDebug \
+                    :app-kds:lintDebug \
+                    :app-admin:lintDebug \
                     --continue
 
       - name: Upload lint reports
@@ -79,6 +81,8 @@ jobs:
             app-manager/build/reports/lint-results-debug.html
             app-cashier/build/reports/lint-results-debug.html
             app-delivery/build/reports/lint-results-debug.html
+            app-kds/build/reports/lint-results-debug.html
+            app-admin/build/reports/lint-results-debug.html
           retention-days: 3
 
   # ===========================================================================
@@ -102,7 +106,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Create stub env/release.properties
         run: cp env/release.properties.template env/release.properties
@@ -186,7 +190,7 @@ jobs:
           DATE="${{ steps.vars.outputs.date }}"
           mkdir -p artifacts/debug artifacts/release
 
-          for module in app-manager app-cashier app-delivery; do
+          for module in app-manager app-cashier app-delivery app-kds app-admin; do
             name="${module#app-}"
 
             # Debug APK
@@ -250,18 +254,21 @@ jobs:
           - os: ubuntu-latest
             os-label: Linux
             task: packageAllDesktopDeb
+            gradle-args: ""
             platform: linux
             ext: deb
 
           - os: macos-latest
             os-label: macOS
             task: packageAllDesktopDmg
+            gradle-args: ""
             platform: macos
             ext: dmg
 
           - os: windows-latest
             os-label: Windows
             task: packageAllDesktopMsi
+            gradle-args: -PtargetOs=windows
             platform: windows
             ext: msi
 
@@ -290,7 +297,7 @@ jobs:
           EOF
 
       - name: Build desktop packages
-        run: ./gradlew ${{ matrix.task }}
+        run: ./gradlew ${{ matrix.task }} ${{ matrix.gradle-args }}
 
       - name: Compute version and date
         id: vars
@@ -310,7 +317,7 @@ jobs:
           EXT="${{ matrix.ext }}"
           mkdir -p artifacts/release
 
-          for module in app-manager app-cashier app-delivery; do
+          for module in app-manager app-cashier app-delivery app-kds; do
             name="${module#app-}"
 
             # Find the built package file
@@ -345,8 +352,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-android, build-desktop]
     if: >-
-      github.ref == 'refs/heads/main' &&
-      github.event_name != 'pull_request' &&
+      startsWith(github.ref, 'refs/tags/v') &&
       (github.event.inputs.skip_upload != 'true')
     timeout-minutes: 15
 

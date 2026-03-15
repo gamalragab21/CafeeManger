@@ -21,6 +21,8 @@ fun ExecutiveSummaryCards(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.executive_summary_hint),
+        initiallyExpanded = true,
     ) { data ->
         // Row 1: Revenue, Orders, AOV
         Row(

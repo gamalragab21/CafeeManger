@@ -25,6 +25,16 @@ val dataModule = module {
     single<WorkerRepository> { WorkerRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get(), get(), get()) }
     single<OfferRepository> { OfferRepositoryImpl(get(), get(), get()) }
+    single<KdsRepository> { KdsRepositoryImpl(get()) }
+    single<CashDrawerRepository> { CashDrawerRepositoryImpl(get()) }
+    single<SplitPaymentRepository> { SplitPaymentRepositoryImpl(get()) }
+    single<PrescriptionRepository> { PrescriptionRepositoryImpl(get()) }
+    single<DrugInteractionRepository> { DrugInteractionRepositoryImpl(get()) }
+    single<CustomerCreditRepository> { CustomerCreditRepositoryImpl(get()) }
+    single<ScheduledOrderRepository> { ScheduledOrderRepositoryImpl(get()) }
+    single<SupplierRepository> { SupplierRepositoryImpl(get()) }
+    single<ReturnRepository> { ReturnRepositoryImpl(get()) }
+    single<NotificationRepository> { NotificationRepositoryImpl(get()) }
     single(createdAtStart = true) { AttendanceSyncManager(get(), get(), get(), get()) }
     single { SyncService(get(), get(), get()) }
     single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get()) }

@@ -163,6 +163,8 @@
     <string name="select_plan">اختار الباقه</string>
     <string name="channel_config">اعدادات القنوات</string>
     <string name="enable_tables">تفعيل الطاولات</string>
+    <string name="enable_kds">تفعيل شاشة المطبخ (KDS)</string>
+    <string name="kds_label">شاشة المطبخ</string>
     <string name="enable_dine_in">تفعيل الاكل في المحل</string>
     <string name="enable_delivery">تفعيل التوصيل</string>
     <string name="enable_takeaway">تفعيل التيك اواي</string>
@@ -201,6 +203,16 @@
     <string name="loyalty_points">نقاط الولاء</string>
     <string name="manual_discount">الخصم اليدوي</string>
     <string name="offers_management">اداره العروض</string>
+    <string name="cash_drawer">صندوق النقد</string>
+    <string name="split_payment">الدفع المقسم</string>
+    <string name="customer_credit">ائتمان العملاء</string>
+    <string name="suppliers_management">الموردين</string>
+    <string name="returns_management">المرتجعات</string>
+    <string name="prescriptions">الوصفات الطبية</string>
+    <string name="drug_interactions">التفاعلات الدوائية</string>
+    <string name="scheduled_orders">الطلبات المجدولة</string>
+    <string name="kds_display">شاشة المطبخ (KDS)</string>
+    <string name="notifications">الإشعارات</string>
     <string name="analytics_level">التحليلات</string>
     <string name="digital_menu_level">المنيو الديجيتال</string>
     <string name="unlimited">غير محدود</string>
@@ -373,6 +385,7 @@
 
     <!-- Logs Dashboard -->
     <string name="nav_logs">السجلات</string>
+    <string name="nav_notifications">الاشعارات</string>
     <string name="logs_dashboard">لوحة سجلات API</string>
     <string name="total_requests">اجمالي الطلبات</string>
     <string name="error_count">الاخطاء</string>
@@ -485,4 +498,20 @@
     <string name="unknown_error">خطأ غير معروف</string>
     <string name="plan_updated_format">الباقه \'%1$s\' اتحدثت</string>
     <string name="plan_update_failed">فشل تحديث الباقه</string>
+
+    <!-- Notifications Screen -->
+    <string name="send_notification">ارسال اشعار</string>
+    <string name="notification_type">نوع الاشعار</string>
+    <string name="admin_announcement">اعلان</string>
+    <string name="system_update">تحديث النظام</string>
+    <string name="notification_title">العنوان</string>
+    <string name="notification_body">الرساله</string>
+    <string name="download_link">رابط التحميل</string>
+    <string name="target_platform">المنصه المستهدفه</string>
+    <string name="all_platforms">كل المنصات</string>
+    <string name="priority">الاولويه</string>
+    <string name="select_vendors">المحلات المستهدفه</string>
+    <string name="all_vendors">كل المحلات</string>
+    <string name="notification_sent_success">الاشعار اتبعت بنجاح</string>
+    <string name="send_to_vendors_count">ارسال الاشعار لـ %1$s؟</string>
 </resources>

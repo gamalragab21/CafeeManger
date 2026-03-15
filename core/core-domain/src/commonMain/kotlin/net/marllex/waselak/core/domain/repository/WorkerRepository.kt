@@ -76,4 +76,7 @@ interface WorkerRepository {
         id: String, ratePerHour: Double? = null, note: String? = null
     ): Result<Overtime>
     suspend fun deleteOvertime(id: String): Result<Unit>
+    suspend fun markOvertimePaid(id: String): Result<Overtime>
+    suspend fun markOvertimeUnpaid(id: String): Result<Overtime>
+    suspend fun batchPayOvertime(ids: List<String>): Result<List<Overtime>>
 }

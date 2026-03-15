@@ -813,7 +813,24 @@ fun Route.workerRoutes() {
                 }
 
                 val results = query.orderBy(SalaryPaymentsTable.createdAt, SortOrder.DESC)
-                    .map { it.toSalaryPaymentDto() }
+                    .map { row ->
+                        val dto = row.toSalaryPaymentDto()
+                        // Enrich with live UNPAID overtime data (paid overtime was already paid separately)
+                        val overtimeEntries = OvertimeTable.selectAll().where {
+                            (OvertimeTable.workerId eq row[SalaryPaymentsTable.workerId]) and
+                            (OvertimeTable.vendorId eq vendorUUID) and
+                            (OvertimeTable.date greaterEq row[SalaryPaymentsTable.periodStart]) and
+                            (OvertimeTable.date lessEq row[SalaryPaymentsTable.periodEnd]) and
+                            (OvertimeTable.paid eq false)
+                        }.toList()
+                        if (overtimeEntries.isNotEmpty()) {
+                            val otHours = overtimeEntries.sumOf { it[OvertimeTable.hours].toDouble() }
+                            val otAmount = overtimeEntries.sumOf { it[OvertimeTable.amount].toDouble() }
+                            dto.copy(overtime_hours = otHours, overtime_amount = otAmount)
+                        } else {
+                            dto.copy(overtime_hours = 0.0, overtime_amount = 0.0)
+                        }
+                    }
                 trace.step("Salary payments fetched", mapOf("count" to results.size.toString()))
                 results
             }

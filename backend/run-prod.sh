@@ -51,4 +51,4 @@ export DATABASE_PASSWORD="${POSTGRES_PASSWORD}"
 echo "DATABASE_URL=$DATABASE_URL"
 echo ""
 
-./gradlew run
+./gradlew run --args="-config=application-prod.conf"

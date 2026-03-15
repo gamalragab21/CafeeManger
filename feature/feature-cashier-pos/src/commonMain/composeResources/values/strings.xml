@@ -78,4 +78,15 @@
     <string name="offer_discount_row">Offer Discount</string>
     <string name="manual_discount_row">Manual Discount</string>
     <string name="points_discount_row">Points Discount</string>
+    <!-- Cart Actions -->
+    <string name="clear_cart">Clear Cart</string>
+    <string name="remove_offer">Remove</string>
+    <string name="applied_offer_label">Offer: %1$s</string>
+    <string name="order_summary">Order Summary</string>
+    <!-- Scheduled Order -->
+    <string name="scheduled_pickup_time">Pickup Date &amp; Time</string>
+    <string name="select_date">Select Date</string>
+    <string name="select_time">Select Time</string>
+    <string name="scheduled_for_label">Scheduled for: %1$s</string>
+    <string name="scheduled_time_required">Pickup date and time is required</string>
 </resources>

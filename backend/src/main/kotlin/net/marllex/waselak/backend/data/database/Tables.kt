@@ -2,6 +2,7 @@ package net.marllex.waselak.backend.data.database
 
 import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.ReferenceOption
+import org.jetbrains.exposed.sql.kotlin.datetime.date
 import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 import kotlinx.datetime.Clock
 
@@ -15,6 +16,7 @@ object VendorsTable : UUIDTable("vendors") {
     val defaultDeliveryFee = decimal("default_delivery_fee", 10, 2).default(java.math.BigDecimal.ZERO)
     val storeType = varchar("store_type", 50).nullable()
     val enableTables = bool("enable_tables").default(true)
+    val enableKds = bool("enable_kds").default(true)
     val enableDineIn = bool("enable_dine_in").default(true)
     val enableDelivery = bool("enable_delivery").default(true)
     val enableTakeaway = bool("enable_takeaway").default(true)
@@ -198,6 +200,46 @@ object OrderItemsTable : UUIDTable("order_items") {
     val quantity = integer("quantity")
     val note = text("note").nullable()
     val variantOptionsSnapshot = text("variant_options_snapshot").nullable()
+    val kitchenStatus = varchar("kitchen_status", 20).default("PENDING") // PENDING, COOKING, READY, SERVED
+    val kitchenStation = varchar("kitchen_station", 50).nullable()       // e.g., GRILL, DRINKS, DESSERT
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Order Payments (Split Payments) ────────────────────────────
+object OrderPaymentsTable : UUIDTable("order_payments") {
+    val orderId = reference("order_id", OrdersTable)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val paymentMethod = varchar("payment_method", 30)       // CASH, CARD, WALLET, BANK_TRANSFER
+    val amount = decimal("amount", 10, 2)
+    val paidBy = reference("paid_by", UsersTable).nullable()
+    val note = text("note").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Cash Drawer Sessions ───────────────────────────────────────
+object CashDrawerSessionsTable : UUIDTable("cash_drawer_sessions") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val cashierId = reference("cashier_id", UsersTable)
+    val openedAt = timestamp("opened_at").default(Clock.System.now())
+    val closedAt = timestamp("closed_at").nullable()
+    val openingBalance = decimal("opening_balance", 10, 2).default(java.math.BigDecimal.ZERO)
+    val closingBalance = decimal("closing_balance", 10, 2).nullable()
+    val expectedBalance = decimal("expected_balance", 10, 2).nullable()
+    val difference = decimal("difference", 10, 2).nullable()  // closingBalance - expectedBalance
+    val status = varchar("status", 20).default("OPEN")        // OPEN, CLOSED
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Cash Drawer Movements ──────────────────────────────────────
+object CashMovementsTable : UUIDTable("cash_movements") {
+    val sessionId = reference("session_id", CashDrawerSessionsTable)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val type = varchar("type", 20)                           // CASH_IN, CASH_OUT, SALE, REFUND, ADJUSTMENT
+    val amount = decimal("amount", 10, 2)
+    val reason = text("reason").nullable()
+    val orderId = reference("order_id", OrdersTable).nullable()
+    val createdBy = reference("created_by", UsersTable)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
@@ -249,12 +291,27 @@ object RecipeIngredientsTable : UUIDTable("recipe_ingredients") {
 // ─── Stock Transactions ─────────────────────────────────────────
 object StockTransactionsTable : UUIDTable("stock_transactions") {
     val stockId = reference("stock_id", StockTable)
-    val type = varchar("type", 30) // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN
+    val batchId = reference("batch_id", StockBatchesTable).nullable() // Track which batch was affected
+    val type = varchar("type", 30) // ADD, DEDUCT, ADJUST, PURCHASE, SALE_DIRECT, SALE_RECIPE, RETURN, BATCH_DEDUCT
     val quantity = decimal("quantity", 10, 3)
     val previousQuantity = decimal("previous_quantity", 10, 3)
     val orderId = reference("order_id", OrdersTable).nullable()
     val recipeId = reference("recipe_id", RecipesTable).nullable() // Track which recipe caused the deduction
     val note = text("note").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Stock Batches (Lot/Expiry Tracking) ────────────────────────
+object StockBatchesTable : UUIDTable("stock_batches") {
+    val stockId = reference("stock_id", StockTable, onDelete = ReferenceOption.CASCADE)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val batchNumber = varchar("batch_number", 100).nullable()   // Supplier lot number
+    val quantity = decimal("quantity", 10, 3)                    // Remaining quantity in this batch
+    val initialQuantity = decimal("initial_quantity", 10, 3)    // Original quantity when received
+    val costPrice = decimal("cost_price", 10, 2).default(java.math.BigDecimal.ZERO) // Cost per unit for this batch
+    val expiryDate = date("expiry_date").nullable()             // Null = no expiry
+    val receivedAt = timestamp("received_at").default(Clock.System.now()) // When batch was received
+    val status = varchar("status", 20).default("ACTIVE")        // ACTIVE, DEPLETED, EXPIRED, DISPOSED
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
@@ -356,6 +413,7 @@ object OvertimeTable : UUIDTable("overtime_entries") {
     val ratePerHour = decimal("rate_per_hour", 10, 2)
     val amount = decimal("amount", 10, 2) // hours * ratePerHour
     val note = text("note").nullable()
+    val paid = bool("paid").default(false)
     val createdBy = reference("created_by", UsersTable)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
@@ -475,6 +533,16 @@ object SubscriptionPlansTable : UUIDTable("subscription_plans") {
     val loyaltyPoints = bool("loyalty_points").default(false)
     val manualDiscount = bool("manual_discount").default(false)
     val offersManagement = bool("offers_management").default(false)
+    val cashDrawer = bool("cash_drawer").default(false)
+    val splitPayment = bool("split_payment").default(false)
+    val customerCredit = bool("customer_credit").default(false)
+    val suppliers = bool("suppliers").default(false)
+    val returns = bool("returns").default(false)
+    val prescriptions = bool("prescriptions").default(false)
+    val drugInteractions = bool("drug_interactions").default(false)
+    val scheduledOrders = bool("scheduled_orders").default(false)
+    val kds = bool("kds").default(false)
+    val notifications = bool("notifications").default(true)
     val active = bool("active").default(true)
     val displayOrder = integer("display_order").default(0)
     val createdAt = timestamp("created_at").default(Clock.System.now())
@@ -534,6 +602,234 @@ object PointsTransactionsTable : UUIDTable("points_transactions") {
     val points = integer("points")
     val description = text("description").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Product Returns ────────────────────────────────────────────
+object ProductReturnsTable : UUIDTable("product_returns") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val orderId = reference("order_id", OrdersTable)
+    val customerId = reference("customer_id", CustomersTable).nullable()
+    val returnType = varchar("return_type", 20).default("RETURN")  // RETURN, EXCHANGE
+    val status = varchar("status", 20).default("PENDING")          // PENDING, APPROVED, REJECTED, COMPLETED
+    val reason = text("reason")
+    val refundAmount = decimal("refund_amount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val refundMethod = varchar("refund_method", 30).nullable()     // CASH, CARD, CREDIT, ORIGINAL_METHOD
+    val processedBy = reference("processed_by", UsersTable).nullable()
+    val processedAt = timestamp("processed_at").nullable()
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Return Items (line items within a return) ──────────────────
+object ReturnItemsTable : UUIDTable("return_items") {
+    val returnId = reference("return_id", ProductReturnsTable, onDelete = ReferenceOption.CASCADE)
+    val orderItemId = reference("order_item_id", OrderItemsTable)
+    val itemId = reference("item_id", ItemsTable)
+    val quantity = integer("quantity")                              // How many units returned
+    val reason = varchar("reason", 100).nullable()                 // DEFECTIVE, WRONG_ITEM, CHANGED_MIND, EXPIRED, OTHER
+    val condition = varchar("item_condition", 30).default("GOOD")  // GOOD (restock), DAMAGED, EXPIRED (no restock)
+    val restockable = bool("restockable").default(true)            // Whether to add back to inventory
+    val refundAmount = decimal("refund_amount", 10, 2)             // Per-item refund
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Prescriptions ─────────────────────────────────────────────
+object PrescriptionsTable : UUIDTable("prescriptions") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val customerId = reference("customer_id", CustomersTable).nullable()
+    val orderId = reference("order_id", OrdersTable).nullable()       // Linked order once dispensed
+    val doctorName = varchar("doctor_name", 255).nullable()
+    val doctorPhone = varchar("doctor_phone", 20).nullable()
+    val patientName = varchar("patient_name", 255)
+    val patientPhone = varchar("patient_phone", 20).nullable()
+    val patientAge = integer("patient_age").nullable()
+    val diagnosis = text("diagnosis").nullable()
+    val notes = text("notes").nullable()
+    val imageUrl = text("image_url").nullable()                       // Photo of paper prescription
+    val status = varchar("status", 20).default("PENDING")             // PENDING, DISPENSED, PARTIALLY_DISPENSED, CANCELLED, EXPIRED
+    val expiresAt = timestamp("expires_at").nullable()                 // Prescription validity expiry
+    val dispensedAt = timestamp("dispensed_at").nullable()
+    val dispensedBy = reference("dispensed_by", UsersTable).nullable()
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Prescription Items (Medicines in a prescription) ──────────
+object PrescriptionItemsTable : UUIDTable("prescription_items") {
+    val prescriptionId = reference("prescription_id", PrescriptionsTable, onDelete = ReferenceOption.CASCADE)
+    val itemId = reference("item_id", ItemsTable)                     // Medicine/product
+    val quantity = integer("quantity")
+    val dosage = varchar("dosage", 255).nullable()                    // e.g. "500mg", "1 tablet"
+    val frequency = varchar("frequency", 255).nullable()              // e.g. "3 times daily", "every 8 hours"
+    val duration = varchar("duration", 255).nullable()                // e.g. "7 days", "2 weeks"
+    val instructions = text("instructions").nullable()                // Special instructions
+    val dispensedQuantity = integer("dispensed_quantity").default(0)   // How many actually given
+    val status = varchar("status", 20).default("PENDING")             // PENDING, DISPENSED, UNAVAILABLE, SUBSTITUTED
+    val substituteItemId = reference("substitute_item_id", ItemsTable).nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Drug Interactions ─────────────────────────────────────────
+object DrugInteractionsTable : UUIDTable("drug_interactions") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val itemIdA = reference("item_id_a", ItemsTable)                  // First drug
+    val itemIdB = reference("item_id_b", ItemsTable)                  // Second drug
+    val severity = varchar("severity", 20).default("MODERATE")        // MILD, MODERATE, SEVERE, CONTRAINDICATED
+    val description = text("description")                              // What happens with this interaction
+    val descriptionAr = text("description_ar").nullable()             // Arabic description
+    val recommendation = text("recommendation").nullable()             // What to do instead
+    val active = bool("active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, itemIdA, itemIdB)
+    }
+}
+
+// ─── Customer Credit ──────────────────────────────────────────
+object CustomerCreditsTable : UUIDTable("customer_credits") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val customerId = reference("customer_id", CustomersTable)
+    val balance = decimal("balance", 10, 2).default(java.math.BigDecimal.ZERO) // Current credit balance
+    val creditLimit = decimal("credit_limit", 10, 2).default(java.math.BigDecimal("500.00"))
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, customerId)
+    }
+}
+
+// ─── Credit Transactions ──────────────────────────────────────
+object CreditTransactionsTable : UUIDTable("credit_transactions") {
+    val creditId = reference("credit_id", CustomerCreditsTable)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val orderId = reference("order_id", OrdersTable).nullable()
+    val type = varchar("type", 20)                                     // CHARGE, PAYMENT, ADJUSTMENT
+    val amount = decimal("amount", 10, 2)
+    val previousBalance = decimal("previous_balance", 10, 2)
+    val newBalance = decimal("new_balance", 10, 2)
+    val note = text("note").nullable()
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Pre-Orders / Scheduled Orders ────────────────────────────
+object ScheduledOrdersTable : UUIDTable("scheduled_orders") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val customerId = reference("customer_id", CustomersTable).nullable()
+    val clientName = varchar("client_name", 255).nullable()
+    val clientPhone = varchar("client_phone", 20).nullable()
+    val channel = varchar("channel", 20).default("PICKUP_LATER")    // PICKUP_LATER, DELIVERY, DINE_IN
+    val scheduledFor = timestamp("scheduled_for")                     // When the order should be ready
+    val reminderSentAt = timestamp("reminder_sent_at").nullable()    // When reminder was sent
+    val status = varchar("status", 20).default("SCHEDULED")          // SCHEDULED, CONFIRMED, PREPARING, READY, COMPLETED, CANCELLED
+    val notes = text("notes").nullable()
+    val paymentMethod = varchar("payment_method", 20).default("CASH")
+    val paymentStatus = varchar("payment_status", 20).default("PENDING")  // PENDING, PAID, REFUNDED
+    val subtotal = decimal("subtotal", 10, 2).default(java.math.BigDecimal.ZERO)
+    val total = decimal("total", 10, 2).default(java.math.BigDecimal.ZERO)
+    val discount = decimal("discount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val tax = decimal("tax", 10, 2).default(java.math.BigDecimal.ZERO)
+    val deliveryFee = decimal("delivery_fee", 10, 2).default(java.math.BigDecimal.ZERO)
+    val orderId = reference("order_id", OrdersTable).nullable()      // Linked actual order when converted
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Scheduled Order Items ────────────────────────────────────
+object ScheduledOrderItemsTable : UUIDTable("scheduled_order_items") {
+    val scheduledOrderId = reference("scheduled_order_id", ScheduledOrdersTable, onDelete = ReferenceOption.CASCADE)
+    val itemId = reference("item_id", ItemsTable)
+    val itemName = varchar("item_name", 255)
+    val itemPrice = decimal("item_price", 10, 2)
+    val quantity = integer("quantity")
+    val note = text("note").nullable()
+    val variantOptions = text("variant_options").nullable()          // JSON snapshot of selected variants
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Suppliers ────────────────────────────────────────────────
+object SuppliersTable : UUIDTable("suppliers") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val name = varchar("name", 255)
+    val contactName = varchar("contact_name", 255).nullable()
+    val phone = varchar("phone", 20).nullable()
+    val email = varchar("email", 255).nullable()
+    val address = text("address").nullable()
+    val notes = text("notes").nullable()
+    val active = bool("active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(vendorId, name)
+    }
+}
+
+// ─── Purchase Orders ──────────────────────────────────────────
+object PurchaseOrdersTable : UUIDTable("purchase_orders") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val supplierId = reference("supplier_id", SuppliersTable)
+    val orderNumber = varchar("order_number", 50)                    // Human-readable PO number
+    val status = varchar("status", 20).default("DRAFT")              // DRAFT, SUBMITTED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED
+    val notes = text("notes").nullable()
+    val subtotal = decimal("subtotal", 10, 2).default(java.math.BigDecimal.ZERO)
+    val tax = decimal("tax", 10, 2).default(java.math.BigDecimal.ZERO)
+    val total = decimal("total", 10, 2).default(java.math.BigDecimal.ZERO)
+    val expectedDeliveryDate = date("expected_delivery_date").nullable()
+    val receivedAt = timestamp("received_at").nullable()
+    val createdBy = reference("created_by", UsersTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── Purchase Order Items ─────────────────────────────────────
+object PurchaseOrderItemsTable : UUIDTable("purchase_order_items") {
+    val purchaseOrderId = reference("purchase_order_id", PurchaseOrdersTable, onDelete = ReferenceOption.CASCADE)
+    val stockId = reference("stock_id", StockTable)                  // Which stock item to receive
+    val requestedQuantity = decimal("requested_quantity", 10, 3)
+    val receivedQuantity = decimal("received_quantity", 10, 3).default(java.math.BigDecimal.ZERO)
+    val unitCost = decimal("unit_cost", 10, 2).default(java.math.BigDecimal.ZERO)
+    val totalCost = decimal("total_cost", 10, 2).default(java.math.BigDecimal.ZERO)
+    val unit = varchar("unit", 50).default("PIECE")
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Notifications ─────────────────────────────────────────────
+object NotificationsTable : UUIDTable("notifications") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val userId = reference("user_id", UsersTable).nullable()          // Specific user, or null for broadcast
+    val type = varchar("type", 50)                                     // ORDER_NEW, ORDER_STATUS, LOW_STOCK, EXPIRY_ALERT, SCHEDULED_ORDER, PRESCRIPTION, ANNOUNCEMENT, SYSTEM
+    val title = varchar("title", 500)
+    val body = text("body")
+    val data = text("data").nullable()                                 // JSON payload with context (orderId, itemId, etc.)
+    val channel = varchar("channel", 20).default("IN_APP")             // IN_APP, PUSH, BOTH
+    val priority = varchar("priority", 20).default("NORMAL")           // LOW, NORMAL, HIGH, URGENT
+    val read = bool("read").default(false)
+    val readAt = timestamp("read_at").nullable()
+    val actionUrl = text("action_url").nullable()                      // Deep link path (e.g., "/orders/{id}")
+    val platform = varchar("platform", 20).nullable()                    // null=all, ANDROID, DESKTOP, IOS
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Device Tokens (for push notifications) ────────────────────
+object DeviceTokensTable : UUIDTable("device_tokens") {
+    val userId = reference("user_id", UsersTable)
+    val vendorId = reference("vendor_id", VendorsTable)
+    val token = text("token")                                          // FCM/APNs token
+    val platform = varchar("platform", 20)                             // ANDROID, IOS, WEB
+    val deviceName = varchar("device_name", 255).nullable()
+    val active = bool("active").default(true)
+    val lastUsedAt = timestamp("last_used_at").default(Clock.System.now())
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(userId, token)
+    }
 }
 
 // ─── Request Logs ────────────────────────────────────────────────

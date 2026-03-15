@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Timer
@@ -130,6 +131,17 @@ import net.marllex.waselak.core.ui.platform.rememberImagePickerLauncher
 import androidx.compose.material.icons.filled.CameraAlt
 import org.koin.compose.viewmodel.koinViewModel
 import net.marllex.waselak.core.common.extensions.formatEpochMs
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material.icons.filled.CalendarMonth
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.Instant
+import kotlinx.datetime.atStartOfDayIn
+import androidx.compose.material3.OutlinedTextFieldDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -845,31 +857,134 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
             }
         }
 
-        // Custom date range inputs
+        // Custom date range inputs with calendar picker
         if (uiState.attendancePeriod == StaffViewModel.AttendancePeriod.CUSTOM) {
             item {
+                var showFromDatePicker by remember { mutableStateOf(false) }
+                var showToDatePicker by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedTextField(
                         value = uiState.attendanceFromDate,
-                        onValueChange = viewModel::setAttendanceFromDate,
+                        onValueChange = {},
                         label = { Text(stringResource(Res.string.from_date)) },
-                        placeholder = { Text("YYYY-MM-DD") },
+                        readOnly = true,
+                        enabled = false,
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            IconButton(onClick = { showFromDatePicker = true }) {
+                                Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     )
                     OutlinedTextField(
                         value = uiState.attendanceToDate,
-                        onValueChange = viewModel::setAttendanceToDate,
+                        onValueChange = {},
                         label = { Text(stringResource(Res.string.to_date)) },
-                        placeholder = { Text("YYYY-MM-DD") },
+                        readOnly = true,
+                        enabled = false,
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            IconButton(onClick = { showToDatePicker = true }) {
+                                Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     )
+                }
+
+                // From Date Picker Dialog
+                if (showFromDatePicker) {
+                    val initialMillis = runCatching {
+                        LocalDate.parse(uiState.attendanceFromDate)
+                            .let { it.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() }
+                    }.getOrElse { Clock.System.now().toEpochMilliseconds() }
+                    val fromPickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+                    DatePickerDialog(
+                        onDismissRequest = { showFromDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                fromPickerState.selectedDateMillis?.let { millis ->
+                                    val date = Instant.fromEpochMilliseconds(millis)
+                                        .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+                                    viewModel.setAttendanceFromDate(date)
+                                }
+                                showFromDatePicker = false
+                            }) { Text(stringResource(Res.string.ok)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showFromDatePicker = false }) {
+                                Text(stringResource(Res.string.cancel))
+                            }
+                        },
+                    ) {
+                        DatePicker(
+                            state = fromPickerState,
+                            title = {
+                                Text(
+                                    stringResource(Res.string.select_start_date),
+                                    modifier = Modifier.padding(start = 24.dp, top = 16.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
+                        )
+                    }
+                }
+
+                // To Date Picker Dialog
+                if (showToDatePicker) {
+                    val initialMillis = runCatching {
+                        LocalDate.parse(uiState.attendanceToDate)
+                            .let { it.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() }
+                    }.getOrElse { Clock.System.now().toEpochMilliseconds() }
+                    val toPickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+                    DatePickerDialog(
+                        onDismissRequest = { showToDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                toPickerState.selectedDateMillis?.let { millis ->
+                                    val date = Instant.fromEpochMilliseconds(millis)
+                                        .toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+                                    viewModel.setAttendanceToDate(date)
+                                }
+                                showToDatePicker = false
+                            }) { Text(stringResource(Res.string.ok)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showToDatePicker = false }) {
+                                Text(stringResource(Res.string.cancel))
+                            }
+                        },
+                    ) {
+                        DatePicker(
+                            state = toPickerState,
+                            title = {
+                                Text(
+                                    stringResource(Res.string.select_end_date),
+                                    modifier = Modifier.padding(start = 24.dp, top = 16.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -1429,7 +1544,7 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
                 workerPhotoUrl = worker.photoUrl,
                 workerRole = worker.role,
                 salaryType = worker.salaryType.name,
-                unpaidAmount = unpaid.sumOf { it.amount },
+                unpaidAmount = unpaid.sumOf { it.totalAmount },
                 unpaidCount = unpaid.size,
             )
             when (uiState.salaryPaidFilter) {
@@ -1443,27 +1558,41 @@ private fun WorkerSalaryListView(uiState: StaffViewModel.UiState, viewModel: Sta
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         // Filter Section with a subtle background
         Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // ... (Filter Chips - Use ElevatedFilterChip for better UX)
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == null,
-                        onClick = { viewModel.filterSalaryByPaid(null) },
-                        label = { Text(stringResource(Res.string.all)) },
-                        leadingIcon = { if(uiState.salaryPaidFilter == null) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
-                    )
-                }
-                // Repeat for Unpaid (use error colors) and Paid (use primary)
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == null,
+                    onClick = { viewModel.filterSalaryByPaid(null) },
+                    label = { Text(stringResource(Res.string.all)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == null) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == false,
+                    onClick = { viewModel.filterSalaryByPaid(false) },
+                    label = { Text(stringResource(Res.string.unpaid)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == false) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == true,
+                    onClick = { viewModel.filterSalaryByPaid(true) },
+                    label = { Text(stringResource(Res.string.paid)) },
+                    leadingIcon = { if(uiState.salaryPaidFilter == true) Icon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                )
             }
         }
 
         if (workerSummaries.isEmpty()) {
-            EmptyState(icon = Icons.Rounded.Payments, message = stringResource(Res.string.no_salary_records))
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                EmptyState(icon = Icons.Rounded.Payments, message = stringResource(Res.string.no_salary_records))
+            }
         } else {
             LazyColumn(
+                modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -1593,31 +1722,25 @@ private fun WorkerSalaryDetailView(uiState: StaffViewModel.UiState, viewModel: S
     ) { padding ->
         Column(Modifier.padding(padding)) {
             // Filter chips
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == null,
-                        onClick = { viewModel.filterSalaryByPaid(null) },
-                        label = { Text(stringResource(Res.string.all)) },
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == false,
-                        onClick = { viewModel.filterSalaryByPaid(false) },
-                        label = { Text(stringResource(Res.string.unpaid)) },
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = uiState.salaryPaidFilter == true,
-                        onClick = { viewModel.filterSalaryByPaid(true) },
-                        label = { Text(stringResource(Res.string.paid)) },
-                    )
-                }
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == null,
+                    onClick = { viewModel.filterSalaryByPaid(null) },
+                    label = { Text(stringResource(Res.string.all)) },
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == false,
+                    onClick = { viewModel.filterSalaryByPaid(false) },
+                    label = { Text(stringResource(Res.string.unpaid)) },
+                )
+                FilterChip(
+                    selected = uiState.salaryPaidFilter == true,
+                    onClick = { viewModel.filterSalaryByPaid(true) },
+                    label = { Text(stringResource(Res.string.paid)) },
+                )
             }
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
@@ -1678,11 +1801,48 @@ private fun SelectableSalaryPaymentCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (payment.overtimeHours > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(
+                                Res.string.overtime_included,
+                                payment.overtimeHours.toString(),
+                                payment.overtimeAmount.toInt().toString()
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                if (payment.overtimeHours > 0) {
+                    // Show base salary
+                    Text(
+                        text = "${payment.amount.toInt()} ${stringResource(Res.string.egp)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Show overtime amount
+                    Text(
+                        text = "+ ${payment.overtimeAmount.toInt()} ${stringResource(Res.string.egp)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    HorizontalDivider(modifier = Modifier.width(60.dp).padding(vertical = 2.dp))
+                }
+                // Show total (or just amount if no overtime)
                 Text(
-                    text = "${payment.amount.toInt()} EGP",
+                    text = "${payment.totalAmount.toInt()} ${stringResource(Res.string.egp)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (payment.paid) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
@@ -1694,7 +1854,7 @@ private fun SelectableSalaryPaymentCard(
                     Box(Modifier.size(8.dp).background(statusColor, CircleShape))
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = if (payment.paid) "Paid" else "Unpaid",
+                        text = stringResource(if (payment.paid) Res.string.paid else Res.string.unpaid),
                         style = MaterialTheme.typography.labelSmall,
                         color = statusColor
                     )
@@ -1808,8 +1968,13 @@ private fun OvertimeWorkerDetailView(
 ) {
     val worker = uiState.workers.find { it.id == workerId }
     val entries = uiState.overtimeEntries.sortedByDescending { it.date }
+    val paidAmount = entries.filter { it.paid }.sumOf { it.amount }
+    val unpaidAmount = entries.filter { !it.paid }.sumOf { it.amount }
     val totalAmount = entries.sumOf { it.amount }
     var showDeleteId by remember { mutableStateOf<String?>(null) }
+    var showPayConfirmId by remember { mutableStateOf<String?>(null) }
+    var showBatchPayConfirm by remember { mutableStateOf(false) }
+    val hasSelection = uiState.selectedOvertimeIds.isNotEmpty()
 
     Scaffold(
         topBar = {
@@ -1819,7 +1984,10 @@ private fun OvertimeWorkerDetailView(
                         modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = {
+                            viewModel.clearOvertimeSelection()
+                            onBack()
+                        }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
                         }
                         Column(Modifier.weight(1f).padding(start = 8.dp)) {
@@ -1839,17 +2007,27 @@ private fun OvertimeWorkerDetailView(
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { viewModel.showAddOvertimeDialog(workerId) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text(stringResource(Res.string.add_overtime)) },
-            )
+            if (hasSelection) {
+                ExtendedFloatingActionButton(
+                    onClick = { showBatchPayConfirm = true },
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                    icon = { Icon(Icons.Filled.Payments, null) },
+                    text = { Text(stringResource(Res.string.pay_selected_overtime, uiState.selectedOvertimeIds.size)) },
+                )
+            } else {
+                ExtendedFloatingActionButton(
+                    onClick = { viewModel.showAddOvertimeDialog(workerId) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    icon = { Icon(Icons.Filled.Add, null) },
+                    text = { Text(stringResource(Res.string.add_overtime)) },
+                )
+            }
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            // Total summary card
+            // Total summary card with paid/unpaid breakdown
             if (entries.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -1858,35 +2036,52 @@ private fun OvertimeWorkerDetailView(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
                     ),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.Timer,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(Res.string.overtime),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${totalAmount.toInt()} ${stringResource(Res.string.egp)}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                             Text(
-                                text = stringResource(Res.string.overtime),
-                                style = MaterialTheme.typography.titleSmall,
+                                text = "${entries.size} ${stringResource(Res.string.overtime)}",
+                                style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(
-                                text = "${totalAmount.toInt()} ${stringResource(Res.string.egp)}",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
                         }
-                        Text(
-                            text = "${entries.size} ${stringResource(Res.string.overtime)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (paidAmount > 0 || unpaidAmount > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.paid_overtime_total, paidAmount.toInt().toString()),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.unpaid_overtime_total, unpaidAmount.toInt().toString()),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1908,6 +2103,10 @@ private fun OvertimeWorkerDetailView(
                             onEditRate = {
                                 viewModel.showEditRateDialog(entry.id, entry.ratePerHour)
                             },
+                            onPay = { showPayConfirmId = entry.id },
+                            onUnpay = { viewModel.markOvertimeUnpaid(entry.id) },
+                            isSelected = entry.id in uiState.selectedOvertimeIds,
+                            onToggleSelection = { viewModel.toggleOvertimeSelection(entry.id) },
                         )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -1929,6 +2128,63 @@ private fun OvertimeWorkerDetailView(
             onDismiss = { showDeleteId = null },
         )
     }
+
+    // Single pay confirmation
+    if (showPayConfirmId != null) {
+        val payEntry = entries.find { it.id == showPayConfirmId }
+        if (payEntry != null) {
+            AlertDialog(
+                onDismissRequest = { showPayConfirmId = null },
+                title = { Text(stringResource(Res.string.confirm_pay_overtime)) },
+                text = {
+                    Text(stringResource(Res.string.confirm_pay_overtime_message, payEntry.amount.toInt().toString()))
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.markOvertimePaid(showPayConfirmId!!)
+                        showPayConfirmId = null
+                    }) {
+                        Text(stringResource(Res.string.pay_overtime))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPayConfirmId = null }) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                },
+            )
+        }
+    }
+
+    // Batch pay confirmation
+    if (showBatchPayConfirm) {
+        val selectedEntries = entries.filter { it.id in uiState.selectedOvertimeIds }
+        val selectedTotal = selectedEntries.sumOf { it.amount }
+        AlertDialog(
+            onDismissRequest = { showBatchPayConfirm = false },
+            title = { Text(stringResource(Res.string.confirm_pay_overtime)) },
+            text = {
+                Text(stringResource(
+                    Res.string.confirm_pay_overtime_batch_message,
+                    selectedEntries.size,
+                    selectedTotal.toInt().toString(),
+                ))
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.batchPayOvertime()
+                    showBatchPayConfirm = false
+                }) {
+                    Text(stringResource(Res.string.pay_overtime))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchPayConfirm = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -1936,6 +2192,10 @@ private fun OvertimeEntryCard(
     entry: Overtime,
     onDelete: () -> Unit,
     onEditRate: (() -> Unit)? = null,
+    onPay: (() -> Unit)? = null,
+    onUnpay: (() -> Unit)? = null,
+    isSelected: Boolean = false,
+    onToggleSelection: (() -> Unit)? = null,
 ) {
     val isPendingRate = entry.ratePerHour <= 0.0
 
@@ -1945,12 +2205,23 @@ private fun OvertimeEntryCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isPendingRate)
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+            else if (entry.paid)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Checkbox for batch selection (unpaid only)
+                if (onToggleSelection != null && !entry.paid && !isPendingRate) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelection() },
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -1971,6 +2242,25 @@ private fun OvertimeEntryCard(
                                     color = MaterialTheme.colorScheme.onError,
                                 )
                             }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            color = if (entry.paid)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(4.dp),
+                        ) {
+                            Text(
+                                text = if (entry.paid) stringResource(Res.string.paid) else stringResource(Res.string.unpaid),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (entry.paid)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                     Spacer(Modifier.height(4.dp))
@@ -2003,6 +2293,28 @@ private fun OvertimeEntryCard(
                         )
                     }
                     Row {
+                        // Pay / Unpay button
+                        if (entry.paid) {
+                            if (onUnpay != null) {
+                                IconButton(onClick = onUnpay, modifier = Modifier.size(32.dp)) {
+                                    Icon(
+                                        Icons.Filled.MoneyOff,
+                                        contentDescription = stringResource(Res.string.mark_unpaid),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        } else if (onPay != null && !isPendingRate) {
+                            IconButton(onClick = onPay, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    Icons.Filled.Payments,
+                                    contentDescription = stringResource(Res.string.pay_overtime),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
                         if (onEditRate != null) {
                             IconButton(onClick = onEditRate, modifier = Modifier.size(32.dp)) {
                                 Icon(

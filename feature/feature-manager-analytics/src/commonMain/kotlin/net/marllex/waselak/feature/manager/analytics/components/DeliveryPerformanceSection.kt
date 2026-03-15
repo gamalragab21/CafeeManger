@@ -1,11 +1,14 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.DeliveryPerformanceV2
@@ -25,27 +28,40 @@ fun DeliveryPerformanceSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.delivery_performance_hint),
     ) { data ->
         if (data.isEmpty()) {
             Text(stringResource(Res.string.no_delivery_data), style = MaterialTheme.typography.bodyMedium)
             return@SectionContainer
         }
 
+        // Table header
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(Res.string.driver), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.5f))
             Text(stringResource(Res.string.completed), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(stringResource(Res.string.fees), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(stringResource(Res.string.revenue), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
-        HorizontalDivider()
 
         data.sortedByDescending { it.ordersCompleted }.forEachIndexed { index, driver ->
+            val rowBg = if (index % 2 == 0)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+            else
+                MaterialTheme.colorScheme.surface
+
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(rowBg)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(driver.driverName, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.5f))
                 Text(driver.ordersCompleted.toString(), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
@@ -57,7 +73,6 @@ fun DeliveryPerformanceSection(
                     modifier = Modifier.weight(1f),
                 )
             }
-            if (index < data.size - 1) HorizontalDivider(thickness = 0.5.dp)
         }
     }
 }

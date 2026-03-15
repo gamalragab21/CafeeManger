@@ -42,6 +42,13 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableBar
+import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -125,8 +132,15 @@ import net.marllex.waselak.feature.manager.staff.WorkerQrCodeScreen
 import net.marllex.waselak.feature.manager.stock.StockScreen
 import net.marllex.waselak.feature.manager.tables.TablesScreen
 import net.marllex.waselak.feature.manager.users.UsersScreen
+import net.marllex.waselak.manager.customercredit.CustomerCreditScreen
+import net.marllex.waselak.manager.druginteractions.DrugInteractionsScreen
+import net.marllex.waselak.manager.notifications.NotificationsScreen
 import net.marllex.waselak.manager.offline.OfflineSettingsScreen
+import net.marllex.waselak.manager.returns.ReturnsScreen
+import net.marllex.waselak.manager.scheduledorders.ScheduledOrdersScreen
+import net.marllex.waselak.manager.suppliers.SuppliersScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
+import net.marllex.waselak.manager.cashdrawer.ManagerCashDrawerScreen
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
@@ -295,12 +309,13 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     }
 
     // Sign-out with biometric verification (system prompt on Android/iOS)
-    val onSignOut: () -> Unit = remember(scope) {
+    val signOutVerificationText = stringResource(CoreRes.string.sign_out_verification)
+    val onSignOut: () -> Unit = remember(scope, signOutVerificationText) {
         {
             scope.launch {
                 val canProceed = if (biometricAuth.isAvailable()) {
                     // Trigger system auth prompt (fingerprint / Face ID / PIN)
-                    when (biometricAuth.authenticate("Sign out verification")) {
+                    when (biometricAuth.authenticate(signOutVerificationText)) {
                         is BiometricResult.Success -> true
                         is BiometricResult.NotAvailable -> true
                         else -> false // Cancelled or Error — don't sign out
@@ -323,11 +338,18 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val profileState by profileVm.uiState.collectAsState()
     val vendor = profileState.vendor
 
-    val visibleTabs = remember(vendor?.enableTables) {
-        if (vendor?.enableTables == false) {
-            ManagerTab.entries.filter { it != ManagerTab.TABLES }
-        } else {
-            ManagerTab.entries.toList()
+    // Compute visible tabs using domain features (works offline via cached vendor)
+    val domainFeatures = remember(vendor?.businessType) {
+        net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+    }
+
+    val visibleTabs = remember(vendor?.enableTables, domainFeatures) {
+        ManagerTab.entries.filter { tab ->
+            when (tab) {
+                ManagerTab.TABLES -> vendor?.enableTables != false && domainFeatures.hasTables
+                ManagerTab.OFFERS -> domainFeatures.hasOffers
+                else -> true
+            }
         }
     }
 
@@ -604,6 +626,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copiedMsg = stringResource(CoreRes.string.link_copied)
+    val shareLinkTitle = stringResource(CoreRes.string.share_link)
 
     val menuUrl = remember(vendorId, customMenuUrl) {
         when {
@@ -724,7 +747,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
 
                         TextButton(
                             onClick = {
-                                platformActions.shareText(menuUrl, "Share Link")
+                                platformActions.shareText(menuUrl, shareLinkTitle)
                             },
                             modifier = Modifier.padding(top = 8.dp)
                         ) {
@@ -865,6 +888,48 @@ private fun MoreTabContent(
                 )
             }
 
+            "suppliers" -> {
+                SuppliersScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "returns" -> {
+                ReturnsScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "scheduled_orders" -> {
+                ScheduledOrdersScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "notifications" -> {
+                NotificationsScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "drug_interactions" -> {
+                DrugInteractionsScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "customer_credit" -> {
+                CustomerCreditScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "cash_drawer" -> {
+                ManagerCashDrawerScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
             "settings" -> {
                 // Settings sub-level with its own nested screens
                 when (settingsSubScreen) {
@@ -976,20 +1041,24 @@ private fun MoreTabContent(
                         // ── Store Features Grid ──
                         MoreSectionHeader(stringResource(CoreRes.string.store_features))
 
-                        val storeItems = listOf(
-                            Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)),
-                            Triple(Icons.Filled.People, stringResource(CoreRes.string.nav_staff), Color(0xFF2E7D32)),
-                            Triple(Icons.Filled.Groups, stringResource(CoreRes.string.nav_customers), Color(0xFF6A1B9A)),
-                            Triple(Icons.Filled.Security, stringResource(CoreRes.string.roles_permissions), Color(0xFFE65100)),
-                            Triple(Icons.Filled.CardGiftcard, stringResource(CoreRes.string.loyalty_and_discounts), Color(0xFFF57C00)),
-                        )
-                        val storeActions = listOf<() -> Unit>(
-                            { activeSubScreen = "analytics" },
-                            { activeSubScreen = "staff" },
-                            { activeSubScreen = "customers" },
-                            { activeSubScreen = "users" },
-                            { activeSubScreen = "loyalty_discounts" },
-                        )
+                        val features = net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+                        // Build items with visibility flags based on business type
+                        val allStoreEntries = listOf(
+                            Triple(Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)), { activeSubScreen = "analytics" }, true),
+                            Triple(Triple(Icons.Filled.People, stringResource(CoreRes.string.nav_staff), Color(0xFF2E7D32)), { activeSubScreen = "staff" }, true),
+                            Triple(Triple(Icons.Filled.Groups, stringResource(CoreRes.string.nav_customers), Color(0xFF6A1B9A)), { activeSubScreen = "customers" }, true),
+                            Triple(Triple(Icons.Filled.Security, stringResource(CoreRes.string.roles_permissions), Color(0xFFE65100)), { activeSubScreen = "users" }, true),
+                            Triple(Triple(Icons.Filled.CardGiftcard, stringResource(CoreRes.string.loyalty_and_discounts), Color(0xFFF57C00)), { activeSubScreen = "loyalty_discounts" }, features.hasOffers),
+                            Triple(Triple(Icons.Filled.Inventory, stringResource(CoreRes.string.suppliers), Color(0xFF00695C)), { activeSubScreen = "suppliers" }, features.hasSuppliers),
+                            Triple(Triple(Icons.Filled.SwapHoriz, stringResource(CoreRes.string.returns_exchanges), Color(0xFFC62828)), { activeSubScreen = "returns" }, features.hasReturns),
+                            Triple(Triple(Icons.Filled.Schedule, stringResource(CoreRes.string.scheduled_orders), Color(0xFF4527A0)), { activeSubScreen = "scheduled_orders" }, features.hasPreOrders),
+                            Triple(Triple(Icons.Filled.Notifications, stringResource(CoreRes.string.notifications), Color(0xFF1565C0)), { activeSubScreen = "notifications" }, true),
+                            Triple(Triple(Icons.Filled.LocalPharmacy, stringResource(CoreRes.string.drug_interactions), Color(0xFF2E7D32)), { activeSubScreen = "drug_interactions" }, features.hasDrugInteractions),
+                            Triple(Triple(Icons.Filled.CreditCard, stringResource(CoreRes.string.customer_credit), Color(0xFF6A1B9A)), { activeSubScreen = "customer_credit" }, features.hasCustomerCredit),
+                            Triple(Triple(Icons.Filled.PointOfSale, stringResource(CoreRes.string.cash_drawer), Color(0xFF5D4037)), { activeSubScreen = "cash_drawer" }, true),
+                        ).filter { it.third }
+                        val storeItems = allStoreEntries.map { it.first }
+                        val storeActions = allStoreEntries.map { it.second }
                         MoreGrid(storeItems, storeActions, gridColumns)
 
                         // ── Account Information Grid ──
@@ -1034,6 +1103,11 @@ private fun MoreTabContent(
                         var logUploadMessage by remember { mutableStateOf<String?>(null) }
                         val settingsPlatformActions = rememberPlatformActions()
 
+                        val noLogsMsg = stringResource(CoreRes.string.no_logs_available_msg)
+                        val logsUploadedMsg = stringResource(CoreRes.string.logs_uploaded_success)
+                        val logsUploadFailedMsg = stringResource(CoreRes.string.logs_upload_failed_msg)
+                        val logsClearedMsg = stringResource(CoreRes.string.logs_cleared_msg)
+
                         UploadLogsCard(
                             isUploading = isUploadingLogs,
                             onUploadLogs = {
@@ -1042,13 +1116,13 @@ private fun MoreTabContent(
                                     try {
                                         val bytes = AppLogger.readLogFileBytes()
                                         if (bytes.isEmpty()) {
-                                            logUploadMessage = "No logs available"
+                                            logUploadMessage = noLogsMsg
                                         } else {
                                             apiClient.uploadLogFile(bytes, AppLogger.getLogFileName())
-                                            logUploadMessage = "Logs uploaded successfully"
+                                            logUploadMessage = logsUploadedMsg
                                         }
                                     } catch (e: Exception) {
-                                        logUploadMessage = "Failed to upload logs: ${e.message}"
+                                        logUploadMessage = logsUploadFailedMsg.format(e.message ?: "")
                                     } finally {
                                         isUploadingLogs = false
                                     }
@@ -1062,7 +1136,7 @@ private fun MoreTabContent(
                             },
                             onClearLogs = {
                                 AppLogger.clearLogs()
-                                logUploadMessage = "Logs cleared"
+                                logUploadMessage = logsClearedMsg
                             },
                         )
 
@@ -1070,7 +1144,8 @@ private fun MoreTabContent(
                             Text(
                                 text = msg,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (msg.startsWith("Failed")) MaterialTheme.colorScheme.error
+                                color = if (msg != noLogsMsg && msg != logsUploadedMsg && msg != logsClearedMsg)
+                                    MaterialTheme.colorScheme.error
                                     else MaterialTheme.colorScheme.primary,
                             )
                             LaunchedEffect(msg) {

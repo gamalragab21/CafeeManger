@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,7 +38,9 @@ import net.marllex.waselak.feature.manager.analytics.components.OrdersIntelligen
 import net.marllex.waselak.feature.manager.analytics.components.PeakTimeSection
 import net.marllex.waselak.feature.manager.analytics.components.ProductIntelligenceSection
 import net.marllex.waselak.feature.manager.analytics.components.RevenueProfitSection
+import net.marllex.waselak.feature.manager.analytics.components.StaffCostsSection
 import net.marllex.waselak.feature.manager.analytics.components.StockOverviewSection
+import net.marllex.waselak.feature.manager.analytics.components.SupplierAnalyticsSection
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
 import net.marllex.waselak.feature.manager.analytics.generated.resources.*
@@ -77,10 +80,17 @@ fun AnalyticsScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
+        val isRefreshing = state.executiveSummary is AnalyticsViewModel.SectionState.Loading
+
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.setTimePeriod(state.filters.timePeriod) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -89,6 +99,9 @@ fun AnalyticsScreen(
                 GlobalFilterBar(
                     selectedPeriod = state.filters.timePeriod,
                     onPeriodSelected = viewModel::setTimePeriod,
+                    customFromDate = state.filters.fromDate,
+                    customToDate = state.filters.toDate,
+                    onCustomDateRange = viewModel::setCustomDateRange,
                 )
             }
 
@@ -180,7 +193,23 @@ fun AnalyticsScreen(
                 )
             }
 
-            // 13. Alerts & Risks
+            // 13. Staff Costs Analytics
+            item {
+                StaffCostsSection(
+                    state = state.staffCosts,
+                    onRetry = { viewModel.retrySection("staffCosts") },
+                )
+            }
+
+            // 14. Supplier Analytics
+            item {
+                SupplierAnalyticsSection(
+                    state = state.supplierAnalytics,
+                    onRetry = { viewModel.retrySection("supplierAnalytics") },
+                )
+            }
+
+            // 15. Alerts & Risks
             item {
                 AlertsSection(
                     state = state.alerts,
@@ -214,6 +243,6 @@ fun AnalyticsScreen(
                 Spacer(Modifier.height(32.dp))
             }
         }
+        }
     }
-
 }

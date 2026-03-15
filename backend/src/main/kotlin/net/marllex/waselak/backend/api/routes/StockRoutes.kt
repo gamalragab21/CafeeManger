@@ -5,10 +5,15 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.ItemsTable
+import net.marllex.waselak.backend.data.database.StockBatchesTable
 import net.marllex.waselak.backend.data.database.StockTable
 import net.marllex.waselak.backend.data.database.StockTransactionsTable
 import net.marllex.waselak.backend.domain.model.StockUnit
@@ -125,6 +130,53 @@ data class StockAnalyticsSummaryDto(
     val total_transactions_today: Int,
     val total_added_today: Double,
     val total_deducted_today: Double,
+)
+
+// ─── Batch DTOs ─────────────────────────────────────────────────
+
+@Serializable
+data class StockBatchDto(
+    val id: String,
+    val stock_id: String,
+    val vendor_id: String,
+    val batch_number: String? = null,
+    val quantity: Double,
+    val initial_quantity: Double,
+    val cost_price: Double,
+    val expiry_date: String? = null,       // ISO date string (yyyy-MM-dd)
+    val received_at: Long? = null,
+    val status: String = "ACTIVE",
+    val created_at: Long? = null,
+    val item_name: String? = null,         // Denormalized for convenience
+)
+
+@Serializable
+data class CreateBatchDto(
+    val stock_id: String,
+    val batch_number: String? = null,
+    val quantity: Double,
+    val cost_price: Double = 0.0,
+    val expiry_date: String? = null,       // ISO date string (yyyy-MM-dd)
+)
+
+@Serializable
+data class UpdateBatchDto(
+    val batch_number: String? = null,
+    val expiry_date: String? = null,
+    val cost_price: Double? = null,
+)
+
+@Serializable
+data class ExpiryAlertDto(
+    val id: String,
+    val stock_id: String,
+    val item_name: String,
+    val batch_number: String?,
+    val quantity: Double,
+    val expiry_date: String,               // ISO date string
+    val days_until_expiry: Int,
+    val status: String,                    // EXPIRING_SOON, EXPIRED
+    val unit: String,
 )
 
 // ─── Routes ─────────────────────────────────────────────────────
@@ -945,7 +997,390 @@ fun Route.stockRoutes() {
             trace.step("Get stock analytics summary completed")
             call.respond(HttpStatusCode.OK, summary)
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Batch / Expiry Tracking Endpoints
+        // ═══════════════════════════════════════════════════════════════
+
+        // GET all batches for a stock item
+        get("/{id}/batches") {
+            val trace = call.routeTrace()
+            trace.step("List batches started")
+            val principal = currentUser()
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
+            val stockId = call.parameters["id"] ?: throw IllegalArgumentException("Stock ID required")
+            val includeEmpty = call.parameters["include_empty"]?.toBoolean() ?: false
+
+            val batches = transaction {
+                val stockUUID = UUID.fromString(stockId)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                // Verify stock belongs to vendor
+                StockTable.selectAll().where {
+                    (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
+
+                var query = StockBatchesTable.selectAll().where {
+                    (StockBatchesTable.stockId eq stockUUID) and
+                    (StockBatchesTable.vendorId eq vendorUUID)
+                }
+                if (!includeEmpty) {
+                    query = query.andWhere { StockBatchesTable.quantity greater BigDecimal.ZERO }
+                }
+
+                query.orderBy(StockBatchesTable.receivedAt, SortOrder.ASC)
+                    .map { it.toBatchDto() }
+            }
+            trace.step("Batches listed", mapOf("count" to batches.size.toString()))
+            call.respond(HttpStatusCode.OK, batches)
+        }
+
+        // CREATE a new batch (receiving stock)
+        post("/{id}/batches") {
+            val trace = call.routeTrace()
+            trace.step("Create batch started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
+            val stockId = call.parameters["id"] ?: throw IllegalArgumentException("Stock ID required")
+            val request = call.receive<CreateBatchDto>()
+            require(request.quantity > 0) { "Quantity must be positive" }
+
+            val batch = transaction {
+                val stockUUID = UUID.fromString(stockId)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val now = Clock.System.now()
+
+                // Verify stock belongs to vendor
+                val stock = StockTable.selectAll().where {
+                    (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Stock item not found")
+
+                val oldQty = stock[StockTable.quantity]
+                val addQty = BigDecimal.valueOf(request.quantity)
+
+                // Parse expiry date
+                val expiryDate = request.expiry_date?.let {
+                    kotlinx.datetime.LocalDate.parse(it)
+                }
+
+                // Create batch
+                val batchId = StockBatchesTable.insertAndGetId {
+                    it[StockBatchesTable.stockId] = stockUUID
+                    it[StockBatchesTable.vendorId] = vendorUUID
+                    it[batchNumber] = request.batch_number
+                    it[quantity] = addQty
+                    it[initialQuantity] = addQty
+                    it[costPrice] = BigDecimal.valueOf(request.cost_price)
+                    it[StockBatchesTable.expiryDate] = expiryDate
+                    it[receivedAt] = now
+                    it[status] = "ACTIVE"
+                    it[createdAt] = now
+                }
+
+                // Also add to main stock quantity
+                StockTable.update({
+                    (StockTable.id eq stockUUID) and (StockTable.vendorId eq vendorUUID)
+                }) {
+                    it[StockTable.quantity] = oldQty + addQty
+                    it[updatedAt] = now
+                    // Update cost price to batch cost price if provided
+                    if (request.cost_price > 0) {
+                        it[StockTable.costPrice] = BigDecimal.valueOf(request.cost_price)
+                    }
+                }
+
+                // Record transaction
+                StockTransactionsTable.insertAndGetId {
+                    it[StockTransactionsTable.stockId] = stockUUID
+                    it[StockTransactionsTable.batchId] = batchId
+                    it[type] = "ADD"
+                    it[StockTransactionsTable.quantity] = addQty
+                    it[previousQuantity] = oldQty
+                    it[note] = "Batch received: ${request.batch_number ?: "no lot#"}" +
+                        (expiryDate?.let { d -> " | Expires: $d" } ?: "")
+                    it[StockTransactionsTable.createdAt] = now
+                }
+
+                StockBatchesTable.selectAll().where {
+                    StockBatchesTable.id eq batchId
+                }.first().toBatchDto()
+            }
+            trace.step("Batch created", mapOf("batchId" to batch.id, "quantity" to batch.quantity.toString()))
+            call.respond(HttpStatusCode.Created, batch)
+        }
+
+        // UPDATE batch metadata (lot number, expiry date, cost)
+        put("/batches/{batchId}") {
+            val trace = call.routeTrace()
+            trace.step("Update batch started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
+            val batchId = call.parameters["batchId"] ?: throw IllegalArgumentException("Batch ID required")
+            val request = call.receive<UpdateBatchDto>()
+
+            val updated = transaction {
+                val batchUUID = UUID.fromString(batchId)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+
+                val batch = StockBatchesTable.selectAll().where {
+                    (StockBatchesTable.id eq batchUUID) and (StockBatchesTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Batch not found")
+
+                StockBatchesTable.update({
+                    (StockBatchesTable.id eq batchUUID) and (StockBatchesTable.vendorId eq vendorUUID)
+                }) {
+                    request.batch_number?.let { bn -> it[batchNumber] = bn }
+                    request.expiry_date?.let { ed ->
+                        it[expiryDate] = kotlinx.datetime.LocalDate.parse(ed)
+                    }
+                    request.cost_price?.let { cp -> it[costPrice] = BigDecimal.valueOf(cp) }
+                }
+
+                StockBatchesTable.selectAll().where {
+                    StockBatchesTable.id eq batchUUID
+                }.first().toBatchDto()
+            }
+            trace.step("Batch updated", mapOf("batchId" to updated.id))
+            call.respond(HttpStatusCode.OK, updated)
+        }
+
+        // DELETE a batch (dispose / write-off)
+        delete("/batches/{batchId}") {
+            val trace = call.routeTrace()
+            trace.step("Delete batch started")
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
+            val batchId = call.parameters["batchId"] ?: throw IllegalArgumentException("Batch ID required")
+
+            transaction {
+                val batchUUID = UUID.fromString(batchId)
+                val vendorUUID = UUID.fromString(principal.vendorId)
+                val now = Clock.System.now()
+
+                val batch = StockBatchesTable.selectAll().where {
+                    (StockBatchesTable.id eq batchUUID) and (StockBatchesTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Batch not found")
+
+                val remainingQty = batch[StockBatchesTable.quantity]
+                val stockUUID = batch[StockBatchesTable.stockId]
+
+                // Deduct remaining quantity from main stock
+                if (remainingQty > BigDecimal.ZERO) {
+                    val stock = StockTable.selectAll().where {
+                        StockTable.id eq stockUUID
+                    }.first()
+                    val oldQty = stock[StockTable.quantity]
+                    val newQty = (oldQty - remainingQty).coerceAtLeast(BigDecimal.ZERO)
+
+                    StockTable.update({ StockTable.id eq stockUUID }) {
+                        it[quantity] = newQty
+                        it[updatedAt] = now
+                    }
+
+                    StockTransactionsTable.insertAndGetId {
+                        it[stockId] = stockUUID
+                        it[StockTransactionsTable.batchId] = batchUUID
+                        it[type] = "WASTE"
+                        it[StockTransactionsTable.quantity] = remainingQty
+                        it[previousQuantity] = oldQty
+                        it[note] = "Batch disposed: ${batch[StockBatchesTable.batchNumber] ?: batchId}"
+                        it[createdAt] = now
+                    }
+                }
+
+                // Mark batch as disposed
+                StockBatchesTable.update({
+                    StockBatchesTable.id eq batchUUID
+                }) {
+                    it[quantity] = BigDecimal.ZERO
+                    it[status] = "DISPOSED"
+                }
+            }
+            trace.step("Batch deleted/disposed", mapOf("batchId" to batchId))
+            call.respond(HttpStatusCode.OK, mapOf("success" to true))
+        }
+
+        // GET expiry alerts — batches expiring soon or already expired
+        get("/analytics/expiry-alerts") {
+            val trace = call.routeTrace()
+            trace.step("Get expiry alerts started")
+            val principal = currentUser()
+            planService.checkFeature(UUID.fromString(principal.vendorId), "STOCK")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val daysThreshold = call.parameters["days"]?.toIntOrNull() ?: 30
+
+            val alerts = transaction {
+                val today = Clock.System.now().let {
+                    val str = it.toString().substring(0, 10)
+                    LocalDate.parse(str)
+                }
+                val thresholdDate = today.plus(DatePeriod(days = daysThreshold))
+
+                // Get active batches with expiry dates within threshold or already expired
+                val batches = StockBatchesTable.selectAll().where {
+                    (StockBatchesTable.vendorId eq vendorUUID) and
+                    (StockBatchesTable.expiryDate.isNotNull()) and
+                    (StockBatchesTable.quantity greater BigDecimal.ZERO) and
+                    (StockBatchesTable.status eq "ACTIVE") and
+                    (StockBatchesTable.expiryDate lessEq thresholdDate)
+                }.orderBy(StockBatchesTable.expiryDate, SortOrder.ASC).toList()
+
+                // Build stock name lookup
+                val stockIds = batches.map { it[StockBatchesTable.stockId] }.distinct()
+                val stockInfo = if (stockIds.isNotEmpty()) {
+                    StockTable.selectAll().where { StockTable.id inList stockIds }
+                        .associate { it[StockTable.id] to Pair(it[StockTable.itemName], it[StockTable.unit]) }
+                } else emptyMap()
+
+                batches.map { row ->
+                    val expiryDate = row[StockBatchesTable.expiryDate]!!
+                    val daysUntilExpiry = today.daysUntil(expiryDate)
+                    val stockId = row[StockBatchesTable.stockId]
+                    val (itemName, unit) = stockInfo[stockId] ?: Pair("Unknown", "PIECE")
+
+                    ExpiryAlertDto(
+                        id = row[StockBatchesTable.id].toString(),
+                        stock_id = stockId.toString(),
+                        item_name = itemName,
+                        batch_number = row[StockBatchesTable.batchNumber],
+                        quantity = row[StockBatchesTable.quantity].toDouble(),
+                        expiry_date = expiryDate.toString(),
+                        days_until_expiry = daysUntilExpiry,
+                        status = if (daysUntilExpiry < 0) "EXPIRED" else "EXPIRING_SOON",
+                        unit = unit,
+                    )
+                }
+            }
+            trace.step("Expiry alerts fetched", mapOf(
+                "count" to alerts.size.toString(),
+                "expired" to alerts.count { it.status == "EXPIRED" }.toString()
+            ))
+            call.respond(HttpStatusCode.OK, alerts)
+        }
     }
+}
+
+// ─── FIFO Batch Deduction Helper ────────────────────────────────
+
+/**
+ * Deducts [amount] from the oldest active batches for [stockUUID] (FIFO).
+ * Returns the list of batch IDs affected. If no batches exist, returns empty list
+ * and the caller should use the legacy deduction path.
+ */
+internal fun fifoDeductBatches(
+    stockUUID: UUID,
+    vendorUUID: UUID,
+    amount: BigDecimal,
+    transactionType: String = "BATCH_DEDUCT",
+    orderId: UUID? = null,
+    recipeId: UUID? = null,
+    note: String? = null,
+): List<UUID> {
+    val now = Clock.System.now()
+    val batches = StockBatchesTable.selectAll().where {
+        (StockBatchesTable.stockId eq stockUUID) and
+        (StockBatchesTable.vendorId eq vendorUUID) and
+        (StockBatchesTable.quantity greater BigDecimal.ZERO) and
+        (StockBatchesTable.status eq "ACTIVE")
+    }.orderBy(StockBatchesTable.receivedAt, SortOrder.ASC).toList()
+
+    if (batches.isEmpty()) return emptyList()
+
+    var remaining = amount
+    val affectedBatchIds = mutableListOf<UUID>()
+
+    for (batch in batches) {
+        if (remaining <= BigDecimal.ZERO) break
+
+        val batchId = batch[StockBatchesTable.id]
+        val batchQty = batch[StockBatchesTable.quantity]
+        val deductFromBatch = remaining.min(batchQty)
+        val newBatchQty = batchQty - deductFromBatch
+
+        StockBatchesTable.update({ StockBatchesTable.id eq batchId }) {
+            it[quantity] = newBatchQty
+            if (newBatchQty <= BigDecimal.ZERO) {
+                it[status] = "DEPLETED"
+            }
+        }
+
+        // Record batch-level transaction
+        StockTransactionsTable.insertAndGetId {
+            it[StockTransactionsTable.stockId] = stockUUID
+            it[StockTransactionsTable.batchId] = batchId
+            it[type] = transactionType
+            it[StockTransactionsTable.quantity] = deductFromBatch
+            it[previousQuantity] = batchQty
+            it[StockTransactionsTable.orderId] = orderId
+            it[StockTransactionsTable.recipeId] = recipeId
+            it[StockTransactionsTable.note] = note ?: "FIFO deduction from batch ${batch[StockBatchesTable.batchNumber] ?: batchId}"
+            it[createdAt] = now
+        }
+
+        affectedBatchIds.add(batchId.value)
+        remaining -= deductFromBatch
+    }
+
+    return affectedBatchIds
+}
+
+/**
+ * Restores [amount] to the most recently depleted batches for [stockUUID] (reverse FIFO).
+ * Used when orders are cancelled/refunded.
+ */
+internal fun fifoRestoreBatches(
+    stockUUID: UUID,
+    vendorUUID: UUID,
+    amount: BigDecimal,
+    orderId: UUID? = null,
+    note: String? = null,
+): List<UUID> {
+    val now = Clock.System.now()
+    // Restore to most recently depleted batches first (reverse order)
+    val batches = StockBatchesTable.selectAll().where {
+        (StockBatchesTable.stockId eq stockUUID) and
+        (StockBatchesTable.vendorId eq vendorUUID) and
+        (StockBatchesTable.status inList listOf("ACTIVE", "DEPLETED"))
+    }.orderBy(StockBatchesTable.receivedAt, SortOrder.DESC).toList()
+
+    if (batches.isEmpty()) return emptyList()
+
+    var remaining = amount
+    val affectedBatchIds = mutableListOf<UUID>()
+
+    for (batch in batches) {
+        if (remaining <= BigDecimal.ZERO) break
+
+        val batchId = batch[StockBatchesTable.id]
+        val batchQty = batch[StockBatchesTable.quantity]
+        val initialQty = batch[StockBatchesTable.initialQuantity]
+        val spaceInBatch = initialQty - batchQty
+        if (spaceInBatch <= BigDecimal.ZERO) continue
+
+        val restoreAmount = remaining.min(spaceInBatch)
+        val newBatchQty = batchQty + restoreAmount
+
+        StockBatchesTable.update({ StockBatchesTable.id eq batchId }) {
+            it[quantity] = newBatchQty
+            it[status] = "ACTIVE"
+        }
+
+        StockTransactionsTable.insertAndGetId {
+            it[StockTransactionsTable.stockId] = stockUUID
+            it[StockTransactionsTable.batchId] = batchId
+            it[type] = "RETURN"
+            it[StockTransactionsTable.quantity] = restoreAmount
+            it[previousQuantity] = batchQty
+            it[StockTransactionsTable.orderId] = orderId
+            it[StockTransactionsTable.note] = note ?: "FIFO restoration to batch"
+            it[createdAt] = now
+        }
+
+        affectedBatchIds.add(batchId.value)
+        remaining -= restoreAmount
+    }
+
+    return affectedBatchIds
 }
 
 // ─── Mappers ────────────────────────────────────────────────────
@@ -977,4 +1412,19 @@ private fun ResultRow.toStockTransactionDto() = StockTransactionDto(
     recipe_id = this[StockTransactionsTable.recipeId]?.toString(),
     note = this[StockTransactionsTable.note],
     created_at = this[StockTransactionsTable.createdAt].toEpochMilliseconds(),
+)
+
+private fun ResultRow.toBatchDto(itemName: String? = null) = StockBatchDto(
+    id = this[StockBatchesTable.id].toString(),
+    stock_id = this[StockBatchesTable.stockId].toString(),
+    vendor_id = this[StockBatchesTable.vendorId].toString(),
+    batch_number = this[StockBatchesTable.batchNumber],
+    quantity = this[StockBatchesTable.quantity].toDouble(),
+    initial_quantity = this[StockBatchesTable.initialQuantity].toDouble(),
+    cost_price = this[StockBatchesTable.costPrice].toDouble(),
+    expiry_date = this[StockBatchesTable.expiryDate]?.toString(),
+    received_at = this[StockBatchesTable.receivedAt].toEpochMilliseconds(),
+    status = this[StockBatchesTable.status],
+    created_at = this[StockBatchesTable.createdAt].toEpochMilliseconds(),
+    item_name = itemName,
 )
