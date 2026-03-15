@@ -243,8 +243,8 @@ class WorkerDao(private val db: WaselakDatabase) {
                     worker_id = entry.worker_id, worker_name = entry.worker_name,
                     date = entry.date, hours = entry.hours,
                     rate_per_hour = entry.rate_per_hour, amount = entry.amount,
-                    note = entry.note, created_by = entry.created_by,
-                    created_at = entry.created_at
+                    note = entry.note, paid = entry.paid,
+                    created_by = entry.created_by, created_at = entry.created_at
                 )
             }
         }
@@ -256,8 +256,8 @@ class WorkerDao(private val db: WaselakDatabase) {
             worker_id = entry.worker_id, worker_name = entry.worker_name,
             date = entry.date, hours = entry.hours,
             rate_per_hour = entry.rate_per_hour, amount = entry.amount,
-            note = entry.note, created_by = entry.created_by,
-            created_at = entry.created_at
+            note = entry.note, paid = entry.paid,
+            created_by = entry.created_by, created_at = entry.created_at
         )
     }
 

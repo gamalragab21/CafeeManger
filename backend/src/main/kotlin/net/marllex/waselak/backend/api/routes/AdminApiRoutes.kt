@@ -13,6 +13,7 @@ import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.model.DomainDefaults
 import net.marllex.waselak.backend.domain.service.AdminAuthService
 import net.marllex.waselak.backend.domain.service.AuthService
+import net.marllex.waselak.backend.domain.service.NotificationService
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.RequestLogService
 import net.marllex.waselak.backend.plugins.AdminPrincipal
@@ -68,11 +69,23 @@ data class AdminUpdatePlanRequest(
     val digital_menu: String? = null,
 )
 
+@Serializable
+data class AdminSendNotificationRequest(
+    val vendor_ids: List<String>? = null,   // null = all active vendors
+    val type: String,                        // ADMIN_ANNOUNCEMENT or SYSTEM_UPDATE
+    val title: String,
+    val body: String,
+    val action_url: String? = null,          // Download link for SYSTEM_UPDATE
+    val platform: String? = null,            // null=all, ANDROID, DESKTOP, IOS
+    val priority: String = "NORMAL",         // NORMAL, HIGH, URGENT
+)
+
 // ─── Routes ───────────────────────────────────────────────────────
 fun Route.adminApiRoutes() {
     val adminAuthService by KoinJavaComponent.inject<AdminAuthService>(clazz = AdminAuthService::class.java)
     val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     val requestLogService by KoinJavaComponent.inject<RequestLogService>(clazz = RequestLogService::class.java)
+    val notificationService by KoinJavaComponent.inject<NotificationService>(clazz = NotificationService::class.java)
 
     route("/api/v1/cms") {
 
@@ -396,6 +409,7 @@ fun Route.adminApiRoutes() {
                             }
                             sub?.let { put("subscription_status", it[VendorSubscriptionsTable.status]) }
                             put("enable_tables", row[VendorsTable.enableTables])
+                            put("enable_kds", row[VendorsTable.enableKds])
                             put("enable_dine_in", row[VendorsTable.enableDineIn])
                             put("enable_delivery", row[VendorsTable.enableDelivery])
                             put("enable_takeaway", row[VendorsTable.enableTakeaway])
@@ -443,6 +457,7 @@ fun Route.adminApiRoutes() {
                 val bt = request.business_type.uppercase()
                 val defaults = DomainDefaults.forType(bt)
                 val enableTables = request.enable_tables ?: defaults.enableTables
+                val enableKds = request.enable_kds ?: defaults.enableKds
                 val enableDineIn = request.enable_dine_in ?: defaults.enableDineIn
                 val enableDelivery = request.enable_delivery ?: defaults.enableDelivery
                 val enableTakeaway = request.enable_takeaway ?: defaults.enableTakeaway
@@ -472,6 +487,7 @@ fun Route.adminApiRoutes() {
                         it[digitalMenuUrl] = request.digital_menu_url
                         it[businessType] = bt
                         it[VendorsTable.enableTables] = enableTables
+                        it[VendorsTable.enableKds] = enableKds
                         it[VendorsTable.enableDineIn] = enableDineIn
                         it[VendorsTable.enableDelivery] = enableDelivery
                         it[VendorsTable.enableTakeaway] = enableTakeaway
@@ -547,6 +563,7 @@ fun Route.adminApiRoutes() {
                         request.default_delivery_fee?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
                         request.store_type?.let { stmt[storeType] = it }
                         request.enable_tables?.let { stmt[enableTables] = it }
+                        request.enable_kds?.let { stmt[enableKds] = it }
                         request.enable_dine_in?.let { stmt[enableDineIn] = it }
                         request.enable_delivery?.let { stmt[enableDelivery] = it }
                         request.enable_takeaway?.let { stmt[enableTakeaway] = it }
@@ -934,6 +951,7 @@ fun Route.adminApiRoutes() {
                             put("logo_url", vendorRow[VendorsTable.logoUrl])
                             put("digital_menu_url", vendorRow[VendorsTable.digitalMenuUrl])
                             put("enable_tables", vendorRow[VendorsTable.enableTables])
+                            put("enable_kds", vendorRow[VendorsTable.enableKds])
                             put("enable_dine_in", vendorRow[VendorsTable.enableDineIn])
                             put("enable_delivery", vendorRow[VendorsTable.enableDelivery])
                             put("enable_takeaway", vendorRow[VendorsTable.enableTakeaway])
@@ -1685,6 +1703,59 @@ fun Route.adminApiRoutes() {
                 trace.step("Platform analytics fetched")
                 call.respondText(platform.toString(), ContentType.Application.Json)
                 trace.step("Get platform analytics completed")
+            }
+
+            // ─── Send Notification to Vendors ─────────────────────
+            post("/notifications/send") {
+                val trace = call.routeTrace()
+                trace.step("Admin send notification started")
+                val principal = call.principal<AdminPrincipal>()!!
+                val request = call.receive<AdminSendNotificationRequest>()
+
+                require(request.title.isNotBlank()) { "Title is required" }
+                require(request.body.isNotBlank()) { "Body is required" }
+                require(request.type in listOf("ADMIN_ANNOUNCEMENT", "SYSTEM_UPDATE")) {
+                    "Type must be ADMIN_ANNOUNCEMENT or SYSTEM_UPDATE"
+                }
+                request.platform?.let { p ->
+                    require(p in listOf("ANDROID", "DESKTOP", "IOS")) {
+                        "Platform must be ANDROID, DESKTOP, or IOS"
+                    }
+                }
+
+                val vendorIds = request.vendor_ids
+                if (vendorIds.isNullOrEmpty()) {
+                    // Send to ALL active vendors
+                    notificationService.notifyAllVendors(
+                        type = request.type,
+                        title = request.title,
+                        body = request.body,
+                        actionUrl = request.action_url,
+                        platform = request.platform,
+                        priority = request.priority,
+                    )
+                    trace.step("Notification sent to all vendors")
+                } else {
+                    // Send to specific vendors
+                    notificationService.notifyVendors(
+                        vendorIds = vendorIds.map { UUID.fromString(it) },
+                        type = request.type,
+                        title = request.title,
+                        body = request.body,
+                        actionUrl = request.action_url,
+                        platform = request.platform,
+                        priority = request.priority,
+                    )
+                    trace.step("Notification sent to ${vendorIds.size} vendors")
+                }
+
+                val json = buildJsonObject {
+                    put("success", true)
+                    put("vendor_count", vendorIds?.size?.toString() ?: "all")
+                    put("type", request.type)
+                }
+                call.respondText(json.toString(), ContentType.Application.Json)
+                trace.step("Admin send notification completed")
             }
         }
     }

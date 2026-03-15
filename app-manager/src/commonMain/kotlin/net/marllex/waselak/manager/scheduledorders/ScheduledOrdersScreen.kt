@@ -86,6 +86,34 @@ fun ScheduledOrdersScreen(
 
 @Composable
 private fun ScheduledOrderCard(order: ScheduledOrder, onConfirm: () -> Unit, onCancel: () -> Unit) {
+    val statusLabel = when (order.status) {
+        "SCHEDULED" -> stringResource(Res.string.scheduled)
+        "CONFIRMED" -> stringResource(Res.string.confirmed)
+        "PREPARING" -> stringResource(Res.string.preparing)
+        "READY" -> stringResource(Res.string.ready)
+        "COMPLETED" -> stringResource(Res.string.completed)
+        "CANCELLED" -> stringResource(Res.string.cancelled)
+        else -> order.status
+    }
+    val statusColor = when (order.status) {
+        "SCHEDULED" -> MaterialTheme.colorScheme.primary
+        "CONFIRMED" -> MaterialTheme.colorScheme.tertiary
+        "PREPARING" -> MaterialTheme.colorScheme.secondary
+        "READY" -> MaterialTheme.colorScheme.primary
+        "COMPLETED" -> MaterialTheme.colorScheme.outline
+        "CANCELLED" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
+    }
+    val channelLabel = when (order.channel) {
+        "PICKUP_LATER" -> stringResource(Res.string.channel_pickup_later)
+        "DELIVERY" -> stringResource(Res.string.channel_delivery)
+        "DINE_IN" -> stringResource(Res.string.channel_dine_in)
+        else -> order.channel
+    }
+    val paymentLabel = when (order.paymentMethod) {
+        "CASH" -> stringResource(Res.string.payment_cash)
+        else -> order.paymentMethod
+    }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -93,11 +121,19 @@ private fun ScheduledOrderCard(order: ScheduledOrder, onConfirm: () -> Unit, onC
                     order.clientName?.let { Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
                     order.clientPhone?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
-                SuggestionChip(onClick = {}, label = { Text(order.status) })
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text(statusLabel, style = MaterialTheme.typography.labelSmall) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = statusColor.copy(alpha = 0.12f),
+                        labelColor = statusColor,
+                    ),
+                    border = null,
+                )
             }
             Spacer(Modifier.height(4.dp))
-            Text(stringResource(Res.string.order_channel_items, order.channel, order.itemCount), style = MaterialTheme.typography.bodyMedium)
-            Text(stringResource(Res.string.order_total_payment, order.total.toString(), order.paymentMethod), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.order_channel_items, channelLabel, order.itemCount), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.order_total_payment, order.total.toString(), paymentLabel), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (order.isScheduled) {
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onConfirm, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.confirm)) }

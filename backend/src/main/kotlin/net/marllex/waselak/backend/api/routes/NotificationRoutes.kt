@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import net.marllex.waselak.backend.api.middleware.currentUser
 import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.data.database.*
+import net.marllex.waselak.backend.domain.service.NotificationService
 import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -18,19 +19,26 @@ import java.util.UUID
 // ─── DTOs ───────────────────────────────────────────────────────
 
 @Serializable
+data class SuccessResponse(
+    val success: Boolean = true,
+    val message: String? = null,
+)
+
+@Serializable
 data class NotificationDto(
     val id: String,
     val vendor_id: String,
     val user_id: String? = null,
-    val type: String,                  // ORDER_NEW, ORDER_STATUS, LOW_STOCK, EXPIRY_ALERT, SCHEDULED_ORDER, PRESCRIPTION, ANNOUNCEMENT, SYSTEM
+    val type: String,
     val title: String,
     val body: String,
     val data: String? = null,
-    val channel: String = "IN_APP",    // IN_APP, PUSH, BOTH
-    val priority: String = "NORMAL",   // LOW, NORMAL, HIGH, URGENT
+    val channel: String = "IN_APP",
+    val priority: String = "NORMAL",
     val read: Boolean = false,
     val read_at: Long? = null,
     val action_url: String? = null,
+    val platform: String? = null,      // null=all, ANDROID, DESKTOP, IOS
     val created_at: Long,
 )
 
@@ -44,6 +52,7 @@ data class CreateNotificationDto(
     val channel: String = "IN_APP",
     val priority: String = "NORMAL",
     val action_url: String? = null,
+    val platform: String? = null,      // null=all, ANDROID, DESKTOP, IOS
 )
 
 @Serializable
@@ -83,8 +92,9 @@ fun Route.notificationRoutes() {
             val principal = currentUser()
             val vendorUUID = UUID.fromString(principal.vendorId)
             val userUUID = UUID.fromString(principal.userId)
-            val unreadOnly = call.parameters["unread"]?.toBoolean() ?: false
+            val unreadOnly = (call.parameters["unread_only"] ?: call.parameters["unread"])?.toBoolean() ?: false
             val type = call.parameters["type"]
+            val platformFilter = call.parameters["platform"]
             val limit = call.parameters["limit"]?.toIntOrNull() ?: 50
             val offset = call.parameters["offset"]?.toIntOrNull() ?: 0
 
@@ -101,6 +111,12 @@ fun Route.notificationRoutes() {
                 }
                 type?.let { t ->
                     query = query.andWhere { NotificationsTable.type eq t.uppercase() }
+                }
+                // Filter by platform: show notifications where platform is null (all) OR matches the filter
+                platformFilter?.let { p ->
+                    query = query.andWhere {
+                        (NotificationsTable.platform.isNull()) or (NotificationsTable.platform eq p.uppercase())
+                    }
                 }
 
                 query.orderBy(NotificationsTable.createdAt, SortOrder.DESC)
@@ -157,7 +173,7 @@ fun Route.notificationRoutes() {
                     it[readAt] = now
                 }
             }
-            call.respond(HttpStatusCode.OK, mapOf("id" to id, "read" to true))
+            call.respond(HttpStatusCode.OK, SuccessResponse(message = "Notification marked as read"))
         }
 
         // PATCH mark all notifications as read
@@ -181,7 +197,7 @@ fun Route.notificationRoutes() {
                     it[readAt] = now
                 }
             }
-            call.respond(HttpStatusCode.OK, mapOf("marked_read" to count))
+            call.respond(HttpStatusCode.OK, SuccessResponse(message = "Marked $count notifications as read"))
         }
 
         // POST create a notification (internal, for managers/system)
@@ -194,10 +210,7 @@ fun Route.notificationRoutes() {
 
             require(request.title.isNotBlank()) { "Title is required" }
             require(request.body.isNotBlank()) { "Body is required" }
-            require(request.type in listOf(
-                "ORDER_NEW", "ORDER_STATUS", "LOW_STOCK", "EXPIRY_ALERT",
-                "SCHEDULED_ORDER", "PRESCRIPTION", "ANNOUNCEMENT", "SYSTEM"
-            )) { "Invalid notification type" }
+            require(request.type in NotificationService.VALID_TYPES) { "Invalid notification type: ${request.type}" }
 
             val notification = transaction {
                 val now = Clock.System.now()
@@ -212,6 +225,7 @@ fun Route.notificationRoutes() {
                     it[priority] = request.priority
                     it[read] = false
                     it[actionUrl] = request.action_url
+                    it[platform] = request.platform
                     it[createdAt] = now
                 }
 
@@ -227,6 +241,7 @@ fun Route.notificationRoutes() {
                     priority = request.priority,
                     read = false,
                     action_url = request.action_url,
+                    platform = request.platform,
                     created_at = now.toEpochMilliseconds(),
                 )
             }
@@ -248,7 +263,7 @@ fun Route.notificationRoutes() {
                 }
                 if (count == 0) throw NoSuchElementException("Notification not found")
             }
-            call.respond(HttpStatusCode.OK, mapOf("deleted" to id))
+            call.respond(HttpStatusCode.OK, SuccessResponse(message = "Notification deleted"))
         }
     }
 
@@ -342,12 +357,13 @@ fun Route.notificationRoutes() {
                     it[active] = false
                 }
             }
-            call.respond(HttpStatusCode.OK, mapOf("deactivated" to true))
+            call.respond(HttpStatusCode.OK, SuccessResponse(message = "Device token deactivated"))
         }
     }
 }
 
 // ─── Internal Helper: Create notification from system events ────
+// (Kept for backward compatibility — prefer NotificationService for new code)
 
 internal fun createSystemNotification(
     vendorUUID: UUID,
@@ -358,6 +374,7 @@ internal fun createSystemNotification(
     data: String? = null,
     priority: String = "NORMAL",
     actionUrl: String? = null,
+    platform: String? = null,
 ) {
     val now = Clock.System.now()
     NotificationsTable.insert {
@@ -371,6 +388,7 @@ internal fun createSystemNotification(
         it[NotificationsTable.priority] = priority
         it[read] = false
         it[NotificationsTable.actionUrl] = actionUrl
+        it[NotificationsTable.platform] = platform
         it[createdAt] = now
     }
 }
@@ -390,5 +408,6 @@ private fun ResultRow.toNotificationDto() = NotificationDto(
     read = this[NotificationsTable.read],
     read_at = this[NotificationsTable.readAt]?.toEpochMilliseconds(),
     action_url = this[NotificationsTable.actionUrl],
+    platform = this[NotificationsTable.platform],
     created_at = this[NotificationsTable.createdAt].toEpochMilliseconds(),
 )

@@ -219,6 +219,19 @@ fun Route.adminAnalyticsRoutes() {
                     trace.step("CMS loyalty-analytics completed")
                     call.respond(HttpStatusCode.OK, result)
                 }
+
+                // ── 14. Staff Costs Analytics ───────────────────────────
+                get("/staff-costs") {
+                    val trace = call.routeTrace()
+                    trace.step("CMS staff-costs started")
+                    call.principal<AdminPrincipal>()!!
+                    val vendorId = call.vendorUUID()
+                    val (from, to) = call.dateRange()
+
+                    val result = analyticsService.getStaffCostsAnalytics(vendorId, from, to)
+                    trace.step("CMS staff-costs completed")
+                    call.respond(HttpStatusCode.OK, result)
+                }
             }
 
             // ─── Vendor Orders (paginated) ───────────────────────────────

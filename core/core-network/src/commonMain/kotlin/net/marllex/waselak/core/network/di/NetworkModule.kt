@@ -11,6 +11,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
+import io.ktor.client.plugins.compression.ContentEncoding
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.header
@@ -66,6 +67,10 @@ val networkModule = module {
             }
             install(ContentNegotiation) {
                 json(get<Json>())
+            }
+            install(ContentEncoding) {
+                gzip()
+                deflate()
             }
             install(Logging) {
                 logger = object : Logger {

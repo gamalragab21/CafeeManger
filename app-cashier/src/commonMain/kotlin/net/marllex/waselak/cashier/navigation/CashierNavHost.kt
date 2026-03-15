@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Store
@@ -154,6 +155,7 @@ import net.marllex.waselak.cashier.cashdrawer.CashDrawerScreen
 import net.marllex.waselak.cashier.customercredit.CashierCustomerCreditScreen
 import net.marllex.waselak.cashier.kds.KdsScreen
 import net.marllex.waselak.cashier.notifications.CashierNotificationsScreen
+import net.marllex.waselak.cashier.scheduledorders.ScheduledOrdersScreen
 import net.marllex.waselak.cashier.prescriptions.PrescriptionsScreen
 import net.marllex.waselak.cashier.splitpayment.SplitPaymentScreen
 import androidx.compose.material.icons.filled.CreditCard
@@ -184,6 +186,7 @@ enum class CashierDrawerItem(
     OVERTIME("cashier/overtime", "Overtime", Icons.Filled.Timer),
     KDS("cashier/kds", "Kitchen Display", Icons.Filled.Restaurant),
     CASH_DRAWER("cashier/cash_drawer", "Cash Drawer", Icons.Filled.Store),
+    SCHEDULED_ORDERS("cashier/scheduled_orders", "Scheduled Orders", Icons.Filled.Schedule),
     NOTIFICATIONS("cashier/notifications", "Notifications", Icons.Filled.Notifications),
     PRESCRIPTIONS("cashier/prescriptions", "Prescriptions", Icons.Filled.LocalPharmacy),
     SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
@@ -216,6 +219,7 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.OVERTIME -> stringResource(CoreRes.string.nav_overtime)
     CashierDrawerItem.KDS -> stringResource(CoreRes.string.kitchen_display)
     CashierDrawerItem.CASH_DRAWER -> stringResource(CoreRes.string.cash_drawer)
+    CashierDrawerItem.SCHEDULED_ORDERS -> stringResource(CoreRes.string.scheduled_orders)
     CashierDrawerItem.NOTIFICATIONS -> stringResource(CoreRes.string.notifications)
     CashierDrawerItem.PRESCRIPTIONS -> stringResource(CoreRes.string.prescriptions)
     CashierDrawerItem.SPLIT_PAYMENT -> stringResource(CoreRes.string.split_payment)
@@ -599,8 +603,8 @@ private fun CashierOvertimeScreen() {
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                             )
+                                            Spacer(Modifier.width(8.dp))
                                             if (isPendingRate) {
-                                                Spacer(Modifier.width(8.dp))
                                                 Surface(
                                                     color = MaterialTheme.colorScheme.error,
                                                     shape = RoundedCornerShape(4.dp),
@@ -612,6 +616,24 @@ private fun CashierOvertimeScreen() {
                                                         color = MaterialTheme.colorScheme.onError,
                                                     )
                                                 }
+                                            }
+                                            Surface(
+                                                color = if (entry.paid)
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                else
+                                                    MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(4.dp),
+                                            ) {
+                                                Text(
+                                                    text = if (entry.paid) "Paid" else "Unpaid",
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = if (entry.paid)
+                                                        MaterialTheme.colorScheme.primary
+                                                    else
+                                                        MaterialTheme.colorScheme.error,
+                                                )
                                             }
                                         }
                                         Spacer(Modifier.height(4.dp))
@@ -1576,10 +1598,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
     }
 
-    val visibleDrawerItems = remember(domainFeatures) {
+    val visibleDrawerItems = remember(domainFeatures, vendor?.enableKds) {
         CashierDrawerItem.entries.filter { item ->
             when (item) {
-                CashierDrawerItem.KDS -> domainFeatures.hasKDS
+                CashierDrawerItem.KDS -> vendor?.enableKds != false && domainFeatures.hasKDS
+                CashierDrawerItem.SCHEDULED_ORDERS -> domainFeatures.hasPreOrders
                 CashierDrawerItem.PRESCRIPTIONS -> domainFeatures.hasPrescriptions
                 CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments
                 CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit
@@ -1618,6 +1641,9 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 onViewReceipt = { orderId ->
                     navController.navigateToReceipt(orderId)
                 },
+                onSplitPayment = { orderId ->
+                    navController.navigate("${CashierDrawerItem.SPLIT_PAYMENT.route}/$orderId")
+                },
             )
         }
         composable(CashierTab.TABLES.route) {
@@ -1640,6 +1666,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         composable(CashierDrawerItem.CASH_DRAWER.route) {
             CashDrawerScreen()
         }
+        composable(CashierDrawerItem.SCHEDULED_ORDERS.route) {
+            ScheduledOrdersScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
         composable(CashierDrawerItem.NOTIFICATIONS.route) {
             CashierNotificationsScreen()
         }
@@ -1647,7 +1678,14 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             PrescriptionsScreen()
         }
         composable(CashierDrawerItem.SPLIT_PAYMENT.route) {
-            SplitPaymentScreen()
+            SplitPaymentScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable("${CashierDrawerItem.SPLIT_PAYMENT.route}/{orderId}") {
+            SplitPaymentScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
         }
         composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
             CashierCustomerCreditScreen()

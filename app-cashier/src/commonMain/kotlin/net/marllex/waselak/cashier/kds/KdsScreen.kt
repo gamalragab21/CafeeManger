@@ -20,6 +20,7 @@ import net.marllex.waselak.core.model.KdsOrderItem
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.util.VariantDisplayHelper
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -32,6 +33,12 @@ fun KdsScreen(
     onNavigateBack: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Start/stop polling based on screen lifecycle
+    DisposableEffect(viewModel) {
+        viewModel.startPolling()
+        onDispose { viewModel.stopPolling() }
+    }
 
     Scaffold(
         topBar = {
@@ -150,7 +157,9 @@ private fun KdsItemRow(item: KdsOrderItem, onStatusChange: (String) -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text("${item.quantity}x ${item.itemName}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             item.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            item.variantOptions?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            VariantDisplayHelper.formatVariantSummary(item.variantOptions)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         if (nextStatus != null) {
             FilledTonalButton(

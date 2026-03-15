@@ -24,6 +24,7 @@ fun PeakTimeSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.peak_time_hint),
     ) { data ->
         Row(
             modifier = Modifier.fillMaxWidth(),

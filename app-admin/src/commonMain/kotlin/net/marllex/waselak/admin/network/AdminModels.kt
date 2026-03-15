@@ -117,6 +117,7 @@ data class VendorDto(
     val plan_display_name: String? = null,
     val subscription_status: String? = null,
     val enable_tables: Boolean = true,
+    val enable_kds: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
     val enable_takeaway: Boolean = true,
@@ -146,6 +147,7 @@ data class CreateVendorRequest(
     val digital_menu_url: String? = null,
     val business_type: String = "RESTAURANT",
     val enable_tables: Boolean? = null,
+    val enable_kds: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
@@ -181,6 +183,7 @@ data class UpdateVendorRequest(
     val digital_menu_url: String? = null,
     val business_type: String? = null,
     val enable_tables: Boolean? = null,
+    val enable_kds: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
@@ -392,6 +395,7 @@ data class VendorDetailInfo(
     val logo_url: String? = null,
     val digital_menu_url: String? = null,
     val enable_tables: Boolean = true,
+    val enable_kds: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
     val enable_takeaway: Boolean = true,
@@ -941,4 +945,16 @@ data class PlatformAlertDto(
     val vendor_id: String = "",
     val vendor_name: String = "",
     val message: String = "",
+)
+
+// ─── Notifications ───────────────────────────────────────────────
+@Serializable
+data class AdminSendNotificationRequest(
+    val vendor_ids: List<String>? = null,   // null = all active vendors
+    val type: String,                        // ADMIN_ANNOUNCEMENT or SYSTEM_UPDATE
+    val title: String,
+    val body: String,
+    val action_url: String? = null,
+    val platform: String? = null,            // null=all, ANDROID, DESKTOP, IOS
+    val priority: String = "NORMAL",
 )

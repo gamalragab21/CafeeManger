@@ -15,6 +15,7 @@ fun VendorResponse.toDomain() = Vendor(
     defaultDeliveryFee = defaultDeliveryFee,
     storeType = storeType,
     enableTables = enableTables,
+    enableKds = enableKds,
     enableDineIn = enableDineIn,
     enableDelivery = enableDelivery,
     enableTakeaway = enableTakeaway,
@@ -616,6 +617,66 @@ fun LoyaltyAnalyticsResponse.toDomain() = LoyaltyAnalytics(
     dailyTrend = dailyTrend.map { it.toDomain() },
 )
 
+// ─── Supplier Analytics Mappers ─────────────────────────────────
+
+fun TopSupplierResponse.toDomain() = TopSupplier(
+    supplierId = supplierId,
+    supplierName = supplierName,
+    totalOrders = totalOrders,
+    totalSpent = totalSpent,
+    receivedOrders = receivedOrders,
+    pendingOrders = pendingOrders,
+)
+
+fun SupplierItemResponse.toDomain() = SupplierItem(
+    stockId = stockId,
+    itemName = itemName,
+    totalQuantity = totalQuantity,
+    totalCost = totalCost,
+    orderCount = orderCount,
+    unit = unit,
+)
+
+fun MonthlyPurchaseResponse.toDomain() = MonthlyPurchase(
+    month = month,
+    total = total,
+    orderCount = orderCount,
+)
+
+fun SupplierAnalyticsResponse.toDomain() = SupplierAnalytics(
+    totalSuppliers = totalSuppliers,
+    activeSuppliers = activeSuppliers,
+    totalPurchaseOrders = totalPurchaseOrders,
+    totalSpent = totalSpent,
+    pendingOrders = pendingOrders,
+    receivedOrders = receivedOrders,
+    averageOrderValue = averageOrderValue,
+    topSuppliers = topSuppliers.map { it.toDomain() },
+    topItems = topItems.map { it.toDomain() },
+    monthlyTrend = monthlyTrend.map { it.toDomain() },
+)
+
+// ─── Staff Costs Analytics Mappers ──────────────────────────────
+
+fun WorkerOvertimeSummaryResponse.toDomain() = WorkerOvertimeSummary(
+    workerId = workerId,
+    workerName = workerName,
+    overtimeHours = overtimeHours,
+    overtimeAmount = overtimeAmount,
+)
+
+fun StaffCostsAnalyticsResponse.toDomain() = StaffCostsAnalytics(
+    totalSalaries = totalSalaries,
+    totalOvertime = totalOvertime,
+    totalCompensation = totalCompensation,
+    paidAmount = paidAmount,
+    unpaidAmount = unpaidAmount,
+    overtimeHours = overtimeHours,
+    workersCount = workersCount,
+    overtimePercentage = overtimePercentage,
+    topOvertimeWorkers = topOvertimeWorkers.map { it.toDomain() },
+)
+
 // ─── Worker Mappers ──────────────────────────────────────────────
 fun WorkerResponse.toDomain() = Worker(
     id = id, vendorId = vendorId, workerId = workerId,
@@ -656,7 +717,8 @@ fun SalaryPaymentResponse.toDomain() = SalaryPayment(
     workerName = workerName, periodType = periodType,
     periodStart = periodStart, periodEnd = periodEnd,
     workedDays = workedDays, workedHours = workedHours,
-    amount = amount, paid = paid, paidAt = paidAt,
+    amount = amount, overtimeHours = overtimeHours,
+    overtimeAmount = overtimeAmount, paid = paid, paidAt = paidAt,
     paidBy = paidBy, note = note, createdAt = createdAt
 )
 
@@ -665,7 +727,7 @@ fun OvertimeResponse.toDomain() = Overtime(
     id = id, vendorId = vendorId, workerId = workerId,
     workerName = workerName, date = date, hours = hours,
     ratePerHour = ratePerHour, amount = amount, note = note,
-    createdBy = createdBy, createdAt = createdAt
+    paid = paid, createdBy = createdBy, createdAt = createdAt
 )
 
 // ─── Customer Mappers ──────────────────────────────────────────
@@ -1026,6 +1088,7 @@ fun NotificationResponse.toDomain() = AppNotification(
     read = read,
     readAt = readAt,
     actionUrl = actionUrl,
+    platform = platform,
     createdAt = createdAt,
 )
 

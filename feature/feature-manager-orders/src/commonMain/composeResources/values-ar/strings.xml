@@ -53,6 +53,8 @@
     <string name="processing_refund">بيتعالج الاسترداد…</string>
     <string name="no_orders">مفيش طلبات</string>
     <string name="pay_now">ادفع دلوقتي</string>
+    <string name="split_payment">تقسيم الدفع</string>
+    <string name="copy_order_id">نسخ الرقم</string>
     <string name="processing_payment">بيتعالج الدفع…</string>
     <string name="load_more">حمّل المزيد</string>
     <string name="table_filter">الترابيزة</string>
@@ -61,4 +63,5 @@
     <string name="discount">الخصم</string>
     <string name="points_redeemed">نقاط مستبدلة</string>
     <string name="discount_reason">السبب</string>
+    <string name="scroll_to_top">الرجوع للأول</string>
 </resources>

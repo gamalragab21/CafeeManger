@@ -1,5 +1,6 @@
 package net.marllex.waselak.cashier.splitpayment
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,8 +13,11 @@ import net.marllex.waselak.core.model.OrderPayment
 import net.marllex.waselak.core.model.SplitPaymentSummary
 
 class SplitPaymentViewModel(
+    savedStateHandle: SavedStateHandle,
     private val splitPaymentRepository: SplitPaymentRepository,
 ) : ViewModel() {
+
+    private val navOrderId: String? = savedStateHandle["orderId"]
 
     data class UiState(
         val summary: SplitPaymentSummary? = null,
@@ -31,6 +35,10 @@ class SplitPaymentViewModel(
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    init {
+        if (!navOrderId.isNullOrBlank()) loadForOrder(navOrderId)
+    }
 
     fun onOrderIdInputChange(v: String) { _uiState.update { it.copy(orderIdInput = v) } }
 

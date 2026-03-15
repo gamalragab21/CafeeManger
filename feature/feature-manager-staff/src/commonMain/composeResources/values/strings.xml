@@ -101,6 +101,8 @@
     <string name="all_workers">All Workers</string>
     <string name="from_date">From Date</string>
     <string name="to_date">To Date</string>
+    <string name="select_start_date">Select Start Date</string>
+    <string name="select_end_date">Select End Date</string>
     <string name="filter_by_status">Filter by Status</string>
     <string name="auth_auto">Auto (Login)</string>
     <string name="this_week">This Week</string>
@@ -222,6 +224,14 @@
     <string name="set_rate_per_hour">Set Rate per Hour</string>
     <string name="overtime_hours_only">%1$s hrs</string>
     <string name="rate_not_set">Rate not set yet</string>
+    <string name="pay_overtime">Pay Overtime</string>
+    <string name="mark_unpaid">Mark Unpaid</string>
+    <string name="pay_selected_overtime">Pay %1$d Selected</string>
+    <string name="paid_overtime_total">Paid: %1$s EGP</string>
+    <string name="unpaid_overtime_total">Unpaid: %1$s EGP</string>
+    <string name="confirm_pay_overtime">Confirm Overtime Payment</string>
+    <string name="confirm_pay_overtime_message">Pay this overtime entry of %1$s EGP?</string>
+    <string name="confirm_pay_overtime_batch_message">Pay %1$d selected overtime entries totaling %2$s EGP?</string>
 
     <!-- Plan Limit -->
     <string name="plan_limit_reached">Plan Limit Reached</string>

@@ -50,48 +50,26 @@ fun CashDrawerScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.selectedTab == 0) {
-                if (uiState.hasOpenSession) {
-                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SmallFloatingActionButton(onClick = viewModel::showMovementDialog) { Icon(Icons.Default.SwapVert, contentDescription = stringResource(Res.string.movement)) }
-                        FloatingActionButton(onClick = viewModel::showCloseDialog, containerColor = MaterialTheme.colorScheme.error) { Icon(Icons.Default.Lock, contentDescription = stringResource(Res.string.close_drawer)) }
-                    }
-                } else {
-                    FloatingActionButton(onClick = viewModel::showOpenDialog, containerColor = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.LockOpen, contentDescription = stringResource(Res.string.open_drawer)) }
+            if (uiState.hasOpenSession) {
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SmallFloatingActionButton(onClick = viewModel::showMovementDialog) { Icon(Icons.Default.SwapVert, contentDescription = stringResource(Res.string.movement)) }
+                    FloatingActionButton(onClick = viewModel::showCloseDialog, containerColor = MaterialTheme.colorScheme.error) { Icon(Icons.Default.Lock, contentDescription = stringResource(Res.string.close_drawer)) }
                 }
+            } else {
+                FloatingActionButton(onClick = viewModel::showOpenDialog, containerColor = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.LockOpen, contentDescription = stringResource(Res.string.open_drawer)) }
             }
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
-                Tab(selected = uiState.selectedTab == 0, onClick = { viewModel.onTabChange(0) }, text = { Text(stringResource(Res.string.current_session)) })
-                Tab(selected = uiState.selectedTab == 1, onClick = { viewModel.onTabChange(1) }, text = { Text(stringResource(Res.string.history)) })
-            }
-
             when {
                 uiState.isLoading -> LoadingIndicator()
                 uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                uiState.selectedTab == 0 -> {
+                else -> {
                     val session = uiState.currentSession
                     if (session == null || session.isClosed) {
                         EmptyView(stringResource(Res.string.no_open_drawer))
                     } else {
                         CurrentSessionContent(session, uiState.summary, uiState.movements)
-                    }
-                }
-                else -> {
-                    if (uiState.sessions.isEmpty()) {
-                        EmptyView(stringResource(Res.string.no_session_history))
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                        ) {
-                            items(uiState.sessions, key = { it.id }) { session ->
-                                SessionCard(session)
-                            }
-                        }
                     }
                 }
             }

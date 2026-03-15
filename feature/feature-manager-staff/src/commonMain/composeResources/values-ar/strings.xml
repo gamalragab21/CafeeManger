@@ -99,6 +99,8 @@
     <string name="all_workers">كل العمال</string>
     <string name="from_date">من تاريخ</string>
     <string name="to_date">لحد تاريخ</string>
+    <string name="select_start_date">اختار تاريخ البداية</string>
+    <string name="select_end_date">اختار تاريخ النهاية</string>
     <string name="filter_by_status">فلتر حسب الحالة</string>
     <string name="auth_auto">تلقائي (تسجيل دخول)</string>
     <string name="this_week">الأسبوع ده</string>
@@ -221,6 +223,14 @@
     <string name="set_rate_per_hour">حدد سعر الساعة</string>
     <string name="overtime_hours_only">%1$s ساعة</string>
     <string name="rate_not_set">السعر مش محدد لسه</string>
+    <string name="pay_overtime">ادفع الأوفرتايم</string>
+    <string name="mark_unpaid">إلغاء الدفع</string>
+    <string name="pay_selected_overtime">ادفع %1$d محدد</string>
+    <string name="paid_overtime_total">مدفوع: %1$s ج.م</string>
+    <string name="unpaid_overtime_total">مش مدفوع: %1$s ج.م</string>
+    <string name="confirm_pay_overtime">تأكيد دفع الأوفرتايم</string>
+    <string name="confirm_pay_overtime_message">ادفع الأوفرتايم ده بقيمة %1$s ج.م؟</string>
+    <string name="confirm_pay_overtime_batch_message">ادفع %1$d أوفرتايم محدد بإجمالي %2$s ج.م؟</string>
 
     <!-- Plan Limit -->
     <string name="plan_limit_reached">وصلت لحد الباقة</string>

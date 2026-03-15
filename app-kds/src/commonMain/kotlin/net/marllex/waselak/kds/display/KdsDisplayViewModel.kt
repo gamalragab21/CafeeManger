@@ -2,6 +2,7 @@ package net.marllex.waselak.kds.display
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.KdsRepository
 import net.marllex.waselak.core.model.KdsOrder
 import net.marllex.waselak.core.model.KdsSummary
+import java.util.concurrent.atomic.AtomicInteger
 
 class KdsDisplayViewModel(
     private val kdsRepository: KdsRepository,
@@ -24,15 +26,16 @@ class KdsDisplayViewModel(
         val isLoading: Boolean = true,
         val error: String? = null,
         val selectedStation: String? = null,
-        val autoRefresh: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private var refreshJob: Job? = null
+    private val pendingUpdates = AtomicInteger(0)
+
     init {
         load()
-        startAutoRefresh()
     }
 
     fun load() {
@@ -48,13 +51,21 @@ class KdsDisplayViewModel(
         }
     }
 
-    private fun startAutoRefresh() {
-        viewModelScope.launch {
+    /** Start periodic polling — call when screen enters composition */
+    fun startPolling() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             while (true) {
-                delay(1_500)
-                if (_uiState.value.autoRefresh) load()
+                delay(1_500) // 1.5 seconds for dedicated KDS display
+                if (pendingUpdates.get() == 0) load()
             }
         }
+    }
+
+    /** Stop periodic polling — call when screen leaves composition */
+    fun stopPolling() {
+        refreshJob?.cancel()
+        refreshJob = null
     }
 
     fun onStationFilter(station: String?) {
@@ -74,14 +85,15 @@ class KdsDisplayViewModel(
                 summary = recalcSummary(state),
             )
         }
+        pendingUpdates.incrementAndGet()
         viewModelScope.launch {
             kdsRepository.updateItemStatus(itemId, status)
-                .onSuccess { load() }
                 .onFailure { e ->
                     // Revert on failure — reload from server
                     load()
                     _uiState.update { it.copy(error = e.message) }
                 }
+            pendingUpdates.decrementAndGet()
         }
     }
 
@@ -99,13 +111,14 @@ class KdsDisplayViewModel(
                 summary = recalcSummary(state),
             )
         }
+        pendingUpdates.incrementAndGet()
         viewModelScope.launch {
             kdsRepository.bulkUpdateStatus(orderId, itemIds, "READY")
-                .onSuccess { load() }
                 .onFailure { e ->
                     load()
                     _uiState.update { it.copy(error = e.message) }
                 }
+            pendingUpdates.decrementAndGet()
         }
     }
 

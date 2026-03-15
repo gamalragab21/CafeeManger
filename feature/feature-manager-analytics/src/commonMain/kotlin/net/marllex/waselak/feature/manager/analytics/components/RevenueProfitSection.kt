@@ -24,6 +24,7 @@ fun RevenueProfitSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.revenue_profit_hint),
     ) { data ->
         // Revenue metrics
         Row(

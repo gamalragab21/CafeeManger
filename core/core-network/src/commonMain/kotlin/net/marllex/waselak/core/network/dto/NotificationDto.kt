@@ -17,6 +17,7 @@ data class NotificationResponse(
     val read: Boolean = false,
     @SerialName("read_at") val readAt: Long? = null,
     @SerialName("action_url") val actionUrl: String? = null,
+    val platform: String? = null,
     @SerialName("created_at") val createdAt: Long,
 )
 
@@ -30,6 +31,7 @@ data class CreateNotificationRequest(
     val channel: String = "IN_APP",
     val priority: String = "NORMAL",
     @SerialName("action_url") val actionUrl: String? = null,
+    val platform: String? = null,
 )
 
 @Serializable

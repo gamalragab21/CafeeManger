@@ -31,6 +31,12 @@ fun CashierNotificationsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Auto-refresh notifications every 15 seconds while screen is visible
+    DisposableEffect(viewModel) {
+        viewModel.startPolling()
+        onDispose { viewModel.stopPolling() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

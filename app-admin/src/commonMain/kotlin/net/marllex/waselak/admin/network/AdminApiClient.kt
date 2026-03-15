@@ -877,6 +877,25 @@ class AdminApiClient(
             false
         }
     }
+
+    // ─── Notifications ───────────────────────────────────────────
+    suspend fun sendNotification(request: AdminSendNotificationRequest): Boolean {
+        val url = "$baseUrl/api/v1/cms/notifications/send"
+        Logger.d(TAG) { "POST $url type=${request.type}" }
+        return try {
+            val response: HttpResponse = client.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            val success = response.status.isSuccess()
+            Logger.i(TAG) { "sendNotification: ${response.status.value} success=$success" }
+            success
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "sendNotification EXCEPTION: ${e.message}" }
+            AppLogger.e(TAG, "sendNotification EXCEPTION: ${e.message}", e)
+            false
+        }
+    }
 }
 
 // Internal request DTOs used only by the API client

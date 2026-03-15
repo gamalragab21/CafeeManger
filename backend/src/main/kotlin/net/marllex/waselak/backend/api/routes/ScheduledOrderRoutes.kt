@@ -282,7 +282,7 @@ fun Route.scheduledOrderRoutes() {
                 "Invalid status: ${request.status}"
             }
 
-            transaction {
+            val updated = transaction {
                 val soUUID = UUID.fromString(id)
                 val now = Clock.System.now()
 
@@ -298,8 +298,16 @@ fun Route.scheduledOrderRoutes() {
                         it[notes] = request.notes
                     }
                 }
+
+                val row = ScheduledOrdersTable.selectAll().where {
+                    ScheduledOrdersTable.id eq soUUID
+                }.first()
+                val items = ScheduledOrderItemsTable.selectAll().where {
+                    ScheduledOrderItemsTable.scheduledOrderId eq soUUID
+                }.map { it.toScheduledOrderItemDto(id) }
+                row.toScheduledOrderDto(items)
             }
-            call.respond(HttpStatusCode.OK, mapOf("id" to id, "status" to request.status))
+            call.respond(HttpStatusCode.OK, updated)
         }
 
         // DELETE cancel a scheduled order

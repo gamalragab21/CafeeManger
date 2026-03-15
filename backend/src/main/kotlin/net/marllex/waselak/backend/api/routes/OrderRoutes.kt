@@ -974,6 +974,29 @@ fun Route.orderRoutes() {
                                         it[createdAt] = now
                                     }
                                 }
+                                // Stock alert notifications
+                                if (stockRow[StockTable.alertEnabled]) {
+                                    val minQty = stockRow[StockTable.minQuantity]
+                                    val itemName = stockRow[StockTable.itemName]
+                                    if (newQty <= BigDecimal.ZERO && oldQty > BigDecimal.ZERO) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "OUT_OF_STOCK",
+                                            title = "Out of Stock",
+                                            body = "'$itemName' is now out of stock",
+                                            priority = "HIGH",
+                                            actionUrl = "/stock",
+                                        )
+                                    } else if (newQty <= minQty && oldQty > minQty) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "LOW_STOCK",
+                                            title = "Low Stock Alert",
+                                            body = "'$itemName' is running low (${newQty.toPlainString()} remaining)",
+                                            actionUrl = "/stock",
+                                        )
+                                    }
+                                }
                             }
                         }
                         "RECIPE" -> {
@@ -1025,6 +1048,29 @@ fun Route.orderRoutes() {
                                         it[StockTransactionsTable.recipeId] = recipeId
                                         it[note] = "Recipe deduction: ${item[ItemsTable.name]} x${orderItem.quantity}"
                                         it[createdAt] = now
+                                    }
+                                }
+                                // Stock alert notifications for recipe ingredients
+                                if (stockRow[StockTable.alertEnabled]) {
+                                    val minQty = stockRow[StockTable.minQuantity]
+                                    val ingredientName = stockRow[StockTable.itemName]
+                                    if (newQty <= BigDecimal.ZERO && oldQty > BigDecimal.ZERO) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "OUT_OF_STOCK",
+                                            title = "Out of Stock",
+                                            body = "'$ingredientName' is now out of stock",
+                                            priority = "HIGH",
+                                            actionUrl = "/stock",
+                                        )
+                                    } else if (newQty <= minQty && oldQty > minQty) {
+                                        createSystemNotification(
+                                            vendorUUID = vendorUUID,
+                                            type = "LOW_STOCK",
+                                            title = "Low Stock Alert",
+                                            body = "'$ingredientName' is running low (${newQty.toPlainString()} remaining)",
+                                            actionUrl = "/stock",
+                                        )
                                     }
                                 }
                             }
@@ -1514,6 +1560,16 @@ fun Route.orderRoutes() {
                             }
                         }
                     }
+
+                    // Notification: ORDER_CANCELLED
+                    createSystemNotification(
+                        vendorUUID = UUID.fromString(principal.vendorId),
+                        type = "ORDER_CANCELLED",
+                        title = "Order Cancelled",
+                        body = "Order #${id.takeLast(6).uppercase()} has been cancelled",
+                        data = """{"orderId":"$id"}""",
+                        actionUrl = "/orders/$id",
+                    )
                 }
 
                 ActivityLogsTable.insert {
@@ -1618,6 +1674,16 @@ fun Route.orderRoutes() {
                     it[payload] = """{"reason":"${request.reason.replace("\"", "\\\"")}"}"""
                     it[createdAt] = now
                 }
+
+                // Notification: ORDER_REFUNDED
+                createSystemNotification(
+                    vendorUUID = UUID.fromString(principal.vendorId),
+                    type = "ORDER_REFUNDED",
+                    title = "Order Refunded",
+                    body = "Order #${id.takeLast(6).uppercase()} has been refunded. Reason: ${request.reason}",
+                    data = """{"orderId":"$id"}""",
+                    actionUrl = "/orders/$id",
+                )
 
                 // Return updated order DTO
                 val items = OrderItemsTable.selectAll().where { OrderItemsTable.orderId eq UUID.fromString(id) }

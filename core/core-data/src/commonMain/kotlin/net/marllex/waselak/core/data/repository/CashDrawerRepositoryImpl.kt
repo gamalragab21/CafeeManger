@@ -22,8 +22,8 @@ class CashDrawerRepositoryImpl(
         api.closeCashDrawer(CloseDrawerRequest(closingBalance, notes)).toDomain()
     }
 
-    override suspend fun getCurrentSession(): Result<CashDrawerSession> = runCatching {
-        api.getCurrentDrawerSession().toDomain()
+    override suspend fun getCurrentSession(): Result<CashDrawerSession?> = runCatching {
+        api.getCurrentDrawerSession()?.toDomain()
     }
 
     override suspend fun createMovement(type: String, amount: Double, reason: String?, orderId: String?): Result<CashMovement> = runCatching {

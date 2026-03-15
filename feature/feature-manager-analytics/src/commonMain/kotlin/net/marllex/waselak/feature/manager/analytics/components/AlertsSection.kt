@@ -27,6 +27,8 @@ fun AlertsSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.alerts_hint),
+        initiallyExpanded = true,
     ) { data ->
         if (data.isEmpty()) {
             Row(
@@ -55,6 +57,13 @@ fun AlertsSection(
             else
                 MaterialTheme.colorScheme.secondaryContainer
 
+            // Localize title based on alert type
+            val localizedTitle = localizeAlertTitle(alert.type) ?: alert.title
+            // Localize severity
+            val localizedSeverity = localizeAlertSeverity(alert.severity)
+            // Localize message
+            val localizedMessage = localizeAlertMessage(alert.type, alert.value, alert.threshold) ?: alert.message
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -66,12 +75,12 @@ fun AlertsSection(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = alert.title,
+                            text = localizedTitle,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = alert.severity,
+                            text = localizedSeverity,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = if (isCritical) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
@@ -79,7 +88,7 @@ fun AlertsSection(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = alert.message,
+                        text = localizedMessage,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -87,4 +96,38 @@ fun AlertsSection(
             if (index < data.size - 1) Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+private fun localizeAlertTitle(type: String): String? = when (type) {
+    "REVENUE_DROP" -> stringResource(Res.string.alert_title_revenue_drop)
+    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_title_high_cancellation)
+    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_title_high_refund)
+    "OUT_OF_STOCK" -> stringResource(Res.string.alert_title_out_of_stock)
+    "LOW_STOCK" -> stringResource(Res.string.alert_title_low_stock)
+    else -> null
+}
+
+@Composable
+private fun localizeAlertSeverity(severity: String): String = when (severity) {
+    "CRITICAL" -> stringResource(Res.string.alert_severity_critical)
+    "WARNING" -> stringResource(Res.string.alert_severity_warning)
+    else -> severity
+}
+
+@Composable
+private fun localizeAlertMessage(type: String, value: Double, threshold: Double): String? = when (type) {
+    "REVENUE_DROP" -> {
+        // value = currentRevenue, threshold = previousRevenue * 0.7
+        val dropPct = if (threshold > 0) {
+            val previousRevenue = threshold / 0.7
+            ((previousRevenue - value) / previousRevenue * 100.0)
+        } else 0.0
+        stringResource(Res.string.alert_msg_revenue_drop, String.format(java.util.Locale.US, "%.1f", dropPct))
+    }
+    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_msg_high_cancellation, String.format(java.util.Locale.US, "%.1f", value))
+    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_msg_high_refund, String.format(java.util.Locale.US, "%.1f", value))
+    "OUT_OF_STOCK" -> stringResource(Res.string.alert_msg_out_of_stock, value.toInt())
+    "LOW_STOCK" -> stringResource(Res.string.alert_msg_low_stock, value.toInt())
+    else -> null
 }

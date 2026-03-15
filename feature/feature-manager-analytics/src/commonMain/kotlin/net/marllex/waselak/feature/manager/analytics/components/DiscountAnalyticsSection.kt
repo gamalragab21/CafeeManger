@@ -24,6 +24,7 @@ fun DiscountAnalyticsSection(
         state = state,
         onRetry = onRetry,
         modifier = modifier,
+        description = stringResource(Res.string.discount_analytics_hint),
     ) { data ->
         // KPI cards row 1: discounted orders, total discount
         Row(
@@ -54,7 +55,7 @@ fun DiscountAnalyticsSection(
             )
             KpiCard(
                 label = stringResource(Res.string.discount_rate_label),
-                value = "${String.format("%.1f", data.discountRate)}%",
+                value = "${String.format(java.util.Locale.US, "%.1f", data.discountRate)}%",
                 modifier = Modifier.weight(1f),
             )
         }

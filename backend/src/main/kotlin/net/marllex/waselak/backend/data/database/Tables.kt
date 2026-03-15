@@ -16,6 +16,7 @@ object VendorsTable : UUIDTable("vendors") {
     val defaultDeliveryFee = decimal("default_delivery_fee", 10, 2).default(java.math.BigDecimal.ZERO)
     val storeType = varchar("store_type", 50).nullable()
     val enableTables = bool("enable_tables").default(true)
+    val enableKds = bool("enable_kds").default(true)
     val enableDineIn = bool("enable_dine_in").default(true)
     val enableDelivery = bool("enable_delivery").default(true)
     val enableTakeaway = bool("enable_takeaway").default(true)
@@ -412,6 +413,7 @@ object OvertimeTable : UUIDTable("overtime_entries") {
     val ratePerHour = decimal("rate_per_hour", 10, 2)
     val amount = decimal("amount", 10, 2) // hours * ratePerHour
     val note = text("note").nullable()
+    val paid = bool("paid").default(false)
     val createdBy = reference("created_by", UsersTable)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
@@ -810,6 +812,7 @@ object NotificationsTable : UUIDTable("notifications") {
     val read = bool("read").default(false)
     val readAt = timestamp("read_at").nullable()
     val actionUrl = text("action_url").nullable()                      // Deep link path (e.g., "/orders/{id}")
+    val platform = varchar("platform", 20).nullable()                    // null=all, ANDROID, DESKTOP, IOS
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 

@@ -8,6 +8,7 @@ import net.marllex.waselak.admin.viewmodel.LogsViewModel
 import net.marllex.waselak.admin.viewmodel.PlansViewModel
 import net.marllex.waselak.admin.viewmodel.SettingsViewModel
 import net.marllex.waselak.admin.viewmodel.VendorDetailViewModel
+import net.marllex.waselak.admin.viewmodel.AdminNotificationsViewModel
 import net.marllex.waselak.admin.viewmodel.VendorsViewModel
 import net.marllex.waselak.config.BuildConfig
 import org.koin.core.module.dsl.viewModel
@@ -23,4 +24,5 @@ val adminModule = module {
     viewModel { LogsViewModel(get()) }
     viewModel { SettingsViewModel(get(), get()) }
     viewModel { VendorDetailViewModel(get()) }
+    viewModel { AdminNotificationsViewModel(get()) }
 }

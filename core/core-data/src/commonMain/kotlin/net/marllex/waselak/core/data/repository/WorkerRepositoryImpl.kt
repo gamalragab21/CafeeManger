@@ -607,4 +607,37 @@ class WorkerRepositoryImpl constructor(
     }.onFailure { e ->
         AppLogger.e("WorkerRepo", "Failed to delete overtime: id=$id", e)
     }
+
+    override suspend fun markOvertimePaid(id: String): Result<Overtime> = runCatching {
+        AppLogger.d("WorkerRepo", "Marking overtime paid: id=$id")
+        val response = api.markOvertimePaid(id)
+        val entry = response.toDomain()
+        workerDao.insertOvertime(entry.toDbEntity())
+        AppLogger.i("WorkerRepo", "Overtime marked paid: id=$id")
+        entry
+    }.onFailure { e ->
+        AppLogger.e("WorkerRepo", "Failed to mark overtime paid: id=$id", e)
+    }
+
+    override suspend fun markOvertimeUnpaid(id: String): Result<Overtime> = runCatching {
+        AppLogger.d("WorkerRepo", "Marking overtime unpaid: id=$id")
+        val response = api.markOvertimeUnpaid(id)
+        val entry = response.toDomain()
+        workerDao.insertOvertime(entry.toDbEntity())
+        AppLogger.i("WorkerRepo", "Overtime marked unpaid: id=$id")
+        entry
+    }.onFailure { e ->
+        AppLogger.e("WorkerRepo", "Failed to mark overtime unpaid: id=$id", e)
+    }
+
+    override suspend fun batchPayOvertime(ids: List<String>): Result<List<Overtime>> = runCatching {
+        AppLogger.d("WorkerRepo", "Batch paying overtime: count=${ids.size}")
+        val response = api.batchPayOvertime(ids)
+        val entries = response.map { it.toDomain() }
+        workerDao.insertOvertimeEntries(entries.map { it.toDbEntity() })
+        AppLogger.i("WorkerRepo", "Batch pay overtime completed: count=${entries.size}")
+        entries
+    }.onFailure { e ->
+        AppLogger.e("WorkerRepo", "Failed to batch pay overtime", e)
+    }
 }

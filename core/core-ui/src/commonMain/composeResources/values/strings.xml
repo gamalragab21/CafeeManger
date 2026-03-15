@@ -420,6 +420,8 @@
 
     <!-- Split Payment -->
     <string name="split_payment">Split Payment</string>
+    <string name="copy_order_id">Copy ID</string>
+    <string name="order_id_copied">Order ID copied</string>
     <string name="add_payment">Add Payment</string>
     <string name="order_id">Order ID</string>
     <string name="load">Load</string>
@@ -489,6 +491,38 @@
     <string name="inactive">Inactive</string>
     <string name="supplier_label">Supplier: %1$s</string>
     <string name="po_items_total">Items: %1$d | Total: %2$s</string>
+    <!-- Purchase Order Management -->
+    <string name="create_purchase_order">Create Purchase Order</string>
+    <string name="select_supplier">Select Supplier</string>
+    <string name="add_item">Add Item</string>
+    <string name="select_item">Select Item</string>
+    <string name="quantity">Quantity</string>
+    <string name="unit_cost">Unit Cost</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="expected_delivery">Expected Delivery Date</string>
+    <string name="create_order">Create Order</string>
+    <string name="submit_order">Submit Order</string>
+    <string name="receive_items">Receive Items</string>
+    <string name="cancel_order">Cancel Order</string>
+    <string name="cancel_po_confirm">Are you sure you want to cancel this purchase order?</string>
+    <string name="po_details">Purchase Order Details</string>
+    <string name="requested_qty">Requested</string>
+    <string name="received_qty">Received</string>
+    <string name="batch_number">Batch Number</string>
+    <string name="expiry_date">Expiry Date</string>
+    <string name="no_items_added">No items added yet</string>
+    <string name="po_status_draft">Draft</string>
+    <string name="po_status_submitted">Submitted</string>
+    <string name="po_status_partially_received">Partially Received</string>
+    <string name="po_status_received">Received</string>
+    <string name="po_status_cancelled">Cancelled</string>
+    <string name="po_created_success">Purchase order created</string>
+    <string name="po_submitted_success">Purchase order submitted</string>
+    <string name="items_received_success">Items received successfully</string>
+    <string name="po_cancelled_success">Purchase order cancelled</string>
+    <string name="order_number">Order #%1$s</string>
+    <string name="no_expiry">No Expiry</string>
+    <string name="select_date">Select Date</string>
 
     <!-- Common - new -->
     <string name="refresh">Refresh</string>

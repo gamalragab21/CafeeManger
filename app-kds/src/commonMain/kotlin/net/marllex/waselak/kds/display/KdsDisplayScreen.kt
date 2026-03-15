@@ -25,6 +25,7 @@ import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LanguageSelector
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.util.VariantDisplayHelper
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -38,6 +39,12 @@ fun KdsDisplayScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
+
+    // Start/stop polling based on screen lifecycle
+    DisposableEffect(viewModel) {
+        viewModel.startPolling()
+        onDispose { viewModel.stopPolling() }
+    }
 
     if (showLanguageDialog) {
         AlertDialog(
@@ -287,7 +294,7 @@ private fun KdsItemRow(item: KdsOrderItem, onStatusChange: (String) -> Unit) {
                     fontWeight = FontWeight.Medium,
                 )
             }
-            item.variantOptions?.let {
+            VariantDisplayHelper.formatVariantSummary(item.variantOptions)?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodyMedium,

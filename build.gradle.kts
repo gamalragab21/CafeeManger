@@ -85,16 +85,47 @@ tasks.register("buildAllRelease") {
 
 // ── Deploy: Build + Upload to Google Drive ───────────────────────────────────
 
+// Deploy ALL (Android + Desktop)
 tasks.register<Exec>("deployAllDebug") {
     group = "deploy"
-    description = "Build all debug artifacts and upload to Google Drive"
+    description = "Build all debug artifacts (Android + Desktop) and upload to Google Drive"
     workingDir = rootDir
-    commandLine("bash", "scripts/deploy-to-drive.sh", "debug")
+    commandLine("bash", "scripts/deploy-to-drive.sh", "debug", "all")
 }
 
 tasks.register<Exec>("deployAllRelease") {
     group = "deploy"
-    description = "Build all release artifacts and upload to Google Drive"
+    description = "Build all release artifacts (Android + Desktop) and upload to Google Drive"
     workingDir = rootDir
-    commandLine("bash", "scripts/deploy-to-drive.sh", "release")
+    commandLine("bash", "scripts/deploy-to-drive.sh", "release", "all")
+}
+
+// Deploy Android only
+tasks.register<Exec>("deployAndroidDebug") {
+    group = "deploy"
+    description = "Build Android debug APKs and upload to Google Drive"
+    workingDir = rootDir
+    commandLine("bash", "scripts/deploy-to-drive.sh", "debug", "android")
+}
+
+tasks.register<Exec>("deployAndroidRelease") {
+    group = "deploy"
+    description = "Build Android release APKs and upload to Google Drive"
+    workingDir = rootDir
+    commandLine("bash", "scripts/deploy-to-drive.sh", "release", "android")
+}
+
+// Deploy Desktop only
+tasks.register<Exec>("deployDesktopDebug") {
+    group = "deploy"
+    description = "Build Desktop debug packages and upload to Google Drive"
+    workingDir = rootDir
+    commandLine("bash", "scripts/deploy-to-drive.sh", "debug", "desktop")
+}
+
+tasks.register<Exec>("deployDesktopRelease") {
+    group = "deploy"
+    description = "Build Desktop release packages and upload to Google Drive"
+    workingDir = rootDir
+    commandLine("bash", "scripts/deploy-to-drive.sh", "release", "desktop")
 }

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS overtime_entries (
     rate_per_hour REAL NOT NULL,
     amount REAL NOT NULL,
     note TEXT,
+    paid INTEGER NOT NULL DEFAULT 0,
     created_by TEXT NOT NULL,
     created_at INTEGER NOT NULL
 );
@@ -21,8 +22,8 @@ SELECT * FROM overtime_entries WHERE worker_id = ? ORDER BY date DESC;
 insertOvertime:
 INSERT OR REPLACE INTO overtime_entries (
     id, vendor_id, worker_id, worker_name, date,
-    hours, rate_per_hour, amount, note, created_by, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    hours, rate_per_hour, amount, note, paid, created_by, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteOvertime:
 DELETE FROM overtime_entries WHERE id = ?;

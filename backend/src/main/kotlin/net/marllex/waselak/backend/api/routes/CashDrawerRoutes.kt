@@ -278,7 +278,7 @@ fun Route.cashDrawerRoutes() {
             }
 
             if (session == null) {
-                call.respond(HttpStatusCode.OK, mapOf("session" to null as String?))
+                call.respond(HttpStatusCode.NoContent)
             } else {
                 call.respond(HttpStatusCode.OK, session)
             }

@@ -169,6 +169,7 @@ private fun VendorEditContent(
 
     // Channel toggles
     var enableTables by remember(vendor) { mutableStateOf(vendor.enable_tables) }
+    var enableKds by remember(vendor) { mutableStateOf(vendor.enable_kds) }
     var enableDineIn by remember(vendor) { mutableStateOf(vendor.enable_dine_in) }
     var enableDelivery by remember(vendor) { mutableStateOf(vendor.enable_delivery) }
     var enableTakeaway by remember(vendor) { mutableStateOf(vendor.enable_takeaway) }
@@ -301,6 +302,7 @@ private fun VendorEditContent(
         EditSectionHeader(stringResource(Res.string.channel_config))
 
         EditSwitchRow(stringResource(Res.string.enable_tables), enableTables) { enableTables = it }
+        EditSwitchRow(stringResource(Res.string.enable_kds), enableKds) { enableKds = it }
         EditSwitchRow(stringResource(Res.string.enable_dine_in), enableDineIn) { enableDineIn = it }
         EditSwitchRow(stringResource(Res.string.enable_delivery), enableDelivery) { enableDelivery = it }
         EditSwitchRow(stringResource(Res.string.enable_takeaway), enableTakeaway) { enableTakeaway = it }
@@ -379,6 +381,7 @@ private fun VendorEditContent(
                         store_type = storeType,
                         business_type = businessType,
                         enable_tables = enableTables,
+                        enable_kds = enableKds,
                         enable_dine_in = enableDineIn,
                         enable_delivery = enableDelivery,
                         enable_takeaway = enableTakeaway,
@@ -1058,6 +1061,7 @@ private fun VendorInfoCard(vendor: VendorDetailInfo) {
 
             Spacer(Modifier.height(12.dp))
             InfoRow(stringResource(Res.string.tables), if (vendor.enable_tables) enabledText else disabledText)
+            InfoRow(stringResource(Res.string.kds_label), if (vendor.enable_kds) enabledText else disabledText)
             InfoRow(stringResource(Res.string.tax), if (vendor.tax_enabled) "$enabledText (${vendor.default_tax_percent}%)" else disabledText)
             InfoRow(stringResource(Res.string.stock_mode), vendor.stock_mode)
         }

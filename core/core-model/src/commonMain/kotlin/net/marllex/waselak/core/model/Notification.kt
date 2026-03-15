@@ -12,7 +12,7 @@ data class AppNotification(
     val id: String,
     val vendorId: String,
     val userId: String? = null,
-    val type: String,                  // ORDER_NEW, ORDER_STATUS, LOW_STOCK, EXPIRY_ALERT, SCHEDULED_ORDER, PRESCRIPTION, ANNOUNCEMENT, SYSTEM
+    val type: String,
     val title: String,
     val body: String,
     val data: String? = null,          // JSON payload
@@ -21,6 +21,7 @@ data class AppNotification(
     val read: Boolean = false,
     val readAt: Long? = null,
     val actionUrl: String? = null,     // Deep link path
+    val platform: String? = null,      // null=all, ANDROID, DESKTOP, IOS
     val createdAt: Long,
 ) {
     val isRead: Boolean get() = read
@@ -51,8 +52,13 @@ data class DeviceToken(
 )
 
 enum class NotificationType {
-    ORDER_NEW, ORDER_STATUS, LOW_STOCK, EXPIRY_ALERT,
-    SCHEDULED_ORDER, PRESCRIPTION, ANNOUNCEMENT, SYSTEM;
+    ORDER_NEW, ORDER_STATUS, ORDER_CANCELLED, ORDER_REFUNDED,
+    LOW_STOCK, OUT_OF_STOCK, EXPIRY_ALERT,
+    SCHEDULED_ORDER, PRESCRIPTION,
+    PO_RECEIVED,
+    SUBSCRIPTION_EXPIRING, SUBSCRIPTION_EXPIRED,
+    ADMIN_ANNOUNCEMENT, SYSTEM_UPDATE,
+    ANNOUNCEMENT, SYSTEM;
 
     companion object {
         fun fromString(value: String): NotificationType =

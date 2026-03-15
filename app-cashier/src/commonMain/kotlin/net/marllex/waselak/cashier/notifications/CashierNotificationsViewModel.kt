@@ -2,6 +2,8 @@ package net.marllex.waselak.cashier.notifications
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +27,24 @@ class CashierNotificationsViewModel(
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private var refreshJob: Job? = null
+
     init { load() }
+
+    fun startPolling() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            while (true) {
+                delay(15_000)
+                silentLoad()
+            }
+        }
+    }
+
+    fun stopPolling() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
 
     fun load() {
         viewModelScope.launch {
@@ -33,6 +52,17 @@ class CashierNotificationsViewModel(
             notificationRepository.getNotifications()
                 .onSuccess { list -> _uiState.update { it.copy(notifications = list, isLoading = false) } }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+        }
+        viewModelScope.launch {
+            notificationRepository.getCount()
+                .onSuccess { c -> _uiState.update { it.copy(count = c) } }
+        }
+    }
+
+    private fun silentLoad() {
+        viewModelScope.launch {
+            notificationRepository.getNotifications()
+                .onSuccess { list -> _uiState.update { it.copy(notifications = list, error = null) } }
         }
         viewModelScope.launch {
             notificationRepository.getCount()

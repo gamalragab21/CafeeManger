@@ -8,6 +8,7 @@ package net.marllex.waselak.backend.domain.model
  */
 data class DomainDefaults(
     val enableTables: Boolean,
+    val enableKds: Boolean,
     val enableDineIn: Boolean,
     val enableDelivery: Boolean,
     val enableTakeaway: Boolean,
@@ -25,6 +26,7 @@ data class DomainDefaults(
         fun forType(businessType: String): DomainDefaults = when (businessType.uppercase()) {
             "RESTAURANT" -> DomainDefaults(
                 enableTables = true,
+                enableKds = true,
                 enableDineIn = true,
                 enableDelivery = true,
                 enableTakeaway = true,
@@ -36,6 +38,7 @@ data class DomainDefaults(
             )
             "CAFE" -> DomainDefaults(
                 enableTables = true,
+                enableKds = true,
                 enableDineIn = true,
                 enableDelivery = true,
                 enableTakeaway = true,
@@ -47,6 +50,7 @@ data class DomainDefaults(
             )
             "PHARMACY" -> DomainDefaults(
                 enableTables = false,
+                enableKds = false,
                 enableDineIn = false,
                 enableDelivery = true,
                 enableTakeaway = false,
@@ -58,6 +62,7 @@ data class DomainDefaults(
             )
             "BAKERY" -> DomainDefaults(
                 enableTables = false,
+                enableKds = true,
                 enableDineIn = false,
                 enableDelivery = true,
                 enableTakeaway = true,
@@ -69,6 +74,7 @@ data class DomainDefaults(
             )
             "SUPERMARKET" -> DomainDefaults(
                 enableTables = false,
+                enableKds = false,
                 enableDineIn = false,
                 enableDelivery = true,
                 enableTakeaway = false,
@@ -80,6 +86,7 @@ data class DomainDefaults(
             )
             "GROCERY" -> DomainDefaults(
                 enableTables = false,
+                enableKds = false,
                 enableDineIn = false,
                 enableDelivery = true,
                 enableTakeaway = false,
@@ -91,6 +98,7 @@ data class DomainDefaults(
             )
             "RETAIL" -> DomainDefaults(
                 enableTables = false,
+                enableKds = false,
                 enableDineIn = false,
                 enableDelivery = false,
                 enableTakeaway = false,
@@ -102,6 +110,7 @@ data class DomainDefaults(
             )
             "JUICE_BAR" -> DomainDefaults(
                 enableTables = true,
+                enableKds = true,
                 enableDineIn = true,
                 enableDelivery = true,
                 enableTakeaway = true,

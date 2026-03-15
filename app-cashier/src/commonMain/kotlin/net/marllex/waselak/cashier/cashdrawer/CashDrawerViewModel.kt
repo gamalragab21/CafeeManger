@@ -52,7 +52,7 @@ class CashDrawerViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             cashDrawerRepository.getCurrentSession()
                 .onSuccess { session ->
-                    _uiState.update { it.copy(currentSession = session, movements = session.movements, isLoading = false) }
+                    _uiState.update { it.copy(currentSession = session, movements = session?.movements ?: emptyList(), isLoading = false) }
                 }
                 .onFailure { _uiState.update { it.copy(currentSession = null, isLoading = false) } }
         }
@@ -60,10 +60,7 @@ class CashDrawerViewModel(
             cashDrawerRepository.getSummary()
                 .onSuccess { s -> _uiState.update { it.copy(summary = s) } }
         }
-        viewModelScope.launch {
-            cashDrawerRepository.getSessions()
-                .onSuccess { list -> _uiState.update { it.copy(sessions = list) } }
-        }
+        // Sessions are only loaded in manager app (cashier role lacks permission)
     }
 
     fun onTabChange(tab: Int) { _uiState.update { it.copy(selectedTab = tab) } }

@@ -91,6 +91,7 @@ data class Overtime(
     val ratePerHour: Double,
     val amount: Double,
     val note: String? = null,
+    val paid: Boolean = false,
     val createdBy: String,
     val createdAt: Long,
 )

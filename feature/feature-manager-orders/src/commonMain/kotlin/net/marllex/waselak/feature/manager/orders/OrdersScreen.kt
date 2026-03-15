@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -40,6 +41,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
@@ -62,6 +65,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -89,10 +93,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.shape.RoundedCornerShape
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.common.extensions.formatEpochMs
@@ -119,10 +121,10 @@ import org.koin.compose.viewmodel.koinViewModel
 fun OrdersScreen(
     viewModel: OrdersViewModel = koinViewModel(),
     onViewReceipt: ((String) -> Unit)? = null,
+    onSplitPayment: ((String) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     val fallbackViewReceipt: (String) -> Unit = remember(viewModel, platformActions) {
         { orderId ->
@@ -132,9 +134,13 @@ fun OrdersScreen(
         }
     }
 
-    // Auto-refresh when screen becomes visible
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+    // Load orders when screen appears + periodic polling to reflect KDS status changes.
+    // Uses simple LaunchedEffect instead of repeatOnLifecycle for cross-platform compatibility
+    // (Desktop lifecycle may not reach RESUMED state reliably).
+    LaunchedEffect(Unit) {
+        viewModel.loadOrders()
+        while (true) {
+            kotlinx.coroutines.delay(10_000) // refresh every 10 seconds
             viewModel.loadOrders()
         }
     }
@@ -210,41 +216,67 @@ fun OrdersScreen(
                     )
 
                     val gridColumns = if (screenWidth >= 1200.dp) 3 else if (screenWidth >= 700.dp) 2 else 1
+                    val gridState = rememberLazyGridState()
+                    val showScrollToTop by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(gridColumns),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(uiState.orders, key = { it.id }) { order ->
-                            OrderCard(
-                                order = order,
-                                onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
-                                onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
-                                onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
-                                    { viewModel.showEditOrder(order) }
-                                } else null,
-                                onPayNow = if (order.paymentStatus == PaymentStatus.PENDING) {
-                                    { viewModel.showPaymentDialog(order) }
-                                } else null,
-                            )
-                        }
-                        if (uiState.hasMore) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (uiState.isLoadingMore) {
-                                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                                    } else {
-                                        OutlinedButton(onClick = { viewModel.loadMoreOrders() }) {
-                                            Text(stringResource(Res.string.load_more))
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(gridColumns),
+                            state = gridState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(if (isTablet) 24.dp else 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(uiState.orders, key = { it.id }) { order ->
+                                OrderCard(
+                                    order = order,
+                                    onStatusUpdate = { viewModel.updateOrderStatus(order.id, it) },
+                                    onViewReceipt = { (onViewReceipt ?: fallbackViewReceipt)(order.id) },
+                                    onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
+                                        { viewModel.showEditOrder(order) }
+                                    } else null,
+                                    onPayNow = if (order.paymentStatus == PaymentStatus.PENDING) {
+                                        { viewModel.showPaymentDialog(order) }
+                                    } else null,
+                                    onSplitPayment = if (onSplitPayment != null) {
+                                        { onSplitPayment(order.id) }
+                                    } else null,
+                                    onCopyOrderId = { platformActions.copyToClipboard(order.id) },
+                                )
+                            }
+                            if (uiState.hasMore) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        if (uiState.isLoadingMore) {
+                                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                        } else {
+                                            OutlinedButton(onClick = { viewModel.loadMoreOrders() }) {
+                                                Text(stringResource(Res.string.load_more))
+                                            }
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        // Scroll to top FAB
+                        if (showScrollToTop) {
+                            SmallFloatingActionButton(
+                                onClick = { scope.launch { gridState.animateScrollToItem(0) } },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(16.dp),
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ) {
+                                Icon(
+                                    Icons.Filled.KeyboardArrowUp,
+                                    contentDescription = stringResource(Res.string.scroll_to_top),
+                                )
                             }
                         }
                     }
@@ -455,6 +487,8 @@ private fun OrderCard(
     onViewReceipt: () -> Unit,
     onEdit: (() -> Unit)? = null,
     onPayNow: (() -> Unit)? = null,
+    onSplitPayment: (() -> Unit)? = null,
+    onCopyOrderId: () -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -473,11 +507,24 @@ private fun OrderCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "#${order.id.takeLast(6).uppercase()}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "#${order.id.takeLast(6).uppercase()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        IconButton(
+                            onClick = onCopyOrderId,
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Text(
                         text = order.createdAt.formatEpochMs("MMM dd, yyyy hh:mm a"),
                         style = MaterialTheme.typography.bodySmall,
@@ -649,6 +696,16 @@ private fun OrderCard(
                         Icon(Icons.Default.Edit, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(Res.string.edit_order))
+                    }
+                }
+                if (onSplitPayment != null) {
+                    OutlinedButton(
+                        onClick = onSplitPayment,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Default.Payment, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(Res.string.split_payment))
                     }
                 }
             }

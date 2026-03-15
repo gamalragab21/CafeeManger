@@ -308,3 +308,67 @@ data class LoyaltyAnalyticsResponse(
     @SerialName("points_to_revenue") val pointsToRevenue: Double,
     @SerialName("daily_trend") val dailyTrend: List<DailyLoyaltyResponse>,
 )
+
+// ── Supplier Analytics ───────────────────────────────────────
+@Serializable
+data class TopSupplierResponse(
+    @SerialName("supplier_id") val supplierId: String,
+    @SerialName("supplier_name") val supplierName: String,
+    @SerialName("total_orders") val totalOrders: Int,
+    @SerialName("total_spent") val totalSpent: Double,
+    @SerialName("received_orders") val receivedOrders: Int,
+    @SerialName("pending_orders") val pendingOrders: Int,
+)
+
+@Serializable
+data class SupplierItemResponse(
+    @SerialName("stock_id") val stockId: String,
+    @SerialName("item_name") val itemName: String,
+    @SerialName("total_quantity") val totalQuantity: Double,
+    @SerialName("total_cost") val totalCost: Double,
+    @SerialName("order_count") val orderCount: Int,
+    val unit: String,
+)
+
+@Serializable
+data class MonthlyPurchaseResponse(
+    val month: String,
+    val total: Double,
+    @SerialName("order_count") val orderCount: Int,
+)
+
+@Serializable
+data class SupplierAnalyticsResponse(
+    @SerialName("total_suppliers") val totalSuppliers: Int,
+    @SerialName("active_suppliers") val activeSuppliers: Int,
+    @SerialName("total_purchase_orders") val totalPurchaseOrders: Int,
+    @SerialName("total_spent") val totalSpent: Double,
+    @SerialName("pending_orders") val pendingOrders: Int,
+    @SerialName("received_orders") val receivedOrders: Int,
+    @SerialName("average_order_value") val averageOrderValue: Double,
+    @SerialName("top_suppliers") val topSuppliers: List<TopSupplierResponse>,
+    @SerialName("top_items") val topItems: List<SupplierItemResponse>,
+    @SerialName("monthly_trend") val monthlyTrend: List<MonthlyPurchaseResponse>,
+)
+
+// ── Staff Costs Analytics ─────────────────────────────────────
+@Serializable
+data class WorkerOvertimeSummaryResponse(
+    @SerialName("worker_id") val workerId: String,
+    @SerialName("worker_name") val workerName: String,
+    @SerialName("overtime_hours") val overtimeHours: Double,
+    @SerialName("overtime_amount") val overtimeAmount: Double,
+)
+
+@Serializable
+data class StaffCostsAnalyticsResponse(
+    @SerialName("total_salaries") val totalSalaries: Double,
+    @SerialName("total_overtime") val totalOvertime: Double,
+    @SerialName("total_compensation") val totalCompensation: Double,
+    @SerialName("paid_amount") val paidAmount: Double,
+    @SerialName("unpaid_amount") val unpaidAmount: Double,
+    @SerialName("overtime_hours") val overtimeHours: Double,
+    @SerialName("workers_count") val workersCount: Int,
+    @SerialName("overtime_percentage") val overtimePercentage: Double,
+    @SerialName("top_overtime_workers") val topOvertimeWorkers: List<WorkerOvertimeSummaryResponse>,
+)

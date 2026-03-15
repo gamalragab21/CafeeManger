@@ -7,6 +7,7 @@ import net.marllex.waselak.core.common.di.dispatchersModule
 import net.marllex.waselak.core.data.di.dataModule
 import net.marllex.waselak.core.database.di.DatabaseDriverFactory
 import net.marllex.waselak.core.database.di.databaseModule
+import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.network.di.networkModule
 import net.marllex.waselak.feature.auth.LoginViewModel
 import net.marllex.waselak.feature.delivery.map.DeliveryMapViewModel
@@ -32,6 +33,7 @@ fun deliveryKoinModules() = listOf(
 
 private val platformModule = module {
     single { DatabaseDriverFactory(get<Context>()) }
+    single { NetworkMonitor(get<Context>()) }
     single(named("baseUrl")) { BuildConfig.BASE_URL }
     single(named("appName")) { "delivery" }
     single(named("hmacSecret")) { BuildConfig.HMAC_SECRET }

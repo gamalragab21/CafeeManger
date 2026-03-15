@@ -420,6 +420,8 @@
 
     <!-- Split Payment -->
     <string name="split_payment">تقسيم الدفع</string>
+    <string name="copy_order_id">نسخ الرقم</string>
+    <string name="order_id_copied">تم نسخ رقم الطلب</string>
     <string name="add_payment">إضافة دفعة</string>
     <string name="order_id">رقم الطلب</string>
     <string name="load">تحميل</string>
@@ -489,6 +491,38 @@
     <string name="inactive">غير نشط</string>
     <string name="supplier_label">المورد: %1$s</string>
     <string name="po_items_total">أصناف: %1$d | الإجمالي: %2$s</string>
+    <!-- Purchase Order Management -->
+    <string name="create_purchase_order">إنشاء أمر شراء</string>
+    <string name="select_supplier">اختار المورد</string>
+    <string name="add_item">أضف صنف</string>
+    <string name="select_item">اختار صنف</string>
+    <string name="quantity">الكمية</string>
+    <string name="unit_cost">تكلفة الوحدة</string>
+    <string name="subtotal">المجموع الفرعي</string>
+    <string name="expected_delivery">تاريخ التسليم المتوقع</string>
+    <string name="create_order">إنشاء الطلب</string>
+    <string name="submit_order">إرسال الطلب</string>
+    <string name="receive_items">استلام الأصناف</string>
+    <string name="cancel_order">إلغاء الطلب</string>
+    <string name="cancel_po_confirm">هل أنت متأكد من إلغاء أمر الشراء ده؟</string>
+    <string name="po_details">تفاصيل أمر الشراء</string>
+    <string name="requested_qty">المطلوب</string>
+    <string name="received_qty">المستلم</string>
+    <string name="batch_number">رقم الدفعة</string>
+    <string name="expiry_date">تاريخ الانتهاء</string>
+    <string name="no_items_added">مفيش أصناف متضافة لسه</string>
+    <string name="po_status_draft">مسودة</string>
+    <string name="po_status_submitted">تم الإرسال</string>
+    <string name="po_status_partially_received">تم الاستلام جزئياً</string>
+    <string name="po_status_received">تم الاستلام</string>
+    <string name="po_status_cancelled">ملغي</string>
+    <string name="po_created_success">تم إنشاء أمر الشراء</string>
+    <string name="po_submitted_success">تم إرسال أمر الشراء</string>
+    <string name="items_received_success">تم استلام الأصناف بنجاح</string>
+    <string name="po_cancelled_success">تم إلغاء أمر الشراء</string>
+    <string name="order_number">طلب #%1$s</string>
+    <string name="no_expiry">بدون تاريخ انتهاء</string>
+    <string name="select_date">اختار التاريخ</string>
 
     <!-- Common - new -->
     <string name="refresh">تحديث</string>

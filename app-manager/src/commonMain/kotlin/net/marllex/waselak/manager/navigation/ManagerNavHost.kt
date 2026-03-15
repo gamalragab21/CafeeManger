@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -139,6 +140,7 @@ import net.marllex.waselak.manager.returns.ReturnsScreen
 import net.marllex.waselak.manager.scheduledorders.ScheduledOrdersScreen
 import net.marllex.waselak.manager.suppliers.SuppliersScreen
 import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
+import net.marllex.waselak.manager.cashdrawer.ManagerCashDrawerScreen
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
@@ -922,6 +924,12 @@ private fun MoreTabContent(
                 )
             }
 
+            "cash_drawer" -> {
+                ManagerCashDrawerScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
             "settings" -> {
                 // Settings sub-level with its own nested screens
                 when (settingsSubScreen) {
@@ -1047,6 +1055,7 @@ private fun MoreTabContent(
                             Triple(Triple(Icons.Filled.Notifications, stringResource(CoreRes.string.notifications), Color(0xFF1565C0)), { activeSubScreen = "notifications" }, true),
                             Triple(Triple(Icons.Filled.LocalPharmacy, stringResource(CoreRes.string.drug_interactions), Color(0xFF2E7D32)), { activeSubScreen = "drug_interactions" }, features.hasDrugInteractions),
                             Triple(Triple(Icons.Filled.CreditCard, stringResource(CoreRes.string.customer_credit), Color(0xFF6A1B9A)), { activeSubScreen = "customer_credit" }, features.hasCustomerCredit),
+                            Triple(Triple(Icons.Filled.PointOfSale, stringResource(CoreRes.string.cash_drawer), Color(0xFF5D4037)), { activeSubScreen = "cash_drawer" }, true),
                         ).filter { it.third }
                         val storeItems = allStoreEntries.map { it.first }
                         val storeActions = allStoreEntries.map { it.second }

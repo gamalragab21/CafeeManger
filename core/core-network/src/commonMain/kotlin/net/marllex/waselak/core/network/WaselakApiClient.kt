@@ -478,6 +478,24 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("to", to)
         }.body()
 
+    suspend fun getStaffCostsAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): StaffCostsAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/staff-costs") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getSupplierAnalytics(
+        from: Long? = null,
+        to: Long? = null,
+    ): SupplierAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/supplier-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
     // ─── Export (streaming) ──────────────────────────────────────
 
     suspend fun exportOrdersPDF(from: Long, to: Long): HttpResponse =
@@ -749,6 +767,17 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun deleteOvertime(id: String): ApiSuccessResponse =
         client.delete("api/v1/overtime/$id").body()
 
+    suspend fun markOvertimePaid(id: String): OvertimeResponse =
+        client.patch("api/v1/overtime/$id/pay").body()
+
+    suspend fun markOvertimeUnpaid(id: String): OvertimeResponse =
+        client.patch("api/v1/overtime/$id/unpay").body()
+
+    suspend fun batchPayOvertime(ids: List<String>): List<OvertimeResponse> =
+        client.patch("api/v1/overtime/batch-pay") {
+            setBody(BatchPayOvertimeRequest(ids = ids))
+        }.body()
+
     // ─── Tax Places ──────────────────────────────────────────────────
 
     suspend fun getTaxPlaces(): List<TaxPlaceResponse> =
@@ -973,8 +1002,10 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
-    suspend fun getCurrentDrawerSession(): CashDrawerSessionResponse =
-        client.get("api/v1/cash-drawer/current").body()
+    suspend fun getCurrentDrawerSession(): CashDrawerSessionResponse? {
+        val response = client.get("api/v1/cash-drawer/current")
+        return if (response.status.value == 204) null else response.body()
+    }
 
     suspend fun createCashMovement(request: CreateCashMovementRequest): CashMovementResponse =
         client.post("api/v1/cash-drawer/movements") {

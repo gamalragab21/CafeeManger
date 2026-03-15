@@ -191,6 +191,17 @@ fun Route.kdsRoutes() {
                     it[kitchenStatus] = request.status
                 }
 
+                // If item starts COOKING and order is still CREATED, transition to IN_PROGRESS
+                if (request.status == "COOKING") {
+                    val currentOrderStatus = order[OrdersTable.status]
+                    if (currentOrderStatus == "CREATED") {
+                        OrdersTable.update({ OrdersTable.id eq orderId }) {
+                            it[status] = "IN_PROGRESS"
+                            it[updatedAt] = Clock.System.now()
+                        }
+                    }
+                }
+
                 // If all items in this order are now READY, update order status to READY
                 val allItems = OrderItemsTable.selectAll().where {
                     OrderItemsTable.orderId eq orderId
@@ -279,7 +290,17 @@ fun Route.kdsRoutes() {
                 }
 
                 // Auto-update order status based on items
-                if (request.status == "READY") {
+                if (request.status == "COOKING") {
+                    val currentOrderStatus = OrdersTable.selectAll().where {
+                        OrdersTable.id eq orderUUID
+                    }.first()[OrdersTable.status]
+                    if (currentOrderStatus == "CREATED") {
+                        OrdersTable.update({ OrdersTable.id eq orderUUID }) {
+                            it[status] = "IN_PROGRESS"
+                            it[updatedAt] = now
+                        }
+                    }
+                } else if (request.status == "READY") {
                     OrdersTable.update({ OrdersTable.id eq orderUUID }) {
                         it[status] = "READY"
                         it[updatedAt] = now

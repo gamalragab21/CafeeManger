@@ -44,8 +44,11 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -53,6 +56,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -61,8 +66,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -70,10 +78,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,6 +100,10 @@ import net.marllex.waselak.feature.cashier.pos.generated.resources.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import androidx.compose.runtime.collectAsState
 import net.marllex.waselak.core.model.CartItem
 import net.marllex.waselak.core.model.Item
@@ -844,7 +862,28 @@ private fun CartBottomSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                Text("Order Summary", style = MaterialTheme.typography.titleLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.order_summary),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    if (uiState.cart.isNotEmpty()) {
+                        IconButton(onClick = {
+                            viewModel.clearOrder()
+                            onDismiss()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = stringResource(Res.string.clear_cart),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -855,6 +894,60 @@ private fun CartBottomSheet(
                     onDecrease = { viewModel.updateCartQuantity(index, cartItem.quantity - 1) },
                     onRemove = { viewModel.removeFromCart(index) },
                 )
+            }
+
+            // ─── Applied Offer Card (with remove button) ──────────────────────
+            if (uiState.appliedOffer != null) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = stringResource(Res.string.applied_offer_label, uiState.appliedOffer!!.name),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.clearAppliedOffer() },
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(Res.string.remove_offer),
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // ─── Manual Discount Section (Collapsible) ─────────────────────────
@@ -1119,12 +1212,24 @@ private fun CartBottomSheet(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = stringResource(Res.string.offer_discount_row),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.offer_discount_row),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(Res.string.remove_offer),
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp).clickable { viewModel.clearAppliedOffer() },
+                            )
+                        }
                         Text(
                             text = "- ${CurrencyFormatter.formatDecimal(offerDiscount)}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -1488,6 +1593,127 @@ private fun CartBottomSheet(
                     label = { Text(stringResource(Res.string.notes_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            // Scheduled pickup date/time — only for PICKUP_LATER
+            if (uiState.channel == OrderChannel.PICKUP_LATER) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(Res.string.scheduled_pickup_time), style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    var showDatePicker by remember { mutableStateOf(false) }
+                    var showTimePicker by remember { mutableStateOf(false) }
+                    var selectedDateMillis by remember { mutableLongStateOf(uiState.scheduledFor ?: 0L) }
+                    var selectedHour by remember { mutableIntStateOf(12) }
+                    var selectedMinute by remember { mutableIntStateOf(0) }
+
+                    // Display selected date/time or prompt to pick
+                    if (uiState.scheduledFor != null) {
+                        val formatted = remember(uiState.scheduledFor) {
+                            val instant = Instant.fromEpochMilliseconds(uiState.scheduledFor!!)
+                            val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+                            "${local.dayOfMonth}/${local.monthNumber}/${local.year} ${local.hour.toString().padStart(2, '0')}:${local.minute.toString().padStart(2, '0')}"
+                        }
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { showDatePicker = true },
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Filled.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(Res.string.scheduled_for_label, formatted), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                TextButton(onClick = { viewModel.setScheduledFor(null) }) {
+                                    Text(stringResource(Res.string.clear_discount))
+                                }
+                            }
+                        }
+                    } else {
+                        val isScheduleError = hasAttemptedSubmit && uiState.scheduledFor == null
+                        OutlinedButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = if (isScheduleError) ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error) else ButtonDefaults.outlinedButtonColors(),
+                            border = if (isScheduleError) BorderStroke(1.dp, MaterialTheme.colorScheme.error) else ButtonDefaults.outlinedButtonBorder(true),
+                        ) {
+                            Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(Res.string.select_date) + " & " + stringResource(Res.string.select_time))
+                        }
+                        if (isScheduleError) {
+                            Text(
+                                stringResource(Res.string.scheduled_time_required),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                            )
+                        }
+                    }
+
+                    // Date picker dialog
+                    if (showDatePicker) {
+                        val datePickerState = rememberDatePickerState(
+                            initialSelectedDateMillis = if (selectedDateMillis > 0) selectedDateMillis else null,
+                            selectableDates = object : SelectableDates {
+                                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                                    return utcTimeMillis >= System.currentTimeMillis() - 86_400_000 // today or future
+                                }
+                            },
+                        )
+                        DatePickerDialog(
+                            onDismissRequest = { showDatePicker = false },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    datePickerState.selectedDateMillis?.let { millis ->
+                                        selectedDateMillis = millis
+                                        showDatePicker = false
+                                        showTimePicker = true
+                                    }
+                                }) { Text("OK") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(Res.string.cancel)) }
+                            },
+                        ) {
+                            DatePicker(state = datePickerState)
+                        }
+                    }
+
+                    // Time picker dialog
+                    if (showTimePicker) {
+                        val timePickerState = rememberTimePickerState(
+                            initialHour = selectedHour,
+                            initialMinute = selectedMinute,
+                        )
+                        AlertDialog(
+                            onDismissRequest = { showTimePicker = false },
+                            title = { Text(stringResource(Res.string.select_time)) },
+                            text = { TimePicker(state = timePickerState) },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    selectedHour = timePickerState.hour
+                                    selectedMinute = timePickerState.minute
+                                    // Combine date + time into epoch millis
+                                    val dateInstant = Instant.fromEpochMilliseconds(selectedDateMillis)
+                                    val tz = TimeZone.currentSystemDefault()
+                                    val localDate = dateInstant.toLocalDateTime(tz).date
+                                    val combined = kotlinx.datetime.LocalDateTime(localDate, kotlinx.datetime.LocalTime(selectedHour, selectedMinute))
+                                    val epochMs = combined.toInstant(tz).toEpochMilliseconds()
+                                    viewModel.setScheduledFor(epochMs)
+                                    showTimePicker = false
+                                }) { Text("OK") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(Res.string.cancel)) }
+                            },
+                        )
+                    }
+                }
             }
 
             // Payment method

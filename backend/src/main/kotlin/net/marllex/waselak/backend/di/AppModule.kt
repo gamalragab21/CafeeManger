@@ -20,4 +20,5 @@ val appModule = module {
     single { QrCodeService() }
     single { net.marllex.waselak.backend.domain.service.ExportService() }
     single { AnalyticsQueryService() }
+    single { NotificationService() }
 }

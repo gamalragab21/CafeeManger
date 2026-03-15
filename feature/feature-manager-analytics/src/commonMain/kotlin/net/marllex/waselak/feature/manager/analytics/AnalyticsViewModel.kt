@@ -60,6 +60,8 @@ class AnalyticsViewModel(
         val offersAnalytics: SectionState<OffersAnalytics> = SectionState.Loading,
         val discountAnalytics: SectionState<DiscountAnalytics> = SectionState.Loading,
         val loyaltyAnalytics: SectionState<LoyaltyAnalytics> = SectionState.Loading,
+        val staffCosts: SectionState<StaffCostsAnalytics> = SectionState.Loading,
+        val supplierAnalytics: SectionState<SupplierAnalytics> = SectionState.Loading,
         val exportState: ExportState = ExportState.Idle,
         val isFeatureGated: Boolean = false,
         val showFeatureNotAvailable: Boolean = false,
@@ -110,6 +112,8 @@ class AnalyticsViewModel(
                 "offersAnalytics" -> loadOffersAnalytics(from, to)
                 "discountAnalytics" -> loadDiscountAnalytics(from, to)
                 "loyaltyAnalytics" -> loadLoyaltyAnalytics(from, to)
+                "staffCosts" -> loadStaffCosts(from, to)
+                "supplierAnalytics" -> loadSupplierAnalytics(from, to)
             }
         }
     }
@@ -186,6 +190,8 @@ class AnalyticsViewModel(
                 offersAnalytics = SectionState.Loading,
                 discountAnalytics = SectionState.Loading,
                 loyaltyAnalytics = SectionState.Loading,
+                staffCosts = SectionState.Loading,
+                supplierAnalytics = SectionState.Loading,
             )
         }
 
@@ -204,11 +210,13 @@ class AnalyticsViewModel(
             val d11 = async { loadOffersAnalytics(from, to) }
             val d12 = async { loadDiscountAnalytics(from, to) }
             val d13 = async { loadLoyaltyAnalytics(from, to) }
+            val d14 = async { loadStaffCosts(from, to) }
+            val d15 = async { loadSupplierAnalytics(from, to) }
 
             // Await all (each one updates state independently)
             d1.await(); d2.await(); d3.await(); d4.await(); d5.await()
             d6.await(); d7.await(); d8.await(); d9.await(); d10.await()
-            d11.await(); d12.await(); d13.await()
+            d11.await(); d12.await(); d13.await(); d14.await(); d15.await()
         }
     }
 
@@ -290,6 +298,18 @@ class AnalyticsViewModel(
         analyticsRepository.getLoyaltyAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Success(data)) } }
             .onFailure { e -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadStaffCosts(from: Long, to: Long) {
+        analyticsRepository.getStaffCostsAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(staffCosts = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(staffCosts = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadSupplierAnalytics(from: Long, to: Long) {
+        analyticsRepository.getSupplierAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(supplierAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(supplierAnalytics = SectionState.Error(e.message ?: "Failed")) } }
     }
 
     // ── Date range calculation ───────────────────────────────────────

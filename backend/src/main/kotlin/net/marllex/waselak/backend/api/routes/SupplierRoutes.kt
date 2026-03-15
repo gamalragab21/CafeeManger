@@ -455,7 +455,17 @@ fun Route.supplierRoutes() {
                     it[updatedAt] = Clock.System.now()
                 }
             }
-            call.respond(HttpStatusCode.OK, mapOf("id" to id, "status" to "SUBMITTED"))
+            // Return full PO
+            val poUUID = UUID.fromString(id)
+            val po = transaction {
+                val row = PurchaseOrdersTable.selectAll().where { PurchaseOrdersTable.id eq poUUID }
+                    .first()
+                val items = PurchaseOrderItemsTable.selectAll().where {
+                    PurchaseOrderItemsTable.purchaseOrderId eq poUUID
+                }.map { it.toPurchaseOrderItemDto(id) }
+                row.toPurchaseOrderDto(items)
+            }
+            call.respond(HttpStatusCode.OK, po)
         }
 
         // POST receive items for a purchase order (adds stock + creates batches)
@@ -567,9 +577,32 @@ fun Route.supplierRoutes() {
                         it[notes] = request.notes
                     }
                 }
+
+                // Notification: PO_RECEIVED when fully received
+                if (newStatus == "RECEIVED") {
+                    val poNumber = poRow[PurchaseOrdersTable.orderNumber]
+                    createSystemNotification(
+                        vendorUUID = vendorUUID,
+                        type = "PO_RECEIVED",
+                        title = "Purchase Order Received",
+                        body = "PO #$poNumber has been fully received",
+                        data = """{"purchaseOrderId":"$id"}""",
+                        actionUrl = "/suppliers",
+                    )
+                }
             }
             trace.step("Purchase order items received")
-            call.respond(HttpStatusCode.OK, mapOf("id" to id, "received" to request.items.size))
+            // Return full PO
+            val poUUID2 = UUID.fromString(id)
+            val po = transaction {
+                val row = PurchaseOrdersTable.selectAll().where { PurchaseOrdersTable.id eq poUUID2 }
+                    .first()
+                val items = PurchaseOrderItemsTable.selectAll().where {
+                    PurchaseOrderItemsTable.purchaseOrderId eq poUUID2
+                }.map { it.toPurchaseOrderItemDto(id) }
+                row.toPurchaseOrderDto(items)
+            }
+            call.respond(HttpStatusCode.OK, po)
         }
 
         // DELETE cancel a purchase order -- MANAGER only
@@ -596,7 +629,7 @@ fun Route.supplierRoutes() {
                     it[updatedAt] = Clock.System.now()
                 }
             }
-            call.respond(HttpStatusCode.OK, mapOf("id" to id, "status" to "CANCELLED"))
+            call.respond(HttpStatusCode.OK, mapOf("success" to true))
         }
     }
 }

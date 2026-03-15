@@ -35,6 +35,7 @@ data class AdminVendorResponse(
     val default_delivery_fee: Double = 0.0,
     val store_type: String? = null,
     val enable_tables: Boolean = true,
+    val enable_kds: Boolean = true,
     val enable_dine_in: Boolean = true,
     val enable_delivery: Boolean = true,
     val enable_takeaway: Boolean = true,
@@ -65,6 +66,7 @@ data class AdminUpdateVendorRequest(
     val default_delivery_fee: Double? = null,
     val store_type: String? = null,
     val enable_tables: Boolean? = null,
+    val enable_kds: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
@@ -92,6 +94,7 @@ data class AdminCreateVendorRequest(
     // Channel flags — nullable = auto-configure from business_type
     val business_type: String = "RESTAURANT",
     val enable_tables: Boolean? = null,
+    val enable_kds: Boolean? = null,
     val enable_dine_in: Boolean? = null,
     val enable_delivery: Boolean? = null,
     val enable_takeaway: Boolean? = null,
@@ -309,6 +312,7 @@ private fun mapVendorRow(row: ResultRow, usersCount: Int = 0): AdminVendorRespon
         default_delivery_fee = row[VendorsTable.defaultDeliveryFee].toDouble(),
         store_type = row[VendorsTable.storeType],
         enable_tables = row[VendorsTable.enableTables],
+        enable_kds = row[VendorsTable.enableKds],
         enable_dine_in = row[VendorsTable.enableDineIn],
         enable_delivery = row[VendorsTable.enableDelivery],
         enable_takeaway = row[VendorsTable.enableTakeaway],
@@ -521,6 +525,7 @@ fun Route.adminRoutes() {
             val bt = request.business_type.uppercase()
             val defaults = DomainDefaults.forType(bt)
             val enableTables = request.enable_tables ?: defaults.enableTables
+            val enableKds = request.enable_kds ?: defaults.enableKds
             val enableDineIn = request.enable_dine_in ?: defaults.enableDineIn
             val enableDelivery = request.enable_delivery ?: defaults.enableDelivery
             val enableTakeaway = request.enable_takeaway ?: defaults.enableTakeaway
@@ -552,6 +557,7 @@ fun Route.adminRoutes() {
                     it[digitalMenuUrl] = request.digital_menu_url
                     it[businessType] = bt
                     it[VendorsTable.enableTables] = enableTables
+                    it[VendorsTable.enableKds] = enableKds
                     it[VendorsTable.enableDineIn] = enableDineIn
                     it[VendorsTable.enableDelivery] = enableDelivery
                     it[VendorsTable.enableTakeaway] = enableTakeaway
@@ -699,6 +705,7 @@ fun Route.adminRoutes() {
                     request.default_delivery_fee?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
                     request.store_type?.let { stmt[storeType] = it }
                     request.enable_tables?.let { stmt[enableTables] = it }
+                    request.enable_kds?.let { stmt[enableKds] = it }
                     request.enable_dine_in?.let { stmt[enableDineIn] = it }
                     request.enable_delivery?.let { stmt[enableDelivery] = it }
                     request.enable_takeaway?.let { stmt[enableTakeaway] = it }
