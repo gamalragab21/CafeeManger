@@ -408,13 +408,33 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # ── Upload to Dropbox ──────────────────────────────────────────────
+      - name: Get fresh Dropbox token
+        id: dropbox-token
+        env:
+          DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+          DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$DROPBOX_REFRESH_TOKEN" ]; then
+            echo "ERROR: DROPBOX_REFRESH_TOKEN secret is not set!"
+            exit 1
+          fi
+          TOKEN=$(curl -s -X POST https://api.dropboxapi.com/oauth2/token \
+            -d grant_type=refresh_token \
+            -d refresh_token="$DROPBOX_REFRESH_TOKEN" \
+            -d client_id="$DROPBOX_APP_KEY" \
+            -d client_secret="$DROPBOX_APP_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          echo "✅ Fresh Dropbox token obtained"
+
       - name: Upload artifacts to Dropbox
         env:
-          DROPBOX_ACCESS_TOKEN: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
+          DROPBOX_ACCESS_TOKEN: ${{ steps.dropbox-token.outputs.token }}
           APP_VERSION: ${{ steps.vars.outputs.version }}
         run: |
           if [ -z "$DROPBOX_ACCESS_TOKEN" ]; then
-            echo "ERROR: DROPBOX_ACCESS_TOKEN secret is not set!"
+            echo "ERROR: Failed to get Dropbox access token!"
             exit 1
           fi
 
