@@ -16,8 +16,8 @@ name: Waselak CI/CD
 on:
   push:
     tags: ['v*']
-  pull_request:
-    branches: [main]
+#  pull_request:
+#    branches: [main]
   workflow_dispatch:
     inputs:
       skip_upload:
@@ -554,34 +554,52 @@ jobs:
               return json.loads(resp.read())["access_token"]
 
           def upload_file(token, filepath, folder_id):
-              """Upload a file to Google Drive using multipart upload."""
+              """Upload a file to Google Drive using resumable upload (supports large files)."""
               filename = os.path.basename(filepath)
+              file_size = os.path.getsize(filepath)
+              print(f"  Uploading: {filename} ({file_size / 1024 / 1024:.1f} MB)...")
+
+              # Step 1: Initiate resumable upload
               metadata = json.dumps({"name": filename, "parents": [folder_id]}).encode()
-
-              # Build multipart body
-              boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-              with open(filepath, "rb") as f:
-                  file_data = f.read()
-
-              body = (
-                  f"--{boundary}\r\n"
-                  f'Content-Type: application/json; charset=UTF-8\r\n\r\n'
-              ).encode() + metadata + (
-                  f"\r\n--{boundary}\r\n"
-                  f"Content-Type: application/octet-stream\r\n\r\n"
-              ).encode() + file_data + f"\r\n--{boundary}--\r\n".encode()
-
               req = Request(
-                  "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-                  data=body,
+                  "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+                  data=metadata,
                   headers={
                       "Authorization": f"Bearer {token}",
-                      "Content-Type": f"multipart/related; boundary={boundary}",
+                      "Content-Type": "application/json; charset=UTF-8",
+                      "X-Upload-Content-Length": str(file_size),
                   },
               )
-              resp = urllib.request.urlopen(req)
-              result = json.loads(resp.read())
-              print(f"  Uploaded: {filename} (ID: {result['id']})")
+              try:
+                  resp = urllib.request.urlopen(req)
+              except urllib.error.HTTPError as e:
+                  print(f"  ERROR initiating upload ({e.code}): {e.read().decode()}")
+                  raise
+              upload_url = resp.headers["Location"]
+
+              # Step 2: Upload file content in chunks
+              chunk_size = 10 * 1024 * 1024  # 10MB chunks
+              with open(filepath, "rb") as f:
+                  offset = 0
+                  while offset < file_size:
+                      chunk = f.read(chunk_size)
+                      end = offset + len(chunk) - 1
+                      headers = {
+                          "Content-Length": str(len(chunk)),
+                          "Content-Range": f"bytes {offset}-{end}/{file_size}",
+                      }
+                      req = Request(upload_url, data=chunk, headers=headers, method="PUT")
+                      try:
+                          resp = urllib.request.urlopen(req)
+                          result = json.loads(resp.read())
+                          print(f"  Uploaded: {filename} (ID: {result['id']})")
+                      except urllib.error.HTTPError as e:
+                          if e.code == 308:  # Resume incomplete — expected for chunks
+                              offset += len(chunk)
+                              continue
+                          print(f"  ERROR uploading chunk ({e.code}): {e.read().decode()}")
+                          raise
+                      offset += len(chunk)
 
           # Get token
           token = get_access_token("/tmp/gsa-key.json")
