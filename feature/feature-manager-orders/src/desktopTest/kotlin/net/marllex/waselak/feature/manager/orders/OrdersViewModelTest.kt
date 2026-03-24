@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.PaginatedResult
+import net.marllex.waselak.core.domain.repository.ReturnRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.PaymentMethod
@@ -50,7 +52,9 @@ class OrdersViewModelTest {
         coEvery { userRepository.refreshUsers() } returns Result.success(emptyList())
         coEvery { tableRepository.refreshTables() } returns Result.success(emptyList())
 
-        viewModel = OrdersViewModel(orderRepository, userRepository, tableRepository)
+        val returnRepository = mockk<ReturnRepository>()
+        val itemRepository = mockk<ItemRepository>()
+        viewModel = OrdersViewModel(orderRepository, userRepository, tableRepository, returnRepository, itemRepository)
     }
 
     @AfterTest
