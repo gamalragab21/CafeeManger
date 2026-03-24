@@ -19,6 +19,7 @@
     <string name="nav_vendors">المحلات</string>
     <string name="nav_plans">الباقات</string>
     <string name="nav_analytics">التحليلات</string>
+    <string name="nav_releases">الإصدارات</string>
     <string name="nav_settings">الاعدادات</string>
 
     <!-- Home / Dashboard -->

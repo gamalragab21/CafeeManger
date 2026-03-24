@@ -19,6 +19,7 @@ import net.marllex.waselak.kds.profile.KdsProfileScreen
 
 private const val KDS_DISPLAY_ROUTE = "kds_display"
 private const val KDS_PROFILE_ROUTE = "kds_profile"
+private const val KDS_ABOUT_ROUTE = "kds_about"
 
 @Composable
 fun KdsNavHost(
@@ -73,6 +74,23 @@ fun KdsNavHost(
                         popUpTo(0) { inclusive = true }
                     }
                 },
+                onNavigateToAbout = {
+                    navController.navigate(KDS_ABOUT_ROUTE)
+                },
+            )
+        }
+
+        composable(KDS_ABOUT_ROUTE) {
+            val kdsApi = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+            net.marllex.waselak.core.ui.components.AboutScreen(
+                appName = "Waselak KDS",
+                versionName = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
+                versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                onCheckUpdate = {
+                    val resp = kdsApi.checkForUpdate("kds", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
+                    net.marllex.waselak.core.ui.components.UpdateInfo(hasUpdate = resp.hasUpdate, latestVersion = resp.latestVersion, updateStatus = resp.updateStatus, releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes, downloadUrl = resp.downloadUrl)
+                },
+                onNavigateBack = { navController.popBackStack() },
             )
         }
     }

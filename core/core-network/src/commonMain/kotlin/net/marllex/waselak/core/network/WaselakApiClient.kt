@@ -515,6 +515,15 @@ class WaselakApiClient(private val client: HttpClient) {
             to?.let { parameter("to", it) }
         }.body()
 
+    // ─── App Updates ────────────────────────────────────────────
+    suspend fun checkForUpdate(app: String, version: String, versionCode: Int, platform: String = "desktop"): CheckUpdateResponse =
+        client.get("api/v1/app/check-update") {
+            parameter("app", app)
+            parameter("version", version)
+            parameter("version_code", versionCode)
+            parameter("platform", platform)
+        }.body()
+
     // ─── Export (streaming) ──────────────────────────────────────
 
     suspend fun exportOrdersPDF(from: Long, to: Long): HttpResponse =
@@ -1308,4 +1317,6 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun unregisterDevice(token: String): ApiSuccessResponse =
         client.delete("api/v1/devices/$token").body()
+
+    // (duplicate removed — checkForUpdate is defined above)
 }

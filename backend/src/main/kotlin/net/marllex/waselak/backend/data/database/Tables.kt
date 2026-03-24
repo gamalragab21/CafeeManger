@@ -873,3 +873,17 @@ object RequestLogsTable : UUIDTable("request_logs") {
     val traceLog = text("trace_log").nullable()                  // JSON array of step-by-step trace entries from RouteTrace
     val createdAt = timestamp("created_at").default(Clock.System.now()).index()
 }
+
+// ─── App Releases (version management for auto-update) ──────────
+object AppReleasesTable : UUIDTable("app_releases") {
+    val versionName = varchar("version_name", 20)       // "1.2.0"
+    val versionCode = integer("version_code")            // 3
+    val updateStatus = varchar("update_status", 20).default("OPTIONAL") // OPTIONAL, MANDATORY
+    val releaseNotes = text("release_notes").nullable()
+    val releaseNotesAr = text("release_notes_ar").nullable()
+    val minVersionCode = integer("min_version_code").default(1) // Below this = forced update
+    val driveFolderId = varchar("drive_folder_id", 100).nullable() // Google Drive folder ID for this version
+    val isActive = bool("is_active").default(true)
+    val releasedAt = timestamp("released_at").default(Clock.System.now())
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}

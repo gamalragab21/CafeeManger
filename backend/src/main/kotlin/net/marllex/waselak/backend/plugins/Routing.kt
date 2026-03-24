@@ -96,6 +96,7 @@ fun Application.configureRouting() {
             exportRoutes() // Export data as PDF/Excel (MANAGER only)
             uploadRoutes() // File upload (multipart)
             logRoutes() // App log upload
+            appUpdateRoutes() // App version check & release management
         }
     }
 }

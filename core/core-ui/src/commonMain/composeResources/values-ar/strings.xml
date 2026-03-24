@@ -608,4 +608,21 @@
     <string name="orders_label_prescriptions">روشتات</string>
     <string name="orders_label_invoices">فواتير</string>
     <string name="order_number_label">%1$s #%2$s</string>
+
+    <!-- About & Updates -->
+    <string name="about_and_updates">عن التطبيق والتحديثات</string>
+    <string name="app_kds">Wasel POS - شاشة المطبخ</string>
+    <string name="about_version">الإصدار %1$s (بناء %2$d)</string>
+    <string name="check_for_updates">التحقق من التحديثات</string>
+    <string name="checking_for_updates">جاري التحقق من التحديثات...</string>
+    <string name="update_available">تحديث متاح</string>
+    <string name="update_available_version">الإصدار %1$s متاح</string>
+    <string name="release_notes">ملاحظات الإصدار</string>
+    <string name="download_update">تحميل التحديث</string>
+    <string name="up_to_date">التطبيق محدّث</string>
+    <string name="up_to_date_message">أنت تستخدم أحدث إصدار.</string>
+    <string name="update_check_failed">فشل التحقق من التحديثات</string>
+    <string name="mandatory_update_title">تحديث مطلوب</string>
+    <string name="mandatory_update_message">يجب تحديث التطبيق للاستمرار في استخدامه. يرجى تحميل أحدث إصدار.</string>
+    <string name="powered_by">مدعوم من Marllex</string>
 </resources>

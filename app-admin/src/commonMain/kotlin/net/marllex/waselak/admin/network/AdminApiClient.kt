@@ -896,6 +896,43 @@ class AdminApiClient(
             false
         }
     }
+
+    // ─── App Releases ──────────────────────────────────────────────
+
+    suspend fun getReleases(): List<AppReleaseDto> = try {
+        client.get("api/v1/admin/releases").body()
+    } catch (e: Exception) {
+        AppLogger.e(TAG, "getReleases failed: ${e.message}", e)
+        emptyList()
+    }
+
+    suspend fun createRelease(request: CreateReleaseRequest): AppReleaseDto? = try {
+        client.post("api/v1/admin/releases") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    } catch (e: Exception) {
+        AppLogger.e(TAG, "createRelease failed: ${e.message}", e)
+        null
+    }
+
+    suspend fun updateRelease(id: String, request: UpdateReleaseRequest): AppReleaseDto? = try {
+        client.put("api/v1/admin/releases/$id") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    } catch (e: Exception) {
+        AppLogger.e(TAG, "updateRelease failed: ${e.message}", e)
+        null
+    }
+
+    suspend fun deleteRelease(id: String): Boolean = try {
+        client.delete("api/v1/admin/releases/$id")
+        true
+    } catch (e: Exception) {
+        AppLogger.e(TAG, "deleteRelease failed: ${e.message}", e)
+        false
+    }
 }
 
 // Internal request DTOs used only by the API client

@@ -19,6 +19,7 @@
     <string name="nav_vendors">Vendors</string>
     <string name="nav_plans">Plans</string>
     <string name="nav_analytics">Analytics</string>
+    <string name="nav_releases">Releases</string>
     <string name="nav_settings">Settings</string>
 
     <!-- Home / Dashboard -->

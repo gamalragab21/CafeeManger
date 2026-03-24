@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CardGiftcard
@@ -143,8 +144,10 @@ import net.marllex.waselak.manager.taxplaces.TaxPlacesScreen
 import net.marllex.waselak.manager.cashdrawer.ManagerCashDrawerScreen
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.network.WaselakApiClient
+import net.marllex.waselak.core.ui.components.AboutScreen
 import net.marllex.waselak.core.ui.components.FeatureNotAvailableView
 import net.marllex.waselak.core.ui.components.UploadLogsCard
+import net.marllex.waselak.config.BuildConfig
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.core.qualifier.named
@@ -1038,6 +1041,27 @@ private fun MoreTabContent(
                 }
             }
 
+            "about" -> {
+                val profileApi = profileVm
+                AboutScreen(
+                    appName = "Waselak Manager",
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
+                    onCheckUpdate = {
+                        val api = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+                        val resp = api.checkForUpdate("manager", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+                        net.marllex.waselak.core.ui.components.UpdateInfo(
+                            hasUpdate = resp.hasUpdate,
+                            latestVersion = resp.latestVersion,
+                            updateStatus = resp.updateStatus,
+                            releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
+                            downloadUrl = resp.downloadUrl,
+                        )
+                    },
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
             else -> {
                 // More main screen with toolbar
                 TopAppBar(
@@ -1098,9 +1122,11 @@ private fun MoreTabContent(
 
                         val settingsItems = listOf(
                             Triple(Icons.Filled.Settings, stringResource(CoreRes.string.tab_settings), Color(0xFF546E7A)),
+                            Triple(Icons.Filled.Info, stringResource(CoreRes.string.about_and_updates), Color(0xFF37474F)),
                         )
                         val settingsActions = listOf<() -> Unit>(
                             { activeSubScreen = "settings" },
+                            { activeSubScreen = "about" },
                         )
                         MoreGrid(settingsItems, settingsActions, gridColumns)
 

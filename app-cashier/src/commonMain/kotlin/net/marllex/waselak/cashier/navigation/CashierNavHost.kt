@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Error
@@ -193,6 +194,7 @@ enum class CashierDrawerItem(
     SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
     CUSTOMER_CREDIT("cashier/customer_credit", "Customer Credit", Icons.Filled.CreditCard),
     RETURNS("cashier/returns", "Returns", Icons.Filled.Refresh),
+    ABOUT("cashier/about", "About", Icons.Filled.Info),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
 }
 
@@ -227,6 +229,7 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.SPLIT_PAYMENT -> stringResource(CoreRes.string.split_payment)
     CashierDrawerItem.CUSTOMER_CREDIT -> stringResource(CoreRes.string.customer_credit)
     CashierDrawerItem.RETURNS -> stringResource(CoreRes.string.returns_exchanges)
+    CashierDrawerItem.ABOUT -> stringResource(CoreRes.string.about_and_updates)
     CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
 }
 
@@ -1726,6 +1729,24 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.RETURNS.route) {
             net.marllex.waselak.cashier.returns.ReturnsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable(CashierDrawerItem.ABOUT.route) {
+            net.marllex.waselak.core.ui.components.AboutScreen(
+                appName = "Waselak Cashier",
+                versionName = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
+                versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                onCheckUpdate = {
+                    val resp = apiClient.checkForUpdate("cashier", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
+                    net.marllex.waselak.core.ui.components.UpdateInfo(
+                        hasUpdate = resp.hasUpdate,
+                        latestVersion = resp.latestVersion,
+                        updateStatus = resp.updateStatus,
+                        releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
+                        downloadUrl = resp.downloadUrl,
+                    )
+                },
                 onNavigateBack = { navController.popBackStack() },
             )
         }

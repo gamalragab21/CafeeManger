@@ -1,0 +1,65 @@
+# =============================================================================
+# Auto-Deploy Backend to VPS
+# =============================================================================
+# Triggers: push to main branch (backend changes only)
+# Flow: SSH into VPS → pull code → docker build → restart
+# =============================================================================
+
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'scripts/vps-deploy.sh'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            bash /opt/waselak/repo/scripts/vps-deploy.sh || {
+              # First deploy: clone and run
+              mkdir -p /opt/waselak
+              cd /opt/waselak
+              if [ ! -d repo ]; then
+                git clone --depth 1 --branch main https://github.com/gamalragab21/CafeeManger.git repo
+              fi
+              bash repo/scripts/vps-deploy.sh
+            }
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            echo "=== Docker containers ==="
+            cd /opt/waselak/repo/backend
+            docker compose -f docker-compose.prod.yml ps
+            echo ""
+            echo "=== Backend logs (last 10 lines) ==="
+            docker compose -f docker-compose.prod.yml logs --tail=10 backend

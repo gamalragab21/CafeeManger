@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Work
@@ -35,6 +36,7 @@ fun KdsProfileScreen(
     viewModel: KdsProfileViewModel = koinViewModel(),
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
+    onNavigateToAbout: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val apiClient = koinInject<WaselakApiClient>()
@@ -151,6 +153,21 @@ fun KdsProfileScreen(
                     AppLogger.clearLogs()
                 },
             )
+
+            // About & Updates
+            OutlinedButton(
+                onClick = onNavigateToAbout,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(Res.string.about_and_updates))
+            }
 
             // Sign Out
             SignOutButton(

@@ -987,3 +987,40 @@ data class AdminSendNotificationRequest(
     val platform: String? = null,            // null=all, ANDROID, DESKTOP, IOS
     val priority: String = "NORMAL",
 )
+
+// ─── App Releases DTOs ──────────────────────────────────────────
+@kotlinx.serialization.Serializable
+data class AppReleaseDto(
+    val id: String = "",
+    val version_name: String = "",
+    val version_code: Int = 0,
+    val update_status: String = "OPTIONAL",
+    val release_notes: String? = null,
+    val release_notes_ar: String? = null,
+    val min_version_code: Int = 1,
+    val drive_folder_id: String? = null,
+    val is_active: Boolean = true,
+    val released_at: Long = 0,
+    val created_at: Long = 0,
+)
+
+@kotlinx.serialization.Serializable
+data class CreateReleaseRequest(
+    val version_name: String,
+    val version_code: Int,
+    val update_status: String = "OPTIONAL",
+    val release_notes: String? = null,
+    val release_notes_ar: String? = null,
+    val min_version_code: Int = 1,
+    val drive_folder_id: String? = null,
+)
+
+@kotlinx.serialization.Serializable
+data class UpdateReleaseRequest(
+    val update_status: String? = null,
+    val release_notes: String? = null,
+    val release_notes_ar: String? = null,
+    val min_version_code: Int? = null,
+    val drive_folder_id: String? = null,
+    val is_active: Boolean? = null,
+)

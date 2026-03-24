@@ -75,3 +75,17 @@ data class DoctorStatsResponse(
     @SerialName("total_items") val totalItems: Int,
     @SerialName("total_revenue") val totalRevenue: Double,
 )
+
+@Serializable
+data class CheckUpdateResponse(
+    @SerialName("has_update") val hasUpdate: Boolean = false,
+    @SerialName("latest_version") val latestVersion: String = "",
+    @SerialName("latest_version_code") val latestVersionCode: Int = 0,
+    @SerialName("current_version") val currentVersion: String = "",
+    @SerialName("current_version_code") val currentVersionCode: Int = 0,
+    @SerialName("update_status") val updateStatus: String = "UP_TO_DATE",
+    @SerialName("release_notes") val releaseNotes: String? = null,
+    @SerialName("release_notes_ar") val releaseNotesAr: String? = null,
+    @SerialName("download_url") val downloadUrl: String? = null,
+    @SerialName("released_at") val releasedAt: Long? = null,
+)

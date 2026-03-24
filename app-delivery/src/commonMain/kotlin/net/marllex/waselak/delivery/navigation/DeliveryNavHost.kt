@@ -246,6 +246,7 @@ private fun DeliveryProfileScreen(
     vendor: Vendor?,
     onViewShiftSummary: () -> Unit,
     onSignOut: () -> Unit,
+    onNavigateToAbout: () -> Unit = {},
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isTablet = maxWidth >= 600.dp
@@ -503,40 +504,28 @@ private fun DeliveryProfileScreen(
                 }
             }
 
+            // About & Updates
+            item {
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onNavigateToAbout,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Store,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(CoreRes.string.about_and_updates))
+                }
+            }
+
             // Sign Out
             item {
                 Spacer(Modifier.height(8.dp))
                 SignOutButton(onSignOut = onSignOut)
-                Spacer(Modifier.height(16.dp))
-            }
-
-            // App Info
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = stringResource(CoreRes.string.app_delivery),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource(CoreRes.string.version_info),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        )
-                    }
-                }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -754,6 +743,23 @@ fun DeliveryNavHost(
                 vendor = vendor,
                 onViewShiftSummary = onViewShiftSummary,
                 onSignOut = onSignOut,
+                onNavigateToAbout = {
+                    navController.navigate("delivery/about")
+                },
+            )
+        }
+
+        composable("delivery/about") {
+            val deliveryApi = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+            net.marllex.waselak.core.ui.components.AboutScreen(
+                appName = "Waselak Delivery",
+                versionName = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
+                versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                onCheckUpdate = {
+                    val resp = deliveryApi.checkForUpdate("delivery", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
+                    net.marllex.waselak.core.ui.components.UpdateInfo(hasUpdate = resp.hasUpdate, latestVersion = resp.latestVersion, updateStatus = resp.updateStatus, releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes, downloadUrl = resp.downloadUrl)
+                },
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 

@@ -114,6 +114,7 @@ object DatabaseConfig {
                 SuppliersTable, PurchaseOrdersTable, PurchaseOrderItemsTable,
                 NotificationsTable, DeviceTokensTable,
                 ReservationsTable,
+                AppReleasesTable,
             )
 
             // Add enable_offline_mode to vendors

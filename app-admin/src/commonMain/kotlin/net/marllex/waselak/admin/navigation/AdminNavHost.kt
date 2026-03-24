@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Home
@@ -66,14 +67,14 @@ private data class NavItem(
     val icon: ImageVector,
 )
 
-// Logs tab removed — 6 items instead of 7
 private val navItems = listOf(
     NavItem(Res.string.nav_home, Icons.Default.Home),           // 0
     NavItem(Res.string.nav_vendors, Icons.Default.Store),       // 1
     NavItem(Res.string.nav_plans, Icons.Default.CreditCard),    // 2
     NavItem(Res.string.nav_analytics, Icons.Default.BarChart),  // 3
     NavItem(Res.string.nav_notifications, Icons.Default.Notifications), // 4
-    NavItem(Res.string.nav_settings, Icons.Default.Settings),   // 5
+    NavItem(Res.string.nav_releases, Icons.Default.Info), // 5
+    NavItem(Res.string.nav_settings, Icons.Default.Settings),   // 6
 )
 
 @Composable
@@ -277,7 +278,8 @@ private fun ScreenContent(
             2 -> PlansScreen()
             3 -> AnalyticsScreen()
             4 -> AdminNotificationsScreen()
-            5 -> SettingsScreen(onLogout = onLogout)
+            5 -> ReleasesScreen()
+            6 -> SettingsScreen(onLogout = onLogout)
         }
     }
 }

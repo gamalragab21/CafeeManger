@@ -1,0 +1,16 @@
+[Unit]
+Description=Waselak GitHub Webhook Listener
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/waselak
+ExecStart=/usr/bin/python3 /opt/waselak/repo/scripts/webhook-server.py --secret CHANGE_ME_WEBHOOK_SECRET --port 9000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
