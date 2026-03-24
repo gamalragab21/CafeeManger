@@ -1,90 +1,90 @@
-# =============================================================================
-# Test Dropbox Upload - Quick test to verify Dropbox connectivity
-# =============================================================================
-# Triggers: manual only (workflow_dispatch)
-# Creates a test folder and uploads a text file to verify everything works
-# =============================================================================
-
-name: Test Dropbox Upload
-
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  test-upload:
-    name: Test Dropbox Upload
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create test files
-        run: |
-          mkdir -p test-folder
-          echo "Waselak CI/CD Test Upload" > test-folder/test.txt
-          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> test-folder/test.txt
-          echo "Run ID: ${{ github.run_id }}" >> test-folder/test.txt
-          echo "Test file created:"
-          cat test-folder/test.txt
-
-      - name: Upload to Dropbox
-        env:
-          DROPBOX_ACCESS_TOKEN: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
-        run: |
-          if [ -z "$DROPBOX_ACCESS_TOKEN" ]; then
-            echo "ERROR: DROPBOX_ACCESS_TOKEN secret is not set!"
-            echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
-            echo "Add secret: DROPBOX_ACCESS_TOKEN"
-            exit 1
-          fi
-
-          VERSION="test-$(date -u '+%Y%m%d-%H%M%S')"
-          DROPBOX_FOLDER="/waselak-builds/$VERSION"
-
-          echo "=== Creating folder: $DROPBOX_FOLDER ==="
-          # Create folder
-          RESULT=$(curl -s -w "\n%{http_code}" -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
-            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"path\": \"$DROPBOX_FOLDER\", \"autorename\": false}")
-
-          HTTP_CODE=$(echo "$RESULT" | tail -1)
-          BODY=$(echo "$RESULT" | head -n -1)
-          echo "Create folder response ($HTTP_CODE): $BODY"
-
-          if [ "$HTTP_CODE" = "409" ]; then
-            echo "Folder already exists, continuing..."
-          elif [ "$HTTP_CODE" != "200" ]; then
-            echo "ERROR: Failed to create folder"
-            exit 1
-          fi
-
-          echo ""
-          echo "=== Uploading test.txt ==="
-          # Upload file
-          RESULT=$(curl -s -w "\n%{http_code}" -X POST https://content.dropboxapi.com/2/files/upload \
-            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_FOLDER/test.txt\", \"mode\": \"overwrite\"}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @test-folder/test.txt)
-
-          HTTP_CODE=$(echo "$RESULT" | tail -1)
-          BODY=$(echo "$RESULT" | head -n -1)
-          echo "Upload response ($HTTP_CODE): $BODY"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo ""
-            echo "✅ SUCCESS! File uploaded to Dropbox at: $DROPBOX_FOLDER/test.txt"
-            echo ""
-
-            # Create a shared link
-            LINK_RESULT=$(curl -s -X POST https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings \
-              -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"path\": \"$DROPBOX_FOLDER\", \"settings\": {\"requested_visibility\": \"public\"}}")
-            echo "Shared link: $LINK_RESULT"
-          else
-            echo "❌ FAILED to upload file"
-            exit 1
-          fi
+## =============================================================================
+## Test Dropbox Upload - Quick test to verify Dropbox connectivity
+## =============================================================================
+## Triggers: manual only (workflow_dispatch)
+## Creates a test folder and uploads a text file to verify everything works
+## =============================================================================
+#
+#name: Test Dropbox Upload
+#
+#on:
+#  workflow_dispatch:
+#  push:
+#    tags:
+#      - 'v*'
+#
+#jobs:
+#  test-upload:
+#    name: Test Dropbox Upload
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Create test files
+#        run: |
+#          mkdir -p test-folder
+#          echo "Waselak CI/CD Test Upload" > test-folder/test.txt
+#          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> test-folder/test.txt
+#          echo "Run ID: ${{ github.run_id }}" >> test-folder/test.txt
+#          echo "Test file created:"
+#          cat test-folder/test.txt
+#
+#      - name: Upload to Dropbox
+#        env:
+#          DROPBOX_ACCESS_TOKEN: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
+#        run: |
+#          if [ -z "$DROPBOX_ACCESS_TOKEN" ]; then
+#            echo "ERROR: DROPBOX_ACCESS_TOKEN secret is not set!"
+#            echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+#            echo "Add secret: DROPBOX_ACCESS_TOKEN"
+#            exit 1
+#          fi
+#
+#          VERSION="test-$(date -u '+%Y%m%d-%H%M%S')"
+#          DROPBOX_FOLDER="/waselak-builds/$VERSION"
+#
+#          echo "=== Creating folder: $DROPBOX_FOLDER ==="
+#          # Create folder
+#          RESULT=$(curl -s -w "\n%{http_code}" -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
+#            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+#            -H "Content-Type: application/json" \
+#            -d "{\"path\": \"$DROPBOX_FOLDER\", \"autorename\": false}")
+#
+#          HTTP_CODE=$(echo "$RESULT" | tail -1)
+#          BODY=$(echo "$RESULT" | head -n -1)
+#          echo "Create folder response ($HTTP_CODE): $BODY"
+#
+#          if [ "$HTTP_CODE" = "409" ]; then
+#            echo "Folder already exists, continuing..."
+#          elif [ "$HTTP_CODE" != "200" ]; then
+#            echo "ERROR: Failed to create folder"
+#            exit 1
+#          fi
+#
+#          echo ""
+#          echo "=== Uploading test.txt ==="
+#          # Upload file
+#          RESULT=$(curl -s -w "\n%{http_code}" -X POST https://content.dropboxapi.com/2/files/upload \
+#            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+#            -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_FOLDER/test.txt\", \"mode\": \"overwrite\"}" \
+#            -H "Content-Type: application/octet-stream" \
+#            --data-binary @test-folder/test.txt)
+#
+#          HTTP_CODE=$(echo "$RESULT" | tail -1)
+#          BODY=$(echo "$RESULT" | head -n -1)
+#          echo "Upload response ($HTTP_CODE): $BODY"
+#
+#          if [ "$HTTP_CODE" = "200" ]; then
+#            echo ""
+#            echo "✅ SUCCESS! File uploaded to Dropbox at: $DROPBOX_FOLDER/test.txt"
+#            echo ""
+#
+#            # Create a shared link
+#            LINK_RESULT=$(curl -s -X POST https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings \
+#              -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+#              -H "Content-Type: application/json" \
+#              -d "{\"path\": \"$DROPBOX_FOLDER\", \"settings\": {\"requested_visibility\": \"public\"}}")
+#            echo "Shared link: $LINK_RESULT"
+#          else
+#            echo "❌ FAILED to upload file"
+#            exit 1
+#          fi

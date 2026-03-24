@@ -354,7 +354,7 @@ jobs:
     if: >-
       startsWith(github.ref, 'refs/tags/v') &&
       (github.event.inputs.skip_upload != 'true')
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Checkout (for gradle.properties)
@@ -438,113 +438,109 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"path\": \"$DROPBOX_BASE/release\", \"autorename\": false}" || true
 
-          echo ""
-          echo "=== Uploading debug artifacts ==="
-          for FILE in all-artifacts/debug/*; do
-            if [ -f "$FILE" ]; then
-              FILENAME=$(basename "$FILE")
-              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
-              echo "  Uploading: $FILENAME ($(( FILESIZE / 1024 / 1024 )) MB)..."
+          # Upload all artifacts using Python (fast chunked upload)
+          python3 << 'PYEOF'
+          import os, json, urllib.request, urllib.parse, sys
 
-              if [ "$FILESIZE" -gt 150000000 ]; then
-                # Large file: use upload session (>150MB)
-                SESSION=$(curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/start \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"close\": false}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary '' | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])")
+          TOKEN = os.environ["DROPBOX_ACCESS_TOKEN"]
+          BASE = os.environ.get("DROPBOX_BASE", f"/waselak-builds/v{os.environ['APP_VERSION']}")
+          CHUNK = 50 * 1024 * 1024  # 50MB chunks
 
-                OFFSET=0
-                CHUNK_SIZE=104857600  # 100MB
-                while [ "$OFFSET" -lt "$FILESIZE" ]; do
-                  REMAINING=$((FILESIZE - OFFSET))
-                  if [ "$REMAINING" -lt "$CHUNK_SIZE" ]; then
-                    CHUNK_SIZE=$REMAINING
-                  fi
-                  dd if="$FILE" bs=1 skip=$OFFSET count=$CHUNK_SIZE 2>/dev/null | \
-                  curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/append_v2 \
-                    -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                    -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $OFFSET}, \"close\": false}" \
-                    -H "Content-Type: application/octet-stream" \
-                    --data-binary @- > /dev/null
-                  OFFSET=$((OFFSET + CHUNK_SIZE))
-                done
+          def upload_file(filepath, dropbox_path):
+              filename = os.path.basename(filepath)
+              filesize = os.path.getsize(filepath)
+              mb = filesize / 1024 / 1024
+              print(f"  Uploading: {filename} ({mb:.1f} MB)...")
 
-                curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/finish \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $FILESIZE}, \"commit\": {\"path\": \"$DROPBOX_BASE/debug/$FILENAME\", \"mode\": \"overwrite\"}}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary '' > /dev/null
-                echo "  ✅ Done: $FILENAME"
-              else
-                # Small file: simple upload
-                HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://content.dropboxapi.com/2/files/upload \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_BASE/debug/$FILENAME\", \"mode\": \"overwrite\"}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary @"$FILE")
-                if [ "$HTTP_CODE" = "200" ]; then
-                  echo "  ✅ Done: $FILENAME"
-                else
-                  echo "  ❌ Failed ($HTTP_CODE): $FILENAME"
-                fi
-              fi
-            fi
-          done
+              if filesize <= 150_000_000:
+                  # Simple upload for files <= 150MB
+                  with open(filepath, "rb") as f:
+                      data = f.read()
+                  req = urllib.request.Request(
+                      "https://content.dropboxapi.com/2/files/upload",
+                      data=data,
+                      headers={
+                          "Authorization": f"Bearer {TOKEN}",
+                          "Dropbox-API-Arg": json.dumps({"path": dropbox_path, "mode": "overwrite"}),
+                          "Content-Type": "application/octet-stream",
+                      },
+                  )
+                  try:
+                      urllib.request.urlopen(req)
+                      print(f"  ✅ Done: {filename}")
+                  except Exception as e:
+                      print(f"  ❌ Failed: {filename} - {e}")
+              else:
+                  # Chunked upload for large files
+                  # Start session
+                  req = urllib.request.Request(
+                      "https://content.dropboxapi.com/2/files/upload_session/start",
+                      data=b"",
+                      headers={
+                          "Authorization": f"Bearer {TOKEN}",
+                          "Dropbox-API-Arg": json.dumps({"close": False}),
+                          "Content-Type": "application/octet-stream",
+                      },
+                  )
+                  resp = urllib.request.urlopen(req)
+                  session_id = json.loads(resp.read())["session_id"]
 
-          echo ""
-          echo "=== Uploading release artifacts ==="
-          for FILE in all-artifacts/release/*; do
-            if [ -f "$FILE" ]; then
-              FILENAME=$(basename "$FILE")
-              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
-              echo "  Uploading: $FILENAME ($(( FILESIZE / 1024 / 1024 )) MB)..."
+                  # Upload chunks
+                  with open(filepath, "rb") as f:
+                      offset = 0
+                      while offset < filesize:
+                          chunk = f.read(CHUNK)
+                          if not chunk:
+                              break
+                          req = urllib.request.Request(
+                              "https://content.dropboxapi.com/2/files/upload_session/append_v2",
+                              data=chunk,
+                              headers={
+                                  "Authorization": f"Bearer {TOKEN}",
+                                  "Dropbox-API-Arg": json.dumps({
+                                      "cursor": {"session_id": session_id, "offset": offset},
+                                      "close": False,
+                                  }),
+                                  "Content-Type": "application/octet-stream",
+                              },
+                          )
+                          urllib.request.urlopen(req)
+                          offset += len(chunk)
+                          pct = int(offset * 100 / filesize)
+                          print(f"    {pct}% ({offset // 1024 // 1024}MB / {filesize // 1024 // 1024}MB)")
 
-              if [ "$FILESIZE" -gt 150000000 ]; then
-                # Large file: use upload session
-                SESSION=$(curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/start \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"close\": false}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary '' | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])")
+                  # Finish session
+                  req = urllib.request.Request(
+                      "https://content.dropboxapi.com/2/files/upload_session/finish",
+                      data=b"",
+                      headers={
+                          "Authorization": f"Bearer {TOKEN}",
+                          "Dropbox-API-Arg": json.dumps({
+                              "cursor": {"session_id": session_id, "offset": filesize},
+                              "commit": {"path": dropbox_path, "mode": "overwrite"},
+                          }),
+                          "Content-Type": "application/octet-stream",
+                      },
+                  )
+                  urllib.request.urlopen(req)
+                  print(f"  ✅ Done: {filename}")
 
-                OFFSET=0
-                CHUNK_SIZE=104857600
-                while [ "$OFFSET" -lt "$FILESIZE" ]; do
-                  REMAINING=$((FILESIZE - OFFSET))
-                  if [ "$REMAINING" -lt "$CHUNK_SIZE" ]; then
-                    CHUNK_SIZE=$REMAINING
-                  fi
-                  dd if="$FILE" bs=1 skip=$OFFSET count=$CHUNK_SIZE 2>/dev/null | \
-                  curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/append_v2 \
-                    -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                    -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $OFFSET}, \"close\": false}" \
-                    -H "Content-Type: application/octet-stream" \
-                    --data-binary @- > /dev/null
-                  OFFSET=$((OFFSET + CHUNK_SIZE))
-                done
+          # Upload debug
+          import glob
+          debug_files = sorted(glob.glob("all-artifacts/debug/*"))
+          if debug_files:
+              print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
+              for f in debug_files:
+                  upload_file(f, f"{BASE}/debug/{os.path.basename(f)}")
 
-                curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/finish \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $FILESIZE}, \"commit\": {\"path\": \"$DROPBOX_BASE/release/$FILENAME\", \"mode\": \"overwrite\"}}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary '' > /dev/null
-                echo "  ✅ Done: $FILENAME"
-              else
-                HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://content.dropboxapi.com/2/files/upload \
-                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-                  -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_BASE/release/$FILENAME\", \"mode\": \"overwrite\"}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary @"$FILE")
-                if [ "$HTTP_CODE" = "200" ]; then
-                  echo "  ✅ Done: $FILENAME"
-                else
-                  echo "  ❌ Failed ($HTTP_CODE): $FILENAME"
-                fi
-              fi
-            fi
-          done
+          # Upload release
+          release_files = sorted(glob.glob("all-artifacts/release/*"))
+          if release_files:
+              print(f"\n=== Uploading {len(release_files)} release artifacts ===")
+              for f in release_files:
+                  upload_file(f, f"{BASE}/release/{os.path.basename(f)}")
 
-          echo ""
-          echo "=== ✅ All artifacts uploaded to Dropbox at $DROPBOX_BASE ==="
+          total = len(debug_files) + len(release_files)
+          print(f"\n=== ✅ {total} files uploaded to Dropbox at {BASE} ===")
+          PYEOF
 
