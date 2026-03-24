@@ -129,3 +129,11 @@ tasks.register<Exec>("deployDesktopRelease") {
     workingDir = rootDir
     commandLine("bash", "scripts/deploy-to-drive.sh", "release", "desktop")
 }
+
+// Download CI artifacts from GitHub and upload to Google Drive
+tasks.register<Exec>("deployFromCI") {
+    group = "deploy"
+    description = "Download artifacts from GitHub Actions CI and upload to Google Drive"
+    workingDir = rootDir
+    commandLine("bash", "scripts/download-and-deploy.sh")
+}
