@@ -419,11 +419,20 @@ jobs:
             echo "ERROR: DROPBOX_REFRESH_TOKEN secret is not set!"
             exit 1
           fi
-          TOKEN=$(curl -s -X POST https://api.dropboxapi.com/oauth2/token \
+          RESPONSE=$(curl -s -X POST https://api.dropboxapi.com/oauth2/token \
             -d grant_type=refresh_token \
-            -d refresh_token="$DROPBOX_REFRESH_TOKEN" \
-            -d client_id="$DROPBOX_APP_KEY" \
-            -d client_secret="$DROPBOX_APP_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+            -d "refresh_token=$DROPBOX_REFRESH_TOKEN" \
+            -d "client_id=$DROPBOX_APP_KEY" \
+            -d "client_secret=$DROPBOX_APP_SECRET")
+          TOKEN=$(echo "$RESPONSE" | python3 -c "
+          import json,sys
+          data = json.load(sys.stdin)
+          if 'access_token' in data:
+              print(data['access_token'])
+          else:
+              print(f'ERROR: {json.dumps(data)}', file=sys.stderr)
+              sys.exit(1)
+          ")
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
           echo "✅ Fresh Dropbox token obtained"
