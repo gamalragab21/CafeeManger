@@ -408,166 +408,168 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # ── Upload to Dropbox ──────────────────────────────────────────────
-      - name: Get fresh Dropbox token
-        id: dropbox-token
+      - name: Upload artifacts to Dropbox
         env:
           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
           DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
           DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
-        run: |
-          if [ -z "$DROPBOX_REFRESH_TOKEN" ]; then
-            echo "ERROR: DROPBOX_REFRESH_TOKEN secret is not set!"
-            exit 1
-          fi
-          RESPONSE=$(curl -s -X POST https://api.dropboxapi.com/oauth2/token \
-            -d grant_type=refresh_token \
-            -d "refresh_token=$DROPBOX_REFRESH_TOKEN" \
-            -d "client_id=$DROPBOX_APP_KEY" \
-            -d "client_secret=$DROPBOX_APP_SECRET")
-          TOKEN=$(echo "$RESPONSE" | python3 -c "
-          import json,sys
-          data = json.load(sys.stdin)
-          if 'access_token' in data:
-              print(data['access_token'])
-          else:
-              print(f'ERROR: {json.dumps(data)}', file=sys.stderr)
-              sys.exit(1)
-          ")
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-          echo "✅ Fresh Dropbox token obtained"
-
-      - name: Upload artifacts to Dropbox
-        env:
-          DROPBOX_ACCESS_TOKEN: ${{ steps.dropbox-token.outputs.token }}
           APP_VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          if [ -z "$DROPBOX_ACCESS_TOKEN" ]; then
-            echo "ERROR: Failed to get Dropbox access token!"
-            exit 1
-          fi
-
-          DROPBOX_BASE="/waselak-builds/v${APP_VERSION}"
-
-          echo "=== Creating folders ==="
-          # Create version folder
-          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
-            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"path\": \"$DROPBOX_BASE\", \"autorename\": false}" || true
-
-          # Create debug + release subfolders
-          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
-            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"path\": \"$DROPBOX_BASE/debug\", \"autorename\": false}" || true
-
-          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
-            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"path\": \"$DROPBOX_BASE/release\", \"autorename\": false}" || true
-
-          # Upload all artifacts using Python (fast chunked upload)
           python3 << 'PYEOF'
-          import os, json, urllib.request, urllib.parse, sys
+          import os, json, urllib.request, urllib.parse, urllib.error, sys, glob, time
 
-          TOKEN = os.environ["DROPBOX_ACCESS_TOKEN"]
-          BASE = os.environ.get("DROPBOX_BASE", f"/waselak-builds/v{os.environ['APP_VERSION']}")
-          CHUNK = 50 * 1024 * 1024  # 50MB chunks
+          APP_KEY = os.environ["DROPBOX_APP_KEY"]
+          APP_SECRET = os.environ["DROPBOX_APP_SECRET"]
+          REFRESH_TOKEN = os.environ["DROPBOX_REFRESH_TOKEN"]
+          VERSION = os.environ["APP_VERSION"]
+          BASE = f"/waselak-builds/v{VERSION}"
+          CHUNK = 50 * 1024 * 1024  # 50MB
 
-          def upload_file(filepath, dropbox_path):
+          def get_fresh_token():
+              """Get a fresh access token using refresh token."""
+              data = urllib.parse.urlencode({
+                  "grant_type": "refresh_token",
+                  "refresh_token": REFRESH_TOKEN,
+                  "client_id": APP_KEY,
+                  "client_secret": APP_SECRET,
+              }).encode()
+              req = urllib.request.Request("https://api.dropboxapi.com/oauth2/token", data=data)
+              resp = urllib.request.urlopen(req)
+              token = json.loads(resp.read())["access_token"]
+              print("🔑 Fresh token obtained")
+              return token
+
+          def create_folder(token, path):
+              """Create folder, ignore if exists."""
+              try:
+                  req = urllib.request.Request(
+                      "https://api.dropboxapi.com/2/files/create_folder_v2",
+                      data=json.dumps({"path": path, "autorename": False}).encode(),
+                      headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                  )
+                  urllib.request.urlopen(req)
+                  print(f"  📁 Created: {path}")
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  if "conflict" in body or e.code == 409:
+                      print(f"  📁 Exists: {path}")
+                  else:
+                      print(f"  ⚠️ Folder error ({e.code}): {body[:200]}")
+
+          def upload_small(token, filepath, dropbox_path):
+              """Upload file <= 150MB."""
+              with open(filepath, "rb") as f:
+                  data = f.read()
+              req = urllib.request.Request(
+                  "https://content.dropboxapi.com/2/files/upload",
+                  data=data,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Dropbox-API-Arg": json.dumps({"path": dropbox_path, "mode": "overwrite"}),
+                      "Content-Type": "application/octet-stream",
+                  },
+              )
+              urllib.request.urlopen(req)
+
+          def upload_large(token, filepath, dropbox_path, filesize):
+              """Upload file > 150MB using upload sessions."""
+              # Start session
+              req = urllib.request.Request(
+                  "https://content.dropboxapi.com/2/files/upload_session/start",
+                  data=b"",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Dropbox-API-Arg": json.dumps({"close": False}),
+                      "Content-Type": "application/octet-stream",
+                  },
+              )
+              resp = urllib.request.urlopen(req)
+              session_id = json.loads(resp.read())["session_id"]
+
+              with open(filepath, "rb") as f:
+                  offset = 0
+                  while offset < filesize:
+                      chunk = f.read(CHUNK)
+                      if not chunk:
+                          break
+                      for attempt in range(3):
+                          try:
+                              req = urllib.request.Request(
+                                  "https://content.dropboxapi.com/2/files/upload_session/append_v2",
+                                  data=chunk,
+                                  headers={
+                                      "Authorization": f"Bearer {token}",
+                                      "Dropbox-API-Arg": json.dumps({
+                                          "cursor": {"session_id": session_id, "offset": offset},
+                                          "close": False,
+                                      }),
+                                      "Content-Type": "application/octet-stream",
+                                  },
+                              )
+                              urllib.request.urlopen(req)
+                              break
+                          except urllib.error.HTTPError as e:
+                              if attempt < 2:
+                                  print(f"    ⚠️ Retry chunk at {offset} (attempt {attempt+2}/3)")
+                                  time.sleep(2)
+                                  if e.code == 401:
+                                      token = get_fresh_token()
+                              else:
+                                  raise
+                      offset += len(chunk)
+                      pct = int(offset * 100 / filesize)
+                      print(f"    {pct}% ({offset // 1024 // 1024}MB / {filesize // 1024 // 1024}MB)")
+
+              # Finish
+              req = urllib.request.Request(
+                  "https://content.dropboxapi.com/2/files/upload_session/finish",
+                  data=b"",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Dropbox-API-Arg": json.dumps({
+                          "cursor": {"session_id": session_id, "offset": filesize},
+                          "commit": {"path": dropbox_path, "mode": "overwrite"},
+                      }),
+                      "Content-Type": "application/octet-stream",
+                  },
+              )
+              urllib.request.urlopen(req)
+              return token
+
+          def upload_file(token, filepath, dropbox_path):
               filename = os.path.basename(filepath)
               filesize = os.path.getsize(filepath)
               mb = filesize / 1024 / 1024
-              print(f"  Uploading: {filename} ({mb:.1f} MB)...")
+              print(f"  📤 {filename} ({mb:.1f} MB)...")
+              try:
+                  if filesize <= 150_000_000:
+                      upload_small(token, filepath, dropbox_path)
+                  else:
+                      token = upload_large(token, filepath, dropbox_path, filesize)
+                  print(f"  ✅ {filename}")
+              except Exception as e:
+                  print(f"  ❌ {filename} - {e}")
+              return token
 
-              if filesize <= 150_000_000:
-                  # Simple upload for files <= 150MB
-                  with open(filepath, "rb") as f:
-                      data = f.read()
-                  req = urllib.request.Request(
-                      "https://content.dropboxapi.com/2/files/upload",
-                      data=data,
-                      headers={
-                          "Authorization": f"Bearer {TOKEN}",
-                          "Dropbox-API-Arg": json.dumps({"path": dropbox_path, "mode": "overwrite"}),
-                          "Content-Type": "application/octet-stream",
-                      },
-                  )
-                  try:
-                      urllib.request.urlopen(req)
-                      print(f"  ✅ Done: {filename}")
-                  except Exception as e:
-                      print(f"  ❌ Failed: {filename} - {e}")
-              else:
-                  # Chunked upload for large files
-                  # Start session
-                  req = urllib.request.Request(
-                      "https://content.dropboxapi.com/2/files/upload_session/start",
-                      data=b"",
-                      headers={
-                          "Authorization": f"Bearer {TOKEN}",
-                          "Dropbox-API-Arg": json.dumps({"close": False}),
-                          "Content-Type": "application/octet-stream",
-                      },
-                  )
-                  resp = urllib.request.urlopen(req)
-                  session_id = json.loads(resp.read())["session_id"]
+          # === Main ===
+          token = get_fresh_token()
 
-                  # Upload chunks
-                  with open(filepath, "rb") as f:
-                      offset = 0
-                      while offset < filesize:
-                          chunk = f.read(CHUNK)
-                          if not chunk:
-                              break
-                          req = urllib.request.Request(
-                              "https://content.dropboxapi.com/2/files/upload_session/append_v2",
-                              data=chunk,
-                              headers={
-                                  "Authorization": f"Bearer {TOKEN}",
-                                  "Dropbox-API-Arg": json.dumps({
-                                      "cursor": {"session_id": session_id, "offset": offset},
-                                      "close": False,
-                                  }),
-                                  "Content-Type": "application/octet-stream",
-                              },
-                          )
-                          urllib.request.urlopen(req)
-                          offset += len(chunk)
-                          pct = int(offset * 100 / filesize)
-                          print(f"    {pct}% ({offset // 1024 // 1024}MB / {filesize // 1024 // 1024}MB)")
+          print("=== Creating folders ===")
+          create_folder(token, BASE)
+          create_folder(token, f"{BASE}/debug")
+          create_folder(token, f"{BASE}/release")
 
-                  # Finish session
-                  req = urllib.request.Request(
-                      "https://content.dropboxapi.com/2/files/upload_session/finish",
-                      data=b"",
-                      headers={
-                          "Authorization": f"Bearer {TOKEN}",
-                          "Dropbox-API-Arg": json.dumps({
-                              "cursor": {"session_id": session_id, "offset": filesize},
-                              "commit": {"path": dropbox_path, "mode": "overwrite"},
-                          }),
-                          "Content-Type": "application/octet-stream",
-                      },
-                  )
-                  urllib.request.urlopen(req)
-                  print(f"  ✅ Done: {filename}")
-
-          # Upload debug
-          import glob
           debug_files = sorted(glob.glob("all-artifacts/debug/*"))
           if debug_files:
               print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
               for f in debug_files:
-                  upload_file(f, f"{BASE}/debug/{os.path.basename(f)}")
+                  token = upload_file(token, f, f"{BASE}/debug/{os.path.basename(f)}")
 
-          # Upload release
           release_files = sorted(glob.glob("all-artifacts/release/*"))
           if release_files:
               print(f"\n=== Uploading {len(release_files)} release artifacts ===")
               for f in release_files:
-                  upload_file(f, f"{BASE}/release/{os.path.basename(f)}")
+                  token = upload_file(token, f, f"{BASE}/release/{os.path.basename(f)}")
 
           total = len(debug_files) + len(release_files)
           print(f"\n=== ✅ {total} files uploaded to Dropbox at {BASE} ===")
