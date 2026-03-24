@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.ThemeState
 import net.marllex.waselak.admin.util.LocalWindowSizeClass
 import net.marllex.waselak.admin.util.UiMessage
@@ -347,6 +349,104 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
 
             // ─── Logout Button ────────────────────────────────
+            // ─── Social Links / App Settings ─────────────
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                stringResource(Res.string.social_links_settings),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            var facebookUrl by remember { mutableStateOf("") }
+            var landingPageUrl by remember { mutableStateOf("") }
+            var instagramUrl by remember { mutableStateOf("") }
+            var whatsappNumber by remember { mutableStateOf("") }
+            var socialLoaded by remember { mutableStateOf(false) }
+            var socialSaving by remember { mutableStateOf(false) }
+            var socialSaved by remember { mutableStateOf(false) }
+
+            val apiClient = remember { org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.admin.network.AdminApiClient>() }
+            val socialScope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                val settings = apiClient.getAppSettings()
+                if (settings != null) {
+                    facebookUrl = settings.facebook_url ?: ""
+                    landingPageUrl = settings.landing_page_url ?: ""
+                    instagramUrl = settings.instagram_url ?: ""
+                    whatsappNumber = settings.whatsapp_number ?: ""
+                }
+                socialLoaded = true
+            }
+
+            if (socialLoaded) {
+                OutlinedTextField(
+                    value = landingPageUrl,
+                    onValueChange = { landingPageUrl = it; socialSaved = false },
+                    label = { Text(stringResource(Res.string.website_url)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://yoursite.com") },
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = facebookUrl,
+                    onValueChange = { facebookUrl = it; socialSaved = false },
+                    label = { Text(stringResource(Res.string.facebook_url)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://facebook.com/page") },
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = instagramUrl,
+                    onValueChange = { instagramUrl = it; socialSaved = false },
+                    label = { Text(stringResource(Res.string.instagram_url)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://instagram.com/page") },
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = whatsappNumber,
+                    onValueChange = { whatsappNumber = it; socialSaved = false },
+                    label = { Text(stringResource(Res.string.whatsapp_number)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("+20xxxxxxxxxx") },
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        socialSaving = true
+                        socialScope.launch {
+                            apiClient.updateAppSettings(
+                                net.marllex.waselak.admin.network.UpdateAppSettingsRequest(
+                                    facebook_url = facebookUrl.ifBlank { null },
+                                    landing_page_url = landingPageUrl.ifBlank { null },
+                                    instagram_url = instagramUrl.ifBlank { null },
+                                    whatsapp_number = whatsappNumber.ifBlank { null },
+                                )
+                            )
+                            socialSaving = false
+                            socialSaved = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !socialSaving && !socialSaved,
+                ) {
+                    if (socialSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(if (socialSaved) stringResource(Res.string.saved_social) else stringResource(Res.string.save_social))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             Button(
                 onClick = { viewModel.logout(onLogout) },
                 modifier = Modifier.fillMaxWidth(),

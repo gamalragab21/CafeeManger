@@ -13,6 +13,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -516,13 +518,45 @@ class WaselakApiClient(private val client: HttpClient) {
         }.body()
 
     // ─── App Updates ────────────────────────────────────────────
-    suspend fun checkForUpdate(app: String, version: String, versionCode: Int, platform: String = "desktop"): CheckUpdateResponse =
+    suspend fun checkForUpdate(app: String, version: String, versionCode: Int, platform: String = detectPlatform()): CheckUpdateResponse =
         client.get("api/v1/app/check-update") {
             parameter("app", app)
             parameter("version", version)
             parameter("version_code", versionCode)
             parameter("platform", platform)
         }.body()
+
+    /**
+     * Download a file from URL with progress callback.
+     * Returns the saved file path in Downloads folder.
+     */
+    suspend fun downloadFile(url: String, onProgress: (Float) -> Unit): String? {
+        val response: HttpResponse = client.get(url)
+        val contentLength = response.headers["Content-Length"]?.toLongOrNull() ?: -1L
+        val channel = response.bodyAsChannel()
+
+        // Save to temp/downloads
+        val filename = url.substringAfterLast("/").substringBefore("?").ifBlank { "update.bin" }
+        val downloadsDir = java.io.File(System.getProperty("user.home"), "Downloads")
+        if (!downloadsDir.exists()) downloadsDir.mkdirs()
+        val file = java.io.File(downloadsDir, filename)
+
+        var totalBytesRead = 0L
+        file.outputStream().use { output ->
+            val buffer = ByteArray(8192)
+            while (!channel.isClosedForRead) {
+                val bytesRead = channel.readAvailable(buffer)
+                if (bytesRead <= 0) break
+                output.write(buffer, 0, bytesRead)
+                totalBytesRead += bytesRead
+                if (contentLength > 0) {
+                    onProgress(totalBytesRead.toFloat() / contentLength.toFloat())
+                }
+            }
+        }
+        onProgress(1f)
+        return file.absolutePath
+    }
 
     // ─── Export (streaming) ──────────────────────────────────────
 
@@ -1319,4 +1353,18 @@ class WaselakApiClient(private val client: HttpClient) {
         client.delete("api/v1/devices/$token").body()
 
     // (duplicate removed — checkForUpdate is defined above)
+}
+
+private fun detectPlatform(): String {
+    return try {
+        val osName = java.lang.System.getProperty("os.name")?.lowercase() ?: ""
+        when {
+            osName.contains("win") -> "windows"
+            osName.contains("mac") -> "macos"
+            osName.contains("linux") && !osName.contains("android") -> "linux"
+            else -> "android"
+        }
+    } catch (_: Exception) {
+        "android" // fallback for iOS/other
+    }
 }

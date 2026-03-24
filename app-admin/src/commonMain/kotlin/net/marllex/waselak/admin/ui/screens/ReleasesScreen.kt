@@ -220,6 +220,12 @@ private fun CreateReleaseDialog(
     var releaseNotesAr by remember { mutableStateOf("") }
     var minVersionCode by remember { mutableStateOf("1") }
     var driveFolderId by remember { mutableStateOf("") }
+    // Default to today's date in DDMMYY format
+    val today = remember {
+        val now = java.time.LocalDate.now()
+        "${now.dayOfMonth.toString().padStart(2, '0')}${now.monthValue.toString().padStart(2, '0')}${(now.year % 100).toString().padStart(2, '0')}"
+    }
+    var releasedDate by remember { mutableStateOf(today) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -274,7 +280,14 @@ private fun CreateReleaseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-                // Drive folder ID removed — URL is auto-calculated from naming convention
+                OutlinedTextField(
+                    value = releasedDate,
+                    onValueChange = { releasedDate = it },
+                    label = { Text("Release Date (DDMMYY)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text(today) },
+                )
             }
         },
         confirmButton = {
@@ -288,6 +301,7 @@ private fun CreateReleaseDialog(
                         release_notes_ar = releaseNotesAr.ifBlank { null },
                         min_version_code = minVersionCode.toIntOrNull() ?: 1,
                         drive_folder_id = driveFolderId.ifBlank { null },
+                        released_date = releasedDate.ifBlank { null },
                     ))
                 },
                 enabled = versionName.isNotBlank() && versionCode.isNotBlank(),

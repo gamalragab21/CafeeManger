@@ -46,6 +46,10 @@ data class Vendor(
     val minPointsRedeem: Int = 100,
     val maxManualDiscountPercent: Double = 100.0,
     val manualDiscountRequiresPin: Boolean = false,
+    val facebookUrl: String? = null,
+    val landingPageUrl: String? = null,
+    val instagramUrl: String? = null,
+    val whatsappNumber: String? = null,
     val createdAt: Long,
     val updatedAt: Long? = null
 )

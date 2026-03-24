@@ -154,6 +154,8 @@ import org.koin.core.qualifier.named
 import org.koin.mp.KoinPlatform
 import waselak.core.core_ui.generated.resources.Res as CoreRes
 import waselak.core.core_ui.generated.resources.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
+import androidx.compose.material3.OutlinedTextField
 
 enum class ManagerTab(
     val route: String,
@@ -1021,6 +1023,7 @@ private fun MoreTabContent(
                                     title = stringResource(CoreRes.string.offline_mode_settings),
                                     onClick = { settingsSubScreen = "offline_mode" },
                                 )
+                                // Social links managed from Admin app settings
 
                                 Spacer(Modifier.height(8.dp))
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1056,9 +1059,18 @@ private fun MoreTabContent(
                             updateStatus = resp.updateStatus,
                             releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
                             downloadUrl = resp.downloadUrl,
+                            facebookUrl = resp.facebookUrl,
+                            landingPageUrl = resp.landingPageUrl,
+                            instagramUrl = resp.instagramUrl,
+                            whatsappNumber = resp.whatsappNumber,
                         )
                     },
+                    onDownload = { url, onProgress ->
+                        val api = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+                        api.downloadFile(url, onProgress)
+                    },
                     onNavigateBack = { activeSubScreen = null },
+                    vendorName = vendor?.name,
                 )
             }
 
@@ -1383,3 +1395,5 @@ private fun StoreConfigurationScreen() {
         }
     }
 }
+
+// Social links removed — now managed from Admin app Settings

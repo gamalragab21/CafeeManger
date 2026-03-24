@@ -590,6 +590,10 @@ fun Route.adminApiRoutes() {
                         request.enable_analytics?.let { stmt[enableAnalytics] = it }
                         request.enable_announcements?.let { stmt[enableAnnouncements] = it }
                         request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
+                        request.facebook_url?.let { stmt[facebookUrl] = it }
+                        request.landing_page_url?.let { stmt[landingPageUrl] = it }
+                        request.instagram_url?.let { stmt[instagramUrl] = it }
+                        request.whatsapp_number?.let { stmt[whatsappNumber] = it }
                         stmt[updatedAt] = Clock.System.now()
                     }
                     true
@@ -986,6 +990,10 @@ fun Route.adminApiRoutes() {
                             put("enable_prescriptions", vendorRow[VendorsTable.enablePrescriptions])
                             put("enable_analytics", vendorRow[VendorsTable.enableAnalytics])
                             put("enable_announcements", vendorRow[VendorsTable.enableAnnouncements])
+                            put("facebook_url", vendorRow[VendorsTable.facebookUrl])
+                            put("landing_page_url", vendorRow[VendorsTable.landingPageUrl])
+                            put("instagram_url", vendorRow[VendorsTable.instagramUrl])
+                            put("whatsapp_number", vendorRow[VendorsTable.whatsappNumber])
                             put("enable_digital_menu", vendorRow[VendorsTable.enableDigitalMenu])
                             put("enable_recipe", vendorRow[VendorsTable.enableRecipe])
                             put("offline_mode_enabled", vendorRow[VendorsTable.offlineModeEnabled])
@@ -1801,7 +1809,7 @@ fun Route.adminApiRoutes() {
                                 min_version_code = row[AppReleasesTable.minVersionCode],
                                 drive_folder_id = row[AppReleasesTable.driveFolderId],
                                 is_active = row[AppReleasesTable.isActive],
-                                released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
+                                released_date = row[AppReleasesTable.releasedDate], released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
                                 created_at = row[AppReleasesTable.createdAt].toEpochMilliseconds(),
                             )
                         }
@@ -1815,6 +1823,10 @@ fun Route.adminApiRoutes() {
                 require(request.version_code > 0) { "Version code must be positive" }
                 val release = transaction {
                     val now = kotlinx.datetime.Clock.System.now()
+                    // Calculate today's date as DDMMYY for default released_date
+                    val todayDate = java.time.LocalDate.now()
+                    val defaultDdmmyy = "${todayDate.dayOfMonth.toString().padStart(2, '0')}${todayDate.monthValue.toString().padStart(2, '0')}${(todayDate.year % 100).toString().padStart(2, '0')}"
+
                     val id = AppReleasesTable.insertAndGetId {
                         it[versionName] = request.version_name
                         it[versionCode] = request.version_code
@@ -1823,6 +1835,7 @@ fun Route.adminApiRoutes() {
                         it[releaseNotesAr] = request.release_notes_ar
                         it[minVersionCode] = request.min_version_code
                         it[driveFolderId] = request.drive_folder_id
+                        it[releasedDate] = request.released_date ?: defaultDdmmyy
                         it[isActive] = true
                         it[releasedAt] = now
                         it[createdAt] = now
@@ -1833,7 +1846,7 @@ fun Route.adminApiRoutes() {
                             version_code = row[AppReleasesTable.versionCode], update_status = row[AppReleasesTable.updateStatus],
                             release_notes = row[AppReleasesTable.releaseNotes], release_notes_ar = row[AppReleasesTable.releaseNotesAr],
                             min_version_code = row[AppReleasesTable.minVersionCode], drive_folder_id = row[AppReleasesTable.driveFolderId],
-                            is_active = row[AppReleasesTable.isActive], released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
+                            is_active = row[AppReleasesTable.isActive], released_date = row[AppReleasesTable.releasedDate], released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
                             created_at = row[AppReleasesTable.createdAt].toEpochMilliseconds(),
                         )
                     }

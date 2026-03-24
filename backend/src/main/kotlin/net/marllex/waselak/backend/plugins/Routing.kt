@@ -36,6 +36,8 @@ fun Application.configureRouting() {
         adminApiRoutes()
         // Admin CMS analytics routes (vendor analytics via admin JWT)
         adminAnalyticsRoutes()
+        // CMS App Settings (social links etc.) — inside admin JWT auth
+        cmsAppSettingsRoutes()
         // Admin dashboard (cookie-based JWT)
         adminDashboardRoutes()
 

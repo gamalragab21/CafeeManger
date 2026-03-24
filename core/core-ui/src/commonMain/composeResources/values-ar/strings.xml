@@ -624,5 +624,12 @@
     <string name="update_check_failed">فشل التحقق من التحديثات</string>
     <string name="mandatory_update_title">تحديث مطلوب</string>
     <string name="mandatory_update_message">يجب تحديث التطبيق للاستمرار في استخدامه. يرجى تحميل أحدث إصدار.</string>
+    <string name="social_links">روابط التواصل</string>
+    <string name="saved">تم الحفظ</string>
+    <string name="connect_with_us">تواصل معنا</string>
+    <string name="website">الموقع الإلكتروني</string>
+    <string name="facebook_page">فيسبوك</string>
+    <string name="instagram">انستاجرام</string>
+    <string name="whatsapp">واتساب</string>
     <string name="powered_by">مدعوم من Marllex</string>
 </resources>

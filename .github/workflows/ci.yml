@@ -347,39 +347,21 @@ jobs:
   # ===========================================================================
   # JOB 5: UPLOAD TO GOOGLE DRIVE
   # ===========================================================================
-  upload-to-drive:
-    name: Upload to Google Drive
+  upload-to-dropbox:
+    name: Upload to Dropbox
     runs-on: ubuntu-latest
     needs: [build-android, build-desktop]
     environment: "Google Drive Secrets"
     if: >-
       startsWith(github.ref, 'refs/tags/v') &&
       (github.event.inputs.skip_upload != 'true')
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout (for gradle.properties)
         uses: actions/checkout@v4
         with:
           sparse-checkout: gradle.properties
-
-      - name: Install Python cryptography
-        run: pip install cryptography
-
-      - name: Debug secrets availability
-        run: |
-          if [ -n "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" ]; then
-            echo "✅ GOOGLE_DRIVE_CREDENTIALS is set (length: ${#GD_CRED})"
-          else
-            echo "❌ GOOGLE_DRIVE_CREDENTIALS is EMPTY"
-          fi
-          if [ -n "${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}" ]; then
-            echo "✅ GOOGLE_DRIVE_FOLDER_ID is set"
-          else
-            echo "❌ GOOGLE_DRIVE_FOLDER_ID is EMPTY"
-          fi
-        env:
-          GD_CRED: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
 
       # ── Download all artifacts ──────────────────────────────────────────
       - name: Download Android debug
@@ -426,202 +408,144 @@ jobs:
           VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      # ── Create Drive folder structure: v{VERSION}/debug/ + release/ ────
-      - name: Create Google Drive folders
-        id: drive
+      # ── Upload to Dropbox ──────────────────────────────────────────────
+      - name: Upload artifacts to Dropbox
         env:
-          GD_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          GD_PARENT_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          DROPBOX_ACCESS_TOKEN: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           APP_VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          echo "$GD_CREDENTIALS" | base64 --decode > /tmp/gsa-key.json
-          echo "Decoded key file size: $(wc -c < /tmp/gsa-key.json) bytes"
-          python3 -c "import json; d=json.load(open('/tmp/gsa-key.json')); print(f'Service account: {d.get(\"client_email\")}')"
+          if [ -z "$DROPBOX_ACCESS_TOKEN" ]; then
+            echo "ERROR: DROPBOX_ACCESS_TOKEN secret is not set!"
+            exit 1
+          fi
 
-          python3 << 'PYEOF'
-          import json, os, time, base64, urllib.request, urllib.parse, urllib.error
-          from cryptography.hazmat.primitives import hashes, serialization
-          from cryptography.hazmat.primitives.asymmetric import padding
+          DROPBOX_BASE="/waselak-builds/v${APP_VERSION}"
 
-          def get_access_token(key_path):
-              with open(key_path) as f:
-                  key_data = json.load(f)
-              header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode()).rstrip(b"=").decode()
-              now = int(time.time())
-              claims = {
-                  "iss": key_data["client_email"],
-                  "scope": "https://www.googleapis.com/auth/drive",
-                  "aud": "https://oauth2.googleapis.com/token",
-                  "iat": now, "exp": now + 3600,
-              }
-              payload_b64 = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-              private_key = serialization.load_pem_private_key(key_data["private_key"].encode(), password=None)
-              sig = private_key.sign(f"{header}.{payload_b64}".encode(), padding.PKCS1v15(), hashes.SHA256())
-              sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
-              jwt_token = f"{header}.{payload_b64}.{sig_b64}"
-              data = urllib.parse.urlencode({
-                  "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                  "assertion": jwt_token,
-              }).encode()
-              req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data)
-              try:
-                  resp = urllib.request.urlopen(req)
-                  return json.loads(resp.read())["access_token"]
-              except urllib.error.HTTPError as e:
-                  error_body = e.read().decode()
-                  print(f"Token request failed ({e.code}): {error_body}")
-                  raise
+          echo "=== Creating folders ==="
+          # Create version folder
+          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
+            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"path\": \"$DROPBOX_BASE\", \"autorename\": false}" || true
 
-          def create_folder(token, name, parent_id):
-              """Create a folder on Google Drive. Returns the folder ID."""
-              metadata = json.dumps({
-                  "name": name,
-                  "mimeType": "application/vnd.google-apps.folder",
-                  "parents": [parent_id],
-              }).encode()
-              req = urllib.request.Request(
-                  "https://www.googleapis.com/drive/v3/files",
-                  data=metadata,
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Content-Type": "application/json",
-                  },
-              )
-              resp = urllib.request.urlopen(req)
-              folder_id = json.loads(resp.read())["id"]
-              print(f"Created folder: {name} (ID: {folder_id})")
-              return folder_id
+          # Create debug + release subfolders
+          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
+            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"path\": \"$DROPBOX_BASE/debug\", \"autorename\": false}" || true
 
-          # Get token
-          token = get_access_token("/tmp/gsa-key.json")
-          parent = os.environ["GD_PARENT_FOLDER"]
-          version = os.environ["APP_VERSION"]
+          curl -s -X POST https://api.dropboxapi.com/2/files/create_folder_v2 \
+            -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"path\": \"$DROPBOX_BASE/release\", \"autorename\": false}" || true
 
-          # Create: v{VERSION}/
-          version_folder = create_folder(token, f"v{version}", parent)
+          echo ""
+          echo "=== Uploading debug artifacts ==="
+          for FILE in all-artifacts/debug/*; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
+              echo "  Uploading: $FILENAME ($(( FILESIZE / 1024 / 1024 )) MB)..."
 
-          # Create: v{VERSION}/debug/ and v{VERSION}/release/
-          debug_folder = create_folder(token, "debug", version_folder)
-          release_folder = create_folder(token, "release", version_folder)
+              if [ "$FILESIZE" -gt 150000000 ]; then
+                # Large file: use upload session (>150MB)
+                SESSION=$(curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/start \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"close\": false}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary '' | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])")
 
-          # Write folder IDs to GITHUB_OUTPUT
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"debug_folder_id={debug_folder}\n")
-              f.write(f"release_folder_id={release_folder}\n")
-          PYEOF
+                OFFSET=0
+                CHUNK_SIZE=104857600  # 100MB
+                while [ "$OFFSET" -lt "$FILESIZE" ]; do
+                  REMAINING=$((FILESIZE - OFFSET))
+                  if [ "$REMAINING" -lt "$CHUNK_SIZE" ]; then
+                    CHUNK_SIZE=$REMAINING
+                  fi
+                  dd if="$FILE" bs=1 skip=$OFFSET count=$CHUNK_SIZE 2>/dev/null | \
+                  curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/append_v2 \
+                    -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                    -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $OFFSET}, \"close\": false}" \
+                    -H "Content-Type: application/octet-stream" \
+                    --data-binary @- > /dev/null
+                  OFFSET=$((OFFSET + CHUNK_SIZE))
+                done
 
-          rm -f /tmp/gsa-key.json
+                curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/finish \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $FILESIZE}, \"commit\": {\"path\": \"$DROPBOX_BASE/debug/$FILENAME\", \"mode\": \"overwrite\"}}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary '' > /dev/null
+                echo "  ✅ Done: $FILENAME"
+              else
+                # Small file: simple upload
+                HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://content.dropboxapi.com/2/files/upload \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_BASE/debug/$FILENAME\", \"mode\": \"overwrite\"}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary @"$FILE")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  ✅ Done: $FILENAME"
+                else
+                  echo "  ❌ Failed ($HTTP_CODE): $FILENAME"
+                fi
+              fi
+            fi
+          done
 
-      # ── Upload all artifacts ────────────────────────────────────────────
-      - name: Upload artifacts to Google Drive
-        env:
-          GD_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          DEBUG_FOLDER_ID: ${{ steps.drive.outputs.debug_folder_id }}
-          RELEASE_FOLDER_ID: ${{ steps.drive.outputs.release_folder_id }}
-        run: |
-          echo "$GD_CREDENTIALS" | base64 --decode > /tmp/gsa-key.json
+          echo ""
+          echo "=== Uploading release artifacts ==="
+          for FILE in all-artifacts/release/*; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
+              echo "  Uploading: $FILENAME ($(( FILESIZE / 1024 / 1024 )) MB)..."
 
-          python3 << 'PYEOF'
-          import json, os, time, base64, glob, urllib.request, urllib.parse
-          from urllib.request import Request
-          from cryptography.hazmat.primitives import hashes, serialization
-          from cryptography.hazmat.primitives.asymmetric import padding
-          import email.generator
-          import io
+              if [ "$FILESIZE" -gt 150000000 ]; then
+                # Large file: use upload session
+                SESSION=$(curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/start \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"close\": false}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary '' | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])")
 
-          def get_access_token(key_path):
-              with open(key_path) as f:
-                  key_data = json.load(f)
-              header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode()).rstrip(b"=").decode()
-              now = int(time.time())
-              claims = {
-                  "iss": key_data["client_email"],
-                  "scope": "https://www.googleapis.com/auth/drive",
-                  "aud": "https://oauth2.googleapis.com/token",
-                  "iat": now, "exp": now + 3600,
-              }
-              payload_b64 = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-              private_key = serialization.load_pem_private_key(key_data["private_key"].encode(), password=None)
-              sig = private_key.sign(f"{header}.{payload_b64}".encode(), padding.PKCS1v15(), hashes.SHA256())
-              sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
-              jwt_token = f"{header}.{payload_b64}.{sig_b64}"
-              data = urllib.parse.urlencode({
-                  "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                  "assertion": jwt_token,
-              }).encode()
-              req = Request("https://oauth2.googleapis.com/token", data=data)
-              resp = urllib.request.urlopen(req)
-              return json.loads(resp.read())["access_token"]
+                OFFSET=0
+                CHUNK_SIZE=104857600
+                while [ "$OFFSET" -lt "$FILESIZE" ]; do
+                  REMAINING=$((FILESIZE - OFFSET))
+                  if [ "$REMAINING" -lt "$CHUNK_SIZE" ]; then
+                    CHUNK_SIZE=$REMAINING
+                  fi
+                  dd if="$FILE" bs=1 skip=$OFFSET count=$CHUNK_SIZE 2>/dev/null | \
+                  curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/append_v2 \
+                    -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                    -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $OFFSET}, \"close\": false}" \
+                    -H "Content-Type: application/octet-stream" \
+                    --data-binary @- > /dev/null
+                  OFFSET=$((OFFSET + CHUNK_SIZE))
+                done
 
-          def upload_file(token, filepath, folder_id):
-              """Upload a file to Google Drive using resumable upload (supports large files)."""
-              filename = os.path.basename(filepath)
-              file_size = os.path.getsize(filepath)
-              print(f"  Uploading: {filename} ({file_size / 1024 / 1024:.1f} MB)...")
+                curl -s -X POST https://content.dropboxapi.com/2/files/upload_session/finish \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"cursor\": {\"session_id\": \"$SESSION\", \"offset\": $FILESIZE}, \"commit\": {\"path\": \"$DROPBOX_BASE/release/$FILENAME\", \"mode\": \"overwrite\"}}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary '' > /dev/null
+                echo "  ✅ Done: $FILENAME"
+              else
+                HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://content.dropboxapi.com/2/files/upload \
+                  -H "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
+                  -H "Dropbox-API-Arg: {\"path\": \"$DROPBOX_BASE/release/$FILENAME\", \"mode\": \"overwrite\"}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary @"$FILE")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  ✅ Done: $FILENAME"
+                else
+                  echo "  ❌ Failed ($HTTP_CODE): $FILENAME"
+                fi
+              fi
+            fi
+          done
 
-              # Step 1: Initiate resumable upload
-              metadata = json.dumps({"name": filename, "parents": [folder_id]}).encode()
-              req = Request(
-                  "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
-                  data=metadata,
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Content-Type": "application/json; charset=UTF-8",
-                      "X-Upload-Content-Length": str(file_size),
-                  },
-              )
-              try:
-                  resp = urllib.request.urlopen(req)
-              except urllib.error.HTTPError as e:
-                  print(f"  ERROR initiating upload ({e.code}): {e.read().decode()}")
-                  raise
-              upload_url = resp.headers["Location"]
+          echo ""
+          echo "=== ✅ All artifacts uploaded to Dropbox at $DROPBOX_BASE ==="
 
-              # Step 2: Upload file content in chunks
-              chunk_size = 10 * 1024 * 1024  # 10MB chunks
-              with open(filepath, "rb") as f:
-                  offset = 0
-                  while offset < file_size:
-                      chunk = f.read(chunk_size)
-                      end = offset + len(chunk) - 1
-                      headers = {
-                          "Content-Length": str(len(chunk)),
-                          "Content-Range": f"bytes {offset}-{end}/{file_size}",
-                      }
-                      req = Request(upload_url, data=chunk, headers=headers, method="PUT")
-                      try:
-                          resp = urllib.request.urlopen(req)
-                          result = json.loads(resp.read())
-                          print(f"  Uploaded: {filename} (ID: {result['id']})")
-                      except urllib.error.HTTPError as e:
-                          if e.code == 308:  # Resume incomplete — expected for chunks
-                              offset += len(chunk)
-                              continue
-                          print(f"  ERROR uploading chunk ({e.code}): {e.read().decode()}")
-                          raise
-                      offset += len(chunk)
-
-          # Get token
-          token = get_access_token("/tmp/gsa-key.json")
-          debug_folder = os.environ["DEBUG_FOLDER_ID"]
-          release_folder = os.environ["RELEASE_FOLDER_ID"]
-
-          # Upload debug artifacts
-          debug_files = glob.glob("all-artifacts/debug/*")
-          if debug_files:
-              print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
-              for f in debug_files:
-                  upload_file(token, f, debug_folder)
-
-          # Upload release artifacts
-          release_files = glob.glob("all-artifacts/release/*")
-          if release_files:
-              print(f"\n=== Uploading {len(release_files)} release artifacts ===")
-              for f in release_files:
-                  upload_file(token, f, release_folder)
-
-          total = len(debug_files) + len(release_files)
-          print(f"\n=== Done! {total} files uploaded to Google Drive ===")
-          PYEOF
-
-          rm -f /tmp/gsa-key.json

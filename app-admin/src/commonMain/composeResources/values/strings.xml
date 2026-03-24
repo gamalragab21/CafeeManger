@@ -515,4 +515,11 @@
     <string name="all_vendors">All Vendors</string>
     <string name="notification_sent_success">Notification sent successfully</string>
     <string name="send_to_vendors_count">Send this notification to %1$s?</string>
+    <string name="social_links_settings">Social Links Settings</string>
+    <string name="website_url">Website / Landing Page</string>
+    <string name="facebook_url">Facebook URL</string>
+    <string name="instagram_url">Instagram URL</string>
+    <string name="whatsapp_number">WhatsApp Number</string>
+    <string name="save_social">Save Social Links</string>
+    <string name="saved_social">Saved!</string>
 </resources>

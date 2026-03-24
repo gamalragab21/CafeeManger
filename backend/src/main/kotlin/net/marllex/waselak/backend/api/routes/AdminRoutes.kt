@@ -62,6 +62,10 @@ data class AdminVendorResponse(
     val enable_analytics: Boolean = true,
     val enable_announcements: Boolean = true,
     val loyalty_enabled: Boolean = false,
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
     val users_count: Int = 0,
     val plan_name: String? = null,
     val plan_display_name: String? = null,
@@ -107,6 +111,10 @@ data class AdminUpdateVendorRequest(
     val enable_analytics: Boolean? = null,
     val enable_announcements: Boolean? = null,
     val loyalty_enabled: Boolean? = null,
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
 )
 
 @Serializable
@@ -367,6 +375,10 @@ private fun mapVendorRow(row: ResultRow, usersCount: Int = 0): AdminVendorRespon
         enable_analytics = row[VendorsTable.enableAnalytics],
         enable_announcements = row[VendorsTable.enableAnnouncements],
         loyalty_enabled = row[VendorsTable.loyaltyEnabled],
+        facebook_url = row[VendorsTable.facebookUrl],
+        landing_page_url = row[VendorsTable.landingPageUrl],
+        instagram_url = row[VendorsTable.instagramUrl],
+        whatsapp_number = row[VendorsTable.whatsappNumber],
         users_count = usersCount,
         plan_name = planRow?.get(SubscriptionPlansTable.name),
         plan_display_name = planRow?.get(SubscriptionPlansTable.displayName),
@@ -778,6 +790,10 @@ fun Route.adminRoutes() {
                     request.enable_analytics?.let { stmt[enableAnalytics] = it }
                     request.enable_announcements?.let { stmt[enableAnnouncements] = it }
                     request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
+                    request.facebook_url?.let { stmt[facebookUrl] = it }
+                    request.landing_page_url?.let { stmt[landingPageUrl] = it }
+                    request.instagram_url?.let { stmt[instagramUrl] = it }
+                    request.whatsapp_number?.let { stmt[whatsappNumber] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 

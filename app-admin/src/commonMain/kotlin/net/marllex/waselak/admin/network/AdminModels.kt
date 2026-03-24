@@ -3,6 +3,22 @@ package net.marllex.waselak.admin.network
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class AppSettingsDto(
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
+)
+
+@Serializable
+data class UpdateAppSettingsRequest(
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
+)
+
+@Serializable
 data class LoginResponse(
     val token: String,
     val refresh_token: String,
@@ -209,6 +225,11 @@ data class UpdateVendorRequest(
     val enable_analytics: Boolean? = null,
     val enable_announcements: Boolean? = null,
     val loyalty_enabled: Boolean? = null,
+    // Social links
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
 )
 
 @Serializable
@@ -436,6 +457,11 @@ data class VendorDetailInfo(
     val enable_prescriptions: Boolean = false,
     val enable_analytics: Boolean = true,
     val enable_announcements: Boolean = true,
+    // Social links
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
     // Loyalty settings
     val loyalty_enabled: Boolean = false,
     val points_earn_rate: Double = 1.0,
@@ -999,6 +1025,7 @@ data class AppReleaseDto(
     val release_notes_ar: String? = null,
     val min_version_code: Int = 1,
     val drive_folder_id: String? = null,
+    val released_date: String? = null,
     val is_active: Boolean = true,
     val released_at: Long = 0,
     val created_at: Long = 0,
@@ -1013,6 +1040,7 @@ data class CreateReleaseRequest(
     val release_notes_ar: String? = null,
     val min_version_code: Int = 1,
     val drive_folder_id: String? = null,
+    val released_date: String? = null,
 )
 
 @kotlinx.serialization.Serializable

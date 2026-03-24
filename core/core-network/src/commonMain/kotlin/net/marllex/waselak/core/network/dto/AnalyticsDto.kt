@@ -87,5 +87,10 @@ data class CheckUpdateResponse(
     @SerialName("release_notes") val releaseNotes: String? = null,
     @SerialName("release_notes_ar") val releaseNotesAr: String? = null,
     @SerialName("download_url") val downloadUrl: String? = null,
+    @SerialName("download_filename") val downloadFilename: String? = null,
     @SerialName("released_at") val releasedAt: Long? = null,
+    @SerialName("facebook_url") val facebookUrl: String? = null,
+    @SerialName("landing_page_url") val landingPageUrl: String? = null,
+    @SerialName("instagram_url") val instagramUrl: String? = null,
+    @SerialName("whatsapp_number") val whatsappNumber: String? = null,
 )

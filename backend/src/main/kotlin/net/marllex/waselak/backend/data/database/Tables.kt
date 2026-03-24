@@ -53,6 +53,11 @@ object VendorsTable : UUIDTable("vendors") {
     val minPointsRedeem = integer("min_points_redeem").default(100)
     val maxManualDiscountPercent = decimal("max_manual_discount_percent", 5, 2).default(java.math.BigDecimal("100.0"))
     val manualDiscountRequiresPin = bool("manual_discount_requires_pin").default(false)
+    // Social links
+    val facebookUrl = varchar("facebook_url", 500).nullable()
+    val landingPageUrl = varchar("landing_page_url", 500).nullable()
+    val instagramUrl = varchar("instagram_url", 500).nullable()
+    val whatsappNumber = varchar("whatsapp_number", 50).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -882,8 +887,18 @@ object AppReleasesTable : UUIDTable("app_releases") {
     val releaseNotes = text("release_notes").nullable()
     val releaseNotesAr = text("release_notes_ar").nullable()
     val minVersionCode = integer("min_version_code").default(1) // Below this = forced update
-    val driveFolderId = varchar("drive_folder_id", 100).nullable() // Google Drive folder ID for this version
+    val driveFolderId = varchar("drive_folder_id", 100).nullable()
+    val releasedDate = varchar("released_date", 6).nullable() // DDMMYY format for download URL
     val isActive = bool("is_active").default(true)
     val releasedAt = timestamp("released_at").default(Clock.System.now())
     val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── App Settings (Global, singleton row) ────────────────────────
+object AppSettingsTable : UUIDTable("app_settings") {
+    val facebookUrl = text("facebook_url").nullable()
+    val landingPageUrl = text("landing_page_url").nullable()
+    val instagramUrl = text("instagram_url").nullable()
+    val whatsappNumber = varchar("whatsapp_number", 20).nullable()
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }

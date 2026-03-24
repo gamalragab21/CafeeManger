@@ -67,6 +67,10 @@ data class VendorResponse(
     val min_points_redeem: Int = 100,
     val max_manual_discount_percent: Double = 100.0,
     val manual_discount_requires_pin: Boolean = false,
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
     val created_at: Long,
     val updated_at: Long? = null
 )
@@ -114,6 +118,10 @@ data class UpdateVendorRequest(
     val min_points_redeem: Int? = null,
     val max_manual_discount_percent: Double? = null,
     val manual_discount_requires_pin: Boolean? = null,
+    val facebook_url: String? = null,
+    val landing_page_url: String? = null,
+    val instagram_url: String? = null,
+    val whatsapp_number: String? = null,
 )
 
 @Serializable
@@ -337,6 +345,10 @@ fun Route.vendorRoutes() {
                 min_points_redeem = vendor[VendorsTable.minPointsRedeem],
                 max_manual_discount_percent = vendor[VendorsTable.maxManualDiscountPercent].toDouble(),
                 manual_discount_requires_pin = vendor[VendorsTable.manualDiscountRequiresPin],
+                facebook_url = vendor[VendorsTable.facebookUrl],
+                landing_page_url = vendor[VendorsTable.landingPageUrl],
+                instagram_url = vendor[VendorsTable.instagramUrl],
+                whatsapp_number = vendor[VendorsTable.whatsappNumber],
                 created_at = vendor[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = vendor[VendorsTable.updatedAt].toEpochMilliseconds()
             ))
@@ -445,6 +457,10 @@ fun Route.vendorRoutes() {
                     request.min_points_redeem?.let { stmt[minPointsRedeem] = it }
                     request.max_manual_discount_percent?.let { stmt[maxManualDiscountPercent] = it.toBigDecimal() }
                     request.manual_discount_requires_pin?.let { stmt[manualDiscountRequiresPin] = it }
+                    request.facebook_url?.let { stmt[facebookUrl] = it }
+                    request.landing_page_url?.let { stmt[landingPageUrl] = it }
+                    request.instagram_url?.let { stmt[instagramUrl] = it }
+                    request.whatsapp_number?.let { stmt[whatsappNumber] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 
@@ -504,6 +520,10 @@ fun Route.vendorRoutes() {
                 min_points_redeem = updated[VendorsTable.minPointsRedeem],
                 max_manual_discount_percent = updated[VendorsTable.maxManualDiscountPercent].toDouble(),
                 manual_discount_requires_pin = updated[VendorsTable.manualDiscountRequiresPin],
+                facebook_url = updated[VendorsTable.facebookUrl],
+                landing_page_url = updated[VendorsTable.landingPageUrl],
+                instagram_url = updated[VendorsTable.instagramUrl],
+                whatsapp_number = updated[VendorsTable.whatsappNumber],
                 created_at = updated[VendorsTable.createdAt].toEpochMilliseconds(),
                 updated_at = updated[VendorsTable.updatedAt].toEpochMilliseconds()
             ))

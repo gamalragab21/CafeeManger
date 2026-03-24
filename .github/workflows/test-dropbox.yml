@@ -17,6 +17,7 @@ jobs:
   test-upload:
     name: Test Dropbox Upload
     runs-on: ubuntu-latest
+    environment: "Google Drive Secrets"
 
     steps:
       - name: Create test files

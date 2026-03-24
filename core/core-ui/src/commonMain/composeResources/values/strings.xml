@@ -624,5 +624,12 @@
     <string name="update_check_failed">Failed to check for updates</string>
     <string name="mandatory_update_title">Update Required</string>
     <string name="mandatory_update_message">A mandatory update is required to continue using this app. Please download the latest version.</string>
+    <string name="social_links">Social Links</string>
+    <string name="saved">Saved</string>
+    <string name="connect_with_us">Connect With Us</string>
+    <string name="website">Website</string>
+    <string name="facebook_page">Facebook</string>
+    <string name="instagram">Instagram</string>
+    <string name="whatsapp">WhatsApp</string>
     <string name="powered_by">Powered by Marllex</string>
 </resources>

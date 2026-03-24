@@ -1705,7 +1705,6 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.SCHEDULED_ORDERS.route) {
             ScheduledOrdersScreen(
-                onNavigateBack = { navController.popBackStack() },
             )
         }
         composable(CashierDrawerItem.NOTIFICATIONS.route) {
@@ -1716,12 +1715,10 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.SPLIT_PAYMENT.route) {
             SplitPaymentScreen(
-                onNavigateBack = { navController.popBackStack() },
             )
         }
         composable("${CashierDrawerItem.SPLIT_PAYMENT.route}/{orderId}") {
             SplitPaymentScreen(
-                onNavigateBack = { navController.popBackStack() },
             )
         }
         composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
@@ -1729,7 +1726,6 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.RETURNS.route) {
             net.marllex.waselak.cashier.returns.ReturnsScreen(
-                onNavigateBack = { navController.popBackStack() },
             )
         }
         composable(CashierDrawerItem.ABOUT.route) {
@@ -1744,10 +1740,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         latestVersion = resp.latestVersion,
                         updateStatus = resp.updateStatus,
                         releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
-                        downloadUrl = resp.downloadUrl,
+                        downloadUrl = resp.downloadUrl, facebookUrl = resp.facebookUrl, landingPageUrl = resp.landingPageUrl, instagramUrl = resp.instagramUrl, whatsappNumber = resp.whatsappNumber,
                     )
                 },
-                onNavigateBack = { navController.popBackStack() },
+                onDownload = { url, onProgress -> apiClient.downloadFile(url, onProgress) },
+                vendorName = vendor?.name,
             )
         }
         composable(CashierDrawerItem.PROFILE.route) {
@@ -1779,7 +1776,6 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             onNavigateToReceipt = { orderId ->
                 navController.navigateToReceipt(orderId)
             },
-            onNavigateBack = { navController.popBackStack() },
         )
         receiptScreen(
             onBack = { navController.navigateToPos() },

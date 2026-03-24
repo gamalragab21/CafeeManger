@@ -88,9 +88,9 @@ fun KdsNavHost(
                 versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
                 onCheckUpdate = {
                     val resp = kdsApi.checkForUpdate("kds", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
-                    net.marllex.waselak.core.ui.components.UpdateInfo(hasUpdate = resp.hasUpdate, latestVersion = resp.latestVersion, updateStatus = resp.updateStatus, releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes, downloadUrl = resp.downloadUrl)
+                    net.marllex.waselak.core.ui.components.UpdateInfo(hasUpdate = resp.hasUpdate, latestVersion = resp.latestVersion, updateStatus = resp.updateStatus, releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes, downloadUrl = resp.downloadUrl, facebookUrl = resp.facebookUrl, landingPageUrl = resp.landingPageUrl, instagramUrl = resp.instagramUrl, whatsappNumber = resp.whatsappNumber)
                 },
-                onNavigateBack = { navController.popBackStack() },
+                onDownload = { url, onProgress -> kdsApi.downloadFile(url, onProgress) },
             )
         }
     }

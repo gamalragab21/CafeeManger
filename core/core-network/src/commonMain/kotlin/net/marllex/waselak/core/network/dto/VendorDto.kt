@@ -47,6 +47,10 @@ data class VendorResponse(
     @SerialName("min_points_redeem") val minPointsRedeem: Int = 100,
     @SerialName("max_manual_discount_percent") val maxManualDiscountPercent: Double = 100.0,
     @SerialName("manual_discount_requires_pin") val manualDiscountRequiresPin: Boolean = false,
+    @SerialName("facebook_url") val facebookUrl: String? = null,
+    @SerialName("landing_page_url") val landingPageUrl: String? = null,
+    @SerialName("instagram_url") val instagramUrl: String? = null,
+    @SerialName("whatsapp_number") val whatsappNumber: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long? = null
 )
@@ -92,6 +96,10 @@ data class UpdateVendorRequest(
     @SerialName("min_points_redeem") val minPointsRedeem: Int? = null,
     @SerialName("max_manual_discount_percent") val maxManualDiscountPercent: Double? = null,
     @SerialName("manual_discount_requires_pin") val manualDiscountRequiresPin: Boolean? = null,
+    @SerialName("facebook_url") val facebookUrl: String? = null,
+    @SerialName("landing_page_url") val landingPageUrl: String? = null,
+    @SerialName("instagram_url") val instagramUrl: String? = null,
+    @SerialName("whatsapp_number") val whatsappNumber: String? = null,
 )
 
 @Serializable

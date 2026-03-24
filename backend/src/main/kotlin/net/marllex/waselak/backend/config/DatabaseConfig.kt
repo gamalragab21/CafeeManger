@@ -115,6 +115,7 @@ object DatabaseConfig {
                 NotificationsTable, DeviceTokensTable,
                 ReservationsTable,
                 AppReleasesTable,
+                AppSettingsTable,
             )
 
             // Add enable_offline_mode to vendors

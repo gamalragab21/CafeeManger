@@ -62,3 +62,4 @@ uploads/
 
 # SQLite dev databases
 *.db
+keystore/gdrive-sa-key.json

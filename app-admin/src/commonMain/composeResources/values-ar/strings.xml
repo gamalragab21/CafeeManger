@@ -515,4 +515,11 @@
     <string name="all_vendors">كل المحلات</string>
     <string name="notification_sent_success">الاشعار اتبعت بنجاح</string>
     <string name="send_to_vendors_count">ارسال الاشعار لـ %1$s؟</string>
+    <string name="social_links_settings">إعدادات روابط التواصل</string>
+    <string name="website_url">الموقع الإلكتروني</string>
+    <string name="facebook_url">رابط فيسبوك</string>
+    <string name="instagram_url">رابط انستاجرام</string>
+    <string name="whatsapp_number">رقم واتساب</string>
+    <string name="save_social">حفظ الروابط</string>
+    <string name="saved_social">تم الحفظ!</string>
 </resources>

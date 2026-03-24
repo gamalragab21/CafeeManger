@@ -933,6 +933,26 @@ class AdminApiClient(
         AppLogger.e(TAG, "deleteRelease failed: ${e.message}", e)
         false
     }
+
+    // ── App Settings ────────────────────────────────────────────────
+    suspend fun getAppSettings(): AppSettingsDto? = try {
+        val response: HttpResponse = client.get("$baseUrl/api/v1/cms/settings")
+        response.body<AppSettingsDto>()
+    } catch (e: Exception) {
+        Logger.e(TAG) { "getAppSettings failed: ${e.message}" }
+        null
+    }
+
+    suspend fun updateAppSettings(request: UpdateAppSettingsRequest): AppSettingsDto? = try {
+        val response: HttpResponse = client.put("$baseUrl/api/v1/cms/settings") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        response.body<AppSettingsDto>()
+    } catch (e: Exception) {
+        Logger.e(TAG) { "updateAppSettings failed: ${e.message}" }
+        null
+    }
 }
 
 // Internal request DTOs used only by the API client

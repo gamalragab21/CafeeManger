@@ -48,6 +48,10 @@ fun VendorResponse.toDomain() = Vendor(
     minPointsRedeem = minPointsRedeem,
     maxManualDiscountPercent = maxManualDiscountPercent,
     manualDiscountRequiresPin = manualDiscountRequiresPin,
+    facebookUrl = facebookUrl,
+    landingPageUrl = landingPageUrl,
+    instagramUrl = instagramUrl,
+    whatsappNumber = whatsappNumber,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
