@@ -177,13 +177,8 @@ private fun ReleaseCard(
                 Text(notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            // Min version + Drive folder
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Min version: ${release.min_version_code}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (release.drive_folder_id != null) {
-                    Text("Drive: ${release.drive_folder_id.take(12)}...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            // Min version
+            Text("Min version code: ${release.min_version_code}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             HorizontalDivider()
 
@@ -279,13 +274,7 @@ private fun CreateReleaseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-                OutlinedTextField(
-                    value = driveFolderId,
-                    onValueChange = { driveFolderId = it },
-                    label = { Text("Google Drive Folder ID (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                // Drive folder ID removed — URL is auto-calculated from naming convention
             }
         },
         confirmButton = {

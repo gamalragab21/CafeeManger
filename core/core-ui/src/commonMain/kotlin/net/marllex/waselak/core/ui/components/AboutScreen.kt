@@ -1,7 +1,11 @@
 package net.marllex.waselak.core.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import org.jetbrains.compose.resources.painterResource
+import waselak.core.core_ui.generated.resources.Res
+import waselak.core.core_ui.generated.resources.waslek_logo
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -75,11 +79,11 @@ fun AboutScreen(
             Spacer(Modifier.height(24.dp))
 
             // App Icon
-            Icon(
-                Icons.Default.Store,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary,
+            // App Logo
+            Image(
+                painter = painterResource(Res.drawable.waslek_logo),
+                contentDescription = appName,
+                modifier = Modifier.size(100.dp),
             )
 
             Spacer(Modifier.height(16.dp))

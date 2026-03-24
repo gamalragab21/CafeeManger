@@ -435,9 +435,11 @@ jobs:
           APP_VERSION: ${{ steps.vars.outputs.version }}
         run: |
           echo "$GD_CREDENTIALS" | base64 --decode > /tmp/gsa-key.json
+          echo "Decoded key file size: $(wc -c < /tmp/gsa-key.json) bytes"
+          python3 -c "import json; d=json.load(open('/tmp/gsa-key.json')); print(f'Service account: {d.get(\"client_email\")}')"
 
           python3 << 'PYEOF'
-          import json, os, time, base64, urllib.request, urllib.parse
+          import json, os, time, base64, urllib.request, urllib.parse, urllib.error
           from cryptography.hazmat.primitives import hashes, serialization
           from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -462,8 +464,13 @@ jobs:
                   "assertion": jwt_token,
               }).encode()
               req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data)
-              resp = urllib.request.urlopen(req)
-              return json.loads(resp.read())["access_token"]
+              try:
+                  resp = urllib.request.urlopen(req)
+                  return json.loads(resp.read())["access_token"]
+              except urllib.error.HTTPError as e:
+                  error_body = e.read().decode()
+                  print(f"Token request failed ({e.code}): {error_body}")
+                  raise
 
           def create_folder(token, name, parent_id):
               """Create a folder on Google Drive. Returns the folder ID."""

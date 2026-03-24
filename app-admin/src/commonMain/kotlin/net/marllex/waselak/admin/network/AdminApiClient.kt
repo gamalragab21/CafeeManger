@@ -900,14 +900,14 @@ class AdminApiClient(
     // ─── App Releases ──────────────────────────────────────────────
 
     suspend fun getReleases(): List<AppReleaseDto> = try {
-        client.get("api/v1/admin/releases").body()
+        client.get("$baseUrl/api/v1/cms/releases").body()
     } catch (e: Exception) {
         AppLogger.e(TAG, "getReleases failed: ${e.message}", e)
         emptyList()
     }
 
     suspend fun createRelease(request: CreateReleaseRequest): AppReleaseDto? = try {
-        client.post("api/v1/admin/releases") {
+        client.post("$baseUrl/api/v1/cms/releases") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
@@ -917,7 +917,7 @@ class AdminApiClient(
     }
 
     suspend fun updateRelease(id: String, request: UpdateReleaseRequest): AppReleaseDto? = try {
-        client.put("api/v1/admin/releases/$id") {
+        client.put("$baseUrl/api/v1/cms/releases/$id") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
@@ -927,7 +927,7 @@ class AdminApiClient(
     }
 
     suspend fun deleteRelease(id: String): Boolean = try {
-        client.delete("api/v1/admin/releases/$id")
+        client.delete("$baseUrl/api/v1/cms/releases/$id")
         true
     } catch (e: Exception) {
         AppLogger.e(TAG, "deleteRelease failed: ${e.message}", e)

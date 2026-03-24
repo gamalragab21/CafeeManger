@@ -73,24 +73,50 @@ data class CheckUpdateResponse(
     val release_notes: String? = null,
     val release_notes_ar: String? = null,
     val download_url: String? = null,
+    val download_filename: String? = null,
     val released_at: Long? = null,
 )
 
 // ─── Google Drive URL Builder ───────────────────────────────────
 
-private fun buildDownloadUrl(
-    driveFolderId: String?,
-    parentFolderId: String,
+// Parent folder ID from env (set in GitHub Secrets / gradle.properties)
+private val GOOGLE_DRIVE_PARENT_FOLDER = System.getenv("GOOGLE_DRIVE_FOLDER_ID") ?: ""
+
+/**
+ * Auto-builds the download info based on naming convention:
+ * File: {app}-v{version}-{DDMMYY}-release-{platform}.{ext}
+ * Folder: parentFolder/v{version}/release/
+ *
+ * Returns the Google Drive folder URL for the version's release folder.
+ * The user can find their specific file there.
+ */
+private fun buildDownloadInfo(
     versionName: String,
+    releasedAt: kotlinx.datetime.Instant,
     appName: String,
     platform: String,
-): String? {
-    // The files on Google Drive follow this naming:
-    // {app}-v{version}-{DDMMYY}-release-{platform}.{ext}
-    // Stored in: parentFolder/v{version}/release/
-    // We return a Google Drive folder link — user can find their file there
-    val folderId = driveFolderId ?: return null
-    return "https://drive.google.com/drive/folders/$folderId"
+): Pair<String?, String> {
+    // Build the expected filename
+    val instant = java.time.Instant.ofEpochMilli(releasedAt.toEpochMilliseconds())
+    val localDate = instant.atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+    val ddmmyy = "${localDate.dayOfMonth.toString().padStart(2, '0')}${localDate.monthValue.toString().padStart(2, '0')}${(localDate.year % 100).toString().padStart(2, '0')}"
+
+    val ext = when (platform.lowercase()) {
+        "android" -> "apk"
+        "windows" -> "msi"
+        "macos" -> "dmg"
+        "linux" -> "deb"
+        else -> "apk"
+    }
+
+    val fileName = "$appName-v$versionName-$ddmmyy-release-$platform.$ext"
+
+    // Build the folder URL (users browse to find their file)
+    val folderUrl = if (GOOGLE_DRIVE_PARENT_FOLDER.isNotBlank()) {
+        "https://drive.google.com/drive/folders/$GOOGLE_DRIVE_PARENT_FOLDER"
+    } else null
+
+    return folderUrl to fileName
 }
 
 // ─── Routes ─────────────────────────────────────────────────────
@@ -130,7 +156,7 @@ fun Route.appUpdateRoutes() {
                     val latestVersionName = latestRelease[AppReleasesTable.versionName]
                     val latestVersionCode = latestRelease[AppReleasesTable.versionCode]
                     val minVersionCode = latestRelease[AppReleasesTable.minVersionCode]
-                    val driveFolderId = latestRelease[AppReleasesTable.driveFolderId]
+                    val releasedAt = latestRelease[AppReleasesTable.releasedAt]
 
                     // Determine update status
                     val updateStatus = if (currentVersionCode < minVersionCode) {
@@ -139,7 +165,13 @@ fun Route.appUpdateRoutes() {
                         latestRelease[AppReleasesTable.updateStatus]  // OPTIONAL or MANDATORY
                     }
 
-                    val downloadUrl = buildDownloadUrl(driveFolderId, parentFolderId, latestVersionName, appName, platform)
+                    // Auto-build download URL and filename from naming convention
+                    val (downloadUrl, downloadFilename) = buildDownloadInfo(
+                        versionName = latestVersionName,
+                        releasedAt = releasedAt,
+                        appName = appName,
+                        platform = platform,
+                    )
 
                     CheckUpdateResponse(
                         has_update = true,
@@ -151,7 +183,8 @@ fun Route.appUpdateRoutes() {
                         release_notes = latestRelease[AppReleasesTable.releaseNotes],
                         release_notes_ar = latestRelease[AppReleasesTable.releaseNotesAr],
                         download_url = downloadUrl,
-                        released_at = latestRelease[AppReleasesTable.releasedAt].toEpochMilliseconds(),
+                        download_filename = downloadFilename,
+                        released_at = releasedAt.toEpochMilliseconds(),
                     )
                 }
             }
@@ -164,102 +197,6 @@ fun Route.appUpdateRoutes() {
         }
     }
 
-    // ── Admin endpoints: manage releases ──────────────────────────
-    route("/api/v1/admin/releases") {
-
-        // GET all releases
-        get {
-            val trace = call.routeTrace()
-            if (!requireAdmin()) return@get
-
-            val releases = transaction {
-                AppReleasesTable.selectAll()
-                    .orderBy(AppReleasesTable.versionCode, SortOrder.DESC)
-                    .map { it.toReleaseDto() }
-            }
-            call.respond(HttpStatusCode.OK, releases)
-        }
-
-        // POST create a new release
-        post {
-            val trace = call.routeTrace()
-            if (!requireAdmin()) return@post
-            val request = call.receive<CreateReleaseDto>()
-
-            require(request.version_name.isNotBlank()) { "Version name is required" }
-            require(request.version_code > 0) { "Version code must be positive" }
-            require(request.update_status in listOf("OPTIONAL", "MANDATORY")) {
-                "Update status must be OPTIONAL or MANDATORY"
-            }
-
-            val release = transaction {
-                val now = Clock.System.now()
-
-                val id = AppReleasesTable.insertAndGetId {
-                    it[versionName] = request.version_name
-                    it[versionCode] = request.version_code
-                    it[updateStatus] = request.update_status
-                    it[releaseNotes] = request.release_notes
-                    it[releaseNotesAr] = request.release_notes_ar
-                    it[minVersionCode] = request.min_version_code
-                    it[driveFolderId] = request.drive_folder_id
-                    it[isActive] = true
-                    it[releasedAt] = now
-                    it[createdAt] = now
-                }
-
-                AppReleasesTable.selectAll()
-                    .where { AppReleasesTable.id eq id }
-                    .first()
-                    .toReleaseDto()
-            }
-
-            call.respond(HttpStatusCode.Created, release)
-        }
-
-        // PUT update a release
-        put("/{id}") {
-            val trace = call.routeTrace()
-            if (!requireAdmin()) return@put
-            val releaseId = call.parameters["id"] ?: throw IllegalArgumentException("Release ID required")
-            val request = call.receive<UpdateReleaseDto>()
-
-            val updated = transaction {
-                val uuid = UUID.fromString(releaseId)
-
-                AppReleasesTable.update({ AppReleasesTable.id eq uuid }) {
-                    request.update_status?.let { v -> it[updateStatus] = v }
-                    request.release_notes?.let { v -> it[releaseNotes] = v }
-                    request.release_notes_ar?.let { v -> it[releaseNotesAr] = v }
-                    request.min_version_code?.let { v -> it[minVersionCode] = v }
-                    request.drive_folder_id?.let { v -> it[driveFolderId] = v }
-                    request.is_active?.let { v -> it[isActive] = v }
-                }
-
-                AppReleasesTable.selectAll()
-                    .where { AppReleasesTable.id eq uuid }
-                    .firstOrNull()
-                    ?.toReleaseDto()
-            }
-
-            if (updated != null) {
-                call.respond(HttpStatusCode.OK, updated)
-            } else {
-                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Release not found"))
-            }
-        }
-
-        // DELETE a release
-        delete("/{id}") {
-            if (!requireAdmin()) return@delete
-            val releaseId = call.parameters["id"] ?: throw IllegalArgumentException("Release ID required")
-
-            transaction {
-                AppReleasesTable.deleteWhere { AppReleasesTable.id eq UUID.fromString(releaseId) }
-            }
-            call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
-        }
-    }
 }
 
 // ─── Mapper ─────────────────────────────────────────────────────

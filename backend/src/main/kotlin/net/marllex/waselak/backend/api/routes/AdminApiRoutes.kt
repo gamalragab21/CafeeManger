@@ -1784,6 +1784,84 @@ fun Route.adminApiRoutes() {
                 call.respondText(json.toString(), ContentType.Application.Json)
                 trace.step("Admin send notification completed")
             }
+
+            // ─── App Releases Management ────────────────────────────
+            get("/releases") {
+                val releases = transaction {
+                    AppReleasesTable.selectAll()
+                        .orderBy(AppReleasesTable.versionCode, SortOrder.DESC)
+                        .map { row ->
+                            AppReleaseDto(
+                                id = row[AppReleasesTable.id].toString(),
+                                version_name = row[AppReleasesTable.versionName],
+                                version_code = row[AppReleasesTable.versionCode],
+                                update_status = row[AppReleasesTable.updateStatus],
+                                release_notes = row[AppReleasesTable.releaseNotes],
+                                release_notes_ar = row[AppReleasesTable.releaseNotesAr],
+                                min_version_code = row[AppReleasesTable.minVersionCode],
+                                drive_folder_id = row[AppReleasesTable.driveFolderId],
+                                is_active = row[AppReleasesTable.isActive],
+                                released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
+                                created_at = row[AppReleasesTable.createdAt].toEpochMilliseconds(),
+                            )
+                        }
+                }
+                call.respond(HttpStatusCode.OK, releases)
+            }
+
+            post("/releases") {
+                val request = call.receive<CreateReleaseDto>()
+                require(request.version_name.isNotBlank()) { "Version name is required" }
+                require(request.version_code > 0) { "Version code must be positive" }
+                val release = transaction {
+                    val now = kotlinx.datetime.Clock.System.now()
+                    val id = AppReleasesTable.insertAndGetId {
+                        it[versionName] = request.version_name
+                        it[versionCode] = request.version_code
+                        it[updateStatus] = request.update_status
+                        it[releaseNotes] = request.release_notes
+                        it[releaseNotesAr] = request.release_notes_ar
+                        it[minVersionCode] = request.min_version_code
+                        it[driveFolderId] = request.drive_folder_id
+                        it[isActive] = true
+                        it[releasedAt] = now
+                        it[createdAt] = now
+                    }
+                    AppReleasesTable.selectAll().where { AppReleasesTable.id eq id }.first().let { row ->
+                        AppReleaseDto(
+                            id = row[AppReleasesTable.id].toString(), version_name = row[AppReleasesTable.versionName],
+                            version_code = row[AppReleasesTable.versionCode], update_status = row[AppReleasesTable.updateStatus],
+                            release_notes = row[AppReleasesTable.releaseNotes], release_notes_ar = row[AppReleasesTable.releaseNotesAr],
+                            min_version_code = row[AppReleasesTable.minVersionCode], drive_folder_id = row[AppReleasesTable.driveFolderId],
+                            is_active = row[AppReleasesTable.isActive], released_at = row[AppReleasesTable.releasedAt].toEpochMilliseconds(),
+                            created_at = row[AppReleasesTable.createdAt].toEpochMilliseconds(),
+                        )
+                    }
+                }
+                call.respond(HttpStatusCode.Created, release)
+            }
+
+            put("/releases/{id}") {
+                val releaseId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+                val request = call.receive<UpdateReleaseDto>()
+                transaction {
+                    AppReleasesTable.update({ AppReleasesTable.id eq UUID.fromString(releaseId) }) {
+                        request.update_status?.let { v -> it[updateStatus] = v }
+                        request.release_notes?.let { v -> it[releaseNotes] = v }
+                        request.release_notes_ar?.let { v -> it[releaseNotesAr] = v }
+                        request.min_version_code?.let { v -> it[minVersionCode] = v }
+                        request.drive_folder_id?.let { v -> it[driveFolderId] = v }
+                        request.is_active?.let { v -> it[isActive] = v }
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "updated"))
+            }
+
+            delete("/releases/{id}") {
+                val releaseId = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+                transaction { AppReleasesTable.deleteWhere { AppReleasesTable.id eq UUID.fromString(releaseId) } }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+            }
         }
     }
 }
