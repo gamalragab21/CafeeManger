@@ -59,6 +59,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -146,6 +147,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
+import waselak.core.core_ui.generated.resources.payment_method_label
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,14 +220,17 @@ fun PosScreen(
             )
         },
     ) { padding ->
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
         when {
-            uiState.isLoading -> LoadingIndicator()
+            uiState.isLoading && uiState.items.isEmpty() -> LoadingIndicator()
             uiState.error != null && uiState.items.isEmpty() -> ErrorView(
                 message = uiState.error!!,
                 onRetry = viewModel::loadMenu,
             )
             else -> Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.TopCenter,
             ) { Column(
                 modifier = Modifier.then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth()),
@@ -255,7 +260,7 @@ fun PosScreen(
                             ) {
                                 Text(
                                     when (channel) {
-                                        OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
+                                        OrderChannel.DINE_IN -> if (uiState.businessType == "PHARMACY") stringResource(Res.string.channel_direct_dispense) else stringResource(Res.string.channel_dine_in)
                                         OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
                                         OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
                                         OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
@@ -403,6 +408,7 @@ fun PosScreen(
                     }
                 }
             } }
+        }
         }
 
         if (showCartSheet && uiState.cart.isNotEmpty()) {
@@ -1716,25 +1722,33 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Payment method
-            item {
-                Text("Payment Method", style = MaterialTheme.typography.labelMedium)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    PaymentMethod.entries.forEachIndexed { index, method ->
-                        SegmentedButton(
-                            selected = selectedPayment == method,
-                            onClick = { selectedPayment = method },
-                            shape = SegmentedButtonDefaults.itemShape(index, PaymentMethod.entries.size),
-                        ) {
-                            Text(method.name)
-                        }
-                    }
+            // Doctor info (pharmacy only)
+            if (uiState.businessType == "PHARMACY") {
+                item {
+                    Text(stringResource(Res.string.doctor_name), style = MaterialTheme.typography.labelMedium)
+                    OutlinedTextField(
+                        value = uiState.doctorName,
+                        onValueChange = viewModel::updateDoctorName,
+                        placeholder = { Text(stringResource(Res.string.optional_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(stringResource(Res.string.diagnosis), style = MaterialTheme.typography.labelMedium)
+                    OutlinedTextField(
+                        value = uiState.diagnosis,
+                        onValueChange = viewModel::updateDiagnosis,
+                        placeholder = { Text(stringResource(Res.string.optional_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
                 }
             }
 
             // Payment timing: Pay Now / Pay Later
             item {
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(stringResource(Res.string.payment_timing), style = MaterialTheme.typography.labelMedium)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     PaymentTiming.entries.forEachIndexed { index, timing ->
@@ -1747,6 +1761,34 @@ private fun CartBottomSheet(
                                 PaymentTiming.PAY_NOW -> stringResource(Res.string.pay_now)
                                 PaymentTiming.PAY_LATER -> stringResource(Res.string.pay_later)
                             })
+                        }
+                    }
+                }
+            }
+
+            // Payment method (hidden when PAY_LATER)
+            if (selectedTiming == PaymentTiming.PAY_NOW) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val selectableMethods = PaymentMethod.entries.filter {
+                        it != PaymentMethod.SPLIT && (it != PaymentMethod.CREDIT || uiState.businessType == "PHARMACY")
+                    }
+                    Text(stringResource(Res.string.payment_method_label), style = MaterialTheme.typography.labelMedium)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        selectableMethods.forEachIndexed { index, method ->
+                            SegmentedButton(
+                                selected = selectedPayment == method,
+                                onClick = { selectedPayment = method },
+                                shape = SegmentedButtonDefaults.itemShape(index, selectableMethods.size),
+                            ) {
+                                Text(when (method) {
+                                    PaymentMethod.CASH -> stringResource(Res.string.payment_cash)
+                                    PaymentMethod.WALLET -> stringResource(Res.string.payment_wallet)
+                                    PaymentMethod.CARD -> stringResource(Res.string.payment_card)
+                                    PaymentMethod.CREDIT -> stringResource(Res.string.payment_credit)
+                                    else -> method.name
+                                })
+                            }
                         }
                     }
                 }
@@ -1780,6 +1822,57 @@ private fun CartBottomSheet(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    // Drug Interaction Warning
+    if (uiState.showDrugInteractionWarning && uiState.drugInteractionResult != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDrugInteractionWarning,
+            title = { Text(stringResource(Res.string.drug_interaction_warning_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(Res.string.drug_interaction_warning_message))
+                    uiState.drugInteractionResult!!.interactions.forEach { interaction ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = when (interaction.severity) {
+                                    "SEVERE", "CONTRAINDICATED" -> MaterialTheme.colorScheme.errorContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "${interaction.itemNameA ?: ""} \u2194 ${interaction.itemNameB ?: ""}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(interaction.description, style = MaterialTheme.typography.bodySmall)
+                                interaction.recommendation?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.dismissDrugInteractionWarning()
+                        // Re-submit after user acknowledged
+                        viewModel.submitOrder(selectedPayment, selectedTiming) { onDismiss(); onOrderCreated(it) }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.drug_interaction_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissDrugInteractionWarning) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
     }
 }
 

@@ -10,10 +10,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class DeliveryMapViewModel constructor(
     private val orderRepository: OrderRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "DeliveryMap" }
+
 
     data class UiState(
         val activeOrders: List<Order> = emptyList(),
@@ -27,6 +30,7 @@ class DeliveryMapViewModel constructor(
     init { loadActiveDeliveries() }
 
     fun loadActiveDeliveries() {
+        AppLogger.d(TAG, "loadActiveDeliveries called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             orderRepository.getMyDeliveryOrders("OUT_FOR_DELIVERY")

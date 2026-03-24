@@ -21,6 +21,7 @@ import net.marllex.waselak.core.model.CustomerCredit
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -36,20 +37,14 @@ fun CashierCustomerCreditScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (uiState.selectedCredit != null) uiState.selectedCredit!!.customerName ?: stringResource(Res.string.customer) else stringResource(Res.string.customer_credit)) },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (uiState.selectedCredit != null) viewModel.clearSelection()
-                        else onNavigateBack?.invoke()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
+            WaselakTopAppBar(
+                title = if (uiState.selectedCredit != null) uiState.selectedCredit!!.customerName ?: stringResource(Res.string.customer) else stringResource(Res.string.customer_credit),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = {
+                    if (uiState.selectedCredit != null) viewModel.clearSelection()
+                    else onNavigateBack?.invoke()
                 },
-                actions = {
-                    IconButton(onClick = viewModel::load) { Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh)) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
         floatingActionButton = {
@@ -65,22 +60,24 @@ fun CashierCustomerCreditScreen(
             }
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.debtors.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-            uiState.selectedCredit != null -> CustomerDetailContent(
-                modifier = Modifier.padding(padding),
-                credit = uiState.selectedCredit!!,
-                transactions = uiState.transactions,
-            )
-            uiState.debtors.isEmpty() -> EmptyView(stringResource(Res.string.no_customer_credit))
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-            ) {
-                items(uiState.debtors, key = { it.id }) { credit ->
-                    CreditCard(credit = credit, onClick = { viewModel.selectCustomer(credit) })
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when {
+                uiState.isLoading -> LoadingIndicator()
+                uiState.error != null && uiState.debtors.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                uiState.selectedCredit != null -> CustomerDetailContent(
+                    modifier = Modifier,
+                    credit = uiState.selectedCredit!!,
+                    transactions = uiState.transactions,
+                )
+                uiState.debtors.isEmpty() -> EmptyView(stringResource(Res.string.no_customer_credit))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                ) {
+                    items(uiState.debtors, key = { it.id }) { credit ->
+                        CreditCard(credit = credit, onClick = { viewModel.selectCustomer(credit) })
+                    }
                 }
             }
         }
@@ -208,7 +205,13 @@ private fun TransactionRow(transaction: CreditTransaction) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(transaction.type, style = MaterialTheme.typography.labelMedium, color = color)
+                val typeLabel = when (transaction.type) {
+                    "CHARGE" -> stringResource(Res.string.trx_type_charge)
+                    "PAYMENT" -> stringResource(Res.string.trx_type_payment)
+                    "ADJUSTMENT" -> stringResource(Res.string.trx_type_adjustment)
+                    else -> transaction.type
+                }
+                Text(typeLabel, style = MaterialTheme.typography.labelMedium, color = color)
                 transaction.note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 transaction.createdByName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }

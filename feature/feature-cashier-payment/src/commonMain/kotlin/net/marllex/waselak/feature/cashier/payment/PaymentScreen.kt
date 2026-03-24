@@ -1,4 +1,5 @@
 package net.marllex.waselak.feature.cashier.payment
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,17 +46,16 @@ import org.koin.compose.viewmodel.koinViewModel
 fun PaymentScreen(
     onPaymentDone: () -> Unit = {},
     onNavigateToReceipt: (String) -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null,
     viewModel: PaymentViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.payment_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.payment_title),
+                onNavigateBack = onNavigateBack,
             )
         },
     ) { padding ->

@@ -1,4 +1,5 @@
 package net.marllex.waselak.feature.cashier.receipt
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -82,8 +83,8 @@ import qrgenerator.qrkitpainter.rememberQrKitPainter
 import net.marllex.waselak.feature.cashier.receipt.generated.resources.*
 
 @Composable
-private fun localizedChannel(channel: OrderChannel): String = when (channel) {
-    OrderChannel.DINE_IN -> stringResource(Res.string.channel_dine_in)
+private fun localizedChannel(channel: OrderChannel, businessType: String? = null): String = when (channel) {
+    OrderChannel.DINE_IN -> if (businessType == "PHARMACY") stringResource(Res.string.channel_direct_dispense) else stringResource(Res.string.channel_dine_in)
     OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
     OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
     OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
@@ -95,6 +96,8 @@ private fun localizedPayment(method: PaymentMethod): String = when (method) {
     PaymentMethod.CASH -> stringResource(Res.string.payment_cash)
     PaymentMethod.WALLET -> stringResource(Res.string.payment_wallet)
     PaymentMethod.CARD -> stringResource(Res.string.payment_card)
+    PaymentMethod.SPLIT -> stringResource(Res.string.payment_split)
+    PaymentMethod.CREDIT -> stringResource(Res.string.payment_credit)
 }
 
 private fun formatAmount(amount: Double, currency: String = "EGP"): String {
@@ -140,6 +143,8 @@ fun ReceiptScreen(
     val channelLabel = stringResource(Res.string.channel)
     val paymentLabel = stringResource(Res.string.payment)
     val cashierLabel = stringResource(Res.string.cashier)
+    val doctorLabel = stringResource(Res.string.doctor_label)
+    val diagnosisLabel = stringResource(Res.string.diagnosis_label)
     val clientLabel = stringResource(Res.string.client_name)
     val phoneLabel = stringResource(Res.string.client_phone)
     val addressLabel = stringResource(Res.string.client_address)
@@ -160,16 +165,9 @@ fun ReceiptScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(receiptTitle) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backStr)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = receiptTitle,
+                onNavigateBack = onBack,
             )
         },
     ) { padding ->
@@ -262,9 +260,11 @@ fun ReceiptScreen(
                                         valueColor = receiptColors.textPrimary,
                                     )
                                     ReceiptDataRow(dateLabel, formatDate(order.createdAt), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
-                                    ReceiptDataRow(channelLabel, localizedChannel(order.channel), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(channelLabel, localizedChannel(order.channel, vendorBusinessType), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(paymentLabel, localizedPayment(order.paymentMethod), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(cashierLabel, order.cashierName ?: "-", labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    order.doctorName?.let { ReceiptDataRow(doctorLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
+                                    order.diagnosis?.let { ReceiptDataRow(diagnosisLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
                                 }
 
                                 // Client Info
@@ -326,6 +326,10 @@ fun ReceiptScreen(
                                     ReceiptDataRow(deliveryFeeLabel, formatAmount(order.deliveryFee, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     Spacer(Modifier.height(4.dp))
                                 }
+                                if (order.tax > 0.0) {
+                                    ReceiptDataRow("Tax", formatAmount(order.tax, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    Spacer(Modifier.height(4.dp))
+                                }
 
                                 Spacer(Modifier.height(8.dp))
                                 HorizontalDivider(color = receiptColors.divider)
@@ -350,6 +354,27 @@ fun ReceiptScreen(
                                 ) {
                                     Text(totalLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = receiptColors.textPrimary)
                                     Text(formatAmount(order.total, currency), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = receiptColors.totalText)
+                                }
+
+                                // Refund info
+                                if (order.hasReturns) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text("Refunded (${order.returnedItemCount})", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                                        Text("-${formatAmount(order.refundedAmount, currency)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                                    }
+                                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text("Net Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = receiptColors.textPrimary)
+                                        Text(formatAmount(order.netTotal, currency), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = receiptColors.totalText)
+                                    }
                                 }
 
                                 // Notes

@@ -21,6 +21,7 @@ import net.marllex.waselak.core.model.SplitPaymentSummary
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -36,16 +37,11 @@ fun SplitPaymentScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.split_payment)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.split_payment),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadOrder,
+                onNavigateBack = onNavigateBack,
             )
         },
         floatingActionButton = {
@@ -56,33 +52,37 @@ fun SplitPaymentScreen(
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
-            // Order ID input
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = uiState.orderIdInput,
-                    onValueChange = viewModel::onOrderIdInputChange,
-                    label = { Text(stringResource(Res.string.order_id)) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-                Button(onClick = viewModel::loadOrder) { Text(stringResource(Res.string.load)) }
-            }
-
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadOrder)
-                uiState.summary == null -> EmptyView(stringResource(Res.string.enter_order_id_message))
-                else -> {
-                    val summary = uiState.summary!!
-                    SplitPaymentContent(
-                        summary = summary,
-                        onDeletePayment = viewModel::deletePayment,
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                // Order ID input
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = uiState.orderIdInput,
+                        onValueChange = viewModel::onOrderIdInputChange,
+                        label = { Text(stringResource(Res.string.order_id)) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
                     )
+                    Button(onClick = viewModel::loadOrder) { Text(stringResource(Res.string.load)) }
+                }
+
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadOrder)
+                    uiState.summary == null -> EmptyView(stringResource(Res.string.enter_order_id_message))
+                    else -> {
+                        val summary = uiState.summary!!
+                        SplitPaymentContent(
+                            summary = summary,
+                            onDeletePayment = viewModel::deletePayment,
+                        )
+                    }
                 }
             }
         }

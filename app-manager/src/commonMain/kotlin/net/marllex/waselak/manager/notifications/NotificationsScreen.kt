@@ -5,9 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,22 +39,11 @@ fun NotificationsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(Res.string.notifications))
-                        if (uiState.count.hasUnread) {
-                            Badge { Text("${uiState.count.unread}") }
-                        }
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
+            WaselakTopAppBar(
+                title = stringResource(Res.string.notifications),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
                 actions = {
                     if (uiState.count.hasUnread) {
                         TextButton(onClick = viewModel::markAllRead) { Text(stringResource(Res.string.mark_all_read)) }
@@ -66,7 +55,6 @@ fun NotificationsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->

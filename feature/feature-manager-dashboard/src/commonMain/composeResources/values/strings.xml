@@ -45,4 +45,21 @@
     <string name="retry">Retry</string>
     <string name="no_data">No data available</string>
     <string name="no_recent_orders">No recent orders</string>
+    <string name="our_store">Our Store</string>
+    <!-- Alert translations -->
+    <string name="alert_out_of_stock">Items Out of Stock</string>
+    <string name="alert_out_of_stock_msg">%1$d item(s) are out of stock</string>
+    <string name="alert_low_stock">Low Stock Warning</string>
+    <string name="alert_low_stock_msg">%1$d item(s) below minimum level</string>
+    <string name="alert_revenue_drop">Revenue Drop Detected</string>
+    <string name="alert_revenue_drop_msg">Revenue dropped compared to previous period</string>
+    <string name="alert_high_cancel">High Cancellation Rate</string>
+    <string name="alert_high_cancel_msg">Cancellation rate is above threshold</string>
+    <string name="alert_high_refund">High Refund Rate</string>
+    <string name="alert_high_refund_msg">Refund rate is above threshold</string>
+    <string name="alert_expiring">Expiring Soon</string>
+    <string name="alert_critical">Critical</string>
+    <string name="alert_warning">Warning</string>
+    <string name="alert_info">Info</string>
+    <string name="alert_no_alerts">No active alerts</string>
 </resources>

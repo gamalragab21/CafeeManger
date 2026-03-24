@@ -32,6 +32,12 @@
     <string name="phone_required">Phone number is required</string>
     <string name="address_required">Delivery address is required</string>
     <string name="payment_timing">Payment Timing</string>
+    <string name="payment_method_label">Payment Method</string>
+    <string name="payment_cash">Cash</string>
+    <string name="payment_wallet">Wallet</string>
+    <string name="payment_card">Card</string>
+    <string name="payment_split">Split</string>
+    <string name="payment_credit">Credit</string>
     <string name="pay_now">Pay Now</string>
     <string name="pay_later">Pay Later</string>
     <string name="optional_hint">optional</string>
@@ -89,4 +95,11 @@
     <string name="select_time">Select Time</string>
     <string name="scheduled_for_label">Scheduled for: %1$s</string>
     <string name="scheduled_time_required">Pickup date and time is required</string>
+    <!-- Pharmacy / Drug Interactions -->
+    <string name="channel_direct_dispense">Direct Dispense</string>
+    <string name="doctor_name">Doctor Name</string>
+    <string name="diagnosis">Diagnosis</string>
+    <string name="drug_interaction_warning_title">Drug Interaction Warning</string>
+    <string name="drug_interaction_warning_message">Potential drug interactions detected between items in this order:</string>
+    <string name="drug_interaction_confirm">Proceed Anyway</string>
 </resources>

@@ -24,4 +24,5 @@
     <string name="store_phone">تليفون التواصل</string>
     <string name="wallet_phone">تليفون المحفظة</string>
     <string name="app_version">الإصدار 1.0.0</string>
+    <string name="total">الإجمالي</string>
 </resources>

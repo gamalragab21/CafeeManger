@@ -24,6 +24,8 @@
     <string name="client_name">Client</string>
     <string name="client_phone">Client phone</string>
     <string name="client_address">Client address</string>
+    <string name="doctor_label">Doctor</string>
+    <string name="diagnosis_label">Diagnosis</string>
     <!-- Receipt table headers -->
     <string name="receipt_item">Item</string>
     <string name="receipt_qty">Qty</string>
@@ -40,8 +42,12 @@
     <string name="channel_takeaway">Takeaway</string>
     <string name="channel_in_store">In-Store</string>
     <string name="channel_pickup_later">Pickup Later</string>
+    <string name="channel_direct_dispense">Direct Dispense</string>
     <!-- Payment method names -->
     <string name="payment_cash">Cash</string>
     <string name="payment_wallet">Wallet</string>
     <string name="payment_card">Card</string>
+    <string name="payment_bank_transfer">Bank Transfer</string>
+    <string name="payment_credit">Credit</string>
+    <string name="payment_split">Split</string>
 </resources>

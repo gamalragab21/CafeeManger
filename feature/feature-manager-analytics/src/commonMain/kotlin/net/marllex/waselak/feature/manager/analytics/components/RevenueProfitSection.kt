@@ -56,7 +56,7 @@ fun RevenueProfitSection(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(pm.method, style = MaterialTheme.typography.bodyMedium)
+                    Text(localizedPaymentMethod(pm.method), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "${formatCurrency(pm.revenue)} (${pm.orderCount} orders)",
                         style = MaterialTheme.typography.bodyMedium,
@@ -80,4 +80,13 @@ fun RevenueProfitSection(
             )
         }
     }
+}
+
+private fun localizedPaymentMethod(method: String): String = when (method) {
+    "CASH" -> "Cash"
+    "CARD" -> "Card"
+    "WALLET" -> "Wallet"
+    "CREDIT" -> "Credit"
+    "SPLIT" -> "Split"
+    else -> method
 }

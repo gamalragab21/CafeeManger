@@ -11,11 +11,14 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.SplitPaymentRepository
 import net.marllex.waselak.core.model.OrderPayment
 import net.marllex.waselak.core.model.SplitPaymentSummary
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class SplitPaymentViewModel(
     savedStateHandle: SavedStateHandle,
     private val splitPaymentRepository: SplitPaymentRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "SplitPayment" }
+
 
     private val navOrderId: String? = savedStateHandle["orderId"]
 
@@ -43,6 +46,7 @@ class SplitPaymentViewModel(
     fun onOrderIdInputChange(v: String) { _uiState.update { it.copy(orderIdInput = v) } }
 
     fun loadOrder() {
+        AppLogger.d(TAG, "loadOrder called")
         val orderId = _uiState.value.orderIdInput.trim()
         if (orderId.isBlank()) return
         _uiState.update { it.copy(orderId = orderId) }
@@ -50,6 +54,7 @@ class SplitPaymentViewModel(
     }
 
     fun loadForOrder(orderId: String) {
+        AppLogger.d(TAG, "loadForOrder called")
         _uiState.update { it.copy(orderId = orderId, orderIdInput = orderId) }
         load()
     }
@@ -61,7 +66,8 @@ class SplitPaymentViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             splitPaymentRepository.getPaymentSummary(orderId)
                 .onSuccess { s -> _uiState.update { it.copy(summary = s, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
@@ -75,6 +81,7 @@ class SplitPaymentViewModel(
     fun onPaymentNoteChange(v: String) { _uiState.update { it.copy(paymentNote = v) } }
 
     fun addPayment() {
+        AppLogger.d(TAG, "addPayment called")
         val state = _uiState.value
         val amount = state.paymentAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
@@ -91,6 +98,7 @@ class SplitPaymentViewModel(
     }
 
     fun deletePayment(paymentId: String) {
+        AppLogger.d(TAG, "deletePayment called")
         viewModelScope.launch {
             splitPaymentRepository.deletePayment(_uiState.value.orderId, paymentId)
                 .onSuccess { load() }

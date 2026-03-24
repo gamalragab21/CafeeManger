@@ -64,4 +64,16 @@
     <string name="points_redeemed">نقاط مستبدلة</string>
     <string name="discount_reason">السبب</string>
     <string name="scroll_to_top">الرجوع للأول</string>
+    <!-- Return / Exchange -->
+    <string name="returns_exchanges">المرتجعات والاستبدال</string>
+    <string name="return_label">مرتجع</string>
+    <string name="exchange_label">استبدال</string>
+    <string name="return_reason">سبب الإرجاع</string>
+    <string name="select_return_items">اختار الأصناف للإرجاع</string>
+    <string name="max_qty">الحد</string>
+    <string name="submit_return">تقديم المرتجع</string>
+    <string name="refunded_amount">المرتجع</string>
+    <string name="net_total">الصافي</string>
+    <string name="search">ابحث عن صنف…</string>
+    <string name="tax_label">الضريبة</string>
 </resources>

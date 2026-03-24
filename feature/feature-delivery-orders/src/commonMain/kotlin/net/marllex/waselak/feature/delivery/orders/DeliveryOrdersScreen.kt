@@ -29,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -136,13 +137,16 @@ fun DeliveryOrdersScreen(
             )
         },
     ) { padding ->
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
         when {
             uiState.isLoading && uiState.orders.isEmpty() && uiState.availableOrders.isEmpty() -> LoadingIndicator()
             uiState.error != null && uiState.orders.isEmpty() && uiState.availableOrders.isEmpty() -> ErrorView(
                 message = uiState.error!!,
                 onRetry = viewModel::loadOrders,
             )
-            else -> Column(modifier = Modifier.padding(padding)) {
+            else -> Column(modifier = Modifier) {
                 // Tab selector: My Orders vs Available
                 TabRow(selectedTabIndex = uiState.selectedTab) {
                     Tab(
@@ -255,6 +259,7 @@ fun DeliveryOrdersScreen(
                     }
                 }
             }
+        }
         }
     }
 }

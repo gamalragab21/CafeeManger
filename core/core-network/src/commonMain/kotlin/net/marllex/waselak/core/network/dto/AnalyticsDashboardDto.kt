@@ -372,3 +372,51 @@ data class StaffCostsAnalyticsResponse(
     @SerialName("overtime_percentage") val overtimePercentage: Double,
     @SerialName("top_overtime_workers") val topOvertimeWorkers: List<WorkerOvertimeSummaryResponse>,
 )
+
+// ── Credit Analytics ────────────────────────────────────────────
+@Serializable
+data class CreditAnalyticsResponse(
+    @SerialName("total_outstanding") val totalOutstanding: Double,
+    @SerialName("total_credit_limit") val totalCreditLimit: Double,
+    @SerialName("utilization_percent") val utilizationPercent: Double,
+    @SerialName("total_credit_customers") val totalCreditCustomers: Int,
+    @SerialName("total_charges") val totalCharges: Double,
+    @SerialName("total_payments") val totalPayments: Double,
+    @SerialName("credit_orders_count") val creditOrdersCount: Int,
+    @SerialName("credit_orders_revenue") val creditOrdersRevenue: Double,
+    @SerialName("top_debtors") val topDebtors: List<CreditDebtorResponse> = emptyList(),
+)
+
+@Serializable
+data class CreditDebtorResponse(
+    @SerialName("customer_name") val customerName: String,
+    @SerialName("customer_phone") val customerPhone: String? = null,
+    val balance: Double,
+    @SerialName("credit_limit") val creditLimit: Double,
+)
+
+@Serializable
+data class ReturnsAnalyticsResponse(
+    @SerialName("total_returns") val totalReturns: Int = 0,
+    @SerialName("total_refunds") val totalRefunds: Int = 0,
+    @SerialName("total_exchanges") val totalExchanges: Int = 0,
+    @SerialName("total_refunded_amount") val totalRefundedAmount: Double = 0.0,
+    @SerialName("total_exchanged_amount") val totalExchangedAmount: Double = 0.0,
+    @SerialName("total_returned_items") val totalReturnedItems: Int = 0,
+    @SerialName("returned_items_breakdown") val returnedItemsBreakdown: List<ReturnsItemBreakdownResponse> = emptyList(),
+    @SerialName("exchange_items") val exchangeItems: List<ExchangeItemBreakdownResponse> = emptyList(),
+)
+
+@Serializable
+data class ReturnsItemBreakdownResponse(
+    @SerialName("item_name") val itemName: String,
+    @SerialName("total_quantity") val totalQuantity: Int = 0,
+    @SerialName("total_amount") val totalAmount: Double = 0.0,
+)
+
+@Serializable
+data class ExchangeItemBreakdownResponse(
+    @SerialName("item_name") val itemName: String,
+    val quantity: Int = 0,
+    val price: Double = 0.0,
+)

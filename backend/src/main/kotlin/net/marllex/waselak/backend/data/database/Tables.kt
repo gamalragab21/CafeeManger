@@ -32,6 +32,20 @@ object VendorsTable : UUIDTable("vendors") {
     val suspensionReason = text("suspension_reason").nullable()
     val enableOfflineMode = bool("enable_offline_mode").default(false)
     val digitalMenuUrl = text("digital_menu_url").nullable()
+    val enableDigitalMenu = bool("enable_digital_menu").default(true)
+    val enableRecipe = bool("enable_recipe").default(true)
+    // Feature toggles (vendor-level ON/OFF — must also pass PlanService check)
+    val enableSplitPayment = bool("enable_split_payment").default(true)
+    val enableCashDrawer = bool("enable_cash_drawer").default(true)
+    val enableReturns = bool("enable_returns").default(true)
+    val enableCustomerCredit = bool("enable_customer_credit").default(false)
+    val enablePreOrders = bool("enable_pre_orders").default(false)
+    val enableScheduledOrders = bool("enable_scheduled_orders").default(false)
+    val enableSuppliers = bool("enable_suppliers").default(true)
+    val enableDrugInteractions = bool("enable_drug_interactions").default(false)
+    val enablePrescriptions = bool("enable_prescriptions").default(false)
+    val enableAnalytics = bool("enable_analytics").default(true)
+    val enableAnnouncements = bool("enable_announcements").default(true)
     // Loyalty & discount settings
     val loyaltyEnabled = bool("loyalty_enabled").default(false)
     val pointsEarnRate = decimal("points_earn_rate", 10, 2).default(java.math.BigDecimal("1.0"))
@@ -189,6 +203,8 @@ object OrdersTable : UUIDTable("orders") {
     val pointsEarned = integer("points_earned").default(0)
     val pointsRedeemed = integer("points_redeemed").default(0)
     val discountReason = varchar("discount_reason", 100).nullable()
+    val doctorName = varchar("doctor_name", 255).nullable()
+    val diagnosis = varchar("diagnosis", 500).nullable()
 }
 
 // ─── Order Items ─────────────────────────────────────────────────
@@ -617,6 +633,9 @@ object ProductReturnsTable : UUIDTable("product_returns") {
     val processedBy = reference("processed_by", UsersTable).nullable()
     val processedAt = timestamp("processed_at").nullable()
     val notes = text("notes").nullable()
+    // Exchange: replacement item
+    val exchangeItemId = reference("exchange_item_id", ItemsTable).nullable()
+    val exchangeQuantity = integer("exchange_quantity").default(0)
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 

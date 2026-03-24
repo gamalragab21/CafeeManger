@@ -93,6 +93,25 @@ data class DomainFeatures(
          * These defaults are used when creating a new vendor and to
          * drive UI visibility across all apps.
          */
+        /**
+         * Creates features from a Vendor object.
+         * Rule: Vendor toggle is the source of truth.
+         * Business type defaults are just initial values — vendor can override.
+         */
+        fun forVendor(vendor: Vendor): DomainFeatures {
+            val base = forType(vendor.businessType)
+            return base.copy(
+                hasSplitPayments = vendor.enableSplitPayment,
+                hasCashDrawer = vendor.enableCashDrawer,
+                hasReturns = vendor.enableReturns,
+                hasCustomerCredit = vendor.enableCustomerCredit,
+                hasPreOrders = vendor.enableScheduledOrders,
+                hasSuppliers = vendor.enableSuppliers,
+                hasPrescriptions = vendor.enablePrescriptions,
+                hasDrugInteractions = vendor.enableDrugInteractions,
+            )
+        }
+
         fun forType(businessType: String): DomainFeatures = when (businessType.uppercase()) {
             "RESTAURANT" -> restaurant()
             "CAFE" -> cafe()

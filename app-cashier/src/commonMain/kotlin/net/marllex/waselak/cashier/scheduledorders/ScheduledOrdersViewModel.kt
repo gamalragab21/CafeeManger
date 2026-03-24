@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.ScheduledOrderRepository
 import net.marllex.waselak.core.model.ScheduledOrder
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class ScheduledOrdersViewModel(
     private val scheduledOrderRepository: ScheduledOrderRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "ScheduledOrders" }
+
 
     data class UiState(
         val orders: List<ScheduledOrder> = emptyList(),
@@ -32,11 +35,13 @@ class ScheduledOrdersViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             scheduledOrderRepository.getScheduledOrders()
                 .onSuccess { list -> _uiState.update { it.copy(orders = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
@@ -51,6 +56,7 @@ class ScheduledOrdersViewModel(
     }
 
     fun delete(id: String) {
+        AppLogger.d(TAG, "delete called")
         viewModelScope.launch {
             scheduledOrderRepository.deleteScheduledOrder(id)
                 .onSuccess { load() }

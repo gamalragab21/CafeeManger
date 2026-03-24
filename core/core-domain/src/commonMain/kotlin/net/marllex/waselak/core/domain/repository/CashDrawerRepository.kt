@@ -10,6 +10,6 @@ interface CashDrawerRepository {
     suspend fun getCurrentSession(): Result<CashDrawerSession?>
     suspend fun createMovement(type: String, amount: Double, reason: String? = null, orderId: String? = null): Result<CashMovement>
     suspend fun getMovements(sessionId: String? = null, type: String? = null): Result<List<CashMovement>>
-    suspend fun getSessions(limit: Int = 20, offset: Int = 0): Result<List<CashDrawerSession>>
+    suspend fun getSessions(limit: Int = 20, offset: Int = 0, cashierId: String? = null): Result<List<CashDrawerSession>>
     suspend fun getSummary(): Result<DrawerSummary>
 }

@@ -35,6 +35,10 @@ data class ProductReturnDto(
     val processed_at: Long? = null,
     val notes: String? = null,
     val items: List<ReturnItemDto> = emptyList(),
+    val exchange_item_id: String? = null,
+    val exchange_item_name: String? = null,
+    val exchange_item_price: Double? = null,
+    val exchange_quantity: Int = 0,
     val created_at: Long? = null,
 )
 
@@ -61,6 +65,9 @@ data class CreateReturnDto(
     val refund_method: String? = null,  // CASH, CARD, CREDIT, ORIGINAL_METHOD
     val notes: String? = null,
     val items: List<CreateReturnItemDto>,
+    // Exchange: replacement item
+    val exchange_item_id: String? = null,
+    val exchange_quantity: Int = 1,
 )
 
 @Serializable
@@ -73,9 +80,12 @@ data class CreateReturnItemDto(
 )
 
 @Serializable
-data class ProcessReturnDto(
-    val status: String,                // APPROVED, REJECTED
-    val notes: String? = null,
+data class ReturnsSummaryDto(
+    val total: Int,
+    val pending: Int = 0,
+    val completed: Int,
+    val rejected: Int = 0,
+    val total_refunded: Double,
 )
 
 // ─── Routes ─────────────────────────────────────────────────────
@@ -177,18 +187,38 @@ fun Route.returnRoutes() {
                 }.toList()
                 val orderItemMap = orderItems.associateBy { it[OrderItemsTable.id].toString() }
 
+                // Get already-returned quantities for this order
+                val existingReturns = ProductReturnsTable.selectAll().where {
+                    (ProductReturnsTable.orderId eq orderUUID) and
+                    (ProductReturnsTable.status eq "COMPLETED")
+                }.map { it[ProductReturnsTable.id] }
+
+                val alreadyReturnedQty = mutableMapOf<String, Int>()
+                if (existingReturns.isNotEmpty()) {
+                    ReturnItemsTable.selectAll().where {
+                        ReturnItemsTable.returnId inList existingReturns
+                    }.forEach { ri ->
+                        val oiId = ri[ReturnItemsTable.orderItemId].toString()
+                        alreadyReturnedQty[oiId] = (alreadyReturnedQty[oiId] ?: 0) + ri[ReturnItemsTable.quantity]
+                    }
+                }
+
                 // Calculate refund amount and validate items
                 var totalRefund = BigDecimal.ZERO
                 val returnItemsData = request.items.map { returnItem ->
                     val orderItem = orderItemMap[returnItem.order_item_id]
                         ?: throw NoSuchElementException("Order item ${returnItem.order_item_id} not found")
 
+                    val originalQty = orderItem[OrderItemsTable.quantity]
+                    val previouslyReturned = alreadyReturnedQty[returnItem.order_item_id] ?: 0
+                    val remainingQty = originalQty - previouslyReturned
+
                     require(returnItem.quantity > 0) { "Return quantity must be positive" }
-                    require(returnItem.quantity <= orderItem[OrderItemsTable.quantity]) {
-                        "Return quantity (${returnItem.quantity}) exceeds order quantity (${orderItem[OrderItemsTable.quantity]})"
+                    require(returnItem.quantity <= remainingQty) {
+                        "Return quantity (${returnItem.quantity}) exceeds remaining quantity ($remainingQty). Already returned: $previouslyReturned"
                     }
 
-                    // Calculate per-item refund: (item price * return qty) / order qty
+                    // Calculate per-item refund: item price * return qty
                     val itemPrice = orderItem[OrderItemsTable.itemPriceSnapshot]
                     val perItemRefund = itemPrice * BigDecimal(returnItem.quantity)
 
@@ -200,17 +230,29 @@ fun Route.returnRoutes() {
                 // Get customer ID from order
                 val customerId = order[OrdersTable.customerId]
 
-                // Create the return record
+                // Resolve exchange item if provided
+                val exchangeItemUUID = request.exchange_item_id?.let { UUID.fromString(it) }
+                val exchangeItemRow = exchangeItemUUID?.let {
+                    ItemsTable.selectAll().where { ItemsTable.id eq it }.firstOrNull()
+                }
+
+                // Create the return record — auto-complete so stock is restored immediately
                 val returnId = ProductReturnsTable.insertAndGetId {
                     it[ProductReturnsTable.vendorId] = vendorUUID
                     it[ProductReturnsTable.orderId] = orderUUID
                     it[ProductReturnsTable.customerId] = customerId
                     it[returnType] = request.return_type
-                    it[status] = "PENDING"
+                    it[status] = "COMPLETED"
                     it[reason] = request.reason
                     it[refundAmount] = totalRefund
                     it[refundMethod] = request.refund_method
+                    it[processedBy] = UUID.fromString(principal.userId)
+                    it[processedAt] = now
                     it[notes] = request.notes
+                    if (exchangeItemUUID != null) {
+                        it[exchangeItemId] = exchangeItemUUID
+                        it[exchangeQuantity] = request.exchange_quantity
+                    }
                     it[createdAt] = now
                 }
 
@@ -243,18 +285,186 @@ fun Route.returnRoutes() {
                     )
                 }
 
+                // Auto-restore stock for all restockable items (all business types)
+                for ((returnItem, orderItem, _) in returnItemsData) {
+                    if (!returnItem.restockable) continue
+                    val itemId = orderItem[OrderItemsTable.itemId]
+                    val returnQty = returnItem.quantity
+
+                    val stockRow = StockTable.selectAll().where {
+                        (StockTable.itemId eq itemId) and (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull() ?: continue
+
+                    val currentQty = stockRow[StockTable.quantity]
+                    val restoreAmount = BigDecimal(returnQty)
+                    val newQty = currentQty + restoreAmount
+
+                    StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
+                        it[quantity] = newQty
+                        it[updatedAt] = now
+                    }
+
+                    // FIFO batch restoration
+                    val batchesRestored = fifoRestoreBatches(
+                        stockUUID = stockRow[StockTable.id].value,
+                        vendorUUID = vendorUUID,
+                        amount = restoreAmount,
+                        orderId = orderUUID,
+                        note = "Product return restock"
+                    )
+
+                    if (batchesRestored.isEmpty()) {
+                        StockTransactionsTable.insert {
+                            it[stockId] = stockRow[StockTable.id]
+                            it[type] = "RETURN"
+                            it[StockTransactionsTable.quantity] = restoreAmount
+                            it[previousQuantity] = currentQty
+                            it[orderId] = orderUUID
+                            it[note] = "Product return restock"
+                            it[createdAt] = now
+                        }
+                    }
+                }
+
+                // EXCHANGE: Add replacement item to the order
+                if (request.return_type == "EXCHANGE" && exchangeItemRow != null) {
+                    val exchangePrice = exchangeItemRow[ItemsTable.price]
+                    val exchangeQty = request.exchange_quantity
+
+                    // Add new order item
+                    OrderItemsTable.insert {
+                        it[orderId] = orderUUID
+                        it[itemId] = exchangeItemUUID!!
+                        it[itemNameSnapshot] = exchangeItemRow[ItemsTable.name]
+                        it[itemPriceSnapshot] = exchangePrice
+                        it[quantity] = exchangeQty
+                        it[note] = "Exchange replacement"
+                        it[createdAt] = now
+                    }
+
+                    // Update order total: add exchange item price, subtract refund
+                    val exchangeTotal = exchangePrice * BigDecimal(exchangeQty)
+                    val priceDiff = exchangeTotal - totalRefund // positive = customer pays more
+                    OrdersTable.update({ OrdersTable.id eq orderUUID }) {
+                        with(SqlExpressionBuilder) {
+                            it[subtotal] = subtotal + exchangeTotal - totalRefund
+                            it[total] = total + exchangeTotal - totalRefund
+                        }
+                        it[updatedAt] = now
+                    }
+
+                    // Deduct stock for exchange item
+                    val exchangeStockRow = StockTable.selectAll().where {
+                        (StockTable.itemId eq exchangeItemUUID!!) and (StockTable.vendorId eq vendorUUID)
+                    }.firstOrNull()
+                    if (exchangeStockRow != null) {
+                        val currentQty = exchangeStockRow[StockTable.quantity]
+                        val deductAmount = BigDecimal(exchangeQty)
+                        StockTable.update({ StockTable.id eq exchangeStockRow[StockTable.id] }) {
+                            it[quantity] = currentQty - deductAmount
+                            it[updatedAt] = now
+                        }
+                        StockTransactionsTable.insert {
+                            it[stockId] = exchangeStockRow[StockTable.id]
+                            it[type] = "SALE_DIRECT"
+                            it[StockTransactionsTable.quantity] = deductAmount
+                            it[previousQuantity] = currentQty
+                            it[StockTransactionsTable.orderId] = orderUUID
+                            it[StockTransactionsTable.note] = "Exchange replacement"
+                            it[StockTransactionsTable.createdAt] = now
+                        }
+                    }
+                }
+
+                // Update customer stats
+                if (customerId != null && totalRefund > BigDecimal.ZERO) {
+                    CustomersTable.update({ CustomersTable.id eq customerId }) {
+                        with(SqlExpressionBuilder) {
+                            it[totalSpent] = totalSpent - totalRefund
+                        }
+                    }
+                }
+
+                // Update order: mark as REFUNDED if all items returned, update total
+                val allOrderItemIds = orderItems.map { it[OrderItemsTable.id].toString() }
+                val totalReturnedAfter = mutableMapOf<String, Int>()
+                // Re-query all returns including this one
+                val allReturnIds = ProductReturnsTable.selectAll().where {
+                    (ProductReturnsTable.orderId eq orderUUID) and
+                    (ProductReturnsTable.status eq "COMPLETED")
+                }.map { it[ProductReturnsTable.id] }
+                if (allReturnIds.isNotEmpty()) {
+                    ReturnItemsTable.selectAll().where {
+                        ReturnItemsTable.returnId inList allReturnIds
+                    }.forEach { ri ->
+                        val oiId = ri[ReturnItemsTable.orderItemId].toString()
+                        totalReturnedAfter[oiId] = (totalReturnedAfter[oiId] ?: 0) + ri[ReturnItemsTable.quantity]
+                    }
+                }
+                val allFullyReturned = allOrderItemIds.all { oiId ->
+                    val originalQty = orderItemMap[oiId]?.get(OrderItemsTable.quantity) ?: 0
+                    val returnedQty = totalReturnedAfter[oiId] ?: 0
+                    returnedQty >= originalQty
+                }
+
+                // Update order status and refund info
+                OrdersTable.update({ OrdersTable.id eq orderUUID }) {
+                    if (allFullyReturned) {
+                        it[status] = "REFUNDED"
+                    }
+                    it[refundedAt] = now
+                    it[refundedBy] = UUID.fromString(principal.userId)
+                    it[refundReason] = request.reason
+                    it[updatedAt] = now
+                }
+
+                // Record refund in cash drawer if there's an open session
+                val drawerSession = CashDrawerSessionsTable.selectAll().where {
+                    (CashDrawerSessionsTable.vendorId eq vendorUUID) and
+                    (CashDrawerSessionsTable.cashierId eq UUID.fromString(principal.userId)) and
+                    (CashDrawerSessionsTable.status eq "OPEN")
+                }.firstOrNull()
+
+                if (drawerSession != null) {
+                    CashMovementsTable.insert {
+                        it[sessionId] = drawerSession[CashDrawerSessionsTable.id]
+                        it[CashMovementsTable.vendorId] = vendorUUID
+                        it[type] = "REFUND"
+                        it[amount] = totalRefund
+                        it[reason] = "Return: ${request.reason}"
+                        it[CashMovementsTable.orderId] = orderUUID
+                        it[createdBy] = UUID.fromString(principal.userId)
+                        it[createdAt] = now
+                    }
+                }
+
+                // Log activity
+                ActivityLogsTable.insert {
+                    it[orderId] = orderUUID
+                    it[userId] = UUID.fromString(principal.userId)
+                    it[action] = "RETURN_COMPLETED"
+                    it[payload] = """{"return_id":"${returnId}","refund_amount":${totalRefund.toDouble()},"all_returned":$allFullyReturned}"""
+                    it[createdAt] = now
+                }
+
                 ProductReturnDto(
                     id = returnId.toString(),
                     vendor_id = vendorUUID.toString(),
                     order_id = request.order_id,
                     customer_id = customerId?.toString(),
                     return_type = request.return_type,
-                    status = "PENDING",
+                    status = "COMPLETED",
                     reason = request.reason,
                     refund_amount = totalRefund.toDouble(),
                     refund_method = request.refund_method,
+                    processed_by = principal.userId,
+                    processed_at = now.toEpochMilliseconds(),
                     notes = request.notes,
                     items = createdItems,
+                    exchange_item_id = exchangeItemUUID?.toString(),
+                    exchange_item_name = exchangeItemRow?.get(ItemsTable.name),
+                    exchange_item_price = exchangeItemRow?.get(ItemsTable.price)?.toDouble(),
+                    exchange_quantity = if (exchangeItemRow != null) request.exchange_quantity else 0,
                     created_at = now.toEpochMilliseconds(),
                 )
             }
@@ -262,154 +472,25 @@ fun Route.returnRoutes() {
             call.respond(HttpStatusCode.Created, returnDto)
         }
 
-        // PROCESS a return (approve/reject) -- MANAGER only
-        patch("/{id}/process") {
-            val trace = call.routeTrace()
-            trace.step("Process return started")
-            val principal = requireRole("MANAGER")
-            planService.checkFeature(UUID.fromString(principal.vendorId), "RETURNS")
-            val vendorUUID = UUID.fromString(principal.vendorId)
-            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
-            val request = call.receive<ProcessReturnDto>()
-
-            require(request.status in listOf("APPROVED", "REJECTED")) {
-                "Status must be APPROVED or REJECTED"
-            }
-
-            val returnDto = transaction {
-                val returnUUID = UUID.fromString(id)
-                val now = Clock.System.now()
-
-                val returnRow = ProductReturnsTable.selectAll().where {
-                    (ProductReturnsTable.id eq returnUUID) and
-                    (ProductReturnsTable.vendorId eq vendorUUID)
-                }.firstOrNull() ?: throw NoSuchElementException("Return not found")
-
-                require(returnRow[ProductReturnsTable.status] == "PENDING") {
-                    "Can only process pending returns"
-                }
-
-                val newStatus = if (request.status == "APPROVED") "COMPLETED" else "REJECTED"
-
-                // Update return status
-                ProductReturnsTable.update({
-                    ProductReturnsTable.id eq returnUUID
-                }) {
-                    it[status] = newStatus
-                    it[processedBy] = UUID.fromString(principal.userId)
-                    it[processedAt] = now
-                    it[notes] = request.notes ?: returnRow[ProductReturnsTable.notes]
-                }
-
-                // If approved, restore stock for restockable items
-                if (request.status == "APPROVED") {
-                    val returnItems = ReturnItemsTable.selectAll().where {
-                        ReturnItemsTable.returnId eq returnUUID
-                    }.toList()
-
-                    for (returnItem in returnItems) {
-                        if (!returnItem[ReturnItemsTable.restockable]) continue
-
-                        val itemId = returnItem[ReturnItemsTable.itemId]
-                        val returnQty = returnItem[ReturnItemsTable.quantity]
-
-                        // Find stock row for this item
-                        val stockRow = StockTable.selectAll().where {
-                            (StockTable.itemId eq itemId) and (StockTable.vendorId eq vendorUUID)
-                        }.firstOrNull() ?: continue
-
-                        val currentQty = stockRow[StockTable.quantity]
-                        val restoreAmount = BigDecimal(returnQty)
-                        val newQty = currentQty + restoreAmount
-
-                        // Restore to main stock
-                        StockTable.update({ StockTable.id eq stockRow[StockTable.id] }) {
-                            it[quantity] = newQty
-                            it[updatedAt] = now
-                        }
-
-                        // FIFO batch restoration
-                        val batchesRestored = fifoRestoreBatches(
-                            stockUUID = stockRow[StockTable.id].value,
-                            vendorUUID = vendorUUID,
-                            amount = restoreAmount,
-                            orderId = returnRow[ProductReturnsTable.orderId].value,
-                            note = "Product return restock"
-                        )
-
-                        if (batchesRestored.isEmpty()) {
-                            StockTransactionsTable.insert {
-                                it[stockId] = stockRow[StockTable.id]
-                                it[type] = "RETURN"
-                                it[StockTransactionsTable.quantity] = restoreAmount
-                                it[previousQuantity] = currentQty
-                                it[orderId] = returnRow[ProductReturnsTable.orderId]
-                                it[note] = "Product return restock"
-                                it[createdAt] = now
-                            }
-                        }
-                    }
-
-                    // Update customer stats if applicable
-                    val customerId = returnRow[ProductReturnsTable.customerId]
-                    val refundAmount = returnRow[ProductReturnsTable.refundAmount]
-                    if (customerId != null && refundAmount > BigDecimal.ZERO) {
-                        CustomersTable.update({ CustomersTable.id eq customerId }) {
-                            with(SqlExpressionBuilder) {
-                                it[totalSpent] = totalSpent - refundAmount
-                            }
-                        }
-                    }
-
-                    // Log activity
-                    ActivityLogsTable.insert {
-                        it[orderId] = returnRow[ProductReturnsTable.orderId]
-                        it[userId] = UUID.fromString(principal.userId)
-                        it[action] = "RETURN_APPROVED"
-                        it[payload] = """{"return_id":"$id","refund_amount":${refundAmount.toDouble()}}"""
-                        it[createdAt] = now
-                    }
-                }
-
-                // Fetch updated return
-                val updatedRow = ProductReturnsTable.selectAll().where {
-                    ProductReturnsTable.id eq returnUUID
-                }.first()
-                val items = ReturnItemsTable.selectAll().where {
-                    ReturnItemsTable.returnId eq returnUUID
-                }.map { it.toReturnItemDto() }
-
-                updatedRow.toProductReturnDto(items)
-            }
-            trace.step("Return processed", mapOf("returnId" to returnDto.id, "status" to returnDto.status))
-            call.respond(HttpStatusCode.OK, returnDto)
-        }
-
         // GET returns summary for a vendor
         get("/summary") {
             val trace = call.routeTrace()
-            val principal = requireRole("MANAGER")
+            val principal = requireRole("MANAGER", "CASHIER")
             planService.checkFeature(UUID.fromString(principal.vendorId), "RETURNS")
             val vendorUUID = UUID.fromString(principal.vendorId)
 
             val summary = transaction {
                 val returns = ProductReturnsTable.selectAll().where {
-                    ProductReturnsTable.vendorId eq vendorUUID
+                    (ProductReturnsTable.vendorId eq vendorUUID) and
+                    (ProductReturnsTable.status eq "COMPLETED")
                 }.toList()
 
-                val pending = returns.count { it[ProductReturnsTable.status] == "PENDING" }
-                val completed = returns.count { it[ProductReturnsTable.status] == "COMPLETED" }
-                val rejected = returns.count { it[ProductReturnsTable.status] == "REJECTED" }
-                val totalRefunded = returns
-                    .filter { it[ProductReturnsTable.status] == "COMPLETED" }
-                    .sumOf { it[ProductReturnsTable.refundAmount].toDouble() }
+                val totalRefunded = returns.sumOf { it[ProductReturnsTable.refundAmount].toDouble() }
 
-                mapOf(
-                    "total" to returns.size,
-                    "pending" to pending,
-                    "completed" to completed,
-                    "rejected" to rejected,
-                    "total_refunded" to totalRefunded,
+                ReturnsSummaryDto(
+                    total = returns.size,
+                    completed = returns.size,
+                    total_refunded = Math.round(totalRefunded * 100.0) / 100.0,
                 )
             }
             call.respond(HttpStatusCode.OK, summary)
@@ -419,22 +500,35 @@ fun Route.returnRoutes() {
 
 // ─── Mappers ────────────────────────────────────────────────────
 
-private fun ResultRow.toProductReturnDto(items: List<ReturnItemDto> = emptyList()) = ProductReturnDto(
-    id = this[ProductReturnsTable.id].toString(),
-    vendor_id = this[ProductReturnsTable.vendorId].toString(),
-    order_id = this[ProductReturnsTable.orderId].toString(),
-    customer_id = this[ProductReturnsTable.customerId]?.toString(),
-    return_type = this[ProductReturnsTable.returnType],
-    status = this[ProductReturnsTable.status],
-    reason = this[ProductReturnsTable.reason],
-    refund_amount = this[ProductReturnsTable.refundAmount].toDouble(),
-    refund_method = this[ProductReturnsTable.refundMethod],
-    processed_by = this[ProductReturnsTable.processedBy]?.toString(),
-    processed_at = this[ProductReturnsTable.processedAt]?.toEpochMilliseconds(),
-    notes = this[ProductReturnsTable.notes],
-    items = items,
-    created_at = this[ProductReturnsTable.createdAt].toEpochMilliseconds(),
-)
+private fun ResultRow.toProductReturnDto(items: List<ReturnItemDto> = emptyList()): ProductReturnDto {
+    val exchItemId = this[ProductReturnsTable.exchangeItemId]
+    val exchItemName = exchItemId?.let {
+        ItemsTable.selectAll().where { ItemsTable.id eq it }.firstOrNull()?.get(ItemsTable.name)
+    }
+    val exchItemPrice = exchItemId?.let {
+        ItemsTable.selectAll().where { ItemsTable.id eq it }.firstOrNull()?.get(ItemsTable.price)?.toDouble()
+    }
+    return ProductReturnDto(
+        id = this[ProductReturnsTable.id].toString(),
+        vendor_id = this[ProductReturnsTable.vendorId].toString(),
+        order_id = this[ProductReturnsTable.orderId].toString(),
+        customer_id = this[ProductReturnsTable.customerId]?.toString(),
+        return_type = this[ProductReturnsTable.returnType],
+        status = this[ProductReturnsTable.status],
+        reason = this[ProductReturnsTable.reason],
+        refund_amount = this[ProductReturnsTable.refundAmount].toDouble(),
+        refund_method = this[ProductReturnsTable.refundMethod],
+        processed_by = this[ProductReturnsTable.processedBy]?.toString(),
+        processed_at = this[ProductReturnsTable.processedAt]?.toEpochMilliseconds(),
+        notes = this[ProductReturnsTable.notes],
+        items = items,
+        exchange_item_id = exchItemId?.toString(),
+        exchange_item_name = exchItemName,
+        exchange_item_price = exchItemPrice,
+        exchange_quantity = this[ProductReturnsTable.exchangeQuantity],
+        created_at = this[ProductReturnsTable.createdAt].toEpochMilliseconds(),
+    )
+}
 
 private fun ResultRow.toReturnItemDto(): ReturnItemDto {
     val itemId = this[ReturnItemsTable.itemId]

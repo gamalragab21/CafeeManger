@@ -19,6 +19,7 @@ import net.marllex.waselak.feature.cashier.receipt.ReceiptViewModel
 import net.marllex.waselak.feature.manager.tables.TablesViewModel
 import net.marllex.waselak.cashier.cashdrawer.CashDrawerViewModel
 import net.marllex.waselak.cashier.customercredit.CashierCustomerCreditViewModel
+import net.marllex.waselak.cashier.returns.ReturnsViewModel
 import net.marllex.waselak.cashier.kds.KdsViewModel
 import net.marllex.waselak.cashier.notifications.CashierNotificationsViewModel
 import net.marllex.waselak.cashier.prescriptions.PrescriptionsViewModel
@@ -63,4 +64,5 @@ private val cashierAppModule = module {
     viewModelOf(::PrescriptionsViewModel)
     viewModelOf(::SplitPaymentViewModel)
     viewModelOf(::CashierCustomerCreditViewModel)
+    viewModelOf(::ReturnsViewModel)
 }

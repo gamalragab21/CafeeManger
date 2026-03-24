@@ -22,6 +22,7 @@ import net.marllex.waselak.core.model.TableStatus
 import net.marllex.waselak.core.common.extensions.currentTimeString
 import net.marllex.waselak.core.common.extensions.todayDateString
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class TablesViewModel constructor(
     private val tableRepository: TableRepository,
@@ -29,6 +30,8 @@ class TablesViewModel constructor(
     private val customerRepository: CustomerRepository,
     private val orderRepository: OrderRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Tables" }
+
 
     data class UiState(
         val tables: List<Table> = emptyList(),
@@ -77,6 +80,7 @@ class TablesViewModel constructor(
     }
 
     fun loadTables() {
+        AppLogger.d(TAG, "loadTables called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -164,6 +168,7 @@ class TablesViewModel constructor(
     fun updateDialogCapacity(v: String) { _uiState.update { it.copy(dialogCapacity = v) } }
 
     fun saveTable() {
+        AppLogger.d(TAG, "saveTable called")
         val s = _uiState.value
         if (s.dialogNumber.isBlank()) return
         val capacity = s.dialogCapacity.toIntOrNull() ?: 4
@@ -176,8 +181,10 @@ class TablesViewModel constructor(
                 tableRepository.createTable(s.dialogNumber, capacity)
             }
             result.onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
@@ -200,6 +207,7 @@ class TablesViewModel constructor(
     }
 
     fun deleteTable(id: String) {
+        AppLogger.d(TAG, "deleteTable called")
         viewModelScope.launch {
             tableRepository.deleteTable(id).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
@@ -243,6 +251,7 @@ class TablesViewModel constructor(
     }
 
     fun searchCustomer(query: String) {
+        AppLogger.d(TAG, "searchCustomer called")
         _uiState.update { it.copy(customerSearchQuery = query, selectedCustomer = null) }
         customerSearchJob?.cancel()
         if (query.length < 2) {
@@ -260,6 +269,7 @@ class TablesViewModel constructor(
     }
 
     fun selectCustomer(customer: Customer) {
+        AppLogger.d(TAG, "selectCustomer called")
         _uiState.update {
             it.copy(
                 selectedCustomer = customer,
@@ -291,6 +301,7 @@ class TablesViewModel constructor(
     fun updateReservationNotes(v: String) { _uiState.update { it.copy(reservationNotes = v) } }
 
     fun saveReservation() {
+        AppLogger.d(TAG, "saveReservation called")
         val s = _uiState.value
         if (s.reservationClientPhone.isBlank() || s.reservationDate.isBlank() || s.reservationTime.isBlank()) return
         val tableId = s.reservationTableId ?: return
@@ -326,6 +337,7 @@ class TablesViewModel constructor(
     }
 
     fun cancelReservation(id: String) {
+        AppLogger.d(TAG, "cancelReservation called")
         viewModelScope.launch {
             reservationRepository.updateReservationStatus(id, "CANCELLED")
                 .onSuccess {
@@ -339,6 +351,7 @@ class TablesViewModel constructor(
     }
 
     fun completeReservation(id: String) {
+        AppLogger.d(TAG, "completeReservation called")
         viewModelScope.launch {
             reservationRepository.updateReservationStatus(id, "COMPLETED")
                 .onSuccess {

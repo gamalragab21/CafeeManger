@@ -126,6 +126,47 @@ object DatabaseConfig {
             // Migrate ON_TABLE → SERVED (status rename)
             exec("UPDATE orders SET status = 'SERVED' WHERE status = 'ON_TABLE'")
 
+            // Ensure new feature flag columns exist and set correct defaults for pharmacy/retail
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_split_payment BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_cash_drawer BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_returns BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_customer_credit BOOLEAN DEFAULT FALSE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_pre_orders BOOLEAN DEFAULT FALSE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_scheduled_orders BOOLEAN DEFAULT FALSE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_suppliers BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_drug_interactions BOOLEAN DEFAULT FALSE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_prescriptions BOOLEAN DEFAULT FALSE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_analytics BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_announcements BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_digital_menu BOOLEAN DEFAULT TRUE")
+            exec("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS enable_recipe BOOLEAN DEFAULT TRUE")
+
+            // Set pharmacy-specific defaults
+            exec("""
+                UPDATE vendors SET
+                    enable_digital_menu = FALSE,
+                    enable_recipe = FALSE,
+                    enable_drug_interactions = TRUE,
+                    enable_prescriptions = TRUE,
+                    enable_customer_credit = TRUE,
+                    enable_returns = TRUE
+                WHERE business_type = 'PHARMACY'
+                    AND enable_digital_menu = TRUE
+                    AND enable_drug_interactions = FALSE
+            """.trimIndent())
+
+            // Set retail-specific defaults
+            exec("""
+                UPDATE vendors SET
+                    enable_digital_menu = FALSE,
+                    enable_recipe = FALSE,
+                    enable_returns = TRUE,
+                    enable_customer_credit = TRUE
+                WHERE business_type = 'RETAIL'
+                    AND enable_digital_menu = TRUE
+                    AND enable_returns = FALSE
+            """.trimIndent())
+
             // Backfill payment_status for existing orders
             exec("UPDATE orders SET payment_status = 'PAID' WHERE status = 'COMPLETED' AND payment_status = 'PENDING'")
             exec("UPDATE orders SET payment_timing = 'PAY_NOW' WHERE payment_timing IS NULL")
@@ -406,7 +447,8 @@ object DatabaseConfig {
                 val businessType: String, val enableTables: Boolean, val enableDineIn: Boolean,
                 val enableDelivery: Boolean, val enableInStore: Boolean, val taxEnabled: Boolean,
                 val defaultTaxPercent: Double, val stockMode: String,
-                val loyaltyEnabled: Boolean, val phonePrefix: String
+                val loyaltyEnabled: Boolean, val phonePrefix: String,
+                val enableDigitalMenu: Boolean = true, val enableRecipe: Boolean = true,
             )
 
             data class CategorySeed(val catName: String, val order: Int)
@@ -427,7 +469,8 @@ object DatabaseConfig {
                 VendorSeed("صيدلية الشفاء", "٢٣ شارع الجمهورية، مصر الجديدة، القاهرة", "+20100000002",
                     "PHARMACY", enableTables = false, enableDineIn = false, enableDelivery = true,
                     enableInStore = true, taxEnabled = true, defaultTaxPercent = 14.0,
-                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "2"),
+                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "2",
+                    enableDigitalMenu = false, enableRecipe = false),
                 // 3. CAFE — كافيه لافندر
                 VendorSeed("كافيه لافندر", "٧ شارع البطل أحمد عبدالعزيز، المهندسين", "+20100000003",
                     "CAFE", enableTables = true, enableDineIn = true, enableDelivery = true,
@@ -447,7 +490,8 @@ object DatabaseConfig {
                 VendorSeed("محل لعب أطفال توي لاند", "١٨ شارع العروبة، المعادي، القاهرة", "+20100000006",
                     "RETAIL", enableTables = false, enableDineIn = false, enableDelivery = true,
                     enableInStore = true, taxEnabled = true, defaultTaxPercent = 14.0,
-                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "6"),
+                    stockMode = "ENFORCE", loyaltyEnabled = true, phonePrefix = "6",
+                    enableDigitalMenu = false, enableRecipe = false),
             )
 
             // Categories per vendor type
@@ -711,6 +755,8 @@ object DatabaseConfig {
                     it[defaultTaxPercent] = vendor.defaultTaxPercent.toBigDecimal()
                     it[stockMode] = vendor.stockMode
                     it[loyaltyEnabled] = vendor.loyaltyEnabled
+                    it[enableDigitalMenu] = vendor.enableDigitalMenu
+                    it[enableRecipe] = vendor.enableRecipe
                     it[createdAt] = now
                     it[updatedAt] = now
                 }

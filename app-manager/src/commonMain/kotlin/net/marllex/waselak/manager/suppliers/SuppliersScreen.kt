@@ -9,9 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,16 +60,11 @@ fun SuppliersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.suppliers_purchase_orders)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.suppliers_purchase_orders),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -89,68 +84,68 @@ fun SuppliersScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
-                Tab(selected = uiState.selectedTab == 0, onClick = { viewModel.onTabChange(0) }, text = { Text(stringResource(Res.string.suppliers)) })
-                Tab(selected = uiState.selectedTab == 1, onClick = { viewModel.onTabChange(1) }, text = { Text(stringResource(Res.string.purchase_orders)) })
-            }
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                TabRow(selectedTabIndex = uiState.selectedTab) {
+                    Tab(selected = uiState.selectedTab == 0, onClick = { viewModel.onTabChange(0) }, text = { Text(stringResource(Res.string.suppliers)) })
+                    Tab(selected = uiState.selectedTab == 1, onClick = { viewModel.onTabChange(1) }, text = { Text(stringResource(Res.string.purchase_orders)) })
+                }
 
-            if (uiState.selectedTab == 0) {
-                // Search
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = viewModel::onSearchQueryChange,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text(stringResource(Res.string.search_suppliers)) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                )
-            }
+                if (uiState.selectedTab == 0) {
+                    // Search
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = viewModel::onSearchQueryChange,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text(stringResource(Res.string.search_suppliers)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
 
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null && uiState.suppliers.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                else -> {
-                    if (uiState.selectedTab == 0) {
-                        if (uiState.filteredSuppliers.isEmpty()) {
-                            EmptyView(stringResource(Res.string.no_suppliers_yet))
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                            ) {
-                                items(uiState.filteredSuppliers, key = { it.id }) { supplier ->
-                                    SupplierCard(
-                                        supplier = supplier,
-                                        onEdit = { viewModel.showAddDialog(supplier) },
-                                        onDelete = { viewModel.confirmDelete(supplier) },
-                                    )
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null && uiState.suppliers.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                    else -> {
+                        if (uiState.selectedTab == 0) {
+                            if (uiState.filteredSuppliers.isEmpty()) {
+                                EmptyView(stringResource(Res.string.no_suppliers_yet))
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                ) {
+                                    items(uiState.filteredSuppliers, key = { it.id }) { supplier ->
+                                        SupplierCard(
+                                            supplier = supplier,
+                                            onEdit = { viewModel.showAddDialog(supplier) },
+                                            onDelete = { viewModel.confirmDelete(supplier) },
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    } else {
-                        if (uiState.purchaseOrders.isEmpty()) {
-                            EmptyView(stringResource(Res.string.no_purchase_orders_yet))
                         } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                            ) {
-                                items(uiState.purchaseOrders, key = { it.id }) { po ->
-                                    PurchaseOrderCard(
-                                        po = po,
-                                        onClick = { viewModel.showPoDetail(po) },
-                                    )
+                            if (uiState.purchaseOrders.isEmpty()) {
+                                EmptyView(stringResource(Res.string.no_purchase_orders_yet))
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                ) {
+                                    items(uiState.purchaseOrders, key = { it.id }) { po ->
+                                        PurchaseOrderCard(
+                                            po = po,
+                                            onClick = { viewModel.showPoDetail(po) },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
     }
 
     // Add/Edit Supplier Dialog

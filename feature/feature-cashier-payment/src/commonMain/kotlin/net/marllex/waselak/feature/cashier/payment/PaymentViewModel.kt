@@ -13,11 +13,14 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.network.isPlanLimitExceeded
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class PaymentViewModel constructor(
     savedStateHandle: SavedStateHandle,
     private val orderRepository: OrderRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Payment" }
+
 
     data class UiState(
         val order: Order? = null,
@@ -41,6 +44,7 @@ class PaymentViewModel constructor(
     }
 
     fun loadOrder() {
+        AppLogger.d(TAG, "loadOrder called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             orderRepository.getOrderById(orderId).collect { order ->
@@ -50,15 +54,18 @@ class PaymentViewModel constructor(
     }
 
     fun completePayment() {
+        AppLogger.d(TAG, "completePayment called")
         val order = _uiState.value.order ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             // Update payment status to PAID (independent from order status)
             orderRepository.updatePaymentStatus(order.id, PaymentStatus.PAID)
                 .onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
                 }
                 .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                     when {
                         e.isFeatureNotAvailableOrOffline() -> _uiState.update {
                             it.copy(isProcessing = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")

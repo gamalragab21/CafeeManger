@@ -12,10 +12,13 @@ import net.marllex.waselak.core.model.Prescription
 import net.marllex.waselak.core.network.dto.CreatePrescriptionRequest
 import net.marllex.waselak.core.network.dto.DispensePrescriptionRequest
 import net.marllex.waselak.core.network.dto.DispenseItemRequest
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class PrescriptionsViewModel(
     private val prescriptionRepository: PrescriptionRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Prescriptions" }
+
 
     data class UiState(
         val prescriptions: List<Prescription> = emptyList(),
@@ -45,11 +48,13 @@ class PrescriptionsViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.prescriptions.isEmpty(), error = null) }
             prescriptionRepository.getPrescriptions(status = _uiState.value.statusFilter)
                 .onSuccess { list -> _uiState.update { it.copy(prescriptions = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
@@ -59,6 +64,7 @@ class PrescriptionsViewModel(
     }
 
     fun selectPrescription(prescription: Prescription?) {
+        AppLogger.d(TAG, "selectPrescription called")
         _uiState.update { it.copy(selectedPrescription = prescription) }
     }
 
@@ -76,6 +82,7 @@ class PrescriptionsViewModel(
     fun onNotesChange(v: String) { _uiState.update { it.copy(notes = v) } }
 
     fun createPrescription() {
+        AppLogger.d(TAG, "createPrescription called")
         val state = _uiState.value
         if (state.patientName.isBlank()) return
         viewModelScope.launch {
@@ -101,6 +108,7 @@ class PrescriptionsViewModel(
     fun dismissDispenseDialog() { _uiState.update { it.copy(showDispenseDialog = false, dispensePrescription = null) } }
 
     fun dispensePrescription() {
+        AppLogger.d(TAG, "dispensePrescription called")
         val prescription = _uiState.value.dispensePrescription ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -117,6 +125,7 @@ class PrescriptionsViewModel(
     }
 
     fun cancelPrescription(id: String) {
+        AppLogger.d(TAG, "cancelPrescription called")
         viewModelScope.launch {
             prescriptionRepository.cancelPrescription(id)
                 .onSuccess { load() }

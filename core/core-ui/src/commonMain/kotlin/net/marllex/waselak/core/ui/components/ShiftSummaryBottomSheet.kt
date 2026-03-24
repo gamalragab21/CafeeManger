@@ -27,10 +27,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -50,6 +56,8 @@ import waselak.core.core_ui.generated.resources.retry
 import waselak.core.core_ui.generated.resources.shift_summary
 import waselak.core.core_ui.generated.resources.signout
 import waselak.core.core_ui.generated.resources.total_revenue
+import waselak.core.core_ui.generated.resources.shift_summary_today
+import waselak.core.core_ui.generated.resources.shift_summary_session
 
 data class ShiftSummaryUiModel(
     val totalRevenue: Double = 0.0,
@@ -72,6 +80,8 @@ private fun formatAmount(amount: Double): String {
     return "$whole.${frac.toString().padStart(2, '0')} EGP"
 }
 
+enum class ShiftSummaryTab { TODAY, SESSION }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShiftSummaryBottomSheet(
@@ -79,9 +89,12 @@ fun ShiftSummaryBottomSheet(
     isLoading: Boolean,
     error: String?,
     onRetry: () -> Unit,
+    onTabChanged: (ShiftSummaryTab) -> Unit = {},
     onSignOut: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
+    var selectedTab by remember { mutableStateOf(ShiftSummaryTab.TODAY) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -99,7 +112,32 @@ fun ShiftSummaryBottomSheet(
                 fontWeight = FontWeight.Bold,
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Tab Row: Today / Session
+            TabRow(
+                selectedTabIndex = if (selectedTab == ShiftSummaryTab.TODAY) 0 else 1,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Tab(
+                    selected = selectedTab == ShiftSummaryTab.TODAY,
+                    onClick = {
+                        selectedTab = ShiftSummaryTab.TODAY
+                        onTabChanged(ShiftSummaryTab.TODAY)
+                    },
+                    text = { Text(stringResource(Res.string.shift_summary_today)) },
+                )
+                Tab(
+                    selected = selectedTab == ShiftSummaryTab.SESSION,
+                    onClick = {
+                        selectedTab = ShiftSummaryTab.SESSION
+                        onTabChanged(ShiftSummaryTab.SESSION)
+                    },
+                    text = { Text(stringResource(Res.string.shift_summary_session)) },
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
 
             when {
                 isLoading -> {
@@ -131,7 +169,17 @@ fun ShiftSummaryBottomSheet(
                     }
                 }
 
-                shiftSummary != null -> {
+                shiftSummary == null -> {
+                    // Data not yet loaded — show loading
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                else -> {
                     val hasOrders = shiftSummary.totalOrders > 0 ||
                         shiftSummary.cancelledCount > 0 ||
                         shiftSummary.refundedCount > 0

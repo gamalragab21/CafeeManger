@@ -11,10 +11,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.User
 import net.marllex.waselak.core.model.UserRole
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class UsersViewModel constructor(
     private val userRepository: UserManagementRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Users" }
+
 
     data class UiState(
         val allUsers: List<User> = emptyList(),
@@ -38,6 +41,7 @@ class UsersViewModel constructor(
     }
 
     fun loadUsers() {
+        AppLogger.d(TAG, "loadUsers called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             userRepository.refreshUsers()
@@ -48,12 +52,14 @@ class UsersViewModel constructor(
     }
 
     fun filterByRole(role: UserRole?) {
+        AppLogger.d(TAG, "filterByRole called")
         val all = _uiState.value.allUsers
         val filtered = if (role == null) all else all.filter { it.role == role }
         _uiState.update { it.copy(selectedRole = role, users = filtered) }
     }
 
     fun toggleActive(user: User) {
+        AppLogger.d(TAG, "toggleActive called")
         viewModelScope.launch {
             userRepository.updateUser(
                 id = user.id,
@@ -66,8 +72,10 @@ class UsersViewModel constructor(
     }
 
     fun deleteUser(id: String) {
+        AppLogger.d(TAG, "deleteUser called")
         viewModelScope.launch {
             userRepository.deleteUser(id).onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(error = e.message) }
             }.onSuccess { loadUsers() }
         }
@@ -98,6 +106,7 @@ class UsersViewModel constructor(
     }
 
     fun confirmChangeRole() {
+        AppLogger.d(TAG, "confirmChangeRole called")
         val user = _uiState.value.changeRoleUser ?: return
         val newRole = _uiState.value.changeRoleSelected
         if (newRole == user.role) {
@@ -115,6 +124,7 @@ class UsersViewModel constructor(
                 active = null,
                 role = newRole.name,
             ).onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showChangeRoleDialog = false, changeRoleUser = null) }
                 loadUsers()
             }.onFailure { e ->

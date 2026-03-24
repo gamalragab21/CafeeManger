@@ -193,7 +193,22 @@ data class UpdateVendorRequest(
     val default_tax_percent: Double? = null,
     val stock_mode: String? = null,
     val is_suspended: Boolean? = null,
-    val suspension_reason: String? = null
+    val suspension_reason: String? = null,
+    // Feature toggles
+    val enable_digital_menu: Boolean? = null,
+    val enable_recipe: Boolean? = null,
+    val enable_split_payment: Boolean? = null,
+    val enable_cash_drawer: Boolean? = null,
+    val enable_returns: Boolean? = null,
+    val enable_customer_credit: Boolean? = null,
+    val enable_pre_orders: Boolean? = null,
+    val enable_scheduled_orders: Boolean? = null,
+    val enable_suppliers: Boolean? = null,
+    val enable_drug_interactions: Boolean? = null,
+    val enable_prescriptions: Boolean? = null,
+    val enable_analytics: Boolean? = null,
+    val enable_announcements: Boolean? = null,
+    val loyalty_enabled: Boolean? = null,
 )
 
 @Serializable
@@ -407,6 +422,20 @@ data class VendorDetailInfo(
     val default_delivery_fee: Double = 0.0,
     val offline_mode_enabled: Boolean = false,
     val biometric_required: Boolean = false,
+    // Feature toggles
+    val enable_digital_menu: Boolean = true,
+    val enable_recipe: Boolean = true,
+    val enable_split_payment: Boolean = true,
+    val enable_cash_drawer: Boolean = true,
+    val enable_returns: Boolean = true,
+    val enable_customer_credit: Boolean = false,
+    val enable_pre_orders: Boolean = false,
+    val enable_scheduled_orders: Boolean = false,
+    val enable_suppliers: Boolean = true,
+    val enable_drug_interactions: Boolean = false,
+    val enable_prescriptions: Boolean = false,
+    val enable_analytics: Boolean = true,
+    val enable_announcements: Boolean = true,
     // Loyalty settings
     val loyalty_enabled: Boolean = false,
     val points_earn_rate: Double = 1.0,

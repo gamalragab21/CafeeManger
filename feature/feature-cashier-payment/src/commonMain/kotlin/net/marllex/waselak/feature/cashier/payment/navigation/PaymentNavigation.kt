@@ -10,11 +10,13 @@ const val PAYMENT_ROUTE = "cashier/payment/{orderId}"
 fun NavGraphBuilder.paymentScreen(
     onPaymentDone: () -> Unit = {},
     onNavigateToReceipt: (String) -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null,
 ) {
     composable(PAYMENT_ROUTE) {
         PaymentScreen(
             onPaymentDone = onPaymentDone,
             onNavigateToReceipt = onNavigateToReceipt,
+            onNavigateBack = onNavigateBack,
         )
     }
 }

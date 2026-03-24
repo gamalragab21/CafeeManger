@@ -10,10 +10,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CustomerCreditRepository
 import net.marllex.waselak.core.model.CreditTransaction
 import net.marllex.waselak.core.model.CustomerCredit
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class CustomerCreditViewModel(
     private val customerCreditRepository: CustomerCreditRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "CustomerCredit" }
+
 
     data class UiState(
         val debtors: List<CustomerCredit> = emptyList(),
@@ -36,15 +39,18 @@ class CustomerCreditViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.debtors.isEmpty(), error = null) }
             customerCreditRepository.getDebtors()
                 .onSuccess { list -> _uiState.update { it.copy(debtors = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
     fun selectCustomer(credit: CustomerCredit) {
+        AppLogger.d(TAG, "selectCustomer called")
         _uiState.update { it.copy(selectedCredit = credit) }
         viewModelScope.launch {
             customerCreditRepository.getTransactions(credit.customerId)
@@ -68,6 +74,7 @@ class CustomerCreditViewModel(
             _uiState.update { it.copy(isSaving = true) }
             customerCreditRepository.setCreditLimit(credit.customerId, limit)
                 .onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(isSaving = false, showLimitDialog = false) }
                     selectCustomer(credit)
                     load()

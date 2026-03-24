@@ -51,6 +51,8 @@ interface OrderRepository {
         offerId: String? = null,
         pointsRedeemed: Int = 0,
         discountReason: String? = null,
+        doctorName: String? = null,
+        diagnosis: String? = null,
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrder(

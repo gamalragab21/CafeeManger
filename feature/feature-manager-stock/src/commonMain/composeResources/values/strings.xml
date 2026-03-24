@@ -100,4 +100,13 @@
     <string name="no_stock_items_hint">Add stock items first</string>
     <string name="all_items_have_recipes">All menu items already have recipes</string>
     <string name="fixed_quantity_label">Fixed quantity (no yield division)</string>
+    <!-- Stock Item Details -->
+    <string name="detail_qty">Qty</string>
+    <string name="detail_min">Min</string>
+    <string name="detail_cost">Cost</string>
+    <string name="detail_value">Value</string>
+    <string name="new_quantity">New Quantity</string>
+    <string name="unknown_item">Unknown Item</string>
+    <string name="recipe_draft">Draft</string>
+    <string name="stock_batch_deduct">Batch Deduct</string>
 </resources>

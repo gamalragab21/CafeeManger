@@ -19,6 +19,7 @@ import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.logging.AppLogger
 
 data class RecipeIngredientForm(
     val stockId: String = "",
@@ -51,6 +52,8 @@ class StockViewModel constructor(
     private val itemRepository: ItemRepository,
     private val recipeRepository: RecipeRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Stock" }
+
 
     data class UiState(
         // Main data
@@ -161,6 +164,7 @@ class StockViewModel constructor(
     }
 
     fun loadData() {
+        AppLogger.d(TAG, "loadData called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             itemRepository.refreshItems()
@@ -197,6 +201,7 @@ class StockViewModel constructor(
 
     // ─── Tab Selection ──────────────────────────────────────────────
     fun selectTab(tab: Int) {
+        AppLogger.d(TAG, "selectTab called")
         _uiState.update { it.copy(selectedTab = tab) }
     }
 
@@ -247,6 +252,7 @@ class StockViewModel constructor(
     }
 
     fun toggleDialogMode(isIndependent: Boolean) {
+        AppLogger.d(TAG, "toggleDialogMode called")
         _uiState.update {
             it.copy(
                 dialogIsIndependent = isIndependent,
@@ -258,6 +264,7 @@ class StockViewModel constructor(
     }
 
     fun selectItem(item: Item) {
+        AppLogger.d(TAG, "selectItem called")
         _uiState.update {
             it.copy(dialogSelectedItemId = item.id, dialogSelectedItemName = item.name)
         }
@@ -271,6 +278,7 @@ class StockViewModel constructor(
     fun updateDialogAlertEnabled(v: Boolean) { _uiState.update { it.copy(dialogAlertEnabled = v) } }
 
     fun saveStockItem() {
+        AppLogger.d(TAG, "saveStockItem called")
         val s = _uiState.value
 
         // Validation
@@ -314,8 +322,10 @@ class StockViewModel constructor(
             }
 
             result.onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
@@ -323,6 +333,7 @@ class StockViewModel constructor(
 
     // ─── Transactions Tab ────────────────────────────────────────
     fun loadTransactions() {
+        AppLogger.d(TAG, "loadTransactions called")
         viewModelScope.launch {
             _uiState.update { it.copy(transactionsLoading = true) }
             stockRepository.getAllTransactions(limit = 100)
@@ -368,6 +379,7 @@ class StockViewModel constructor(
     fun updateQuantityDialogNote(v: String) { _uiState.update { it.copy(quantityDialogNote = v) } }
 
     fun confirmQuantityChange() {
+        AppLogger.d(TAG, "confirmQuantityChange called")
         val s = _uiState.value
         val stock = s.quantityDialogStock ?: return
         val amount = s.quantityDialogAmount.toDoubleOrNull() ?: return
@@ -400,6 +412,7 @@ class StockViewModel constructor(
     }
 
     fun confirmDelete() {
+        AppLogger.d(TAG, "confirmDelete called")
         val stock = _uiState.value.deletingStock ?: return
         viewModelScope.launch {
             stockRepository.deleteStockItem(stock.id).onFailure { e ->
@@ -419,6 +432,7 @@ class StockViewModel constructor(
 
     // ─── Recipes ─────────────────────────────────────────────────────
     fun loadRecipes() {
+        AppLogger.d(TAG, "loadRecipes called")
         viewModelScope.launch {
             _uiState.update { it.copy(recipesLoading = true) }
             recipeRepository.refreshRecipes()
@@ -433,6 +447,7 @@ class StockViewModel constructor(
     }
 
     fun deleteRecipe(id: String) {
+        AppLogger.d(TAG, "deleteRecipe called")
         viewModelScope.launch {
             recipeRepository.deleteRecipe(id).onSuccess {
                 loadRecipes()
@@ -501,6 +516,7 @@ class StockViewModel constructor(
     fun updateRecipeYieldUnit(v: String) { _uiState.update { it.copy(recipeYieldUnit = v) } }
 
     fun selectRecipeItem(item: Item) {
+        AppLogger.d(TAG, "selectRecipeItem called")
         _uiState.update {
             it.copy(
                 recipeSelectedItemId = item.id,
@@ -511,12 +527,14 @@ class StockViewModel constructor(
     }
 
     fun addRecipeIngredient() {
+        AppLogger.d(TAG, "addRecipeIngredient called")
         _uiState.update {
             it.copy(recipeIngredients = it.recipeIngredients + RecipeIngredientForm())
         }
     }
 
     fun removeRecipeIngredient(index: Int) {
+        AppLogger.d(TAG, "removeRecipeIngredient called")
         _uiState.update {
             it.copy(
                 recipeIngredients = it.recipeIngredients.toMutableList().apply {
@@ -537,6 +555,7 @@ class StockViewModel constructor(
     }
 
     fun selectIngredientStock(index: Int, stock: Stock) {
+        AppLogger.d(TAG, "selectIngredientStock called")
         _uiState.update {
             val updated = it.recipeIngredients.toMutableList()
             if (index in updated.indices) {
@@ -558,6 +577,7 @@ class StockViewModel constructor(
     }
 
     fun saveRecipe() {
+        AppLogger.d(TAG, "saveRecipe called")
         val s = _uiState.value
 
         // Validation

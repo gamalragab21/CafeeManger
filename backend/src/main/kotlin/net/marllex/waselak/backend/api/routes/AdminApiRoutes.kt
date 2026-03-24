@@ -576,6 +576,20 @@ fun Route.adminApiRoutes() {
                         request.is_suspended?.let { stmt[isSuspended] = it }
                         request.suspension_reason?.let { stmt[suspensionReason] = it }
                         request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
+                        request.enable_digital_menu?.let { stmt[enableDigitalMenu] = it }
+                        request.enable_recipe?.let { stmt[enableRecipe] = it }
+                        request.enable_split_payment?.let { stmt[enableSplitPayment] = it }
+                        request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
+                        request.enable_returns?.let { stmt[enableReturns] = it }
+                        request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                        request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
+                        request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
+                        request.enable_suppliers?.let { stmt[enableSuppliers] = it }
+                        request.enable_drug_interactions?.let { stmt[enableDrugInteractions] = it }
+                        request.enable_prescriptions?.let { stmt[enablePrescriptions] = it }
+                        request.enable_analytics?.let { stmt[enableAnalytics] = it }
+                        request.enable_announcements?.let { stmt[enableAnnouncements] = it }
+                        request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
                         stmt[updatedAt] = Clock.System.now()
                     }
                     true
@@ -961,6 +975,19 @@ fun Route.adminApiRoutes() {
                             put("default_tax_percent", vendorRow[VendorsTable.defaultTaxPercent].toDouble())
                             put("stock_mode", vendorRow[VendorsTable.stockMode])
                             put("default_delivery_fee", vendorRow[VendorsTable.defaultDeliveryFee].toDouble())
+                            put("enable_split_payment", vendorRow[VendorsTable.enableSplitPayment])
+                            put("enable_cash_drawer", vendorRow[VendorsTable.enableCashDrawer])
+                            put("enable_returns", vendorRow[VendorsTable.enableReturns])
+                            put("enable_customer_credit", vendorRow[VendorsTable.enableCustomerCredit])
+                            put("enable_pre_orders", vendorRow[VendorsTable.enablePreOrders])
+                            put("enable_scheduled_orders", vendorRow[VendorsTable.enableScheduledOrders])
+                            put("enable_suppliers", vendorRow[VendorsTable.enableSuppliers])
+                            put("enable_drug_interactions", vendorRow[VendorsTable.enableDrugInteractions])
+                            put("enable_prescriptions", vendorRow[VendorsTable.enablePrescriptions])
+                            put("enable_analytics", vendorRow[VendorsTable.enableAnalytics])
+                            put("enable_announcements", vendorRow[VendorsTable.enableAnnouncements])
+                            put("enable_digital_menu", vendorRow[VendorsTable.enableDigitalMenu])
+                            put("enable_recipe", vendorRow[VendorsTable.enableRecipe])
                             put("offline_mode_enabled", vendorRow[VendorsTable.offlineModeEnabled])
                             put("biometric_required", vendorRow[VendorsTable.biometricRequired])
                             // Loyalty settings

@@ -5,9 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,61 +33,56 @@ fun ReturnsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.returns_exchanges)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.returns_exchanges),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Summary Cards
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SummaryChip(stringResource(Res.string.total_label, uiState.summary.total.toString()), Modifier.weight(1f))
-                SummaryChip(stringResource(Res.string.pending_label, uiState.summary.pending.toString()), Modifier.weight(1f))
-                SummaryChip(stringResource(Res.string.refunded_label, uiState.summary.totalRefunded.toString()), Modifier.weight(1f))
-            }
-
-            // Status filter chips
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                statusFilters.forEach { (status, label) ->
-                    FilterChip(
-                        selected = uiState.selectedStatus == status,
-                        onClick = { viewModel.onStatusFilter(status) },
-                        label = { Text(label) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null && uiState.returns.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                uiState.filteredReturns.isEmpty() -> EmptyView(stringResource(Res.string.no_returns_found))
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                // Summary Cards
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(uiState.filteredReturns, key = { it.id }) { ret ->
-                        ReturnCard(ret = ret, onApprove = { viewModel.processReturn(ret.id, "COMPLETED") }, onReject = { viewModel.processReturn(ret.id, "REJECTED") })
+                    SummaryChip(stringResource(Res.string.total_label, uiState.summary.total.toString()), Modifier.weight(1f))
+                    SummaryChip(stringResource(Res.string.pending_label, uiState.summary.pending.toString()), Modifier.weight(1f))
+                    SummaryChip(stringResource(Res.string.refunded_label, uiState.summary.totalRefunded.toString()), Modifier.weight(1f))
+                }
+
+                // Status filter chips
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    statusFilters.forEach { (status, label) ->
+                        FilterChip(
+                            selected = uiState.selectedStatus == status,
+                            onClick = { viewModel.onStatusFilter(status) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null && uiState.returns.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                    uiState.filteredReturns.isEmpty() -> EmptyView(stringResource(Res.string.no_returns_found))
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(uiState.filteredReturns, key = { it.id }) { ret ->
+                            ReturnCard(ret = ret, onApprove = { viewModel.processReturn(ret.id, "COMPLETED") }, onReject = { viewModel.processReturn(ret.id, "REJECTED") })
+                        }
                     }
                 }
             }
-        }
     }
 }
 

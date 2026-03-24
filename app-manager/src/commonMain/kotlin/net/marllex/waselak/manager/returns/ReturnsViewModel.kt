@@ -10,10 +10,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.ReturnRepository
 import net.marllex.waselak.core.model.ProductReturn
 import net.marllex.waselak.core.model.ReturnsSummary
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class ReturnsViewModel(
     private val returnRepository: ReturnRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Returns" }
+
 
     data class UiState(
         val returns: List<ProductReturn> = emptyList(),
@@ -33,11 +36,13 @@ class ReturnsViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             returnRepository.getReturns()
                 .onSuccess { list -> _uiState.update { it.copy(returns = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {
             returnRepository.getSummary()
@@ -48,6 +53,7 @@ class ReturnsViewModel(
     fun onStatusFilter(status: String?) { _uiState.update { it.copy(selectedStatus = status) } }
 
     fun processReturn(id: String, status: String) {
+        AppLogger.d(TAG, "processReturn called")
         viewModelScope.launch {
             returnRepository.processReturn(id, status)
                 .onSuccess { load() }

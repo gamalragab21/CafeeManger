@@ -34,8 +34,8 @@ class CashDrawerRepositoryImpl(
         api.getCashMovements(sessionId, type).map { it.toDomain() }
     }
 
-    override suspend fun getSessions(limit: Int, offset: Int): Result<List<CashDrawerSession>> = runCatching {
-        api.getCashDrawerSessions(limit, offset).map { it.toDomain() }
+    override suspend fun getSessions(limit: Int, offset: Int, cashierId: String?): Result<List<CashDrawerSession>> = runCatching {
+        api.getCashDrawerSessions(limit, offset, cashierId).map { it.toDomain() }
     }
 
     override suspend fun getSummary(): Result<DrawerSummary> = runCatching {

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,19 +51,22 @@ fun DeliveryHistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.completed_orders)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.completed_orders),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
             )
         }
     ) { padding ->
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
         when {
-            uiState.isLoading -> LoadingIndicator()
+            uiState.isLoading && uiState.grouped.isEmpty() -> LoadingIndicator()
             uiState.error != null && uiState.grouped.isEmpty() -> ErrorView(message = uiState.error ?: "Error", onRetry = viewModel::load)
             else -> LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -128,6 +132,7 @@ fun DeliveryHistoryScreen(
                     }
                 }
             }
+        }
         }
     }
 }

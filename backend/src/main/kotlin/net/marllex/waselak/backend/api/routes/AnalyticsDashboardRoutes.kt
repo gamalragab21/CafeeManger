@@ -542,15 +542,36 @@ fun Route.analyticsDashboardRoutes() {
                     .sumOf { it[OrdersTable.deliveryFee].toDouble() }
                 val net = gross - deliveryFees
 
-                val paymentMethods = orders
-                    .groupBy { it[OrdersTable.paymentMethod] }
-                    .map { (method, rows) ->
-                        PaymentMethodDetailDto(
-                            method = method,
-                            order_count = rows.size,
-                            revenue = rows.sumOf { it[OrdersTable.total].toDouble() },
-                        )
-                    }
+                // For SPLIT orders, distribute revenue to actual payment methods from OrderPaymentsTable
+                val splitOrderIds = orders.filter { it[OrdersTable.paymentMethod] == "SPLIT" }
+                    .map { it[OrdersTable.id].value }
+                val splitPayments = if (splitOrderIds.isNotEmpty()) {
+                    OrderPaymentsTable.selectAll().where {
+                        OrderPaymentsTable.orderId inList splitOrderIds
+                    }.toList()
+                } else emptyList()
+
+                // Build payment method breakdown: non-split orders + split sub-payments
+                val methodMap = mutableMapOf<String, Pair<Int, Double>>() // method -> (orderCount, revenue)
+                orders.filter { it[OrdersTable.paymentMethod] != "SPLIT" }.forEach { row ->
+                    val method = row[OrdersTable.paymentMethod]
+                    val (count, rev) = methodMap.getOrDefault(method, Pair(0, 0.0))
+                    methodMap[method] = Pair(count + 1, rev + row[OrdersTable.total].toDouble())
+                }
+                // Add split sub-payments to their actual methods
+                splitPayments.forEach { payment ->
+                    val method = payment[OrderPaymentsTable.paymentMethod]
+                    val amount = payment[OrderPaymentsTable.amount].toDouble()
+                    val (count, rev) = methodMap.getOrDefault(method, Pair(0, 0.0))
+                    methodMap[method] = Pair(count + 1, rev + amount)
+                }
+                val paymentMethods = methodMap.map { (method, pair) ->
+                    PaymentMethodDetailDto(
+                        method = method,
+                        order_count = pair.first,
+                        revenue = pair.second,
+                    )
+                }
 
                 val tz = TimeZone.currentSystemDefault()
                 val dailyTrend = orders
@@ -1682,5 +1703,213 @@ fun Route.analyticsDashboardRoutes() {
             trace.step("Supplier analytics completed")
             call.respond(HttpStatusCode.OK, result)
         }
+
+        // Credit Analytics (pharmacy)
+        // Returns & Exchange Analytics
+        get("/returns-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Returns analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val result = transaction {
+                var query = ProductReturnsTable.selectAll().where {
+                    (ProductReturnsTable.vendorId eq vendorUUID) and
+                    (ProductReturnsTable.status eq "COMPLETED")
+                }
+                from?.let { f ->
+                    query = query.andWhere { ProductReturnsTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(f) }
+                }
+                to?.let { t ->
+                    query = query.andWhere { ProductReturnsTable.createdAt lessEq kotlinx.datetime.Instant.fromEpochMilliseconds(t) }
+                }
+                val returns = query.toList()
+
+                val refunds = returns.filter { it[ProductReturnsTable.returnType] == "RETURN" }
+                val exchanges = returns.filter { it[ProductReturnsTable.returnType] == "EXCHANGE" }
+
+                // Get return items details
+                val allReturnIds = returns.map { it[ProductReturnsTable.id] }
+                val returnItems = if (allReturnIds.isNotEmpty()) {
+                    ReturnItemsTable.selectAll().where {
+                        ReturnItemsTable.returnId inList allReturnIds
+                    }.toList()
+                } else emptyList()
+
+                // Group returned items by item name
+                val itemBreakdown = returnItems.groupBy { it[ReturnItemsTable.itemId] }.map { (itemId, items) ->
+                    val itemName = ItemsTable.selectAll().where { ItemsTable.id eq itemId }
+                        .firstOrNull()?.get(ItemsTable.name) ?: "Unknown"
+                    val totalQty = items.sumOf { it[ReturnItemsTable.quantity] }
+                    val totalAmount = items.sumOf { it[ReturnItemsTable.refundAmount].toDouble() }
+                    ReturnsItemBreakdownDto(
+                        item_name = itemName,
+                        total_quantity = totalQty,
+                        total_amount = Math.round(totalAmount * 100.0) / 100.0,
+                    )
+                }.sortedByDescending { it.total_quantity }
+
+                // Exchange items
+                val exchangeItems = exchanges.mapNotNull { ret ->
+                    val exchId = ret[ProductReturnsTable.exchangeItemId] ?: return@mapNotNull null
+                    val exchName = ItemsTable.selectAll().where { ItemsTable.id eq exchId }
+                        .firstOrNull()?.get(ItemsTable.name) ?: "Unknown"
+                    val exchPrice = ItemsTable.selectAll().where { ItemsTable.id eq exchId }
+                        .firstOrNull()?.get(ItemsTable.price)?.toDouble() ?: 0.0
+                    ExchangeItemBreakdownDto(
+                        item_name = exchName,
+                        quantity = ret[ProductReturnsTable.exchangeQuantity],
+                        price = exchPrice,
+                    )
+                }
+
+                ReturnsAnalyticsDto(
+                    total_returns = returns.size,
+                    total_refunds = refunds.size,
+                    total_exchanges = exchanges.size,
+                    total_refunded_amount = Math.round(refunds.sumOf { it[ProductReturnsTable.refundAmount].toDouble() } * 100.0) / 100.0,
+                    total_exchanged_amount = Math.round(exchanges.sumOf { it[ProductReturnsTable.refundAmount].toDouble() } * 100.0) / 100.0,
+                    total_returned_items = returnItems.sumOf { it[ReturnItemsTable.quantity] },
+                    returned_items_breakdown = itemBreakdown,
+                    exchange_items = exchangeItems,
+                )
+            }
+            trace.step("Returns analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
+
+        get("/credit-analytics") {
+            val trace = call.routeTrace()
+            trace.step("Credit analytics started")
+            val principal = requireRole("MANAGER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val result = transaction {
+                // Total outstanding credit
+                val allCredits = CustomerCreditsTable.selectAll().where {
+                    CustomerCreditsTable.vendorId eq vendorUUID
+                }.toList()
+
+                val totalOutstanding = allCredits.sumOf { it[CustomerCreditsTable.balance].toDouble() }
+                val totalCreditLimit = allCredits.sumOf { it[CustomerCreditsTable.creditLimit].toDouble() }
+                val totalCreditCustomers = allCredits.count { it[CustomerCreditsTable.balance] > java.math.BigDecimal.ZERO }
+                val utilizationPercent = if (totalCreditLimit > 0) (totalOutstanding / totalCreditLimit) * 100 else 0.0
+
+                // Credit transactions in period
+                var txQuery = CreditTransactionsTable.selectAll().where {
+                    CreditTransactionsTable.vendorId eq vendorUUID
+                }
+                from?.let { f ->
+                    txQuery = txQuery.andWhere { CreditTransactionsTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(f) }
+                }
+                to?.let { t ->
+                    txQuery = txQuery.andWhere { CreditTransactionsTable.createdAt lessEq kotlinx.datetime.Instant.fromEpochMilliseconds(t) }
+                }
+                val transactions = txQuery.toList()
+
+                val totalCharges = transactions.filter { it[CreditTransactionsTable.type] == "CHARGE" }
+                    .sumOf { it[CreditTransactionsTable.amount].toDouble() }
+                val totalPayments = transactions.filter { it[CreditTransactionsTable.type] == "PAYMENT" }
+                    .sumOf { it[CreditTransactionsTable.amount].toDouble() }
+
+                // Top debtors
+                val topDebtors = allCredits
+                    .filter { it[CustomerCreditsTable.balance] > java.math.BigDecimal.ZERO }
+                    .sortedByDescending { it[CustomerCreditsTable.balance].toDouble() }
+                    .take(10)
+                    .map { creditRow ->
+                        val customerUUID = creditRow[CustomerCreditsTable.customerId]
+                        val customer = CustomersTable.selectAll().where {
+                            CustomersTable.id eq customerUUID
+                        }.firstOrNull()
+
+                        CreditDebtorDto(
+                            customer_name = customer?.get(CustomersTable.name) ?: "Unknown",
+                            customer_phone = customer?.get(CustomersTable.phone),
+                            balance = creditRow[CustomerCreditsTable.balance].toDouble(),
+                            credit_limit = creditRow[CustomerCreditsTable.creditLimit].toDouble(),
+                        )
+                    }
+
+                // Credit orders count (orders with payment_method = CREDIT)
+                var creditOrdersQuery = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and (OrdersTable.paymentMethod eq "CREDIT")
+                }
+                from?.let { f ->
+                    creditOrdersQuery = creditOrdersQuery.andWhere { OrdersTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(f) }
+                }
+                to?.let { t ->
+                    creditOrdersQuery = creditOrdersQuery.andWhere { OrdersTable.createdAt lessEq kotlinx.datetime.Instant.fromEpochMilliseconds(t) }
+                }
+                val creditOrders = creditOrdersQuery.toList()
+                val creditOrdersCount = creditOrders.size
+                val creditOrdersRevenue = creditOrders.sumOf { it[OrdersTable.total].toDouble() }
+
+                CreditAnalyticsDto(
+                    total_outstanding = totalOutstanding,
+                    total_credit_limit = totalCreditLimit,
+                    utilization_percent = utilizationPercent,
+                    total_credit_customers = totalCreditCustomers,
+                    total_charges = totalCharges,
+                    total_payments = totalPayments,
+                    credit_orders_count = creditOrdersCount,
+                    credit_orders_revenue = creditOrdersRevenue,
+                    top_debtors = topDebtors,
+                )
+            }
+            trace.step("Credit analytics completed")
+            call.respond(HttpStatusCode.OK, result)
+        }
     }
 }
+
+@Serializable
+data class CreditAnalyticsDto(
+    val total_outstanding: Double,
+    val total_credit_limit: Double,
+    val utilization_percent: Double,
+    val total_credit_customers: Int,
+    val total_charges: Double,
+    val total_payments: Double,
+    val credit_orders_count: Int,
+    val credit_orders_revenue: Double,
+    val top_debtors: List<CreditDebtorDto>,
+)
+
+@Serializable
+data class CreditDebtorDto(
+    val customer_name: String,
+    val customer_phone: String? = null,
+    val balance: Double,
+    val credit_limit: Double,
+)
+
+@kotlinx.serialization.Serializable
+data class ReturnsAnalyticsDto(
+    val total_returns: Int,
+    val total_refunds: Int,
+    val total_exchanges: Int,
+    val total_refunded_amount: Double,
+    val total_exchanged_amount: Double,
+    val total_returned_items: Int,
+    val returned_items_breakdown: List<ReturnsItemBreakdownDto> = emptyList(),
+    val exchange_items: List<ExchangeItemBreakdownDto> = emptyList(),
+)
+
+@kotlinx.serialization.Serializable
+data class ReturnsItemBreakdownDto(
+    val item_name: String,
+    val total_quantity: Int,
+    val total_amount: Double,
+)
+
+@kotlinx.serialization.Serializable
+data class ExchangeItemBreakdownDto(
+    val item_name: String,
+    val quantity: Int,
+    val price: Double,
+)

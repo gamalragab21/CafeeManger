@@ -10,10 +10,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CategoryRepository
 import net.marllex.waselak.core.model.Category
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class CategoriesViewModel constructor(
     private val categoryRepository: CategoryRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Categories" }
+
 
     data class UiState(
         val categories: List<Category> = emptyList(),
@@ -32,6 +35,7 @@ class CategoriesViewModel constructor(
     init { loadCategories() }
 
     fun loadCategories() {
+        AppLogger.d(TAG, "loadCategories called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             categoryRepository.refreshCategories()
@@ -58,6 +62,7 @@ class CategoriesViewModel constructor(
     fun updateDialogDisplayOrder(v: String) { _uiState.update { it.copy(dialogDisplayOrder = v) } }
 
     fun saveCategory() {
+        AppLogger.d(TAG, "saveCategory called")
         val s = _uiState.value
         if (s.dialogName.isBlank()) return
         val order = s.dialogDisplayOrder.toIntOrNull() ?: 0
@@ -70,14 +75,17 @@ class CategoriesViewModel constructor(
                 categoryRepository.createCategory(s.dialogName, order)
             }
             result.onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showDialog = false) }
             }.onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
     }
 
     fun deleteCategory(id: String) {
+        AppLogger.d(TAG, "deleteCategory called")
         viewModelScope.launch {
             categoryRepository.deleteCategory(id).onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }

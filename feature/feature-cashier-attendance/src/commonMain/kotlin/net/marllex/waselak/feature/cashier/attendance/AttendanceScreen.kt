@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -113,30 +114,32 @@ fun AttendanceScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.attendance_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.attendance_title),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadData,
             )
         },
     ) { padding ->
-        when {
-            uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
-                message = uiState.featureNotAvailableMessage,
-            )
-            uiState.isLoading -> LoadingIndicator()
-            else -> {
-                val filteredWorkers = remember(uiState.workers, uiState.searchQuery) {
-                    if (uiState.searchQuery.isBlank()) uiState.workers
-                    else uiState.workers.filter {
-                        it.fullName.contains(uiState.searchQuery, ignoreCase = true) ||
-                        it.workerId.contains(uiState.searchQuery, ignoreCase = true)
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            when {
+                uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
+                    message = uiState.featureNotAvailableMessage,
+                )
+                uiState.isLoading && uiState.workers.isEmpty() -> LoadingIndicator()
+                else -> {
+                    val filteredWorkers = remember(uiState.workers, uiState.searchQuery) {
+                        if (uiState.searchQuery.isBlank()) uiState.workers
+                        else uiState.workers.filter {
+                            it.fullName.contains(uiState.searchQuery, ignoreCase = true) ||
+                            it.workerId.contains(uiState.searchQuery, ignoreCase = true)
+                        }
                     }
-                }
 
-                LazyColumn(
-                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -391,6 +394,7 @@ fun AttendanceScreen(
                     }
                 }
             }
+        }
         }
     }
 }

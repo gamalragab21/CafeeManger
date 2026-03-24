@@ -10,10 +10,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CustomerCreditRepository
 import net.marllex.waselak.core.model.CreditTransaction
 import net.marllex.waselak.core.model.CustomerCredit
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class CashierCustomerCreditViewModel(
     private val customerCreditRepository: CustomerCreditRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "CashierCustomerCredit" }
+
 
     data class UiState(
         val debtors: List<CustomerCredit> = emptyList(),
@@ -38,15 +41,18 @@ class CashierCustomerCreditViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.debtors.isEmpty(), error = null) }
             customerCreditRepository.getDebtors()
                 .onSuccess { list -> _uiState.update { it.copy(debtors = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
     fun selectCustomer(credit: CustomerCredit) {
+        AppLogger.d(TAG, "selectCustomer called")
         _uiState.update { it.copy(selectedCredit = credit) }
         viewModelScope.launch {
             customerCreditRepository.getTransactions(credit.customerId)
@@ -63,6 +69,7 @@ class CashierCustomerCreditViewModel(
     fun onPaymentNoteChange(v: String) { _uiState.update { it.copy(paymentNote = v) } }
 
     fun recordPayment() {
+        AppLogger.d(TAG, "recordPayment called")
         val credit = _uiState.value.selectedCredit ?: return
         val amount = _uiState.value.paymentAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
@@ -73,6 +80,7 @@ class CashierCustomerCreditViewModel(
                 note = _uiState.value.paymentNote.ifBlank { null },
             )
                 .onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(isSaving = false, showPaymentDialog = false) }
                     selectCustomer(credit)
                     load()
@@ -88,6 +96,7 @@ class CashierCustomerCreditViewModel(
     fun onChargeNoteChange(v: String) { _uiState.update { it.copy(chargeNote = v) } }
 
     fun recordCharge() {
+        AppLogger.d(TAG, "recordCharge called")
         val credit = _uiState.value.selectedCredit ?: return
         val amount = _uiState.value.chargeAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {

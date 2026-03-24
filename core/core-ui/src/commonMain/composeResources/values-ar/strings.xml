@@ -6,11 +6,15 @@
     <string name="channel_takeaway">تيك أواي</string>
     <string name="channel_in_store">شراء من المحل</string>
     <string name="channel_pickup_later">استلام بعدين</string>
+    <string name="channel_direct_dispense">صرف مباشر</string>
 
     <!-- Payment labels -->
     <string name="payment_cash">كاش</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
+    <string name="payment_split">تقسيم</string>
+    <string name="payment_credit">آجل</string>
+    <string name="payment_method_label">طريقة الدفع</string>
 
     <!-- Order Status -->
     <string name="status_created">جديد</string>
@@ -107,6 +111,8 @@
     <string name="nav_tables">الترابيزات</string>
     <string name="nav_more">المزيد</string>
     <string name="nav_offers">العروض</string>
+    <string name="nav_menu_products">المنتجات</string>
+    <string name="nav_menu_medicines">الأدوية</string>
 
     <!-- Navigation - Delivery -->
     <string name="nav_my_orders">طلباتي</string>
@@ -227,7 +233,12 @@
     <!-- Shift Summary -->
     <string name="shift_summary">ملخص الشيفت</string>
     <string name="shift_summary_for">ملخص الشيفت - %1$s</string>
+    <string name="shift_summary_today">اليوم</string>
+    <string name="shift_summary_session">الكل</string>
     <string name="total_revenue">إجمالي الإيرادات</string>
+    <string name="total_orders">إجمالي الطلبات</string>
+    <string name="orders">طلبات</string>
+    <string name="channel_breakdown">توزيع القنوات</string>
     <string name="orders_count">%1$d طلبات</string>
     <string name="cancelled">ملغي</string>
     <string name="refunded">مسترد</string>
@@ -317,14 +328,16 @@
     <string name="vendor_type_retail">محل</string>
     <string name="vendor_type_juice_bar">عصائر</string>
 
-    <!-- Cash Drawer -->
-    <string name="cash_drawer">درج الكاش</string>
-    <string name="open_cash_drawer">فتح درج الكاش</string>
-    <string name="close_cash_drawer">قفل درج الكاش</string>
-    <string name="cash_movement">حركة كاش</string>
+    <!-- Cash Drawer / Money Safe -->
+    <string name="cash_drawer">الخزنة</string>
+    <string name="open_cash_drawer">فتح الوردية</string>
+    <string name="close_cash_drawer">إغلاق الوردية</string>
+    <string name="cash_movement">حركة مالية</string>
+    <string name="payment_distribution">توزيع المدفوعات</string>
     <string name="opening_balance">رصيد الفتح</string>
-    <string name="closing_balance">رصيد الإغلاق الفعلي</string>
+    <string name="closing_balance">رصيد الإغلاق</string>
     <string name="expected_balance">الرصيد المتوقع</string>
+    <string name="difference">الفرق</string>
     <string name="expected_balance_value">الرصيد المتوقع: %1$s</string>
     <string name="cash_in">كاش داخل</string>
     <string name="cash_out">كاش خارج</string>
@@ -341,33 +354,43 @@
     <string name="movement">حركة</string>
     <string name="close_drawer">قفل الدرج</string>
     <string name="open_drawer">فتح الدرج</string>
+    <string name="movement_cash_in">إيداع كاش</string>
+    <string name="movement_cash_out">سحب كاش</string>
+    <string name="movement_sale">عملية بيع</string>
+    <string name="movement_refund">مرتجع</string>
+    <string name="movement_adjustment">تعديل</string>
+    <string name="session_status_open">مفتوحة</string>
+    <string name="session_status_closed">مقفولة</string>
 
-    <!-- Customer Credit -->
-    <string name="customer_credit">رصيد العميل</string>
+    <!-- Customer Credit (البيع الآجل) -->
+    <string name="customer_credit">البيع الآجل</string>
     <string name="customer">العميل</string>
-    <string name="record_payment">تسجيل دفعة</string>
-    <string name="charge_credit">شحن رصيد</string>
-    <string name="charge">شحن</string>
+    <string name="record_payment">تسجيل سداد</string>
+    <string name="charge_credit">إضافة مديونية</string>
+    <string name="charge">إضافة</string>
     <string name="record">تسجيل</string>
-    <string name="balance">الرصيد</string>
-    <string name="balance_value">الرصيد: %1$s</string>
-    <string name="available_value">المتاح: %1$s</string>
-    <string name="credit_limit">حد الائتمان</string>
-    <string name="available">المتاح</string>
-    <string name="available_credit">الرصيد المتاح</string>
-    <string name="outstanding_balance">الرصيد المعلّق</string>
-    <string name="no_customer_credit">مفيش حسابات رصيد عملاء</string>
-    <string name="no_transactions_yet">مفيش معاملات لسه</string>
-    <string name="transactions_count">المعاملات (%1$d)</string>
-    <string name="transaction_history_count">سجل المعاملات (%1$d)</string>
-    <string name="transaction_balance">رصيد: %1$s</string>
-    <string name="set_credit_limit">تحديد حد الائتمان</string>
+    <string name="balance">المبلغ المستحق</string>
+    <string name="balance_value">عليه: %1$s جنيه</string>
+    <string name="available_value">المتبقي من الحد: %1$s جنيه</string>
+    <string name="credit_limit">الحد الأقصى للآجل</string>
+    <string name="available">المتبقي</string>
+    <string name="available_credit">المتبقي من الحد</string>
+    <string name="outstanding_balance">المبلغ المستحق</string>
+    <string name="no_customer_credit">مفيش حسابات بيع آجل</string>
+    <string name="no_transactions_yet">مفيش حركات لسه</string>
+    <string name="transactions_count">الحركات (%1$d)</string>
+    <string name="transaction_history_count">سجل الحركات (%1$d)</string>
+    <string name="transaction_balance">بعدها: %1$s</string>
+    <string name="set_credit_limit">تحديد حد الآجل</string>
     <string name="current_limit">الحد الحالي: %1$s</string>
     <string name="new_limit">الحد الجديد</string>
     <string name="update">تحديث</string>
     <string name="at_limit">وصل الحد</string>
-    <string name="debtors_summary">%1$d مدينين | الإجمالي: %2$s</string>
+    <string name="debtors_summary">%1$d عميل عليه فلوس | الإجمالي: %2$s</string>
     <string name="set_limit">تحديد الحد</string>
+    <string name="trx_type_charge">شراء بالآجل</string>
+    <string name="trx_type_payment">تم السداد</string>
+    <string name="trx_type_adjustment">تعديل</string>
 
     <!-- Kitchen Display -->
     <string name="kitchen_display">شاشة المطبخ</string>
@@ -427,9 +450,11 @@
     <string name="load">تحميل</string>
     <string name="enter_order_id_message">ادخل رقم الطلب عشان تشوف الدفعات</string>
     <string name="remaining_value">المتبقي: %1$s</string>
+    <string name="cashier_filter">اختر الكاشير</string>
     <string name="payment_method">طريقة الدفع</string>
     <string name="amount">المبلغ</string>
     <string name="note">ملاحظة</string>
+    <string name="total">الإجمالي</string>
     <string name="order_total">إجمالي الطلب</string>
     <string name="total_paid">المدفوع</string>
     <string name="remaining">المتبقي</string>
@@ -441,16 +466,46 @@
     <!-- Drug Interactions -->
     <string name="drug_interactions">التداخلات الدوائية</string>
     <string name="add_interaction">إضافة تداخل</string>
-    <string name="search_interactions">بحث في التداخلات...</string>
-    <string name="no_drug_interactions">مفيش تداخلات دوائية محددة</string>
+    <string name="search_interactions">ابحث عن دواء...</string>
+    <string name="no_drug_interactions">مفيش تداخلات دوائية متعرفة لسه</string>
     <string name="add_drug_interaction">إضافة تداخل دوائي</string>
-    <string name="item_a_id">معرف الصنف أ</string>
-    <string name="item_b_id">معرف الصنف ب</string>
-    <string name="description">الوصف</string>
+    <string name="item_a_id">الدواء الأول</string>
+    <string name="item_b_id">الدواء التاني</string>
+    <string name="search_item">ابحث عن دواء...</string>
+    <string name="select_medicine">اختار الدواء</string>
+    <string name="description">تفاصيل التداخل</string>
+    <string name="description_ar">التفاصيل (بالعربي)</string>
     <string name="recommendation">التوصية</string>
     <string name="recommendation_prefix">التوصية: %1$s</string>
+    <string name="severity">درجة الخطورة</string>
+    <string name="severity_mild">بسيط</string>
+    <string name="severity_moderate">متوسط</string>
+    <string name="severity_severe">شديد</string>
+    <string name="severity_contraindicated">ممنوع الجمع</string>
     <string name="enable">تفعيل</string>
     <string name="disable">تعطيل</string>
+    <string name="interaction_active">مفعّل</string>
+    <string name="interaction_inactive">معطّل</string>
+
+    <!-- Credit Analytics -->
+    <string name="credit_analytics">تحليلات الآجل</string>
+    <string name="total_outstanding">إجمالي المديونيات</string>
+    <string name="total_credit_limit_label">إجمالي حد الآجل</string>
+    <string name="credit_utilization">نسبة الاستخدام</string>
+    <string name="credit_customers_count">عملاء الآجل</string>
+    <string name="total_charges_label">إجمالي المشتريات بالآجل</string>
+    <string name="total_payments_label">إجمالي المسدد</string>
+    <string name="credit_orders">طلبات الآجل</string>
+    <string name="credit_revenue">إيرادات الآجل</string>
+    <string name="top_debtors">أكبر المديونين</string>
+
+    <!-- Doctor Stats -->
+    <string name="doctor_stats">إحصائيات الأطباء</string>
+    <string name="doctor_name_label">الدكتور</string>
+    <string name="diagnosis_label">التشخيص</string>
+    <string name="no_doctor_stats">مفيش إحصائيات أطباء لسه</string>
+    <string name="doctor_prescriptions">روشتات</string>
+    <string name="doctor_items">أصناف</string>
 
     <!-- Returns -->
     <string name="returns_exchanges">المرتجعات والاستبدال</string>

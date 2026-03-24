@@ -118,6 +118,7 @@ import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import org.koin.compose.koinInject
 import net.marllex.waselak.core.model.UserRole
+import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentTiming
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.ui.components.LanguageSelector
@@ -191,6 +192,7 @@ enum class CashierDrawerItem(
     PRESCRIPTIONS("cashier/prescriptions", "Prescriptions", Icons.Filled.LocalPharmacy),
     SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
     CUSTOMER_CREDIT("cashier/customer_credit", "Customer Credit", Icons.Filled.CreditCard),
+    RETURNS("cashier/returns", "Returns", Icons.Filled.Refresh),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
 }
 
@@ -224,6 +226,7 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.PRESCRIPTIONS -> stringResource(CoreRes.string.prescriptions)
     CashierDrawerItem.SPLIT_PAYMENT -> stringResource(CoreRes.string.split_payment)
     CashierDrawerItem.CUSTOMER_CREDIT -> stringResource(CoreRes.string.customer_credit)
+    CashierDrawerItem.RETURNS -> stringResource(CoreRes.string.returns_exchanges)
     CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
 }
 
@@ -1482,15 +1485,23 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     var shiftSummaryFeatureNotAvailable by remember { mutableStateOf(false) }
     var shiftSummaryFeatureMessage by remember { mutableStateOf("") }
 
+    var shiftSummaryTab by remember { mutableStateOf(net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY) }
+
     val failedLoadShiftSummaryText = stringResource(CoreRes.string.failed_load_shift_summary)
-    val fetchShiftSummary: () -> Unit = remember(scope) {
-        {
+    val fetchShiftSummary: (net.marllex.waselak.core.ui.components.ShiftSummaryTab) -> Unit = remember(scope) {
+        { tab: net.marllex.waselak.core.ui.components.ShiftSummaryTab ->
             scope.launch {
                 shiftSummaryLoading = true
                 shiftSummaryError = null
+                shiftSummaryData = null
                 try {
-                    val from = tokenManager.getLoginTimestamp()
-                    val response = apiClient.getMyShiftSummary(from = from)
+                    val response = when (tab) {
+                        net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY ->
+                            apiClient.getMyShiftSummary(scope = "today")
+                        net.marllex.waselak.core.ui.components.ShiftSummaryTab.SESSION ->
+                            // All time — no date filter, shows total summary for this cashier
+                            apiClient.getMyShiftSummary()
+                    }
                     shiftSummaryData = net.marllex.waselak.core.ui.components.ShiftSummaryUiModel(
                         totalRevenue = response.totalRevenue,
                         totalOrders = response.totalOrders,
@@ -1523,7 +1534,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         {
             shiftSummaryWithSignOut = true
             showShiftSummary = true
-            fetchShiftSummary()
+            shiftSummaryTab = net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY
+            fetchShiftSummary(net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY)
         }
     }
 
@@ -1532,7 +1544,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         {
             shiftSummaryWithSignOut = false
             showShiftSummary = true
-            fetchShiftSummary()
+            shiftSummaryTab = net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY
+            fetchShiftSummary(net.marllex.waselak.core.ui.components.ShiftSummaryTab.TODAY)
         }
     }
 
@@ -1542,7 +1555,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             shiftSummary = shiftSummaryData,
             isLoading = shiftSummaryLoading,
             error = shiftSummaryError,
-            onRetry = fetchShiftSummary,
+            onRetry = { fetchShiftSummary(shiftSummaryTab) },
+            onTabChanged = { tab ->
+                shiftSummaryTab = tab
+                fetchShiftSummary(tab)
+            },
             onSignOut = if (shiftSummaryWithSignOut) {
                 {
                     scope.launch {
@@ -1585,8 +1602,10 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     }
 
     // Compute visible tabs/drawer using domain features (works offline via cached vendor)
-    val domainFeatures = remember(vendor?.businessType) {
-        net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+    val domainFeatures = remember(vendor) {
+        val v = vendor
+        if (v != null) net.marllex.waselak.core.model.DomainFeatures.forVendor(v)
+        else net.marllex.waselak.core.model.DomainFeatures.forType("RESTAURANT")
     }
 
     val visibleTabs = remember(vendor?.enableTables, domainFeatures) {
@@ -1598,14 +1617,24 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
     }
 
-    val visibleDrawerItems = remember(domainFeatures, vendor?.enableKds) {
+    val visibleDrawerItems = remember(
+        domainFeatures,
+        vendor?.enableKds,
+        vendor?.enableScheduledOrders,
+        vendor?.enableSplitPayment,
+        vendor?.enableCustomerCredit,
+        vendor?.enableReturns,
+        vendor?.enableCashDrawer,
+    ) {
         CashierDrawerItem.entries.filter { item ->
             when (item) {
                 CashierDrawerItem.KDS -> vendor?.enableKds != false && domainFeatures.hasKDS
-                CashierDrawerItem.SCHEDULED_ORDERS -> domainFeatures.hasPreOrders
-                CashierDrawerItem.PRESCRIPTIONS -> domainFeatures.hasPrescriptions
-                CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments
-                CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit
+                CashierDrawerItem.SCHEDULED_ORDERS -> domainFeatures.hasPreOrders && vendor?.enableScheduledOrders != false
+                CashierDrawerItem.PRESCRIPTIONS -> false // Removed: doctor info is now part of orders
+                CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments && vendor?.enableSplitPayment != false
+                CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit && vendor?.enableCustomerCredit != false
+                CashierDrawerItem.RETURNS -> domainFeatures.hasReturns && vendor?.enableReturns != false
+                CashierDrawerItem.CASH_DRAWER -> vendor?.enableCashDrawer != false
                 else -> true
             }
         }
@@ -1630,10 +1659,14 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         )
         posScreen(
             onOrderCreated = { order ->
-                if (order.paymentTiming == PaymentTiming.PAY_NOW) {
+                if (order.channel == OrderChannel.PICKUP_LATER) {
+                    // Scheduled orders are in a different table — don't navigate to receipt/payment
+                    // Just stay on POS (cart is already cleared)
+                } else if (order.paymentTiming == PaymentTiming.PAY_NOW) {
                     navController.navigateToPayment(order.id)
+                } else {
+                    navController.navigateToReceipt(order.id)
                 }
-                // PAY_LATER: stay on POS, no navigation to payment screen
             },
         )
         composable(CashierTab.ORDERS.route) {
@@ -1644,6 +1677,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 onSplitPayment = { orderId ->
                     navController.navigate("${CashierDrawerItem.SPLIT_PAYMENT.route}/$orderId")
                 },
+                businessType = vendor?.businessType,
             )
         }
         composable(CashierTab.TABLES.route) {
@@ -1690,6 +1724,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
             CashierCustomerCreditScreen()
         }
+        composable(CashierDrawerItem.RETURNS.route) {
+            net.marllex.waselak.cashier.returns.ReturnsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
         composable(CashierDrawerItem.PROFILE.route) {
             CashierProfileScreen(
                 userName = currentUser?.name,
@@ -1719,6 +1758,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             onNavigateToReceipt = { orderId ->
                 navController.navigateToReceipt(orderId)
             },
+            onNavigateBack = { navController.popBackStack() },
         )
         receiptScreen(
             onBack = { navController.navigateToPos() },

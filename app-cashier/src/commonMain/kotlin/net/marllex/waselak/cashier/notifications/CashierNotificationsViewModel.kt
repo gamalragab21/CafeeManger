@@ -12,10 +12,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.NotificationRepository
 import net.marllex.waselak.core.model.AppNotification
 import net.marllex.waselak.core.model.NotificationCount
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class CashierNotificationsViewModel(
     private val notificationRepository: NotificationRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "CashierNotifications" }
+
 
     data class UiState(
         val notifications: List<AppNotification> = emptyList(),
@@ -32,6 +35,7 @@ class CashierNotificationsViewModel(
     init { load() }
 
     fun startPolling() {
+        AppLogger.d(TAG, "startPolling called")
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             while (true) {
@@ -42,16 +46,19 @@ class CashierNotificationsViewModel(
     }
 
     fun stopPolling() {
+        AppLogger.d(TAG, "stopPolling called")
         refreshJob?.cancel()
         refreshJob = null
     }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             notificationRepository.getNotifications()
                 .onSuccess { list -> _uiState.update { it.copy(notifications = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {
             notificationRepository.getCount()
@@ -71,18 +78,21 @@ class CashierNotificationsViewModel(
     }
 
     fun markRead(id: String) {
+        AppLogger.d(TAG, "markRead called")
         viewModelScope.launch {
             notificationRepository.markRead(id).onSuccess { load() }
         }
     }
 
     fun markAllRead() {
+        AppLogger.d(TAG, "markAllRead called")
         viewModelScope.launch {
             notificationRepository.markAllRead().onSuccess { load() }
         }
     }
 
     fun delete(id: String) {
+        AppLogger.d(TAG, "delete called")
         viewModelScope.launch {
             notificationRepository.deleteNotification(id).onSuccess { load() }
         }

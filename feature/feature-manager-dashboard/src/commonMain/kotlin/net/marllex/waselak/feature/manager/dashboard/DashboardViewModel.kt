@@ -16,6 +16,7 @@ import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.*
+import net.marllex.waselak.core.common.logging.AppLogger
 
 // ══════════════════════════════════════════════════════════════════════
 // Section state — independent loading per section
@@ -62,6 +63,8 @@ class DashboardViewModel constructor(
     private val authRepository: AuthRepository,
     private val analyticsRepository: AnalyticsRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Dashboard" }
+
 
     private val _uiState = MutableStateFlow(HomeDashboardUiState())
     val uiState: StateFlow<HomeDashboardUiState> = _uiState.asStateFlow()
@@ -76,6 +79,7 @@ class DashboardViewModel constructor(
     }
 
     fun loadDashboard() {
+        AppLogger.d(TAG, "loadDashboard called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -128,9 +132,11 @@ class DashboardViewModel constructor(
         _uiState.update { it.copy(executiveSummary = SectionState.Loading) }
         analyticsRepository.getExecutiveSummary(from, to)
             .onSuccess { data ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) }
             }
             .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update {
                     it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed to load"))
                 }

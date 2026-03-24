@@ -21,6 +21,7 @@ import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.util.VariantDisplayHelper
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -42,48 +43,33 @@ fun KdsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(Res.string.kitchen_display))
-                        Text(
-                            stringResource(Res.string.kds_summary, uiState.summary.pending, uiState.summary.cooking, uiState.summary.ready),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.load() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.kitchen_display),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.orders.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-            uiState.orders.isEmpty() -> EmptyView(stringResource(Res.string.no_active_orders))
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-            ) {
-                items(uiState.orders, key = { it.orderId }) { order ->
-                    KdsOrderCard(
-                        order = order,
-                        onItemStatusChange = { itemId, status -> viewModel.updateItemStatus(itemId, status) },
-                        onMarkAllReady = { viewModel.markAllReady(order.orderId, order.items.filter { it.isPending || it.isCooking }.map { it.id }) },
-                    )
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            when {
+                uiState.isLoading -> LoadingIndicator()
+                uiState.error != null && uiState.orders.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                uiState.orders.isEmpty() -> EmptyView(stringResource(Res.string.no_active_orders))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                ) {
+                    items(uiState.orders, key = { it.orderId }) { order ->
+                        KdsOrderCard(
+                            order = order,
+                            onItemStatusChange = { itemId, status -> viewModel.updateItemStatus(itemId, status) },
+                            onMarkAllReady = { viewModel.markAllReady(order.orderId, order.items.filter { it.isPending || it.isCooking }.map { it.id }) },
+                        )
+                    }
                 }
             }
         }

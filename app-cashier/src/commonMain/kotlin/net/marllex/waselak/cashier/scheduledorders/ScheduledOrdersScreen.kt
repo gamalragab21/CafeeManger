@@ -17,6 +17,7 @@ import net.marllex.waselak.core.model.ScheduledOrder
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -33,50 +34,44 @@ fun ScheduledOrdersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(Res.string.scheduled_orders))
-                        Text(stringResource(Res.string.active_count, uiState.activeCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.scheduled_orders),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Status filter chips
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                statusFilters.forEach { (status, label) ->
-                    FilterChip(
-                        selected = uiState.selectedStatus == status,
-                        onClick = { viewModel.onStatusFilter(status) },
-                        label = { Text(label) },
-                    )
-                }
-            }
-
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null && uiState.orders.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                uiState.filteredOrders.isEmpty() -> EmptyView(stringResource(Res.string.no_scheduled_orders))
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Status filter chips
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(uiState.filteredOrders, key = { it.id }) { order ->
-                        ScheduledOrderCard(order = order, onConfirm = { viewModel.updateStatus(order.id, "CONFIRMED") }, onCancel = { viewModel.updateStatus(order.id, "CANCELLED") })
+                    statusFilters.forEach { (status, label) ->
+                        FilterChip(
+                            selected = uiState.selectedStatus == status,
+                            onClick = { viewModel.onStatusFilter(status) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null && uiState.orders.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                    uiState.filteredOrders.isEmpty() -> EmptyView(stringResource(Res.string.no_scheduled_orders))
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(uiState.filteredOrders, key = { it.id }) { order ->
+                            ScheduledOrderCard(order = order, onConfirm = { viewModel.updateStatus(order.id, "CONFIRMED") }, onCancel = { viewModel.updateStatus(order.id, "CANCELLED") })
+                        }
                     }
                 }
             }

@@ -6,11 +6,15 @@
     <string name="channel_takeaway">Takeaway</string>
     <string name="channel_in_store">In-Store</string>
     <string name="channel_pickup_later">Pickup Later</string>
+    <string name="channel_direct_dispense">Direct Dispense</string>
 
     <!-- Payment labels -->
     <string name="payment_cash">Cash</string>
     <string name="payment_wallet">Wallet</string>
     <string name="payment_card">Card</string>
+    <string name="payment_split">Split</string>
+    <string name="payment_credit">Credit</string>
+    <string name="payment_method_label">Payment Method</string>
 
     <!-- Order Status -->
     <string name="status_created">Created</string>
@@ -107,6 +111,8 @@
     <string name="nav_tables">Tables</string>
     <string name="nav_more">More</string>
     <string name="nav_offers">Offers</string>
+    <string name="nav_menu_products">Products</string>
+    <string name="nav_menu_medicines">Medicines</string>
 
     <!-- Navigation - Delivery -->
     <string name="nav_my_orders">My Orders</string>
@@ -227,7 +233,12 @@
     <!-- Shift Summary -->
     <string name="shift_summary">Shift Summary</string>
     <string name="shift_summary_for">Shift Summary - %1$s</string>
+    <string name="shift_summary_today">Today</string>
+    <string name="shift_summary_session">All Time</string>
     <string name="total_revenue">Total Revenue</string>
+    <string name="total_orders">Total Orders</string>
+    <string name="orders">orders</string>
+    <string name="channel_breakdown">Channel Breakdown</string>
     <string name="orders_count">%1$d orders</string>
     <string name="cancelled">Cancelled</string>
     <string name="refunded">Refunded</string>
@@ -317,14 +328,16 @@
     <string name="vendor_type_retail">Retail</string>
     <string name="vendor_type_juice_bar">Juice Bar</string>
 
-    <!-- Cash Drawer -->
-    <string name="cash_drawer">Cash Drawer</string>
-    <string name="open_cash_drawer">Open Cash Drawer</string>
-    <string name="close_cash_drawer">Close Cash Drawer</string>
-    <string name="cash_movement">Cash Movement</string>
+    <!-- Cash Drawer / Money Safe -->
+    <string name="cash_drawer">Money Safe</string>
+    <string name="open_cash_drawer">Open Session</string>
+    <string name="close_cash_drawer">Close Session</string>
+    <string name="cash_movement">Money Movement</string>
+    <string name="payment_distribution">Payment Distribution</string>
     <string name="opening_balance">Opening Balance</string>
-    <string name="closing_balance">Actual Closing Balance</string>
+    <string name="closing_balance">Closing Balance</string>
     <string name="expected_balance">Expected Balance</string>
+    <string name="difference">Difference</string>
     <string name="expected_balance_value">Expected balance: %1$s</string>
     <string name="cash_in">Cash In</string>
     <string name="cash_out">Cash Out</string>
@@ -341,33 +354,43 @@
     <string name="movement">Movement</string>
     <string name="close_drawer">Close Drawer</string>
     <string name="open_drawer">Open Drawer</string>
+    <string name="movement_cash_in">Cash In</string>
+    <string name="movement_cash_out">Cash Out</string>
+    <string name="movement_sale">Sale</string>
+    <string name="movement_refund">Refund</string>
+    <string name="movement_adjustment">Adjustment</string>
+    <string name="session_status_open">Open</string>
+    <string name="session_status_closed">Closed</string>
 
-    <!-- Customer Credit -->
-    <string name="customer_credit">Customer Credit</string>
+    <!-- Customer Credit (Deferred Payment) -->
+    <string name="customer_credit">Deferred Payments</string>
     <string name="customer">Customer</string>
     <string name="record_payment">Record Payment</string>
-    <string name="charge_credit">Charge Credit</string>
-    <string name="charge">Charge</string>
+    <string name="charge_credit">Add to Tab</string>
+    <string name="charge">Add</string>
     <string name="record">Record</string>
-    <string name="balance">Balance</string>
-    <string name="balance_value">Balance: %1$s</string>
-    <string name="available_value">Available: %1$s</string>
-    <string name="credit_limit">Credit Limit</string>
-    <string name="available">Available</string>
-    <string name="available_credit">Available Credit</string>
-    <string name="outstanding_balance">Outstanding Balance</string>
-    <string name="no_customer_credit">No customer credit accounts</string>
+    <string name="balance">Amount Owed</string>
+    <string name="balance_value">Owed: %1$s</string>
+    <string name="available_value">Remaining Limit: %1$s</string>
+    <string name="credit_limit">Max Allowed</string>
+    <string name="available">Remaining</string>
+    <string name="available_credit">Remaining Limit</string>
+    <string name="outstanding_balance">Amount Owed</string>
+    <string name="no_customer_credit">No deferred payment accounts</string>
     <string name="no_transactions_yet">No transactions yet</string>
     <string name="transactions_count">Transactions (%1$d)</string>
     <string name="transaction_history_count">Transaction History (%1$d)</string>
-    <string name="transaction_balance">Bal: %1$s</string>
-    <string name="set_credit_limit">Set Credit Limit</string>
+    <string name="transaction_balance">After: %1$s</string>
+    <string name="set_credit_limit">Set Payment Limit</string>
     <string name="current_limit">Current limit: %1$s</string>
     <string name="new_limit">New Limit</string>
     <string name="update">Update</string>
-    <string name="at_limit">AT LIMIT</string>
-    <string name="debtors_summary">%1$d debtors | Total: %2$s</string>
+    <string name="at_limit">LIMIT REACHED</string>
+    <string name="debtors_summary">%1$d customers owe | Total: %2$s</string>
     <string name="set_limit">Set Limit</string>
+    <string name="trx_type_charge">Purchase on Credit</string>
+    <string name="trx_type_payment">Payment Received</string>
+    <string name="trx_type_adjustment">Adjustment</string>
 
     <!-- Kitchen Display -->
     <string name="kitchen_display">Kitchen Display</string>
@@ -427,9 +450,11 @@
     <string name="load">Load</string>
     <string name="enter_order_id_message">Enter an order ID to view split payments</string>
     <string name="remaining_value">Remaining: %1$s</string>
+    <string name="cashier_filter">Select Cashier</string>
     <string name="payment_method">Payment Method</string>
     <string name="amount">Amount</string>
     <string name="note">Note</string>
+    <string name="total">Total</string>
     <string name="order_total">Order Total</string>
     <string name="total_paid">Total Paid</string>
     <string name="remaining">Remaining</string>
@@ -440,17 +465,47 @@
 
     <!-- Drug Interactions -->
     <string name="drug_interactions">Drug Interactions</string>
-    <string name="add_interaction">Add interaction</string>
-    <string name="search_interactions">Search interactions...</string>
-    <string name="no_drug_interactions">No drug interactions defined</string>
+    <string name="add_interaction">Add Interaction</string>
+    <string name="search_interactions">Search medicines...</string>
+    <string name="no_drug_interactions">No drug interactions defined yet</string>
     <string name="add_drug_interaction">Add Drug Interaction</string>
-    <string name="item_a_id">Item A ID</string>
-    <string name="item_b_id">Item B ID</string>
-    <string name="description">Description</string>
+    <string name="item_a_id">First Medicine</string>
+    <string name="item_b_id">Second Medicine</string>
+    <string name="search_item">Search medicine...</string>
+    <string name="select_medicine">Select medicine</string>
+    <string name="description">Interaction Details</string>
+    <string name="description_ar">Details (Arabic)</string>
     <string name="recommendation">Recommendation</string>
-    <string name="recommendation_prefix">Rec: %1$s</string>
+    <string name="recommendation_prefix">Recommendation: %1$s</string>
+    <string name="severity">Severity</string>
+    <string name="severity_mild">Mild</string>
+    <string name="severity_moderate">Moderate</string>
+    <string name="severity_severe">Severe</string>
+    <string name="severity_contraindicated">Contraindicated</string>
     <string name="enable">Enable</string>
     <string name="disable">Disable</string>
+    <string name="interaction_active">Active</string>
+    <string name="interaction_inactive">Inactive</string>
+
+    <!-- Credit Analytics -->
+    <string name="credit_analytics">Credit Analytics</string>
+    <string name="total_outstanding">Total Outstanding</string>
+    <string name="total_credit_limit_label">Total Credit Limit</string>
+    <string name="credit_utilization">Utilization</string>
+    <string name="credit_customers_count">Credit Customers</string>
+    <string name="total_charges_label">Total Charges</string>
+    <string name="total_payments_label">Total Payments</string>
+    <string name="credit_orders">Credit Orders</string>
+    <string name="credit_revenue">Credit Revenue</string>
+    <string name="top_debtors">Top Debtors</string>
+
+    <!-- Doctor Stats -->
+    <string name="doctor_stats">Doctor Statistics</string>
+    <string name="doctor_name_label">Doctor</string>
+    <string name="diagnosis_label">Diagnosis</string>
+    <string name="no_doctor_stats">No doctor statistics yet</string>
+    <string name="doctor_prescriptions">Prescriptions</string>
+    <string name="doctor_items">Items</string>
 
     <!-- Returns -->
     <string name="returns_exchanges">Returns &amp; Exchanges</string>

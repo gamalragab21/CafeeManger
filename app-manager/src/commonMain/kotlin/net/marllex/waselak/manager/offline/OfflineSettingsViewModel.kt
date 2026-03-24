@@ -14,6 +14,7 @@ import net.marllex.waselak.core.database.dao.WorkerDao
 import net.marllex.waselak.core.data.sync.SyncScheduler
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class OfflineSettingsViewModel(
     private val vendorRepository: VendorRepository,
@@ -22,6 +23,8 @@ class OfflineSettingsViewModel(
     private val pendingSyncDao: PendingSyncDao,
     private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
+    private companion object { private const val TAG = "OfflineSettings" }
+
 
     data class UiState(
         val enableOfflineMode: Boolean = false,
@@ -44,10 +47,12 @@ class OfflineSettingsViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             vendorRepository.refreshVendor()
                 .onSuccess { vendor ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update {
                         it.copy(
                             enableOfflineMode = vendor.enableOfflineMode,
@@ -56,6 +61,7 @@ class OfflineSettingsViewModel(
                     }
                 }
                 .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
         }
@@ -94,6 +100,7 @@ class OfflineSettingsViewModel(
     }
 
     fun toggleOfflineMode(enabled: Boolean) {
+        AppLogger.d(TAG, "toggleOfflineMode called")
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             vendorRepository.updateVendor(enableOfflineMode = enabled)
@@ -109,6 +116,7 @@ class OfflineSettingsViewModel(
     }
 
     fun syncNow() {
+        AppLogger.d(TAG, "syncNow called")
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true) }
             syncScheduler.triggerManualSync()
@@ -117,6 +125,7 @@ class OfflineSettingsViewModel(
     }
 
     fun retryFailed(id: String) {
+        AppLogger.d(TAG, "retryFailed called")
         viewModelScope.launch {
             val record = _uiState.value.failedRecords.find { it.id == id } ?: return@launch
             workerDao.insertPendingAttendance(
@@ -126,18 +135,21 @@ class OfflineSettingsViewModel(
     }
 
     fun retrySyncItem(id: String) {
+        AppLogger.d(TAG, "retrySyncItem called")
         viewModelScope.launch {
             pendingSyncDao.updateRetry(id, 0, null)
         }
     }
 
     fun deleteFailed(id: String) {
+        AppLogger.d(TAG, "deleteFailed called")
         viewModelScope.launch {
             workerDao.deletePendingAttendance(id)
         }
     }
 
     fun deleteSyncItem(id: String) {
+        AppLogger.d(TAG, "deleteSyncItem called")
         viewModelScope.launch {
             pendingSyncDao.deletePending(id)
         }

@@ -100,4 +100,13 @@
     <string name="no_stock_items_hint">ضيف أصناف المخزون الأول</string>
     <string name="all_items_have_recipes">كل الأصناف عندها وصفات خلاص</string>
     <string name="fixed_quantity_label">كمية ثابتة (من غير قسمة على الإنتاج)</string>
+    <!-- Stock Item Details -->
+    <string name="detail_qty">الكمية</string>
+    <string name="detail_min">الحد</string>
+    <string name="detail_cost">التكلفة</string>
+    <string name="detail_value">القيمة</string>
+    <string name="new_quantity">الكمية الجديدة</string>
+    <string name="unknown_item">صنف مجهول</string>
+    <string name="recipe_draft">مسودة</string>
+    <string name="stock_batch_deduct">خصم جماعي</string>
 </resources>

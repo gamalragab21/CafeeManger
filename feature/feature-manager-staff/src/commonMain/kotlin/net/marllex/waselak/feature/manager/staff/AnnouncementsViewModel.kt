@@ -12,10 +12,13 @@ import net.marllex.waselak.core.model.AnnouncementPriority
 import net.marllex.waselak.core.model.AnnouncementTarget
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.CreateAnnouncementRequest
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class AnnouncementsViewModel constructor(
     private val api: WaselakApiClient,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Announcements" }
+
 
     data class UiState(
         val announcements: List<Announcement> = emptyList(),
@@ -33,6 +36,7 @@ class AnnouncementsViewModel constructor(
     }
 
     fun loadAnnouncements() {
+        AppLogger.d(TAG, "loadAnnouncements called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -64,6 +68,7 @@ class AnnouncementsViewModel constructor(
     }
 
     fun hideCreateDialog() {
+        AppLogger.d(TAG, "hideCreateDialog called")
         _uiState.update { it.copy(showCreateDialog = false) }
     }
 
@@ -73,6 +78,7 @@ class AnnouncementsViewModel constructor(
         targetType: String,
         priority: String,
     ) {
+        AppLogger.d(TAG, "createAnnouncement called")
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true) }
             try {
@@ -93,6 +99,7 @@ class AnnouncementsViewModel constructor(
     }
 
     fun markAsRead(announcementId: String) {
+        AppLogger.d(TAG, "markAsRead called")
         viewModelScope.launch {
             try {
                 api.markAnnouncementRead(announcementId)
@@ -108,6 +115,7 @@ class AnnouncementsViewModel constructor(
     }
 
     fun deleteAnnouncement(announcementId: String) {
+        AppLogger.d(TAG, "deleteAnnouncement called")
         viewModelScope.launch {
             try {
                 api.deleteAnnouncement(announcementId)

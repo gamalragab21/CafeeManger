@@ -3,18 +3,23 @@ package net.marllex.waselak.kds.display
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +41,7 @@ import waselak.core.core_ui.generated.resources.*
 fun KdsDisplayScreen(
     viewModel: KdsDisplayViewModel = koinViewModel(),
     onLogout: () -> Unit,
+    onNavigateToProfile: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -62,31 +68,15 @@ fun KdsDisplayScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        Text(
-                            stringResource(Res.string.kitchen_display),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        // Summary chips
-                        SummaryChip(stringResource(Res.string.pending), uiState.summary.pending, Color(0xFFFF9800))
-                        SummaryChip(stringResource(Res.string.cooking), uiState.summary.cooking, Color(0xFF2196F3))
-                        SummaryChip(stringResource(Res.string.ready), uiState.summary.ready, Color(0xFF4CAF50))
-                        if (uiState.summary.avgPrepTimeMinutes > 0) {
-                            Text(
-                                stringResource(Res.string.avg_prep_time, uiState.summary.avgPrepTimeMinutes.toInt()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
+            WaselakTopAppBar(
+                title = stringResource(Res.string.kitchen_display),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
                 actions = {
+                    // Summary chips
+                    SummaryChip(stringResource(Res.string.pending), uiState.summary.pending, Color(0xFFFF9800))
+                    SummaryChip(stringResource(Res.string.cooking), uiState.summary.cooking, Color(0xFF2196F3))
+                    SummaryChip(stringResource(Res.string.ready), uiState.summary.ready, Color(0xFF4CAF50))
                     // Station filter
                     val stations = uiState.orders.flatMap { o -> o.items.mapNotNull { it.kitchenStation } }.distinct()
                     if (stations.isNotEmpty()) {
@@ -111,45 +101,50 @@ fun KdsDisplayScreen(
                     IconButton(onClick = { showLanguageDialog = true }) {
                         Icon(Icons.Default.Language, contentDescription = "Language / اللغة")
                     }
-                    IconButton(onClick = { viewModel.load() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh))
-                    }
-                    IconButton(onClick = {
-                        viewModel.logout()
-                        onLogout()
-                    }) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = stringResource(Res.string.logout))
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Default.Person, contentDescription = stringResource(Res.string.profile))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
-                message = uiState.error!!,
-                onRetry = viewModel::load,
-            )
-            uiState.orders.isEmpty() -> EmptyView(stringResource(Res.string.no_active_orders))
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-            ) {
-                items(uiState.orders, key = { it.orderId }) { order ->
-                    KdsOrderCard(
-                        order = order,
-                        onItemStatusChange = { itemId, status ->
-                            viewModel.updateItemStatus(itemId, status)
-                        },
-                        onMarkAllReady = {
-                            viewModel.markAllReady(
-                                order.orderId,
-                                order.items.filter { it.isPending || it.isCooking }.map { it.id },
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when {
+                uiState.isLoading && uiState.orders.isEmpty() -> LoadingIndicator()
+                uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
+                    message = uiState.error!!,
+                    onRetry = viewModel::load,
+                )
+                uiState.orders.isEmpty() -> EmptyView(stringResource(Res.string.no_active_orders))
+                else -> BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val columns = when {
+                        maxWidth > 1600.dp -> 4
+                        maxWidth > 1200.dp -> 3
+                        maxWidth > 800.dp -> 2
+                        else -> 1
+                    }
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(columns),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(uiState.orders, key = { it.orderId }) { order ->
+                            KdsOrderCard(
+                                order = order,
+                                onItemStatusChange = { itemId, status ->
+                                    viewModel.updateItemStatus(itemId, status)
+                                },
+                                onMarkAllReady = {
+                                    viewModel.markAllReady(
+                                        order.orderId,
+                                        order.items.filter { it.isPending || it.isCooking }.map { it.id },
+                                    )
+                                },
                             )
-                        },
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -188,10 +183,24 @@ private fun KdsOrderCard(
     onItemStatusChange: (String, String) -> Unit,
     onMarkAllReady: () -> Unit,
 ) {
+    val borderColor = when {
+        order.hasPendingItems -> Color(0xFFFF9800)
+        order.hasCookingItems -> Color(0xFF2196F3)
+        order.allReady -> Color(0xFF4CAF50)
+        else -> Color(0xFF9E9E9E)
+    }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                drawRect(
+                    color = borderColor,
+                    topLeft = Offset.Zero,
+                    size = Size(6.dp.toPx(), size.height),
+                )
+            },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Order header

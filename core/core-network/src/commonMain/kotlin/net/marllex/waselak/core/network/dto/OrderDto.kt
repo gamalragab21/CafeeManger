@@ -44,6 +44,10 @@ data class OrderResponse(
     @SerialName("refunded_at") val refundedAt: Long? = null,
     @SerialName("refunded_by") val refundedBy: String? = null,
     @SerialName("refund_reason") val refundReason: String? = null,
+    @SerialName("refunded_amount") val refundedAmount: Double = 0.0,
+    @SerialName("returned_item_count") val returnedItemCount: Int = 0,
+    @SerialName("doctor_name") val doctorName: String? = null,
+    val diagnosis: String? = null,
 )
 
 @Serializable
@@ -87,6 +91,8 @@ data class CreateOrderRequest(
     @SerialName("offer_id") val offerId: String? = null,
     @SerialName("points_redeemed") val pointsRedeemed: Int = 0,
     @SerialName("discount_reason") val discountReason: String? = null,
+    @SerialName("doctor_name") val doctorName: String? = null,
+    val diagnosis: String? = null,
 )
 
 @Serializable

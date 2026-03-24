@@ -8,13 +8,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CashDrawerRepository
+import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.CashDrawerSession
 import net.marllex.waselak.core.model.CashMovement
 import net.marllex.waselak.core.model.DrawerSummary
+import net.marllex.waselak.core.model.User
+import net.marllex.waselak.core.common.logging.AppLogger
+
+data class CashierOption(val id: String, val name: String)
 
 class ManagerCashDrawerViewModel(
     private val cashDrawerRepository: CashDrawerRepository,
+    private val userRepository: UserManagementRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "ManagerCashDrawer" }
+
 
     data class UiState(
         val currentSession: CashDrawerSession? = null,
@@ -24,6 +32,9 @@ class ManagerCashDrawerViewModel(
         val isLoading: Boolean = true,
         val error: String? = null,
         val selectedTab: Int = 0, // 0=Current, 1=History
+        // Cashier filter
+        val cashiers: List<CashierOption> = emptyList(),
+        val selectedCashierId: String? = null, // null = all/manager's own
         // Open drawer dialog
         val showOpenDialog: Boolean = false,
         val openingBalance: String = "0",
@@ -45,13 +56,38 @@ class ManagerCashDrawerViewModel(
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        loadCashiers()
+        load()
+    }
+
+    private fun loadCashiers() {
+        viewModelScope.launch {
+            try {
+                userRepository.getUsers().collect { users ->
+                    val cashierList = users
+                        .filter { it.role == net.marllex.waselak.core.model.UserRole.CASHIER }
+                        .map { CashierOption(id = it.id, name = it.name) }
+                    _uiState.update { it.copy(cashiers = cashierList) }
+                }
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Failed to load cashiers", e)
+            }
+        }
+    }
+
+    fun selectCashier(cashierId: String?) {
+        _uiState.update { it.copy(selectedCashierId = cashierId) }
+        load()
+    }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             cashDrawerRepository.getCurrentSession()
                 .onSuccess { session ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(currentSession = session, movements = session?.movements ?: emptyList(), isLoading = false) }
                 }
                 .onFailure { _uiState.update { it.copy(currentSession = null, isLoading = false) } }
@@ -61,7 +97,8 @@ class ManagerCashDrawerViewModel(
                 .onSuccess { s -> _uiState.update { it.copy(summary = s) } }
         }
         viewModelScope.launch {
-            cashDrawerRepository.getSessions()
+            val cashierId = _uiState.value.selectedCashierId
+            cashDrawerRepository.getSessions(cashierId = cashierId)
                 .onSuccess { list -> _uiState.update { it.copy(sessions = list) } }
         }
     }
@@ -74,12 +111,14 @@ class ManagerCashDrawerViewModel(
     fun onOpeningBalanceChange(v: String) { _uiState.update { it.copy(openingBalance = v) } }
     fun onOpenNotesChange(v: String) { _uiState.update { it.copy(openNotes = v) } }
     fun openDrawer() {
+        AppLogger.d(TAG, "openDrawer called")
         val balance = _uiState.value.openingBalance.toDoubleOrNull() ?: 0.0
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             cashDrawerRepository.openDrawer(balance, _uiState.value.openNotes.ifBlank { null })
                 .onSuccess { _uiState.update { it.copy(isSaving = false, showOpenDialog = false) }; load() }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 
@@ -89,6 +128,7 @@ class ManagerCashDrawerViewModel(
     fun onClosingBalanceChange(v: String) { _uiState.update { it.copy(closingBalance = v) } }
     fun onCloseNotesChange(v: String) { _uiState.update { it.copy(closeNotes = v) } }
     fun closeDrawer() {
+        AppLogger.d(TAG, "closeDrawer called")
         val balance = _uiState.value.closingBalance.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -105,6 +145,7 @@ class ManagerCashDrawerViewModel(
     fun onMovementAmountChange(v: String) { _uiState.update { it.copy(movementAmount = v) } }
     fun onMovementReasonChange(v: String) { _uiState.update { it.copy(movementReason = v) } }
     fun addMovement() {
+        AppLogger.d(TAG, "addMovement called")
         val amount = _uiState.value.movementAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }

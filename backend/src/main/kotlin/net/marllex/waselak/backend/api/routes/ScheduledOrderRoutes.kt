@@ -313,7 +313,7 @@ fun Route.scheduledOrderRoutes() {
         // DELETE cancel a scheduled order
         delete("/{id}") {
             val trace = call.routeTrace()
-            val principal = requireRole("MANAGER")
+            val principal = requireRole("MANAGER", "CASHIER")
             planService.checkFeature(UUID.fromString(principal.vendorId), "SCHEDULED_ORDERS")
             val vendorUUID = UUID.fromString(principal.vendorId)
             val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")

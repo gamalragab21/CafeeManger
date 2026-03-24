@@ -38,6 +38,8 @@ private fun paymentLabel(method: PaymentMethod): String = when (method) {
     PaymentMethod.CASH -> "Cash"
     PaymentMethod.WALLET -> "Wallet"
     PaymentMethod.CARD -> "Card"
+    PaymentMethod.SPLIT -> "Split"
+    PaymentMethod.CREDIT -> "Credit"
 }
 
 private fun String.htmlEscape(): String =
@@ -165,6 +167,12 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     append("<div class='info-row'><span class='label'>Channel</span><span class='value'>${channelLabel(order.channel)}</span></div>")
     append("<div class='info-row'><span class='label'>Payment</span><span class='value'>${paymentLabel(order.paymentMethod)}</span></div>")
     append("<div class='info-row'><span class='label'>Cashier</span><span class='value'>${(order.cashierName ?: "-").htmlEscape()}</span></div>")
+    order.doctorName?.let {
+        append("<div class='info-row'><span class='label'>Doctor</span><span class='value'>${it.htmlEscape()}</span></div>")
+    }
+    order.diagnosis?.let {
+        append("<div class='info-row'><span class='label'>Diagnosis</span><span class='value'>${it.htmlEscape()}</span></div>")
+    }
     append("</div>")
 
     // Client Info
@@ -204,9 +212,14 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     // Totals
     append("<div class='totals'>")
     append("<div class='info-row'><span class='label'>Subtotal</span><span class='value'>${formatAmount(order.subtotal)}</span></div>")
-    val totalDeliveryFee = order.deliveryFee + order.tax
-    if (totalDeliveryFee > 0.0) {
-        append("<div class='info-row'><span class='label'>Delivery Fee</span><span class='value'>${formatAmount(totalDeliveryFee)}</span></div>")
+    if (order.deliveryFee > 0.0) {
+        append("<div class='info-row'><span class='label'>Delivery Fee</span><span class='value'>${formatAmount(order.deliveryFee)}</span></div>")
+    }
+    if (order.tax > 0.0) {
+        append("<div class='info-row'><span class='label'>Tax</span><span class='value'>${formatAmount(order.tax)}</span></div>")
+    }
+    if (order.discount > 0.0) {
+        append("<div class='info-row' style='color:#DC2626;'><span class='label'>Discount</span><span class='value'>-${formatAmount(order.discount)}</span></div>")
     }
     append("</div>")
 
@@ -215,6 +228,17 @@ fun buildReceiptHtml(order: Order, vendor: Vendor?): String = buildString {
     append("<span class='label'>Total</span>")
     append("<span class='value'>${formatAmount(order.total)}</span>")
     append("</div>")
+
+    // Refund info
+    if (order.hasReturns) {
+        append("<div class='totals' style='margin-top:4px;'>")
+        append("<div class='info-row' style='color:#DC2626;'><span class='label'>Refunded (${order.returnedItemCount} items)</span><span class='value'>-${formatAmount(order.refundedAmount)}</span></div>")
+        append("</div>")
+        append("<div class='grand-total' style='border-top:1px dashed #ccc; padding-top:4px;'>")
+        append("<span class='label'>Net Total</span>")
+        append("<span class='value'>${formatAmount(order.netTotal)}</span>")
+        append("</div>")
+    }
 
     // Notes
     order.notes?.let { notes ->

@@ -18,6 +18,7 @@ import net.marllex.waselak.core.model.AppNotification
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -39,38 +40,34 @@ fun CashierNotificationsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(Res.string.notifications))
-                        if (uiState.count.hasUnread) { Badge { Text("${uiState.count.unread}") } }
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-                    }
-                },
+            WaselakTopAppBar(
+                title = stringResource(Res.string.notifications),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
                 actions = {
                     if (uiState.count.hasUnread) {
                         TextButton(onClick = viewModel::markAllRead) { Text(stringResource(Res.string.read_all)) }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-            uiState.notifications.isEmpty() -> EmptyView(stringResource(Res.string.no_notifications))
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-            ) {
-                items(uiState.notifications, key = { it.id }) { n ->
-                    CashierNotificationCard(n, onRead = { viewModel.markRead(n.id) }, onDelete = { viewModel.delete(n.id) })
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            when {
+                uiState.isLoading -> LoadingIndicator()
+                uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                uiState.notifications.isEmpty() -> EmptyView(stringResource(Res.string.no_notifications))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                ) {
+                    items(uiState.notifications, key = { it.id }) { n ->
+                        CashierNotificationCard(n, onRead = { viewModel.markRead(n.id) }, onDelete = { viewModel.delete(n.id) })
+                    }
                 }
             }
         }

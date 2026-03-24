@@ -6,9 +6,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,26 +36,13 @@ fun CustomerCreditScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(if (uiState.selectedCredit != null) uiState.selectedCredit!!.customerName ?: stringResource(Res.string.customer) else stringResource(Res.string.customer_credit))
-                        if (uiState.selectedCredit == null && uiState.debtors.isNotEmpty()) {
-                            Text(
-                                stringResource(Res.string.debtors_summary, uiState.debtorCount, "%.2f".format(uiState.totalDebt)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (uiState.selectedCredit != null) viewModel.clearSelection()
-                        else onNavigateBack?.invoke()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
+            WaselakTopAppBar(
+                title = if (uiState.selectedCredit != null) uiState.selectedCredit!!.customerName ?: stringResource(Res.string.customer) else stringResource(Res.string.customer_credit),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = {
+                    if (uiState.selectedCredit != null) viewModel.clearSelection()
+                    else onNavigateBack?.invoke()
                 },
                 actions = {
                     if (uiState.selectedCredit != null) {
@@ -63,9 +50,7 @@ fun CustomerCreditScreen(
                             Icon(Icons.Default.Edit, contentDescription = stringResource(Res.string.set_limit))
                         }
                     }
-                    IconButton(onClick = viewModel::load) { Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh)) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
@@ -73,7 +58,7 @@ fun CustomerCreditScreen(
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.debtors.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
             uiState.selectedCredit != null -> CustomerDetailContent(
-                modifier = Modifier.padding(padding),
+                modifier = Modifier.padding(padding).fillMaxSize(),
                 credit = uiState.selectedCredit!!,
                 transactions = uiState.transactions,
             )
@@ -203,7 +188,13 @@ private fun TransactionRow(transaction: CreditTransaction) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(transaction.type, style = MaterialTheme.typography.labelMedium, color = color)
+                val typeLabel = when (transaction.type) {
+                    "CHARGE" -> stringResource(Res.string.trx_type_charge)
+                    "PAYMENT" -> stringResource(Res.string.trx_type_payment)
+                    "ADJUSTMENT" -> stringResource(Res.string.trx_type_adjustment)
+                    else -> transaction.type
+                }
+                Text(typeLabel, style = MaterialTheme.typography.labelMedium, color = color)
                 transaction.note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 transaction.createdByName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }

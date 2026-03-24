@@ -18,6 +18,10 @@ data class ProductReturnResponse(
     @SerialName("processed_at") val processedAt: Long? = null,
     val notes: String? = null,
     val items: List<ReturnItemResponse> = emptyList(),
+    @SerialName("exchange_item_id") val exchangeItemId: String? = null,
+    @SerialName("exchange_item_name") val exchangeItemName: String? = null,
+    @SerialName("exchange_item_price") val exchangeItemPrice: Double? = null,
+    @SerialName("exchange_quantity") val exchangeQuantity: Int = 0,
     @SerialName("created_at") val createdAt: Long? = null,
 )
 
@@ -44,6 +48,8 @@ data class CreateReturnRequest(
     @SerialName("refund_method") val refundMethod: String? = null,
     val notes: String? = null,
     val items: List<CreateReturnItemRequest>,
+    @SerialName("exchange_item_id") val exchangeItemId: String? = null,
+    @SerialName("exchange_quantity") val exchangeQuantity: Int = 1,
 )
 
 @Serializable

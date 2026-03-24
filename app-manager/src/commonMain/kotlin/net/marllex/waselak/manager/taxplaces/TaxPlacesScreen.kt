@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -12,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -28,8 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,18 +56,11 @@ fun TaxPlacesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Delivery Zones") },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = "Delivery Zones",
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
         floatingActionButton = {
@@ -82,33 +74,33 @@ fun TaxPlacesScreen(
             }
         }
     ) { padding ->
-        when {
-            uiState.isLoading && uiState.places.isEmpty() -> LoadingIndicator()
-            uiState.error != null && uiState.places.isEmpty() -> ErrorView(
-                message = uiState.error!!,
-                onRetry = viewModel::load,
-            )
-            uiState.places.isEmpty() -> EmptyView("No delivery zones yet")
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    Text(
-                        "Delivery zones for delivery orders. Set the zone name and delivery fee per zone; one can be the default.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                items(uiState.places) { place ->
-                    TaxPlaceCard(
-                        place = place,
-                        onDelete = { viewModel.delete(place.id) },
-                    )
+            when {
+                uiState.isLoading && uiState.places.isEmpty() -> LoadingIndicator()
+                uiState.error != null && uiState.places.isEmpty() -> ErrorView(
+                    message = uiState.error!!,
+                    onRetry = viewModel::load,
+                )
+                uiState.places.isEmpty() -> EmptyView("No delivery zones yet")
+                else -> LazyColumn(
+                    modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        Text(
+                            "Delivery zones for delivery orders. Set the zone name and delivery fee per zone; one can be the default.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    items(uiState.places) { place ->
+                        TaxPlaceCard(
+                            place = place,
+                            onDelete = { viewModel.delete(place.id) },
+                        )
+                    }
                 }
             }
-        }
     }
 
     if (showAddDialog) {

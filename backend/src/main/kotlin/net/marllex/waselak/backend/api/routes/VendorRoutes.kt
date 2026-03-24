@@ -47,6 +47,19 @@ data class VendorResponse(
     val biometric_required: Boolean = false,
     val enable_offline_mode: Boolean = false,
     val digital_menu_url: String? = null,
+    val enable_digital_menu: Boolean = true,
+    val enable_recipe: Boolean = true,
+    val enable_split_payment: Boolean = true,
+    val enable_cash_drawer: Boolean = true,
+    val enable_returns: Boolean = true,
+    val enable_customer_credit: Boolean = false,
+    val enable_pre_orders: Boolean = false,
+    val enable_scheduled_orders: Boolean = false,
+    val enable_suppliers: Boolean = true,
+    val enable_drug_interactions: Boolean = false,
+    val enable_prescriptions: Boolean = false,
+    val enable_analytics: Boolean = true,
+    val enable_announcements: Boolean = true,
     // Loyalty & discount settings
     val loyalty_enabled: Boolean = false,
     val points_earn_rate: Double = 1.0,
@@ -81,6 +94,19 @@ data class UpdateVendorRequest(
     val biometric_required: Boolean? = null,
     val enable_offline_mode: Boolean? = null,
     val digital_menu_url: String? = null,
+    val enable_digital_menu: Boolean? = null,
+    val enable_recipe: Boolean? = null,
+    val enable_split_payment: Boolean? = null,
+    val enable_cash_drawer: Boolean? = null,
+    val enable_returns: Boolean? = null,
+    val enable_customer_credit: Boolean? = null,
+    val enable_pre_orders: Boolean? = null,
+    val enable_scheduled_orders: Boolean? = null,
+    val enable_suppliers: Boolean? = null,
+    val enable_drug_interactions: Boolean? = null,
+    val enable_prescriptions: Boolean? = null,
+    val enable_analytics: Boolean? = null,
+    val enable_announcements: Boolean? = null,
     // Loyalty & discount settings
     val loyalty_enabled: Boolean? = null,
     val points_earn_rate: Double? = null,
@@ -292,6 +318,19 @@ fun Route.vendorRoutes() {
                 biometric_required = vendor[VendorsTable.biometricRequired],
                 enable_offline_mode = vendor[VendorsTable.enableOfflineMode],
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
+                enable_digital_menu = vendor[VendorsTable.enableDigitalMenu],
+                enable_recipe = vendor[VendorsTable.enableRecipe],
+                enable_split_payment = vendor[VendorsTable.enableSplitPayment],
+                enable_cash_drawer = vendor[VendorsTable.enableCashDrawer],
+                enable_returns = vendor[VendorsTable.enableReturns],
+                enable_customer_credit = vendor[VendorsTable.enableCustomerCredit],
+                enable_pre_orders = vendor[VendorsTable.enablePreOrders],
+                enable_scheduled_orders = vendor[VendorsTable.enableScheduledOrders],
+                enable_suppliers = vendor[VendorsTable.enableSuppliers],
+                enable_drug_interactions = vendor[VendorsTable.enableDrugInteractions],
+                enable_prescriptions = vendor[VendorsTable.enablePrescriptions],
+                enable_analytics = vendor[VendorsTable.enableAnalytics],
+                enable_announcements = vendor[VendorsTable.enableAnnouncements],
                 loyalty_enabled = vendor[VendorsTable.loyaltyEnabled],
                 points_earn_rate = vendor[VendorsTable.pointsEarnRate].toDouble(),
                 points_redeem_rate = vendor[VendorsTable.pointsRedeemRate].toDouble(),
@@ -345,6 +384,8 @@ fun Route.vendorRoutes() {
             request.biometric_required?.let { settingsChanged.add("biometric_required") }
             request.enable_offline_mode?.let { settingsChanged.add("enable_offline_mode") }
             request.digital_menu_url?.let { settingsChanged.add("digital_menu_url") }
+            request.enable_digital_menu?.let { settingsChanged.add("enable_digital_menu") }
+            request.enable_recipe?.let { settingsChanged.add("enable_recipe") }
 
             trace.step("Updating vendor", mapOf(
                 "vendorId" to principal.vendorId,
@@ -385,6 +426,19 @@ fun Route.vendorRoutes() {
                     request.biometric_required?.let { stmt[biometricRequired] = it }
                     request.enable_offline_mode?.let { stmt[enableOfflineMode] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
+                    request.enable_digital_menu?.let { stmt[enableDigitalMenu] = it }
+                    request.enable_recipe?.let { stmt[enableRecipe] = it }
+                    request.enable_split_payment?.let { stmt[enableSplitPayment] = it }
+                    request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
+                    request.enable_returns?.let { stmt[enableReturns] = it }
+                    request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                    request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
+                    request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
+                    request.enable_suppliers?.let { stmt[enableSuppliers] = it }
+                    request.enable_drug_interactions?.let { stmt[enableDrugInteractions] = it }
+                    request.enable_prescriptions?.let { stmt[enablePrescriptions] = it }
+                    request.enable_analytics?.let { stmt[enableAnalytics] = it }
+                    request.enable_announcements?.let { stmt[enableAnnouncements] = it }
                     request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
                     request.points_earn_rate?.let { stmt[pointsEarnRate] = it.toBigDecimal() }
                     request.points_redeem_rate?.let { stmt[pointsRedeemRate] = it.toBigDecimal() }
@@ -431,6 +485,19 @@ fun Route.vendorRoutes() {
                 biometric_required = updated[VendorsTable.biometricRequired],
                 enable_offline_mode = updated[VendorsTable.enableOfflineMode],
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
+                enable_digital_menu = updated[VendorsTable.enableDigitalMenu],
+                enable_recipe = updated[VendorsTable.enableRecipe],
+                enable_split_payment = updated[VendorsTable.enableSplitPayment],
+                enable_cash_drawer = updated[VendorsTable.enableCashDrawer],
+                enable_returns = updated[VendorsTable.enableReturns],
+                enable_customer_credit = updated[VendorsTable.enableCustomerCredit],
+                enable_pre_orders = updated[VendorsTable.enablePreOrders],
+                enable_scheduled_orders = updated[VendorsTable.enableScheduledOrders],
+                enable_suppliers = updated[VendorsTable.enableSuppliers],
+                enable_drug_interactions = updated[VendorsTable.enableDrugInteractions],
+                enable_prescriptions = updated[VendorsTable.enablePrescriptions],
+                enable_analytics = updated[VendorsTable.enableAnalytics],
+                enable_announcements = updated[VendorsTable.enableAnnouncements],
                 loyalty_enabled = updated[VendorsTable.loyaltyEnabled],
                 points_earn_rate = updated[VendorsTable.pointsEarnRate].toDouble(),
                 points_redeem_rate = updated[VendorsTable.pointsRedeemRate].toDouble(),

@@ -60,6 +60,25 @@ data class DrawerSummary(
     val totalRefunds: Double = 0.0,
     val expectedBalance: Double = 0.0,
     val movementCount: Int = 0,
+    val totalOrders: Int = 0,
+    // Payment method breakdown
+    val cashSales: Double = 0.0,
+    val cardSales: Double = 0.0,
+    val walletSales: Double = 0.0,
+    val creditSales: Double = 0.0,
+    val cashOrderCount: Int = 0,
+    val cardOrderCount: Int = 0,
+    val walletOrderCount: Int = 0,
+    val creditOrderCount: Int = 0,
+    // Channel breakdown
+    val channels: List<ChannelSummary> = emptyList(),
+)
+
+@Serializable
+data class ChannelSummary(
+    val channel: String,
+    val orderCount: Int = 0,
+    val totalAmount: Double = 0.0,
 )
 
 enum class CashMovementType {

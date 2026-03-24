@@ -9,11 +9,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.KdsRepository
 import net.marllex.waselak.core.model.KdsOrder
 import net.marllex.waselak.core.model.KdsSummary
 import java.util.concurrent.atomic.AtomicInteger
+
+private const val TAG = "KdsDisplayVM"
 
 class KdsDisplayViewModel(
     private val kdsRepository: KdsRepository,
@@ -39,11 +42,20 @@ class KdsDisplayViewModel(
     }
 
     fun load() {
+        AppLogger.d(TAG, "Loading KDS orders, station=${_uiState.value.selectedStation}")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.orders.isEmpty(), error = null) }
             kdsRepository.getKdsOrders(station = _uiState.value.selectedStation)
-                .onSuccess { list -> _uiState.update { it.copy(orders = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onSuccess { list ->
+                    val filtered = list.filter { order -> !order.allServed }
+                        .sortedBy { order -> order.createdAt }
+                    AppLogger.i(TAG, "Loaded ${list.size} orders, ${filtered.size} active")
+                    _uiState.update { it.copy(orders = filtered, isLoading = false) }
+                }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Failed to load orders: ${e.message}")
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
         }
         viewModelScope.launch {
             kdsRepository.getSummary()
@@ -54,6 +66,7 @@ class KdsDisplayViewModel(
     /** Start periodic polling — call when screen enters composition */
     fun startPolling() {
         if (refreshJob?.isActive == true) return
+        AppLogger.d(TAG, "Polling started")
         refreshJob = viewModelScope.launch {
             while (true) {
                 delay(1_500) // 1.5 seconds for dedicated KDS display
@@ -64,6 +77,7 @@ class KdsDisplayViewModel(
 
     /** Stop periodic polling — call when screen leaves composition */
     fun stopPolling() {
+        AppLogger.d(TAG, "Polling stopped")
         refreshJob?.cancel()
         refreshJob = null
     }
@@ -74,6 +88,7 @@ class KdsDisplayViewModel(
     }
 
     fun updateItemStatus(itemId: String, status: String) {
+        AppLogger.i(TAG, "Updating item $itemId to $status")
         // Optimistic UI update — reflect change immediately
         _uiState.update { state ->
             state.copy(
@@ -89,7 +104,7 @@ class KdsDisplayViewModel(
         viewModelScope.launch {
             kdsRepository.updateItemStatus(itemId, status)
                 .onFailure { e ->
-                    // Revert on failure — reload from server
+                    AppLogger.e(TAG, "Failed to update item $itemId status: ${e.message}")
                     load()
                     _uiState.update { it.copy(error = e.message) }
                 }
@@ -98,6 +113,7 @@ class KdsDisplayViewModel(
     }
 
     fun markAllReady(orderId: String, itemIds: List<String>) {
+        AppLogger.i(TAG, "Marking all ready for order $orderId, ${itemIds.size} items")
         // Optimistic UI update — mark all items as READY immediately
         _uiState.update { state ->
             state.copy(
@@ -133,6 +149,7 @@ class KdsDisplayViewModel(
     }
 
     fun logout() {
+        AppLogger.i(TAG, "User logging out")
         viewModelScope.launch {
             authRepository.logout()
         }

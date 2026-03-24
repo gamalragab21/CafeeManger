@@ -35,6 +35,8 @@
     <string name="client_name">العميل</string>
     <string name="client_phone">التليفون</string>
     <string name="client_address">العنوان</string>
+    <string name="doctor_label">الدكتور</string>
+    <string name="diagnosis_label">التشخيص</string>
     <string name="receipt_item">الصنف</string>
     <string name="receipt_qty">الكمية</string>
     <string name="receipt_price">السعر</string>
@@ -52,10 +54,14 @@
     <string name="channel_takeaway">تيك أواي</string>
     <string name="channel_in_store">شراء من المحل</string>
     <string name="channel_pickup_later">استلام بعدين</string>
+    <string name="channel_direct_dispense">صرف مباشر</string>
     <!-- Payment method names -->
     <string name="payment_cash">كاش</string>
     <string name="payment_wallet">محفظة</string>
     <string name="payment_card">بطاقة</string>
+    <string name="payment_bank_transfer">تحويل بنكي</string>
+    <string name="payment_credit">آجل</string>
+    <string name="payment_split">تقسيم</string>
     <string name="confirm_payment">أكّد الدفع</string>
     <string name="load_more">حمّل المزيد</string>
 </resources>

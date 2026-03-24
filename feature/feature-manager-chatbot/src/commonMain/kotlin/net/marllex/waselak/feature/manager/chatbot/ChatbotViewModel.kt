@@ -15,10 +15,13 @@ import net.marllex.waselak.feature.manager.chatbot.model.ResponseData
 import net.marllex.waselak.feature.manager.chatbot.model.ResponseType
 import net.marllex.waselak.feature.manager.chatbot.model.SuggestionCategory
 import net.marllex.waselak.feature.manager.chatbot.model.VisualFormat
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class ChatbotViewModel(
     private val repository: ChatbotRepository
 ) : ViewModel() {
+    private companion object { private const val TAG = "Chatbot" }
+
 
     data class UiState(
         val messages: List<ChatMessage> = emptyList(),
@@ -37,6 +40,7 @@ class ChatbotViewModel(
     }
 
     fun sendMessage(text: String, language: String = "en") {
+        AppLogger.d(TAG, "sendMessage called")
         if (text.isBlank()) return
 
         viewModelScope.launch {

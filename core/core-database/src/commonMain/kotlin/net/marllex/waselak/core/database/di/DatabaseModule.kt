@@ -315,6 +315,20 @@ private fun migrateIfNeeded(driver: SqlDriver) {
             created_at INTEGER,
             updated_at INTEGER
         )""",
+        // v10: Vendor feature flags
+        "ALTER TABLE vendors ADD COLUMN enable_digital_menu INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_recipe INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_split_payment INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_cash_drawer INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_returns INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_customer_credit INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_pre_orders INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_scheduled_orders INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_suppliers INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_drug_interactions INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_prescriptions INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_analytics INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_announcements INTEGER NOT NULL DEFAULT 1",
     )
     migrations.forEach { sql ->
         try {

@@ -13,10 +13,13 @@ import net.marllex.waselak.core.model.DeliveryPersonStatus
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class DeliveryDashboardViewModel constructor(
     private val api: WaselakApiClient,
 ) : ViewModel() {
+    private companion object { private const val TAG = "DeliveryDashboard" }
+
 
     data class UiState(
         val deliveryPersons: List<DeliveryPersonStatus> = emptyList(),
@@ -34,6 +37,7 @@ class DeliveryDashboardViewModel constructor(
     }
 
     fun loadDashboard() {
+        AppLogger.d(TAG, "loadDashboard called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {

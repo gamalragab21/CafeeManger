@@ -45,4 +45,21 @@
     <string name="retry">جرّب تاني</string>
     <string name="no_data">مفيش بيانات</string>
     <string name="no_recent_orders">مفيش طلبات حديثة</string>
+    <string name="our_store">محلنا</string>
+    <!-- Alert translations -->
+    <string name="alert_out_of_stock">أصناف نفدت من المخزون</string>
+    <string name="alert_out_of_stock_msg">%1$d صنف نفد من المخزون</string>
+    <string name="alert_low_stock">تحذير مخزون قليل</string>
+    <string name="alert_low_stock_msg">%1$d صنف أقل من الحد الأدنى</string>
+    <string name="alert_revenue_drop">انخفاض في الإيرادات</string>
+    <string name="alert_revenue_drop_msg">الإيرادات انخفضت مقارنة بالفترة السابقة</string>
+    <string name="alert_high_cancel">نسبة إلغاء مرتفعة</string>
+    <string name="alert_high_cancel_msg">نسبة الإلغاء أعلى من الحد المسموح</string>
+    <string name="alert_high_refund">نسبة مرتجعات مرتفعة</string>
+    <string name="alert_high_refund_msg">نسبة المرتجعات أعلى من الحد المسموح</string>
+    <string name="alert_expiring">قرب انتهاء الصلاحية</string>
+    <string name="alert_critical">حرج</string>
+    <string name="alert_warning">تحذير</string>
+    <string name="alert_info">معلومة</string>
+    <string name="alert_no_alerts">مفيش تنبيهات</string>
 </resources>

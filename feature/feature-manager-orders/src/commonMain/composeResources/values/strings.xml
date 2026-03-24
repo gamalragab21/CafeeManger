@@ -64,4 +64,16 @@
     <string name="points_redeemed">Points Redeemed</string>
     <string name="discount_reason">Reason</string>
     <string name="scroll_to_top">Back to Top</string>
+    <!-- Return / Exchange -->
+    <string name="returns_exchanges">Returns &amp; Exchanges</string>
+    <string name="return_label">Return</string>
+    <string name="exchange_label">Exchange</string>
+    <string name="return_reason">Reason for return</string>
+    <string name="select_return_items">Select items to return</string>
+    <string name="max_qty">Max</string>
+    <string name="submit_return">Submit Return</string>
+    <string name="refunded_amount">Refunded</string>
+    <string name="net_total">Net Total</string>
+    <string name="search">Search items…</string>
+    <string name="tax_label">Tax</string>
 </resources>

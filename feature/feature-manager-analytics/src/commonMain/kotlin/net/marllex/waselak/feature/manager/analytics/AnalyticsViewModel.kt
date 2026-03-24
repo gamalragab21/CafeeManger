@@ -11,10 +11,13 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.*
 import net.marllex.waselak.core.domain.repository.AnalyticsRepository
 import net.marllex.waselak.core.model.*
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class AnalyticsViewModel(
     private val analyticsRepository: AnalyticsRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Analytics" }
+
 
     // ── Section loading state ────────────────────────────────────────
     sealed class SectionState<out T> {
@@ -62,6 +65,9 @@ class AnalyticsViewModel(
         val loyaltyAnalytics: SectionState<LoyaltyAnalytics> = SectionState.Loading,
         val staffCosts: SectionState<StaffCostsAnalytics> = SectionState.Loading,
         val supplierAnalytics: SectionState<SupplierAnalytics> = SectionState.Loading,
+        val creditAnalytics: SectionState<CreditAnalytics> = SectionState.Loading,
+        val doctorStats: SectionState<List<DoctorStats>> = SectionState.Loading,
+        val returnsAnalytics: SectionState<ReturnsAnalytics> = SectionState.Loading,
         val exportState: ExportState = ExportState.Idle,
         val isFeatureGated: Boolean = false,
         val showFeatureNotAvailable: Boolean = false,
@@ -96,6 +102,7 @@ class AnalyticsViewModel(
     }
 
     fun retrySection(section: String) {
+        AppLogger.d(TAG, "retrySection called")
         val (from, to) = getDateRange()
         viewModelScope.launch {
             when (section) {
@@ -114,6 +121,9 @@ class AnalyticsViewModel(
                 "loyaltyAnalytics" -> loadLoyaltyAnalytics(from, to)
                 "staffCosts" -> loadStaffCosts(from, to)
                 "supplierAnalytics" -> loadSupplierAnalytics(from, to)
+                "creditAnalytics" -> loadCreditAnalytics(from, to)
+                "doctorStats" -> loadDoctorStats(from, to)
+                "returnsAnalytics" -> loadReturnsAnalytics(from, to)
             }
         }
     }
@@ -127,12 +137,14 @@ class AnalyticsViewModel(
                     try {
                         val fileName = buildExportFileName(from, to, "pdf")
                         val path = fileSaver(bytes, fileName)
+                        AppLogger.i(TAG, "PDF exported successfully: $path")
                         _uiState.update { it.copy(exportState = ExportState.Done("PDF saved to Downloads")) }
                     } catch (e: Exception) {
                         _uiState.update { it.copy(exportState = ExportState.Failed("Save failed: ${e.message}")) }
                     }
                 }
-                .onFailure { e -> _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
     }
 
@@ -171,7 +183,7 @@ class AnalyticsViewModel(
 
     // ── Parallel loading ────────────────────────────────────────────
 
-    private fun loadAllSections() {
+    fun loadAllSections() {
         val (from, to) = getDateRange()
 
         // Set all sections to loading
@@ -212,11 +224,15 @@ class AnalyticsViewModel(
             val d13 = async { loadLoyaltyAnalytics(from, to) }
             val d14 = async { loadStaffCosts(from, to) }
             val d15 = async { loadSupplierAnalytics(from, to) }
+            val d16 = async { loadCreditAnalytics(from, to) }
+            val d17 = async { loadDoctorStats(from, to) }
+            val d18 = async { loadReturnsAnalytics(from, to) }
 
             // Await all (each one updates state independently)
             d1.await(); d2.await(); d3.await(); d4.await(); d5.await()
             d6.await(); d7.await(); d8.await(); d9.await(); d10.await()
             d11.await(); d12.await(); d13.await(); d14.await(); d15.await()
+            d16.await(); d17.await(); d18.await()
         }
     }
 
@@ -310,6 +326,24 @@ class AnalyticsViewModel(
         analyticsRepository.getSupplierAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(supplierAnalytics = SectionState.Success(data)) } }
             .onFailure { e -> _uiState.update { it.copy(supplierAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadCreditAnalytics(from: Long, to: Long) {
+        analyticsRepository.getCreditAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(creditAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(creditAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadDoctorStats(from: Long, to: Long) {
+        analyticsRepository.getDoctorStats(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(doctorStats = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(doctorStats = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadReturnsAnalytics(from: Long, to: Long) {
+        analyticsRepository.getReturnsAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(returnsAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(returnsAnalytics = SectionState.Error(e.message ?: "Failed")) } }
     }
 
     // ── Date range calculation ───────────────────────────────────────

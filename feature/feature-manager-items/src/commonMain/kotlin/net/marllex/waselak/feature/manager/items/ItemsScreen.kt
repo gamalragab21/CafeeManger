@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,11 +78,10 @@ fun ItemsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.menu_items)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.menu_items),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadItems,
             )
         },
         floatingActionButton = {
@@ -93,13 +93,18 @@ fun ItemsScreen(
             }
         },
     ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when {
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.items.isEmpty() -> ErrorView(
                 message = uiState.error!!,
                 onRetry = viewModel::loadItems,
             )
-            else -> Column(modifier = Modifier.padding(padding)) {
+            else -> Column(modifier = Modifier.fillMaxSize()) {
                 // Modern Category Filter Section
                 Card(
                     modifier = Modifier
@@ -183,6 +188,7 @@ fun ItemsScreen(
                 }
             }
         }
+        } // PullToRefreshBox
 
         if (uiState.showAddDialog) {
             ItemBottomSheet(

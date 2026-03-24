@@ -12,11 +12,17 @@ import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.model.PaymentStatus
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class DeliveryOrdersViewModel constructor(
     private val orderRepository: OrderRepository,
     private val vendorRepository: VendorRepository,
 ) : ViewModel() {
+    private companion object {
+        private const val TAG = "DeliveryOrders"
+        private const val PAGE_SIZE = 50
+    }
+
 
     data class UiState(
         val orders: List<Order> = emptyList(),
@@ -42,10 +48,12 @@ class DeliveryOrdersViewModel constructor(
     init { loadOrders() }
 
     fun loadOrders() {
+        AppLogger.d(TAG, "loadOrders called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, currentOffset = 0) }
             // Load vendor info for logo
             vendorRepository.refreshVendor().onSuccess { vendor ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(vendorName = vendor.name, vendorLogoUrl = vendor.logoUrl) }
             }
             // Refresh my orders from API with pagination
@@ -62,6 +70,7 @@ class DeliveryOrdersViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
             // Load available orders (separate, non-paginated)
@@ -73,6 +82,7 @@ class DeliveryOrdersViewModel constructor(
     }
 
     fun loadMoreOrders() {
+        AppLogger.d(TAG, "loadMoreOrders called")
         val s = _uiState.value
         if (s.isLoadingMore || !s.hasMore) return
         viewModelScope.launch {
@@ -95,20 +105,20 @@ class DeliveryOrdersViewModel constructor(
         }
     }
 
-    companion object {
-        private const val PAGE_SIZE = 50
-    }
 
     fun selectTab(tab: Int) {
+        AppLogger.d(TAG, "selectTab called")
         _uiState.update { it.copy(selectedTab = tab) }
     }
 
     fun filterByStatus(status: String?) {
+        AppLogger.d(TAG, "filterByStatus called")
         _uiState.update { it.copy(selectedStatus = status) }
         loadOrders()
     }
 
     fun pickupOrder(orderId: String) {
+        AppLogger.d(TAG, "pickupOrder called")
         viewModelScope.launch {
             // Self-assign: the backend will use the authenticated user's ID
             orderRepository.assignDeliveryUser(orderId, "self")
@@ -130,6 +140,7 @@ class DeliveryOrdersViewModel constructor(
     }
 
     fun confirmPayment(orderId: String) {
+        AppLogger.d(TAG, "confirmPayment called")
         viewModelScope.launch {
             orderRepository.updatePaymentStatus(orderId, PaymentStatus.PAID)
                 .onSuccess { loadOrders() }

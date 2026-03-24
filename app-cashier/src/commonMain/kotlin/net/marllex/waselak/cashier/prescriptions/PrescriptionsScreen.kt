@@ -20,6 +20,7 @@ import net.marllex.waselak.core.model.PrescriptionItem
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
@@ -35,21 +36,11 @@ fun PrescriptionsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.prescriptions)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::load) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.prescriptions),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
         floatingActionButton = {
@@ -58,34 +49,38 @@ fun PrescriptionsScreen(
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Status filter chips
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(selected = uiState.statusFilter == null, onClick = { viewModel.onStatusFilterChange(null) }, label = { Text(stringResource(Res.string.all)) })
-                FilterChip(selected = uiState.statusFilter == "PENDING", onClick = { viewModel.onStatusFilterChange("PENDING") }, label = { Text(stringResource(Res.string.pending)) })
-                FilterChip(selected = uiState.statusFilter == "DISPENSED", onClick = { viewModel.onStatusFilterChange("DISPENSED") }, label = { Text(stringResource(Res.string.dispensed)) })
-                FilterChip(selected = uiState.statusFilter == "CANCELLED", onClick = { viewModel.onStatusFilterChange("CANCELLED") }, label = { Text(stringResource(Res.string.status_canceled)) })
-            }
-
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null && uiState.prescriptions.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                uiState.filteredPrescriptions.isEmpty() -> EmptyView(stringResource(Res.string.no_prescriptions_found))
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Status filter chips
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(uiState.filteredPrescriptions, key = { it.id }) { prescription ->
-                        PrescriptionCard(
-                            prescription = prescription,
-                            onDispense = { viewModel.showDispenseDialog(prescription) },
-                            onCancel = { viewModel.cancelPrescription(prescription.id) },
-                            onSelect = { viewModel.selectPrescription(prescription) },
-                        )
+                    FilterChip(selected = uiState.statusFilter == null, onClick = { viewModel.onStatusFilterChange(null) }, label = { Text(stringResource(Res.string.all)) })
+                    FilterChip(selected = uiState.statusFilter == "PENDING", onClick = { viewModel.onStatusFilterChange("PENDING") }, label = { Text(stringResource(Res.string.pending)) })
+                    FilterChip(selected = uiState.statusFilter == "DISPENSED", onClick = { viewModel.onStatusFilterChange("DISPENSED") }, label = { Text(stringResource(Res.string.dispensed)) })
+                    FilterChip(selected = uiState.statusFilter == "CANCELLED", onClick = { viewModel.onStatusFilterChange("CANCELLED") }, label = { Text(stringResource(Res.string.status_canceled)) })
+                }
+
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null && uiState.prescriptions.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                    uiState.filteredPrescriptions.isEmpty() -> EmptyView(stringResource(Res.string.no_prescriptions_found))
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(uiState.filteredPrescriptions, key = { it.id }) { prescription ->
+                            PrescriptionCard(
+                                prescription = prescription,
+                                onDispense = { viewModel.showDispenseDialog(prescription) },
+                                onCancel = { viewModel.cancelPrescription(prescription.id) },
+                                onSelect = { viewModel.selectPrescription(prescription) },
+                            )
+                        }
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package net.marllex.waselak.feature.delivery.status
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,26 +57,25 @@ fun DeliveryStatusScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.order_details)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.order_details),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadOrder,
+                onNavigateBack = onBack,
             )
         },
     ) { padding ->
+        Box(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
         when {
-            uiState.isLoading -> LoadingIndicator()
+            uiState.isLoading && uiState.order == null -> LoadingIndicator()
             uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadOrder)
             uiState.order != null -> {
                 val order = uiState.order!!
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -195,6 +196,7 @@ fun DeliveryStatusScreen(
                     }
                 }
             }
+        }
         }
     }
 }

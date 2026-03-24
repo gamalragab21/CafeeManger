@@ -17,8 +17,13 @@ data class ProductReturn(
     val processedAt: Long? = null,
     val notes: String? = null,
     val items: List<ReturnItem> = emptyList(),
+    val exchangeItemId: String? = null,
+    val exchangeItemName: String? = null,
+    val exchangeItemPrice: Double? = null,
+    val exchangeQuantity: Int = 0,
     val createdAt: Long? = null,
 ) {
+    val hasExchangeItem: Boolean get() = exchangeItemId != null
     val isPending: Boolean get() = status == "PENDING"
     val isCompleted: Boolean get() = status == "COMPLETED"
     val isRejected: Boolean get() = status == "REJECTED"

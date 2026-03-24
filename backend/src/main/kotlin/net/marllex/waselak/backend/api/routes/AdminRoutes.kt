@@ -48,6 +48,20 @@ data class AdminVendorResponse(
     val is_suspended: Boolean = false,
     val suspension_reason: String? = null,
     val digital_menu_url: String? = null,
+    val enable_digital_menu: Boolean = true,
+    val enable_recipe: Boolean = true,
+    val enable_split_payment: Boolean = true,
+    val enable_cash_drawer: Boolean = true,
+    val enable_returns: Boolean = true,
+    val enable_customer_credit: Boolean = false,
+    val enable_pre_orders: Boolean = false,
+    val enable_scheduled_orders: Boolean = false,
+    val enable_suppliers: Boolean = true,
+    val enable_drug_interactions: Boolean = false,
+    val enable_prescriptions: Boolean = false,
+    val enable_analytics: Boolean = true,
+    val enable_announcements: Boolean = true,
+    val loyalty_enabled: Boolean = false,
     val users_count: Int = 0,
     val plan_name: String? = null,
     val plan_display_name: String? = null,
@@ -79,6 +93,20 @@ data class AdminUpdateVendorRequest(
     val is_suspended: Boolean? = null,
     val suspension_reason: String? = null,
     val digital_menu_url: String? = null,
+    val enable_digital_menu: Boolean? = null,
+    val enable_recipe: Boolean? = null,
+    val enable_split_payment: Boolean? = null,
+    val enable_cash_drawer: Boolean? = null,
+    val enable_returns: Boolean? = null,
+    val enable_customer_credit: Boolean? = null,
+    val enable_pre_orders: Boolean? = null,
+    val enable_scheduled_orders: Boolean? = null,
+    val enable_suppliers: Boolean? = null,
+    val enable_drug_interactions: Boolean? = null,
+    val enable_prescriptions: Boolean? = null,
+    val enable_analytics: Boolean? = null,
+    val enable_announcements: Boolean? = null,
+    val loyalty_enabled: Boolean? = null,
 )
 
 @Serializable
@@ -325,6 +353,20 @@ private fun mapVendorRow(row: ResultRow, usersCount: Int = 0): AdminVendorRespon
         is_suspended = row[VendorsTable.isSuspended],
         suspension_reason = row[VendorsTable.suspensionReason],
         digital_menu_url = row[VendorsTable.digitalMenuUrl],
+        enable_digital_menu = row[VendorsTable.enableDigitalMenu],
+        enable_recipe = row[VendorsTable.enableRecipe],
+        enable_split_payment = row[VendorsTable.enableSplitPayment],
+        enable_cash_drawer = row[VendorsTable.enableCashDrawer],
+        enable_returns = row[VendorsTable.enableReturns],
+        enable_customer_credit = row[VendorsTable.enableCustomerCredit],
+        enable_pre_orders = row[VendorsTable.enablePreOrders],
+        enable_scheduled_orders = row[VendorsTable.enableScheduledOrders],
+        enable_suppliers = row[VendorsTable.enableSuppliers],
+        enable_drug_interactions = row[VendorsTable.enableDrugInteractions],
+        enable_prescriptions = row[VendorsTable.enablePrescriptions],
+        enable_analytics = row[VendorsTable.enableAnalytics],
+        enable_announcements = row[VendorsTable.enableAnnouncements],
+        loyalty_enabled = row[VendorsTable.loyaltyEnabled],
         users_count = usersCount,
         plan_name = planRow?.get(SubscriptionPlansTable.name),
         plan_display_name = planRow?.get(SubscriptionPlansTable.displayName),
@@ -534,6 +576,8 @@ fun Route.adminRoutes() {
             val taxEnabled = request.tax_enabled ?: defaults.taxEnabled
             val defaultTaxPercent = request.default_tax_percent ?: defaults.defaultTaxPercent
             val stockMode = request.stock_mode ?: defaults.stockMode
+            val enableDigitalMenu = defaults.enableDigitalMenu
+            val enableRecipe = defaults.enableRecipe
 
             trace.step("Creating vendor and manager in transaction")
             val result = transaction {
@@ -566,6 +610,8 @@ fun Route.adminRoutes() {
                     it[VendorsTable.taxEnabled] = taxEnabled
                     it[VendorsTable.defaultTaxPercent] = java.math.BigDecimal.valueOf(defaultTaxPercent)
                     it[VendorsTable.stockMode] = stockMode
+                    it[VendorsTable.enableDigitalMenu] = enableDigitalMenu
+                    it[VendorsTable.enableRecipe] = enableRecipe
                     it[isSuspended] = false
                     it[createdAt] = Clock.System.now()
                     it[updatedAt] = Clock.System.now()
@@ -718,6 +764,20 @@ fun Route.adminRoutes() {
                     request.is_suspended?.let { stmt[isSuspended] = it }
                     request.suspension_reason?.let { stmt[suspensionReason] = it }
                     request.digital_menu_url?.let { stmt[digitalMenuUrl] = it }
+                    request.enable_digital_menu?.let { stmt[enableDigitalMenu] = it }
+                    request.enable_recipe?.let { stmt[enableRecipe] = it }
+                    request.enable_split_payment?.let { stmt[enableSplitPayment] = it }
+                    request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
+                    request.enable_returns?.let { stmt[enableReturns] = it }
+                    request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                    request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
+                    request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
+                    request.enable_suppliers?.let { stmt[enableSuppliers] = it }
+                    request.enable_drug_interactions?.let { stmt[enableDrugInteractions] = it }
+                    request.enable_prescriptions?.let { stmt[enablePrescriptions] = it }
+                    request.enable_analytics?.let { stmt[enableAnalytics] = it }
+                    request.enable_announcements?.let { stmt[enableAnnouncements] = it }
+                    request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
                     stmt[updatedAt] = Clock.System.now()
                 }
 

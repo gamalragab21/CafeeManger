@@ -309,3 +309,56 @@ data class StaffCostsAnalytics(
     val overtimePercentage: Double,
     val topOvertimeWorkers: List<WorkerOvertimeSummary>,
 )
+
+// ─── Credit Analytics ───────────────────────────────────────────
+data class CreditAnalytics(
+    val totalOutstanding: Double,
+    val totalCreditLimit: Double,
+    val utilizationPercent: Double,
+    val totalCreditCustomers: Int,
+    val totalCharges: Double,
+    val totalPayments: Double,
+    val creditOrdersCount: Int,
+    val creditOrdersRevenue: Double,
+    val topDebtors: List<CreditDebtor> = emptyList(),
+)
+
+data class CreditDebtor(
+    val customerName: String,
+    val customerPhone: String? = null,
+    val balance: Double,
+    val creditLimit: Double,
+)
+
+data class DoctorStats(
+    val doctorName: String,
+    val prescriptionCount: Int,
+    val totalItems: Int,
+    val totalRevenue: Double,
+)
+
+@kotlinx.serialization.Serializable
+data class ReturnsAnalytics(
+    val totalReturns: Int = 0,
+    val totalRefunds: Int = 0,
+    val totalExchanges: Int = 0,
+    val totalRefundedAmount: Double = 0.0,
+    val totalExchangedAmount: Double = 0.0,
+    val totalReturnedItems: Int = 0,
+    val returnedItemsBreakdown: List<ReturnedItemBreakdown> = emptyList(),
+    val exchangeItems: List<ExchangeItemBreakdown> = emptyList(),
+)
+
+@kotlinx.serialization.Serializable
+data class ReturnedItemBreakdown(
+    val itemName: String,
+    val totalQuantity: Int = 0,
+    val totalAmount: Double = 0.0,
+)
+
+@kotlinx.serialization.Serializable
+data class ExchangeItemBreakdown(
+    val itemName: String,
+    val quantity: Int = 0,
+    val price: Double = 0.0,
+)

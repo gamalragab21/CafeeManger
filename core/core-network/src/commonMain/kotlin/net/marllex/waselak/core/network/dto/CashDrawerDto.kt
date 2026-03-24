@@ -65,4 +65,21 @@ data class DrawerSummaryResponse(
     @SerialName("total_refunds") val totalRefunds: Double = 0.0,
     @SerialName("expected_balance") val expectedBalance: Double = 0.0,
     @SerialName("movement_count") val movementCount: Int = 0,
+    @SerialName("total_orders") val totalOrders: Int = 0,
+    @SerialName("cash_sales") val cashSales: Double = 0.0,
+    @SerialName("card_sales") val cardSales: Double = 0.0,
+    @SerialName("wallet_sales") val walletSales: Double = 0.0,
+    @SerialName("credit_sales") val creditSales: Double = 0.0,
+    @SerialName("cash_order_count") val cashOrderCount: Int = 0,
+    @SerialName("card_order_count") val cardOrderCount: Int = 0,
+    @SerialName("wallet_order_count") val walletOrderCount: Int = 0,
+    @SerialName("credit_order_count") val creditOrderCount: Int = 0,
+    val channels: List<ChannelSummaryResponse> = emptyList(),
+)
+
+@Serializable
+data class ChannelSummaryResponse(
+    val channel: String,
+    @SerialName("order_count") val orderCount: Int = 0,
+    @SerialName("total_amount") val totalAmount: Double = 0.0,
 )

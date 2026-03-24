@@ -24,6 +24,13 @@ data class CreateOrderPaymentRequest(
 )
 
 @Serializable
+data class AddPaymentResponse(
+    val payment: OrderPaymentResponse,
+    @SerialName("is_fully_paid") val isFullyPaid: Boolean,
+    val remaining: Double,
+)
+
+@Serializable
 data class SplitPaymentSummaryResponse(
     @SerialName("order_id") val orderId: String,
     @SerialName("order_total") val orderTotal: Double,

@@ -94,6 +94,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -168,37 +169,27 @@ fun StaffScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        when (activeSubScreen) {
-                            "delivery" -> stringResource(Res.string.delivery_dashboard)
-                            "announcements" -> stringResource(Res.string.announcements)
-                            else -> stringResource(Res.string.staff_management)
-                        }
-                    )
+            WaselakTopAppBar(
+                title = when (activeSubScreen) {
+                    "delivery" -> stringResource(Res.string.delivery_dashboard)
+                    "announcements" -> stringResource(Res.string.announcements)
+                    else -> stringResource(Res.string.staff_management)
                 },
-                navigationIcon = {
-                    if (activeSubScreen != null) {
-                        IconButton(onClick = { activeSubScreen = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back))
-                        }
-                    } else if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back))
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadData,
+                onNavigateBack = if (activeSubScreen != null) {
+                    { activeSubScreen = null }
+                } else onNavigateBack,
             )
         },
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxSize()
+                .padding(padding),
+        ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             when (activeSubScreen) {
                 "delivery" -> DeliveryDashboardScreen()
@@ -343,6 +334,7 @@ fun StaffScreen(
                 }
             }
         }
+        } // PullToRefreshBox
 
         // Bottom Sheet for Add/Edit Worker
         if (uiState.showAddWorkerDialog) {

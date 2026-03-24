@@ -82,6 +82,26 @@ data class DrawerSummaryDto(
     val total_refunds: Double,
     val expected_balance: Double,
     val movement_count: Int,
+    // Orders summary
+    val total_orders: Int = 0,
+    // Payment method breakdown
+    val cash_sales: Double = 0.0,
+    val card_sales: Double = 0.0,
+    val wallet_sales: Double = 0.0,
+    val credit_sales: Double = 0.0,
+    val cash_order_count: Int = 0,
+    val card_order_count: Int = 0,
+    val wallet_order_count: Int = 0,
+    val credit_order_count: Int = 0,
+    // Channel breakdown
+    val channels: List<ChannelSummaryDto> = emptyList(),
+)
+
+@Serializable
+data class ChannelSummaryDto(
+    val channel: String,
+    val order_count: Int,
+    val total_amount: Double,
 )
 
 // ─── Routes ─────────────────────────────────────────────────────
@@ -180,24 +200,51 @@ fun Route.cashDrawerRoutes() {
                 val sessionId = sessionRow[CashDrawerSessionsTable.id]
                 val openingBalance = sessionRow[CashDrawerSessionsTable.openingBalance]
 
-                // Calculate expected balance from movements
+                // Calculate expected CASH balance from movements + actual cash orders
+                val sessionOpenedAt = sessionRow[CashDrawerSessionsTable.openedAt]
                 val movements = CashMovementsTable.selectAll().where {
                     CashMovementsTable.sessionId eq sessionId
                 }.toList()
 
-                val totalCashIn = movements
-                    .filter { it[CashMovementsTable.type] in listOf("CASH_IN", "SALE") }
+                val manualCashIn = movements
+                    .filter { it[CashMovementsTable.type] == "CASH_IN" }
                     .sumOf { it[CashMovementsTable.amount] }
-                val totalCashOut = movements
-                    .filter { it[CashMovementsTable.type] in listOf("CASH_OUT", "REFUND") }
-                    .sumOf { it[CashMovementsTable.amount] }
-                val adjustments = movements
-                    .filter { it[CashMovementsTable.type] == "ADJUSTMENT" }
+                val manualCashOut = movements
+                    .filter { it[CashMovementsTable.type] == "CASH_OUT" }
                     .sumOf { it[CashMovementsTable.amount] }
 
-                // Expected = opening + cash_in + sales - cash_out - refunds + adjustments
-                // Note: opening balance is already included as initial CASH_IN
-                val expectedBalance = totalCashIn - totalCashOut + adjustments
+                // Get actual CASH sales from completed orders for this cashier
+                val paidOrders = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                    (OrdersTable.cashierId eq userUUID) and
+                    (OrdersTable.createdAt greaterEq sessionOpenedAt) and
+                    (OrdersTable.status inList listOf("COMPLETED", "PAID"))
+                }.toList()
+
+                // Cash from non-split orders
+                val cashFromOrders = paidOrders
+                    .filter { it[OrdersTable.paymentMethod] == "CASH" }
+                    .sumOf { it[OrdersTable.total] }
+
+                // Cash from split orders
+                val splitIds = paidOrders.filter { it[OrdersTable.paymentMethod] == "SPLIT" }.map { it[OrdersTable.id].value }
+                val cashFromSplits = if (splitIds.isNotEmpty()) {
+                    OrderPaymentsTable.selectAll().where {
+                        (OrderPaymentsTable.orderId inList splitIds) and
+                        (OrderPaymentsTable.paymentMethod eq "CASH")
+                    }.sumOf { it[OrderPaymentsTable.amount] }
+                } else BigDecimal.ZERO
+
+                // Refunded orders
+                val refundedTotal = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                    (OrdersTable.cashierId eq userUUID) and
+                    (OrdersTable.createdAt greaterEq sessionOpenedAt) and
+                    (OrdersTable.status eq "REFUNDED")
+                }.sumOf { it[OrdersTable.total] }
+
+                // Expected CASH in drawer = opening + manual deposits + cash sales - manual withdrawals - refunds
+                val expectedBalance = openingBalance + (manualCashIn - openingBalance) + cashFromOrders + cashFromSplits - manualCashOut - refundedTotal
                 val closingBalanceBD = BigDecimal(request.closing_balance)
                 val differenceBD = closingBalanceBD - expectedBalance
 
@@ -430,35 +477,117 @@ fun Route.cashDrawerRoutes() {
 
                 val sessionId = sessionRow[CashDrawerSessionsTable.id]
                 val openingBalance = sessionRow[CashDrawerSessionsTable.openingBalance].toDouble()
+                val sessionOpenedAt = sessionRow[CashDrawerSessionsTable.openedAt]
 
+                // Manual movements (CASH_IN / CASH_OUT / ADJUSTMENT) from the drawer
                 val movements = CashMovementsTable.selectAll().where {
                     CashMovementsTable.sessionId eq sessionId
                 }.toList()
 
-                val totalCashIn = movements
+                val manualCashIn = movements
                     .filter { it[CashMovementsTable.type] == "CASH_IN" }
                     .sumOf { it[CashMovementsTable.amount].toDouble() }
-                val totalCashOut = movements
+                val manualCashOut = movements
                     .filter { it[CashMovementsTable.type] == "CASH_OUT" }
                     .sumOf { it[CashMovementsTable.amount].toDouble() }
-                val totalSales = movements
-                    .filter { it[CashMovementsTable.type] == "SALE" }
-                    .sumOf { it[CashMovementsTable.amount].toDouble() }
-                val totalRefunds = movements
-                    .filter { it[CashMovementsTable.type] == "REFUND" }
-                    .sumOf { it[CashMovementsTable.amount].toDouble() }
 
-                val expectedBalance = totalCashIn + totalSales - totalCashOut - totalRefunds
+                // Get COMPLETED/PAID orders for THIS cashier during THIS session
+                // Include orders created during session OR paid during session (for PAY_LATER orders)
+                val paidOrders = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                    (OrdersTable.cashierId eq userUUID) and
+                    (OrdersTable.status inList listOf("COMPLETED", "PAID")) and
+                    ((OrdersTable.createdAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.updatedAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.paymentConfirmedAt greaterEq sessionOpenedAt))
+                }.toList()
+
+                // Get REFUNDED orders for this cashier during this session
+                val refundedOrders = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                    (OrdersTable.cashierId eq userUUID) and
+                    (OrdersTable.status eq "REFUNDED") and
+                    ((OrdersTable.createdAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.updatedAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.paymentConfirmedAt greaterEq sessionOpenedAt))
+                }.toList()
+
+                // Calculate total sales from actual orders
+                val totalSales = paidOrders.sumOf { it[OrdersTable.total].toDouble() }
+                val totalRefunds = refundedOrders.sumOf { it[OrdersTable.total].toDouble() }
+
+                // Payment method breakdown from orders
+                val methodTotals = mutableMapOf<String, Pair<Int, Double>>()
+
+                // Non-split paid orders
+                paidOrders.filter { it[OrdersTable.paymentMethod] != "SPLIT" }.forEach { row ->
+                    val m = row[OrdersTable.paymentMethod]
+                    val (c, r) = methodTotals.getOrDefault(m, Pair(0, 0.0))
+                    methodTotals[m] = Pair(c + 1, r + row[OrdersTable.total].toDouble())
+                }
+
+                // Split orders: distribute from OrderPaymentsTable
+                val splitIds = paidOrders
+                    .filter { it[OrdersTable.paymentMethod] == "SPLIT" }
+                    .map { it[OrdersTable.id].value }
+                if (splitIds.isNotEmpty()) {
+                    OrderPaymentsTable.selectAll().where {
+                        OrderPaymentsTable.orderId inList splitIds
+                    }.forEach { payment ->
+                        val m = payment[OrderPaymentsTable.paymentMethod]
+                        val amt = payment[OrderPaymentsTable.amount].toDouble()
+                        val (c, r) = methodTotals.getOrDefault(m, Pair(0, 0.0))
+                        methodTotals[m] = Pair(c + 1, r + amt)
+                    }
+                }
+
+                // Expected CASH in drawer:
+                // = opening balance
+                // + manual cash deposits (excluding opening balance which is already in manualCashIn)
+                // + cash from sales
+                // - manual cash withdrawals
+                val cashSales = methodTotals["CASH"]?.second ?: 0.0
+                val cardSales = methodTotals["CARD"]?.second ?: 0.0
+                val walletSales = methodTotals["WALLET"]?.second ?: 0.0
+                val creditSales = methodTotals["CREDIT"]?.second ?: 0.0
+
+                // Expected = opening + all sales + manual deposits - manual withdrawals - refunds
+                val additionalCashIn = (manualCashIn - openingBalance).coerceAtLeast(0.0)
+                val expectedBalance = openingBalance + additionalCashIn + totalSales - manualCashOut - totalRefunds
+
+                // Channel breakdown
+                val channelBreakdown = paidOrders
+                    .groupBy { it[OrdersTable.channel] }
+                    .map { (channel, orders) ->
+                        ChannelSummaryDto(
+                            channel = channel,
+                            order_count = orders.size,
+                            total_amount = Math.round(orders.sumOf { it[OrdersTable.total].toDouble() } * 100.0) / 100.0,
+                        )
+                    }
+                    .sortedByDescending { it.total_amount }
+
+                fun Double.round2() = Math.round(this * 100.0) / 100.0
 
                 DrawerSummaryDto(
                     session_id = sessionId.toString(),
-                    opening_balance = openingBalance,
-                    total_cash_in = totalCashIn,
-                    total_cash_out = totalCashOut,
-                    total_sales = totalSales,
-                    total_refunds = totalRefunds,
-                    expected_balance = expectedBalance,
-                    movement_count = movements.size,
+                    opening_balance = openingBalance.round2(),
+                    total_cash_in = manualCashIn.round2(),
+                    total_cash_out = manualCashOut.round2(),
+                    total_sales = totalSales.round2(),
+                    total_refunds = totalRefunds.round2(),
+                    expected_balance = expectedBalance.round2(),
+                    movement_count = movements.size + paidOrders.size,
+                    total_orders = paidOrders.size,
+                    cash_sales = cashSales.round2(),
+                    card_sales = cardSales.round2(),
+                    wallet_sales = walletSales.round2(),
+                    credit_sales = creditSales.round2(),
+                    cash_order_count = methodTotals["CASH"]?.first ?: 0,
+                    card_order_count = methodTotals["CARD"]?.first ?: 0,
+                    wallet_order_count = methodTotals["WALLET"]?.first ?: 0,
+                    credit_order_count = methodTotals["CREDIT"]?.first ?: 0,
+                    channels = channelBreakdown,
                 )
             }
             call.respond(HttpStatusCode.OK, summary)

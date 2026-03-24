@@ -14,12 +14,15 @@ import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class ReceiptViewModel constructor(
     savedStateHandle: SavedStateHandle,
     private val orderRepository: OrderRepository,
     private val vendorRepository: VendorRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Receipt" }
+
 
     data class UiState(
         val order: Order? = null,
@@ -46,6 +49,7 @@ class ReceiptViewModel constructor(
     }
 
     fun loadReceipt() {
+        AppLogger.d(TAG, "loadReceipt called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             // Refresh vendor to ensure store info is available for the receipt
@@ -54,6 +58,7 @@ class ReceiptViewModel constructor(
             vendorLoaded = true // allow progress even if vendor is null
             val fetchResult = orderRepository.fetchOrder(orderId)
             fetchResult.onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
             val order = orderRepository.getOrderById(orderId).first()
@@ -71,11 +76,13 @@ class ReceiptViewModel constructor(
     }
 
     fun generateShareLink() {
+        AppLogger.d(TAG, "generateShareLink called")
         if (orderId.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSharing = true) }
             orderRepository.shareReceipt(orderId)
                 .onSuccess { link ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update {
                         it.copy(
                             isSharing = false,

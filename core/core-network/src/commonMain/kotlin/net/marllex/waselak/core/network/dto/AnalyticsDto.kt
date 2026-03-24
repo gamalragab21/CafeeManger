@@ -67,3 +67,11 @@ data class ShiftSummaryResponse(
     @SerialName("refunded_total") val refundedTotal: Double,
     @SerialName("refunded_count") val refundedCount: Int,
 )
+
+@Serializable
+data class DoctorStatsResponse(
+    @SerialName("doctor_name") val doctorName: String,
+    @SerialName("prescription_count") val prescriptionCount: Int,
+    @SerialName("total_items") val totalItems: Int,
+    @SerialName("total_revenue") val totalRevenue: Double,
+)

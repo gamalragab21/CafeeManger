@@ -43,8 +43,15 @@ data class Order(
     val refundedAt: Long? = null,
     val refundedBy: String? = null,
     val refundReason: String? = null,
+    val refundedAmount: Double = 0.0,
+    val returnedItemCount: Int = 0,
     val syncStatus: String = "SYNCED",
-)
+    val doctorName: String? = null,
+    val diagnosis: String? = null,
+) {
+    val netTotal: Double get() = total - refundedAmount
+    val hasReturns: Boolean get() = returnedItemCount > 0
+}
 
 @Serializable
 enum class OrderChannel {
@@ -170,7 +177,9 @@ enum class OrderStatus {
 enum class PaymentMethod {
     CASH,
     WALLET,
-    CARD
+    CARD,
+    SPLIT,
+    CREDIT,
 }
 
 @Serializable

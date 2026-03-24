@@ -62,7 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -100,18 +100,11 @@ fun CustomersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.customers)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.customers),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadCustomers,
+                onNavigateBack = onNavigateBack,
             )
         },
     ) { padding ->
@@ -188,9 +181,7 @@ private fun PhoneLayout(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Customer list with pull-to-refresh
-        PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
-            onRefresh = viewModel::loadCustomers,
+        Box(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (uiState.customers.isEmpty()) {
@@ -289,9 +280,7 @@ private fun TabletLayout(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            PullToRefreshBox(
-                isRefreshing = uiState.isLoading,
-                onRefresh = viewModel::loadCustomers,
+            Box(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (uiState.customers.isEmpty()) {

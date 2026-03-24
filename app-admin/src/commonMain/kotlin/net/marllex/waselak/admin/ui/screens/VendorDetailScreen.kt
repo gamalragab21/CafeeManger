@@ -357,6 +357,38 @@ private fun VendorEditContent(
 
         Spacer(Modifier.height(16.dp))
 
+        // ─── Feature Toggles Section ─────────────────
+        Text("Feature Settings", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+
+        var enableSplitPayment by remember { mutableStateOf(vendor.enable_split_payment) }
+        var enableCashDrawer by remember { mutableStateOf(vendor.enable_cash_drawer) }
+        var enableReturns by remember { mutableStateOf(vendor.enable_returns) }
+        var enableCustomerCredit by remember { mutableStateOf(vendor.enable_customer_credit) }
+        var enableScheduledOrders by remember { mutableStateOf(vendor.enable_scheduled_orders) }
+        var enableSuppliers by remember { mutableStateOf(vendor.enable_suppliers) }
+        var enableDrugInteractions by remember { mutableStateOf(vendor.enable_drug_interactions) }
+        var enablePrescriptions by remember { mutableStateOf(vendor.enable_prescriptions) }
+        var enableAnalytics by remember { mutableStateOf(vendor.enable_analytics) }
+        var enableAnnouncements by remember { mutableStateOf(vendor.enable_announcements) }
+        var enableDigitalMenu by remember { mutableStateOf(vendor.enable_digital_menu) }
+        var enableRecipe by remember { mutableStateOf(vendor.enable_recipe) }
+
+        EditSwitchRow("Split Payment", enableSplitPayment) { enableSplitPayment = it }
+        EditSwitchRow("Cash Drawer", enableCashDrawer) { enableCashDrawer = it }
+        EditSwitchRow("Returns & Exchange", enableReturns) { enableReturns = it }
+        EditSwitchRow("Customer Credit", enableCustomerCredit) { enableCustomerCredit = it }
+        EditSwitchRow("Scheduled Orders", enableScheduledOrders) { enableScheduledOrders = it }
+        EditSwitchRow("Suppliers", enableSuppliers) { enableSuppliers = it }
+        EditSwitchRow("Drug Interactions", enableDrugInteractions) { enableDrugInteractions = it }
+        EditSwitchRow("Prescriptions", enablePrescriptions) { enablePrescriptions = it }
+        EditSwitchRow("Analytics", enableAnalytics) { enableAnalytics = it }
+        EditSwitchRow("Announcements", enableAnnouncements) { enableAnnouncements = it }
+        EditSwitchRow("Digital Menu", enableDigitalMenu) { enableDigitalMenu = it }
+        EditSwitchRow("Recipe", enableRecipe) { enableRecipe = it }
+
+        Spacer(Modifier.height(16.dp))
+
         // ─── Action Buttons ──────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -389,7 +421,20 @@ private fun VendorEditContent(
                         enable_pickup_later = enablePickupLater,
                         tax_enabled = taxEnabled,
                         default_tax_percent = defaultTaxPercent.toDoubleOrNull() ?: 0.0,
-                        stock_mode = stockMode
+                        stock_mode = stockMode,
+                        enable_split_payment = enableSplitPayment,
+                        enable_cash_drawer = enableCashDrawer,
+                        enable_returns = enableReturns,
+                        enable_customer_credit = enableCustomerCredit,
+                        enable_pre_orders = enableScheduledOrders,
+                        enable_scheduled_orders = enableScheduledOrders,
+                        enable_suppliers = enableSuppliers,
+                        enable_drug_interactions = enableDrugInteractions,
+                        enable_prescriptions = enablePrescriptions,
+                        enable_analytics = enableAnalytics,
+                        enable_announcements = enableAnnouncements,
+                        enable_digital_menu = enableDigitalMenu,
+                        enable_recipe = enableRecipe,
                     )
                     onSave(request)
                 },

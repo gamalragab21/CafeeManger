@@ -15,8 +15,10 @@ import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.feature.auth.navigation.AUTH_ROUTE
 import net.marllex.waselak.feature.auth.navigation.authScreen
 import net.marllex.waselak.kds.display.KdsDisplayScreen
+import net.marllex.waselak.kds.profile.KdsProfileScreen
 
 private const val KDS_DISPLAY_ROUTE = "kds_display"
+private const val KDS_PROFILE_ROUTE = "kds_profile"
 
 @Composable
 fun KdsNavHost(
@@ -52,6 +54,20 @@ fun KdsNavHost(
 
         composable(KDS_DISPLAY_ROUTE) {
             KdsDisplayScreen(
+                onLogout = {
+                    navController.navigate(AUTH_ROUTE) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate(KDS_PROFILE_ROUTE)
+                },
+            )
+        }
+
+        composable(KDS_PROFILE_ROUTE) {
+            KdsProfileScreen(
+                onNavigateBack = { navController.popBackStack() },
                 onLogout = {
                     navController.navigate(AUTH_ROUTE) {
                         popUpTo(0) { inclusive = true }

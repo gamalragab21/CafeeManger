@@ -13,10 +13,13 @@ import net.marllex.waselak.core.domain.repository.KdsRepository
 import net.marllex.waselak.core.model.KdsOrder
 import net.marllex.waselak.core.model.KdsSummary
 import java.util.concurrent.atomic.AtomicInteger
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class KdsViewModel(
     private val kdsRepository: KdsRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Kds" }
+
 
     data class UiState(
         val orders: List<KdsOrder> = emptyList(),
@@ -37,11 +40,13 @@ class KdsViewModel(
     }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.orders.isEmpty(), error = null) }
             kdsRepository.getKdsOrders(station = _uiState.value.selectedStation)
                 .onSuccess { list -> _uiState.update { it.copy(orders = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {
             kdsRepository.getSummary()
@@ -51,6 +56,7 @@ class KdsViewModel(
 
     /** Start periodic polling — call when screen enters composition */
     fun startPolling() {
+        AppLogger.d(TAG, "startPolling called")
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             while (true) {
@@ -62,6 +68,7 @@ class KdsViewModel(
 
     /** Stop periodic polling — call when screen leaves composition */
     fun stopPolling() {
+        AppLogger.d(TAG, "stopPolling called")
         refreshJob?.cancel()
         refreshJob = null
     }
@@ -95,6 +102,7 @@ class KdsViewModel(
     }
 
     fun markAllReady(orderId: String, itemIds: List<String>) {
+        AppLogger.d(TAG, "markAllReady called")
         // Optimistic UI update
         _uiState.update { state ->
             state.copy(

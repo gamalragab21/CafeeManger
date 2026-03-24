@@ -6,9 +6,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,17 +36,11 @@ fun ManagerCashDrawerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.cash_drawer)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::load) { Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh)) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.cash_drawer),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
         floatingActionButton = {
@@ -62,40 +56,75 @@ fun ManagerCashDrawerScreen(
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
-                Tab(selected = uiState.selectedTab == 0, onClick = { viewModel.onTabChange(0) }, text = { Text(stringResource(Res.string.current_session)) })
-                Tab(selected = uiState.selectedTab == 1, onClick = { viewModel.onTabChange(1) }, text = { Text(stringResource(Res.string.history)) })
-            }
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                // Cashier filter dropdown
+                if (uiState.cashiers.isNotEmpty()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    val selectedName = uiState.cashiers.find { it.id == uiState.selectedCashierId }?.name
+                        ?: stringResource(Res.string.all)
 
-            when {
-                uiState.isLoading -> LoadingIndicator()
-                uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-                uiState.selectedTab == 0 -> {
-                    val session = uiState.currentSession
-                    if (session == null || session.isClosed) {
-                        EmptyView(stringResource(Res.string.no_open_drawer))
-                    } else {
-                        CurrentSessionContent(session, uiState.summary, uiState.movements)
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = it },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = selectedName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(Res.string.cashier_filter)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            singleLine = true,
+                        )
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.all)) },
+                                onClick = { viewModel.selectCashier(null); expanded = false },
+                            )
+                            uiState.cashiers.forEach { cashier ->
+                                DropdownMenuItem(
+                                    text = { Text(cashier.name) },
+                                    onClick = { viewModel.selectCashier(cashier.id); expanded = false },
+                                )
+                            }
+                        }
                     }
                 }
-                else -> {
-                    if (uiState.sessions.isEmpty()) {
-                        EmptyView(stringResource(Res.string.no_session_history))
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                        ) {
-                            items(uiState.sessions, key = { it.id }) { session ->
-                                SessionCard(session)
+
+                TabRow(selectedTabIndex = uiState.selectedTab) {
+                    Tab(selected = uiState.selectedTab == 0, onClick = { viewModel.onTabChange(0) }, text = { Text(stringResource(Res.string.current_session)) })
+                    Tab(selected = uiState.selectedTab == 1, onClick = { viewModel.onTabChange(1) }, text = { Text(stringResource(Res.string.history)) })
+                }
+
+                when {
+                    uiState.isLoading -> LoadingIndicator()
+                    uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                    uiState.selectedTab == 0 -> {
+                        val session = uiState.currentSession
+                        if (session == null || session.isClosed) {
+                            EmptyView(stringResource(Res.string.no_open_drawer))
+                        } else {
+                            CurrentSessionContent(session, uiState.summary, uiState.movements)
+                        }
+                    }
+                    else -> {
+                        if (uiState.sessions.isEmpty()) {
+                            EmptyView(stringResource(Res.string.no_session_history))
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                            ) {
+                                items(uiState.sessions, key = { it.id }) { session ->
+                                    SessionCard(session)
+                                }
                             }
                         }
                     }
                 }
             }
-        }
     }
 
     // Open Dialog
@@ -204,7 +233,15 @@ private fun MovementRow(movement: CashMovement) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(movement.type, style = MaterialTheme.typography.labelMedium, color = color)
+                val typeLabel = when (movement.type) {
+                    "CASH_IN" -> stringResource(Res.string.movement_cash_in)
+                    "CASH_OUT" -> stringResource(Res.string.movement_cash_out)
+                    "SALE" -> stringResource(Res.string.movement_sale)
+                    "REFUND" -> stringResource(Res.string.movement_refund)
+                    "ADJUSTMENT" -> stringResource(Res.string.movement_adjustment)
+                    else -> movement.type
+                }
+                Text(typeLabel, style = MaterialTheme.typography.labelMedium, color = color)
                 movement.reason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 movement.createdByName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -215,18 +252,90 @@ private fun MovementRow(movement: CashMovement) {
 
 @Composable
 private fun SessionCard(session: CashDrawerSession) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(session.cashierName ?: stringResource(Res.string.cashier), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                SuggestionChip(onClick = {}, label = { Text(session.status) })
+    val isOpen = session.status == "OPEN"
+    val statusColor = if (isOpen) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isOpen) Color(0xFF4CAF50).copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Header: cashier name + status
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    session.cashierName ?: stringResource(Res.string.cashier),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusColor.copy(alpha = 0.15f),
+                ) {
+                    Text(
+                        when (session.status) {
+                            "OPEN" -> stringResource(Res.string.session_status_open)
+                            "CLOSED" -> stringResource(Res.string.session_status_closed)
+                            else -> session.status
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                    )
+                }
             }
+
+            // Session ID
+            Text(
+                "#${session.id.takeLast(6).uppercase()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+
+            // Balances
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(Res.string.session_open_balance, "${session.openingBalance}")); Text(stringResource(Res.string.session_close_balance, "${session.closingBalance ?: "-"}"))
+                Column {
+                    Text(stringResource(Res.string.opening_balance), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${session.openingBalance}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+                if (session.closingBalance != null) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(stringResource(Res.string.closing_balance), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${session.closingBalance}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
-            if (session.hasDiscrepancy) {
-                Text(stringResource(Res.string.session_discrepancy, "${session.discrepancyAmount}"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+
+            // Expected + Difference
+            if (session.expectedBalance != null && session.closingBalance != null) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text(stringResource(Res.string.expected_balance), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${session.expectedBalance}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(stringResource(Res.string.difference), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val diff = session.discrepancyAmount
+                        val diffColor = when {
+                            diff > 0.5 -> Color(0xFF4CAF50)
+                            diff < -0.5 -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
+                        Text("${diff}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = diffColor)
+                    }
+                }
+            }
+
+            // Notes
+            session.notes?.let { notes ->
+                Text(notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
+

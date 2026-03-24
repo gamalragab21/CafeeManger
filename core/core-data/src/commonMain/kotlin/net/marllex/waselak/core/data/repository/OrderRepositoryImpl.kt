@@ -162,6 +162,7 @@ class OrderRepositoryImpl constructor(
         items: List<CreateOrderItemRequest>,
         discount: Double, discountType: String,
         offerId: String?, pointsRedeemed: Int, discountReason: String?,
+        doctorName: String?, diagnosis: String?,
     ): Result<Order> = runCatching {
         AppLogger.d("OrderRepo", "Creating order: channel=${channel.name}, items=${items.size}")
         val request = CreateOrderRequest(
@@ -181,6 +182,8 @@ class OrderRepositoryImpl constructor(
             offerId = offerId,
             pointsRedeemed = pointsRedeemed,
             discountReason = discountReason,
+            doctorName = doctorName,
+            diagnosis = diagnosis,
         )
 
         if (offlineModeManager.isOfflineActive.value) {

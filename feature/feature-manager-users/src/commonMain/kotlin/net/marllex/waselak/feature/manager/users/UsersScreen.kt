@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -89,37 +90,24 @@ fun UsersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.Security,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(Res.string.users))
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.users),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadUsers,
+                onNavigateBack = onNavigateBack,
             )
         },
         // No FAB - users are created from Staff screen
     ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when {
             uiState.isLoading -> LoadingIndicator()
             uiState.error != null && uiState.users.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::loadUsers)
-            else -> Column(modifier = Modifier.padding(padding)) {
+            else -> Column(modifier = Modifier.fillMaxSize()) {
                 // Info banner
                 Card(
                     modifier = Modifier
@@ -229,6 +217,7 @@ fun UsersScreen(
                 }
             }
         }
+        } // PullToRefreshBox
 
         // Change Role Dialog
         if (uiState.showChangeRoleDialog && uiState.changeRoleUser != null) {

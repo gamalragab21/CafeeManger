@@ -13,6 +13,7 @@ import net.marllex.waselak.core.model.CustomerAddress
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PointsTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.logging.AppLogger
 
 enum class CustomerSortBy {
     ORDER_COUNT_DESC,
@@ -26,6 +27,8 @@ enum class LoyaltyFilter { HAS_POINTS, NO_POINTS }
 class CustomersViewModel(
     private val customerRepository: CustomerRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Customers" }
+
 
     data class UiState(
         val allCustomers: List<Customer> = emptyList(),
@@ -53,10 +56,12 @@ class CustomersViewModel(
     }
 
     fun loadCustomers() {
+        AppLogger.d(TAG, "loadCustomers called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             customerRepository.refreshCustomers()
                 .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e)
                     if (e.isFeatureNotAvailableOrOffline()) {
                         _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
                         return@launch
@@ -78,6 +83,7 @@ class CustomersViewModel(
     }
 
     fun search(query: String) {
+        AppLogger.d(TAG, "search called")
         _uiState.update { state ->
             state.copy(searchQuery = query)
         }
@@ -114,6 +120,7 @@ class CustomersViewModel(
     }
 
     fun selectCustomer(customer: Customer?) {
+        AppLogger.d(TAG, "selectCustomer called")
         _uiState.update {
             it.copy(
                 selectedCustomer = customer,
@@ -126,6 +133,7 @@ class CustomersViewModel(
             viewModelScope.launch {
                 customerRepository.getCustomerRecentOrders(customer.id, limit = 5)
                     .onSuccess { orders ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                         _uiState.update { it.copy(selectedCustomerOrders = orders) }
                     }
             }
@@ -158,6 +166,7 @@ class CustomersViewModel(
     }
 
     fun deleteCustomer(id: String) {
+        AppLogger.d(TAG, "deleteCustomer called")
         viewModelScope.launch {
             customerRepository.deleteCustomer(id).onSuccess {
                 _uiState.update { it.copy(selectedCustomer = null) }

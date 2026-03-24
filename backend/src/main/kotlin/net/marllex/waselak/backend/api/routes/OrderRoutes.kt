@@ -20,6 +20,8 @@ import net.marllex.waselak.backend.api.middleware.requireRole
 import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
 import net.marllex.waselak.backend.data.database.CustomerAddressesTable
+import net.marllex.waselak.backend.data.database.CreditTransactionsTable
+import net.marllex.waselak.backend.data.database.CustomerCreditsTable
 import net.marllex.waselak.backend.data.database.CustomersTable
 import net.marllex.waselak.backend.data.database.ItemsTable
 import net.marllex.waselak.backend.data.database.OffersTable
@@ -38,6 +40,8 @@ import net.marllex.waselak.backend.data.database.VendorsTable
 import net.marllex.waselak.backend.data.database.ReservationsTable
 import net.marllex.waselak.backend.data.database.TablesTable
 import net.marllex.waselak.backend.data.database.UsersTable
+import net.marllex.waselak.backend.data.database.ProductReturnsTable
+import net.marllex.waselak.backend.data.database.ReturnItemsTable
 import net.marllex.waselak.backend.domain.service.OrderService
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.config.JwtConfig
@@ -86,6 +90,8 @@ data class CreateOrderDto(
     val offer_id: String? = null,
     val points_redeemed: Int = 0,
     val discount_reason: String? = null,
+    val doctor_name: String? = null,
+    val diagnosis: String? = null,
 )
 
 @Serializable
@@ -192,6 +198,10 @@ data class OrderDto(
     val refunded_at: Long? = null,
     val refunded_by: String? = null,
     val refund_reason: String? = null,
+    val refunded_amount: Double = 0.0,
+    val returned_item_count: Int = 0,
+    val doctor_name: String? = null,
+    val diagnosis: String? = null,
 )
 
 @Serializable
@@ -433,6 +443,7 @@ fun Route.orderRoutes() {
                 val vendorUUID = UUID.fromString(principal.vendorId)
                 val userUUID = UUID.fromString(principal.userId)
                 trace.step("User identified", mapOf("userId" to userUUID.toString(), "role" to principal.role))
+                val scope = call.parameters["scope"] // "today" or null
                 val from = call.parameters["from"]?.toLongOrNull()
 
                 val summary = transaction {
@@ -445,15 +456,34 @@ fun Route.orderRoutes() {
                         // MANAGER sees all orders
                     }
 
-                    from?.let { ts ->
+                    if (scope == "today") {
+                        // Start of today using java.time (available on JVM backend)
+                        val todayStart = kotlinx.datetime.Instant.fromEpochMilliseconds(
+                            java.time.LocalDate.now()
+                                .atStartOfDay(java.time.ZoneId.systemDefault())
+                                .toInstant()
+                                .toEpochMilli()
+                        )
+                        // Include orders created today OR paid today
                         query = query.andWhere {
-                            OrdersTable.createdAt greaterEq kotlinx.datetime.Instant.fromEpochMilliseconds(ts)
+                            (OrdersTable.createdAt greaterEq todayStart) or
+                            (OrdersTable.paymentConfirmedAt greaterEq todayStart)
+                        }
+                    } else {
+                        from?.let { ts ->
+                            val fromInstant = kotlinx.datetime.Instant.fromEpochMilliseconds(ts)
+                            // Include orders created, paid, or updated after login
+                            query = query.andWhere {
+                                (OrdersTable.createdAt greaterEq fromInstant) or
+                                (OrdersTable.updatedAt greaterEq fromInstant) or
+                                (OrdersTable.paymentConfirmedAt greaterEq fromInstant)
+                            }
                         }
                     }
 
                     val allOrders = query.toList()
 
-                    val completed = allOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+                    val completed = allOrders.filter { it[OrdersTable.status] in listOf("COMPLETED", "PAID") }
                     val cancelled = allOrders.filter { it[OrdersTable.status] == "CANCELED" }
                     val refunded = allOrders.filter { it[OrdersTable.status] == "REFUNDED" }
 
@@ -461,18 +491,19 @@ fun Route.orderRoutes() {
                     val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
                     val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
 
+                    fun Double.r2() = Math.round(this * 100.0) / 100.0
                     ShiftSummaryDto(
-                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() },
+                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         total_orders = completed.size,
-                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() },
-                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() },
-                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
+                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
+                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         cash_orders = cashCompleted.size,
                         wallet_orders = walletCompleted.size,
                         card_orders = cardCompleted.size,
-                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() },
+                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         cancelled_count = cancelled.size,
-                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() },
+                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         refunded_count = refunded.size,
                     )
                 }
@@ -550,7 +581,7 @@ fun Route.orderRoutes() {
 
                     val allOrders = query.toList()
 
-                    val completed = allOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+                    val completed = allOrders.filter { it[OrdersTable.status] in listOf("COMPLETED", "PAID") }
                     val cancelled = allOrders.filter { it[OrdersTable.status] == "CANCELED" }
                     val refunded = allOrders.filter { it[OrdersTable.status] == "REFUNDED" }
 
@@ -558,18 +589,19 @@ fun Route.orderRoutes() {
                     val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
                     val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
 
+                    fun Double.r2() = Math.round(this * 100.0) / 100.0
                     ShiftSummaryDto(
-                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() },
+                        total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         total_orders = completed.size,
-                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() },
-                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() },
-                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() },
+                        cash_revenue = cashCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
+                        wallet_revenue = walletCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
+                        card_revenue = cardCompleted.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         cash_orders = cashCompleted.size,
                         wallet_orders = walletCompleted.size,
                         card_orders = cardCompleted.size,
-                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() },
+                        cancelled_total = cancelled.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         cancelled_count = cancelled.size,
-                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() },
+                        refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         refunded_count = refunded.size,
                     )
                 }
@@ -887,6 +919,8 @@ fun Route.orderRoutes() {
                     stmt[OrdersTable.taxPercent] = taxPercentValue
                     stmt[OrdersTable.total] = total
                     stmt[notes] = request.notes
+                    stmt[OrdersTable.doctorName] = request.doctor_name
+                    stmt[OrdersTable.diagnosis] = request.diagnosis
                     request.offer_id?.let { oid -> stmt[OrdersTable.offerId] = UUID.fromString(oid) }
                     stmt[createdAt] = Clock.System.now()
                     stmt[updatedAt] = Clock.System.now()
@@ -1215,6 +1249,56 @@ fun Route.orderRoutes() {
                 if (request.customer_id == null && !request.discount_reason.isNullOrBlank()) {
                     OrdersTable.update({ OrdersTable.id eq orderId }) { stmt ->
                         stmt[discountReason] = request.discount_reason
+                    }
+                }
+
+                // Auto-charge customer credit when payment method is CREDIT
+                if (request.payment_method == "CREDIT" && request.customer_id != null) {
+                    val customerUUID = UUID.fromString(request.customer_id)
+                    val now = Clock.System.now()
+
+                    // Get or create credit record
+                    val creditRow = CustomerCreditsTable.selectAll().where {
+                        (CustomerCreditsTable.vendorId eq vendorUUID) and
+                        (CustomerCreditsTable.customerId eq customerUUID)
+                    }.firstOrNull()
+
+                    val creditId = if (creditRow != null) {
+                        creditRow[CustomerCreditsTable.id]
+                    } else {
+                        CustomerCreditsTable.insertAndGetId {
+                            it[CustomerCreditsTable.vendorId] = vendorUUID
+                            it[CustomerCreditsTable.customerId] = customerUUID
+                            it[balance] = BigDecimal.ZERO
+                            it[creditLimit] = BigDecimal("500.00")
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
+                    }
+
+                    val currentBalance = creditRow?.get(CustomerCreditsTable.balance) ?: BigDecimal.ZERO
+                    val newBalance = currentBalance + total
+
+                    // Update balance
+                    CustomerCreditsTable.update({
+                        CustomerCreditsTable.id eq creditId
+                    }) {
+                        it[balance] = newBalance
+                        it[updatedAt] = now
+                    }
+
+                    // Record credit transaction
+                    CreditTransactionsTable.insert {
+                        it[CreditTransactionsTable.creditId] = creditId
+                        it[CreditTransactionsTable.vendorId] = vendorUUID
+                        it[CreditTransactionsTable.orderId] = orderId
+                        it[type] = "CHARGE"
+                        it[amount] = total
+                        it[previousBalance] = currentBalance
+                        it[CreditTransactionsTable.newBalance] = newBalance
+                        it[note] = "Auto-charge from order"
+                        it[createdBy] = UUID.fromString(principal.userId)
+                        it[createdAt] = now
                     }
                 }
 
@@ -2007,7 +2091,22 @@ private fun ResultRow.toOrderDto(
     items: List<OrderItemDto> = emptyList(),
     usersMap: Map<UUID, String> = emptyMap(),
     tablesMap: Map<UUID, String> = emptyMap(),
-) = OrderDto(
+): OrderDto {
+    val orderUUID = this[OrdersTable.id]
+    // Auto-calculate refund data from completed returns
+    val completedReturns = ProductReturnsTable.selectAll().where {
+        (ProductReturnsTable.orderId eq orderUUID) and
+        (ProductReturnsTable.status eq "COMPLETED")
+    }.toList()
+    val refundedAmount = completedReturns.sumOf { it[ProductReturnsTable.refundAmount].toDouble() }
+    val returnedItemCount = if (completedReturns.isNotEmpty()) {
+        val returnIds = completedReturns.map { it[ProductReturnsTable.id] }
+        ReturnItemsTable.selectAll().where {
+            ReturnItemsTable.returnId inList returnIds
+        }.sumOf { it[ReturnItemsTable.quantity] }
+    } else 0
+
+    return OrderDto(
     id = this[OrdersTable.id].toString(),
     vendor_id = this[OrdersTable.vendorId].toString(),
     channel = this[OrdersTable.channel],
@@ -2047,7 +2146,12 @@ private fun ResultRow.toOrderDto(
     refunded_at = this[OrdersTable.refundedAt]?.toEpochMilliseconds(),
     refunded_by = this[OrdersTable.refundedBy]?.toString(),
     refund_reason = this[OrdersTable.refundReason],
+    refunded_amount = Math.round(refundedAmount * 100.0) / 100.0,
+    returned_item_count = returnedItemCount,
+    doctor_name = this[OrdersTable.doctorName],
+    diagnosis = this[OrdersTable.diagnosis],
 )
+}
 
 private fun ResultRow.toOrderItemDto() = OrderItemDto(
     id = this[OrderItemsTable.id].toString(),

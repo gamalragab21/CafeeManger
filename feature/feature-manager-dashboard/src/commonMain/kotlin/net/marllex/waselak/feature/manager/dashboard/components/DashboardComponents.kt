@@ -232,14 +232,14 @@ fun AlertCard(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = alert.title,
+                    text = localizeAlertByType(alert.type, alert.title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = alert.message,
+                    text = localizeAlertMessage(alert.type, alert.message, alert.value.toInt()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -249,7 +249,7 @@ fun AlertCard(
                 color = severityColor.copy(alpha = 0.15f),
             ) {
                 Text(
-                    text = alert.severity.replaceFirstChar { it.uppercase() },
+                    text = localizeSeverity(alert.severity),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = severityColor,
@@ -258,6 +258,38 @@ fun AlertCard(
             }
         }
     }
+}
+
+/**
+ * Translate alert title by type code from backend.
+ */
+@Composable
+private fun localizeAlertByType(type: String, fallback: String): String = when (type) {
+    "OUT_OF_STOCK" -> stringResource(Res.string.alert_out_of_stock)
+    "LOW_STOCK" -> stringResource(Res.string.alert_low_stock)
+    "REVENUE_DROP" -> stringResource(Res.string.alert_revenue_drop)
+    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_high_cancel)
+    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_high_refund)
+    "EXPIRING_BATCH" -> stringResource(Res.string.alert_expiring)
+    else -> fallback
+}
+
+@Composable
+private fun localizeAlertMessage(type: String, fallback: String, count: Int): String = when (type) {
+    "OUT_OF_STOCK" -> stringResource(Res.string.alert_out_of_stock_msg, count)
+    "LOW_STOCK" -> stringResource(Res.string.alert_low_stock_msg, count)
+    "REVENUE_DROP" -> stringResource(Res.string.alert_revenue_drop_msg)
+    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_high_cancel_msg)
+    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_high_refund_msg)
+    else -> fallback
+}
+
+@Composable
+private fun localizeSeverity(severity: String): String = when (severity.lowercase()) {
+    "critical" -> stringResource(Res.string.alert_critical)
+    "warning" -> stringResource(Res.string.alert_warning)
+    "info" -> stringResource(Res.string.alert_info)
+    else -> severity.replaceFirstChar { it.uppercase() }
 }
 
 /**

@@ -338,9 +338,10 @@ class WaselakApiClient(private val client: HttpClient) {
             parameter("to", to)
         }.body()
 
-    suspend fun getMyShiftSummary(from: Long? = null): ShiftSummaryResponse =
+    suspend fun getMyShiftSummary(from: Long? = null, scope: String? = null): ShiftSummaryResponse =
         client.get("api/v1/orders/my-shift-summary") {
             parameter("from", from)
+            scope?.let { parameter("scope", it) }
         }.body()
 
     suspend fun getUserShiftSummary(userId: String, from: Long? = null): ShiftSummaryResponse =
@@ -494,6 +495,24 @@ class WaselakApiClient(private val client: HttpClient) {
         client.get("api/v1/analytics/dashboard/supplier-analytics") {
             parameter("from", from)
             parameter("to", to)
+        }.body()
+
+    suspend fun getCreditAnalytics(from: Long, to: Long): CreditAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/credit-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getReturnsAnalytics(from: Long, to: Long): ReturnsAnalyticsResponse =
+        client.get("api/v1/analytics/dashboard/returns-analytics") {
+            parameter("from", from)
+            parameter("to", to)
+        }.body()
+
+    suspend fun getDoctorStats(from: String? = null, to: String? = null): List<DoctorStatsResponse> =
+        client.get("api/v1/analytics/doctors") {
+            from?.let { parameter("from", it) }
+            to?.let { parameter("to", it) }
         }.body()
 
     // ─── Export (streaming) ──────────────────────────────────────
@@ -1024,10 +1043,12 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getCashDrawerSessions(
         limit: Int = 20,
         offset: Int = 0,
+        cashierId: String? = null,
     ): List<CashDrawerSessionResponse> =
         client.get("api/v1/cash-drawer/sessions") {
             parameter("limit", limit)
             parameter("offset", offset)
+            cashierId?.let { parameter("cashier_id", it) }
         }.body()
 
     suspend fun getCashDrawerSummary(): DrawerSummaryResponse =
@@ -1038,7 +1059,7 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getOrderPayments(orderId: String): SplitPaymentSummaryResponse =
         client.get("api/v1/orders/$orderId/payments").body()
 
-    suspend fun addOrderPayment(orderId: String, request: CreateOrderPaymentRequest): OrderPaymentResponse =
+    suspend fun addOrderPayment(orderId: String, request: CreateOrderPaymentRequest): AddPaymentResponse =
         client.post("api/v1/orders/$orderId/payments") {
             setBody(request)
         }.body()

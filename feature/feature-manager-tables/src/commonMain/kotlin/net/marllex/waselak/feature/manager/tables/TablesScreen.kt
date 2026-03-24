@@ -57,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
@@ -117,11 +118,10 @@ fun TablesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.tables)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.tables),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadTables,
             )
         },
         floatingActionButton = {
@@ -132,6 +132,11 @@ fun TablesScreen(
             }
         },
     ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when {
             uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
                 message = uiState.featureNotAvailableMessage,
@@ -144,9 +149,7 @@ fun TablesScreen(
             uiState.tables.isEmpty() -> EmptyView(stringResource(Res.string.no_tables))
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(gridColumns),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = if (isTablet) 24.dp else 16.dp, end = if (isTablet) 24.dp else 16.dp, top = if (isTablet) 24.dp else 16.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -168,6 +171,7 @@ fun TablesScreen(
                 }
             }
         }
+        } // PullToRefreshBox
 
         if (uiState.showAddDialog) {
             TableBottomSheet(

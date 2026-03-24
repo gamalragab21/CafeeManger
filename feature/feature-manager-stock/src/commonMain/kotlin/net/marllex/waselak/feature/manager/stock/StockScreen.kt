@@ -77,6 +77,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -147,16 +148,16 @@ private fun getCompatibleUnits(baseUnit: String): List<String> {
 @Composable
 fun StockScreen(
     viewModel: StockViewModel = koinViewModel(),
+    showRecipes: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.stock_management)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.stock_management),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadData,
                 actions = {
                     if (uiState.alertItems.isNotEmpty()) {
                         BadgedBox(
@@ -192,6 +193,11 @@ fun StockScreen(
             }
         },
     ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when {
             uiState.showFeatureNotAvailable -> FeatureNotAvailableView(
                 message = uiState.featureNotAvailableMessage,
@@ -204,9 +210,11 @@ fun StockScreen(
             else -> StockContent(
                 uiState = uiState,
                 viewModel = viewModel,
-                modifier = Modifier.padding(padding),
+                showRecipes = showRecipes,
+                modifier = Modifier.fillMaxSize(),
             )
         }
+        } // PullToRefreshBox
 
         // Dialogs
         if (uiState.showAddDialog) {
@@ -233,6 +241,7 @@ fun StockScreen(
 private fun StockContent(
     uiState: StockViewModel.UiState,
     viewModel: StockViewModel,
+    showRecipes: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -240,10 +249,11 @@ private fun StockContent(
         ModernTabSelector(
             selectedTab = uiState.selectedTab,
             alertCount = uiState.alertItems.size,
+            showRecipes = showRecipes,
             onTabSelected = { index ->
                 viewModel.selectTab(index)
                 if (index == 3) viewModel.loadTransactions()
-                if (index == 4) viewModel.loadRecipes()
+                if (index == 4 && showRecipes) viewModel.loadRecipes()
             }
         )
 
@@ -262,38 +272,41 @@ private fun StockContent(
 private fun ModernTabSelector(
     selectedTab: Int,
     alertCount: Int,
+    showRecipes: Boolean = true,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Tab data with icons and colors
-    val tabs = listOf(
-        TabData(
+    val tabs = buildList {
+        add(TabData(
             title = stringResource(Res.string.stock_overview),
             icon = Icons.Default.Dashboard,
             color = ChartIndigo
-        ),
-        TabData(
+        ))
+        add(TabData(
             title = stringResource(Res.string.items_list),
             icon = Icons.Default.Inventory,
             color = ChartGreen
-        ),
-        TabData(
+        ))
+        add(TabData(
             title = stringResource(Res.string.alerts),
             icon = Icons.Default.Warning,
             color = ChartAmber,
             badge = if (alertCount > 0) alertCount else null
-        ),
-        TabData(
+        ))
+        add(TabData(
             title = stringResource(Res.string.transactions),
             icon = Icons.Default.Receipt,
             color = ChartPurple
-        ),
-        TabData(
-            title = stringResource(Res.string.recipes),
-            icon = Icons.Default.Receipt,
-            color = ChartCyan
-        )
-    )
+        ))
+        if (showRecipes) {
+            add(TabData(
+                title = stringResource(Res.string.recipes),
+                icon = Icons.Default.Receipt,
+                color = ChartCyan
+            ))
+        }
+    }
 
     // Horizontal scrollable tab row for different screen sizes
     LazyRow(
@@ -864,10 +877,10 @@ private fun StockItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                DetailColumn(label = "Qty", value = "${stock.quantity} ${getLocalizedUnit(stock.unit)}")
-                DetailColumn(label = "Min", value = "${stock.minQuantity}")
-                DetailColumn(label = "Cost", value = CurrencyFormatter.formatDecimal(stock.costPrice))
-                DetailColumn(label = "Value", value = CurrencyFormatter.formatDecimal(stock.totalValue))
+                DetailColumn(label = stringResource(Res.string.detail_qty), value = "${stock.quantity} ${getLocalizedUnit(stock.unit)}")
+                DetailColumn(label = stringResource(Res.string.detail_min), value = "${stock.minQuantity}")
+                DetailColumn(label = stringResource(Res.string.detail_cost), value = CurrencyFormatter.formatDecimal(stock.costPrice))
+                DetailColumn(label = stringResource(Res.string.detail_value), value = CurrencyFormatter.formatDecimal(stock.totalValue))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1523,7 +1536,7 @@ private fun QuantityBottomSheet(
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("New Quantity", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(Res.string.new_quantity), style = MaterialTheme.typography.bodyMedium)
                         Text(
                             "$newQty ${getLocalizedUnit(stock.unit)}",
                             style = MaterialTheme.typography.titleMedium,
@@ -1697,9 +1710,9 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
         net.marllex.waselak.core.model.StockTransactionType.SALE_DIRECT -> stringResource(Res.string.stock_sale_direct)
         net.marllex.waselak.core.model.StockTransactionType.SALE_RECIPE -> stringResource(Res.string.stock_sale_recipe)
         net.marllex.waselak.core.model.StockTransactionType.RETURN -> stringResource(Res.string.stock_returned)
-        net.marllex.waselak.core.model.StockTransactionType.WASTE -> "Waste"
-        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> "Transfer"
-        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> "Batch Deduct"
+        net.marllex.waselak.core.model.StockTransactionType.WASTE -> stringResource(Res.string.stock_waste)
+        net.marllex.waselak.core.model.StockTransactionType.TRANSFER -> stringResource(Res.string.stock_transfer)
+        net.marllex.waselak.core.model.StockTransactionType.BATCH_DEDUCT -> stringResource(Res.string.stock_batch_deduct)
     }
 
     Card(
@@ -1734,7 +1747,7 @@ private fun TransactionCard(transaction: net.marllex.waselak.core.model.StockTra
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.itemName ?: "Unknown Item",
+                    text = transaction.itemName ?: stringResource(Res.string.unknown_item),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -1922,7 +1935,7 @@ private fun RecipeCard(
                     Text(
                         text = when (recipe.status) {
                             "ACTIVE" -> stringResource(Res.string.recipe_active)
-                            "DRAFT" -> "Draft"
+                            "DRAFT" -> stringResource(Res.string.recipe_draft)
                             "ARCHIVED" -> stringResource(Res.string.recipe_inactive)
                             else -> recipe.status
                         },

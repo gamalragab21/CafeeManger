@@ -18,6 +18,7 @@ import net.marllex.waselak.core.network.dto.CreateSupplierRequest
 import net.marllex.waselak.core.network.dto.ReceiveItemRequest
 import net.marllex.waselak.core.network.dto.ReceivePurchaseOrderRequest
 import net.marllex.waselak.core.network.dto.UpdateSupplierRequest
+import net.marllex.waselak.core.common.logging.AppLogger
 
 data class PoItemDraft(
     val stockId: String,
@@ -43,6 +44,8 @@ class SuppliersViewModel(
     private val supplierRepository: SupplierRepository,
     private val stockRepository: StockRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Suppliers" }
+
 
     data class UiState(
         val suppliers: List<Supplier> = emptyList(),
@@ -97,11 +100,13 @@ class SuppliersViewModel(
     }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             supplierRepository.getSuppliers()
                 .onSuccess { list -> _uiState.update { it.copy(suppliers = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {
             supplierRepository.getPurchaseOrders()
@@ -147,6 +152,7 @@ class SuppliersViewModel(
     fun onDialogNotesChange(v: String) { _uiState.update { it.copy(dialogNotes = v) } }
 
     fun saveSupplier() {
+        AppLogger.d(TAG, "saveSupplier called")
         val s = _uiState.value
         if (s.dialogName.isBlank()) return
         viewModelScope.launch {
@@ -170,9 +176,11 @@ class SuppliersViewModel(
         }
     }
 
-    fun confirmDelete(supplier: Supplier) { _uiState.update { it.copy(showDeleteConfirm = true, deletingSupplier = supplier) } }
+    fun confirmDelete(supplier: Supplier) {
+        AppLogger.d(TAG, "confirmDelete called"); _uiState.update { it.copy(showDeleteConfirm = true, deletingSupplier = supplier) } }
     fun dismissDelete() { _uiState.update { it.copy(showDeleteConfirm = false, deletingSupplier = null) } }
     fun deleteSupplier() {
+        AppLogger.d(TAG, "deleteSupplier called")
         val s = _uiState.value.deletingSupplier ?: return
         viewModelScope.launch {
             supplierRepository.deleteSupplier(s.id)
@@ -201,6 +209,7 @@ class SuppliersViewModel(
     fun setPoExpectedDate(v: String) { _uiState.update { it.copy(poExpectedDate = v) } }
 
     fun addPoItem(stock: Stock) {
+        AppLogger.d(TAG, "addPoItem called")
         _uiState.update { state ->
             if (state.poItems.any { it.stockId == stock.id }) return
             state.copy(
@@ -232,12 +241,14 @@ class SuppliersViewModel(
     }
 
     fun removePoItem(index: Int) {
+        AppLogger.d(TAG, "removePoItem called")
         _uiState.update { state ->
             state.copy(poItems = state.poItems.toMutableList().apply { removeAt(index) })
         }
     }
 
     fun createPurchaseOrder() {
+        AppLogger.d(TAG, "createPurchaseOrder called")
         val s = _uiState.value
         if (s.poSupplierId.isBlank() || s.poItems.isEmpty()) return
         viewModelScope.launch {
@@ -257,6 +268,7 @@ class SuppliersViewModel(
             )
             supplierRepository.createPurchaseOrder(request)
                 .onSuccess {
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(isCreatingPo = false, showCreatePoDialog = false, successMessage = "po_created") }
                     load()
                 }
@@ -276,6 +288,7 @@ class SuppliersViewModel(
 
     // Submit PO
     fun submitPo(id: String) {
+        AppLogger.d(TAG, "submitPo called")
         viewModelScope.launch {
             supplierRepository.submitPurchaseOrder(id)
                 .onSuccess {
@@ -340,6 +353,7 @@ class SuppliersViewModel(
     }
 
     fun toggleNoExpiry(index: Int) {
+        AppLogger.d(TAG, "toggleNoExpiry called")
         _uiState.update { state ->
             state.copy(receiveItems = state.receiveItems.toMutableList().apply {
                 val item = this[index]
@@ -349,6 +363,7 @@ class SuppliersViewModel(
     }
 
     fun receivePo() {
+        AppLogger.d(TAG, "receivePo called")
         val s = _uiState.value
         val po = s.showReceiveDialog ?: return
         val items = s.receiveItems.filter { it.receivedQty > 0 }
@@ -375,10 +390,12 @@ class SuppliersViewModel(
     }
 
     // Cancel
-    fun confirmCancelPo(po: PurchaseOrder) { _uiState.update { it.copy(showCancelConfirm = po, showPoDetail = null) } }
+    fun confirmCancelPo(po: PurchaseOrder) {
+        AppLogger.d(TAG, "confirmCancelPo called"); _uiState.update { it.copy(showCancelConfirm = po, showPoDetail = null) } }
     fun dismissCancelPo() { _uiState.update { it.copy(showCancelConfirm = null) } }
 
     fun cancelPo() {
+        AppLogger.d(TAG, "cancelPo called")
         val po = _uiState.value.showCancelConfirm ?: return
         viewModelScope.launch {
             supplierRepository.deletePurchaseOrder(po.id)

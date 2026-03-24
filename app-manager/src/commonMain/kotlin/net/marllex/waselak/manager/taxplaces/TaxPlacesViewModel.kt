@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
 import net.marllex.waselak.core.model.TaxPlace
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class TaxPlacesViewModel(
     private val taxPlaceRepository: TaxPlaceRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "TaxPlaces" }
+
 
     data class UiState(
         val places: List<TaxPlace> = emptyList(),
@@ -26,15 +29,18 @@ class TaxPlacesViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             taxPlaceRepository.getTaxPlaces()
                 .onSuccess { list -> _uiState.update { it.copy(places = list, isLoading = false) } }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
     fun create(name: String, taxPercent: Double, isDefault: Boolean) {
+        AppLogger.d(TAG, "create called")
         viewModelScope.launch {
             taxPlaceRepository.createTaxPlace(name, taxPercent, isDefault, _uiState.value.places.size)
                 .onSuccess { load() }
@@ -51,6 +57,7 @@ class TaxPlacesViewModel(
     }
 
     fun delete(id: String) {
+        AppLogger.d(TAG, "delete called")
         viewModelScope.launch {
             taxPlaceRepository.deleteTaxPlace(id)
                 .onSuccess { load() }

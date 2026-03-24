@@ -10,10 +10,13 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.PlanFeaturesResponse
 import net.marllex.waselak.core.network.dto.PlanSummaryDto
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class PlansComparisonViewModel(
     private val api: WaselakApiClient,
 ) : ViewModel() {
+    private companion object { private const val TAG = "PlansComparison" }
+
 
     data class UiState(
         val currentPlan: PlanFeaturesResponse? = null,

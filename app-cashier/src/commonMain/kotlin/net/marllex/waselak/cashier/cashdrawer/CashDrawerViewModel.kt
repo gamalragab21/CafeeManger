@@ -11,10 +11,13 @@ import net.marllex.waselak.core.domain.repository.CashDrawerRepository
 import net.marllex.waselak.core.model.CashDrawerSession
 import net.marllex.waselak.core.model.CashMovement
 import net.marllex.waselak.core.model.DrawerSummary
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class CashDrawerViewModel(
     private val cashDrawerRepository: CashDrawerRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "CashDrawer" }
+
 
     data class UiState(
         val currentSession: CashDrawerSession? = null,
@@ -48,10 +51,12 @@ class CashDrawerViewModel(
     init { load() }
 
     fun load() {
+        AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             cashDrawerRepository.getCurrentSession()
                 .onSuccess { session ->
+                    AppLogger.i(TAG, "Data loaded successfully")
                     _uiState.update { it.copy(currentSession = session, movements = session?.movements ?: emptyList(), isLoading = false) }
                 }
                 .onFailure { _uiState.update { it.copy(currentSession = null, isLoading = false) } }
@@ -71,12 +76,14 @@ class CashDrawerViewModel(
     fun onOpeningBalanceChange(v: String) { _uiState.update { it.copy(openingBalance = v) } }
     fun onOpenNotesChange(v: String) { _uiState.update { it.copy(openNotes = v) } }
     fun openDrawer() {
+        AppLogger.d(TAG, "openDrawer called")
         val balance = _uiState.value.openingBalance.toDoubleOrNull() ?: 0.0
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             cashDrawerRepository.openDrawer(balance, _uiState.value.openNotes.ifBlank { null })
                 .onSuccess { _uiState.update { it.copy(isSaving = false, showOpenDialog = false) }; load() }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e ->
+                    AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 
@@ -86,6 +93,7 @@ class CashDrawerViewModel(
     fun onClosingBalanceChange(v: String) { _uiState.update { it.copy(closingBalance = v) } }
     fun onCloseNotesChange(v: String) { _uiState.update { it.copy(closeNotes = v) } }
     fun closeDrawer() {
+        AppLogger.d(TAG, "closeDrawer called")
         val balance = _uiState.value.closingBalance.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -102,6 +110,7 @@ class CashDrawerViewModel(
     fun onMovementAmountChange(v: String) { _uiState.update { it.copy(movementAmount = v) } }
     fun onMovementReasonChange(v: String) { _uiState.update { it.copy(movementReason = v) } }
     fun addMovement() {
+        AppLogger.d(TAG, "addMovement called")
         val amount = _uiState.value.movementAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }

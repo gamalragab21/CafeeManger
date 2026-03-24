@@ -5,6 +5,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -72,6 +76,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -96,6 +101,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.model.OrderChannel
@@ -115,6 +124,7 @@ import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
 import net.marllex.waselak.feature.manager.orders.components.ModernFilterSection
 import org.koin.compose.viewmodel.koinViewModel
+import waselak.core.core_ui.generated.resources.returns_exchanges
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -122,6 +132,7 @@ fun OrdersScreen(
     viewModel: OrdersViewModel = koinViewModel(),
     onViewReceipt: ((String) -> Unit)? = null,
     onSplitPayment: ((String) -> Unit)? = null,
+    businessType: String? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
@@ -165,14 +176,18 @@ fun OrdersScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.orders)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                )
+            WaselakTopAppBar(
+                title = stringResource(Res.string.orders),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadOrders,
             )
         },
     ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when {
             uiState.isLoading && uiState.orders.isEmpty() -> LoadingIndicator()
             uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
@@ -180,7 +195,7 @@ fun OrdersScreen(
                 onRetry = viewModel::loadOrders,
             )
 
-            else -> Column(modifier = Modifier.padding(padding)) {
+            else -> Column(modifier = Modifier.fillMaxSize()) {
                 // Modern Filter Section
                 ModernFilterSection(
                     selectedChannel = uiState.selectedChannel,
@@ -236,11 +251,15 @@ fun OrdersScreen(
                                     onEdit = if (order.status != OrderStatus.COMPLETED && order.status != OrderStatus.CANCELED) {
                                         { viewModel.showEditOrder(order) }
                                     } else null,
-                                    onPayNow = if (order.paymentStatus == PaymentStatus.PENDING) {
+                                    onPayNow = if (order.paymentStatus == PaymentStatus.PENDING && order.status != OrderStatus.CANCELED) {
                                         { viewModel.showPaymentDialog(order) }
                                     } else null,
-                                    onSplitPayment = if (onSplitPayment != null) {
+                                    onSplitPayment = if (onSplitPayment != null && order.paymentStatus == PaymentStatus.PENDING && order.status != OrderStatus.CANCELED) {
                                         { onSplitPayment(order.id) }
+                                    } else null,
+                                    onReturn = if ((order.status == OrderStatus.COMPLETED || order.status == OrderStatus.REFUNDED) &&
+                                        businessType in listOf("PHARMACY", "RETAIL")) {
+                                        { viewModel.showReturnDialog(order) }
                                     } else null,
                                     onCopyOrderId = { platformActions.copyToClipboard(order.id) },
                                 )
@@ -283,6 +302,7 @@ fun OrdersScreen(
                 }
             }
         }
+        } // PullToRefreshBox
     }
     } // BoxWithConstraints
 
@@ -361,6 +381,27 @@ fun OrdersScreen(
             onSelectMethod = viewModel::selectPaymentMethod,
             onConfirm = viewModel::confirmPayment,
             onDismiss = viewModel::dismissPaymentDialog,
+        )
+    }
+
+    // Return / Exchange dialog
+    if (uiState.showReturnDialog && uiState.returningOrder != null) {
+        ReturnBottomSheet(
+            order = uiState.returningOrder!!,
+            returnItems = uiState.returnItems,
+            returnReason = uiState.returnReason,
+            returnType = uiState.returnType,
+            isProcessing = uiState.isReturnProcessing,
+            exchangeMenuItems = uiState.exchangeMenuItems,
+            exchangeSelectedItem = uiState.exchangeSelectedItem,
+            exchangeSearchQuery = uiState.exchangeSearchQuery,
+            onReturnTypeChange = viewModel::setReturnType,
+            onReasonChange = viewModel::setReturnReason,
+            onQuantityChange = viewModel::updateReturnItemQuantity,
+            onExchangeSearchChange = viewModel::setExchangeSearchQuery,
+            onExchangeItemSelect = viewModel::selectExchangeItem,
+            onSubmit = viewModel::submitReturn,
+            onDismiss = viewModel::dismissReturnDialog,
         )
     }
 }
@@ -488,6 +529,7 @@ private fun OrderCard(
     onEdit: (() -> Unit)? = null,
     onPayNow: (() -> Unit)? = null,
     onSplitPayment: (() -> Unit)? = null,
+    onReturn: (() -> Unit)? = null,
     onCopyOrderId: () -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -633,8 +675,26 @@ private fun OrderCard(
                             isDiscount = true,
                         )
                     }
-                    PriceRow(stringResource(Res.string.delivery_fee), CurrencyFormatter.format(order.deliveryFee + order.tax))
+                    if (order.deliveryFee > 0) {
+                        PriceRow(stringResource(Res.string.delivery_fee), CurrencyFormatter.format(order.deliveryFee))
+                    }
+                    if (order.tax > 0) {
+                        PriceRow(stringResource(Res.string.tax_label), CurrencyFormatter.format(order.tax))
+                    }
                     PriceRow(stringResource(Res.string.total), CurrencyFormatter.format(order.total), isBold = true)
+                    // Refund info
+                    if (order.hasReturns) {
+                        PriceRow(
+                            stringResource(Res.string.refunded_amount) + " (${order.returnedItemCount})",
+                            "-${CurrencyFormatter.format(order.refundedAmount)}",
+                            isDiscount = true,
+                        )
+                        PriceRow(
+                            stringResource(Res.string.net_total),
+                            CurrencyFormatter.format(order.netTotal),
+                            isBold = true,
+                        )
+                    }
                     // Discount reason
                     val discountReason = order.discountReason
                     if (!discountReason.isNullOrBlank()) {
@@ -676,36 +736,48 @@ private fun OrderCard(
 
             // --- Action Buttons ---
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 OutlinedButton(
                     onClick = onViewReceipt,
-                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                 ) {
-                    Icon(Icons.Filled.Receipt, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.view_receipt))
+                    Icon(Icons.Filled.Receipt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(Res.string.view_receipt), maxLines = 1, style = MaterialTheme.typography.labelMedium)
                 }
                 if (onEdit != null) {
                     OutlinedButton(
                         onClick = onEdit,
-                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(Res.string.edit_order))
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(Res.string.edit_order), maxLines = 1, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 if (onSplitPayment != null) {
                     OutlinedButton(
                         onClick = onSplitPayment,
-                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
-                        Icon(Icons.Default.Payment, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(Res.string.split_payment))
+                        Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(Res.string.split_payment), maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (onReturn != null) {
+                    OutlinedButton(
+                        onClick = onReturn,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Icon(Icons.Default.AssignmentReturn, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(Res.string.returns_exchanges), maxLines = 1, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -890,7 +962,7 @@ private fun PaymentBottomSheet(
                 fontWeight = FontWeight.SemiBold,
             )
 
-            PaymentMethod.entries.forEach { method ->
+            PaymentMethod.entries.filter { it != PaymentMethod.SPLIT && it != PaymentMethod.CREDIT }.forEach { method ->
                 val isSelected = method == selectedMethod
                 Card(
                     modifier = Modifier
@@ -1130,6 +1202,212 @@ private fun EditOrderBottomSheet(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReturnBottomSheet(
+    order: Order,
+    returnItems: List<ReturnItemSelection>,
+    returnReason: String,
+    returnType: String,
+    isProcessing: Boolean,
+    exchangeMenuItems: List<net.marllex.waselak.core.model.Item> = emptyList(),
+    exchangeSelectedItem: net.marllex.waselak.core.model.Item? = null,
+    exchangeSearchQuery: String = "",
+    onReturnTypeChange: (String) -> Unit,
+    onReasonChange: (String) -> Unit,
+    onQuantityChange: (Int, Int) -> Unit,
+    onExchangeSearchChange: (String) -> Unit = {},
+    onExchangeItemSelect: (net.marllex.waselak.core.model.Item?) -> Unit = {},
+    onSubmit: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                stringResource(Res.string.returns_exchanges),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "#${order.id.takeLast(6).uppercase()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Return type selector
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = returnType == "RETURN",
+                    onClick = { onReturnTypeChange("RETURN") },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                ) { Text(stringResource(Res.string.return_label)) }
+                SegmentedButton(
+                    selected = returnType == "EXCHANGE",
+                    onClick = { onReturnTypeChange("EXCHANGE") },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                ) { Text(stringResource(Res.string.exchange_label)) }
+            }
+
+            // Reason
+            OutlinedTextField(
+                value = returnReason,
+                onValueChange = onReasonChange,
+                label = { Text(stringResource(Res.string.return_reason)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+
+            // Items with quantity selectors
+            Text(
+                stringResource(Res.string.select_return_items),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            returnItems.forEachIndexed { index, item ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.itemName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("${stringResource(Res.string.max_qty)}: ${item.maxQuantity}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            IconButton(
+                                onClick = { onQuantityChange(index, item.selectedQuantity - 1) },
+                                enabled = item.selectedQuantity > 0,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Text(
+                                "${item.selectedQuantity}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (item.selectedQuantity > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            )
+                            IconButton(
+                                onClick = { onQuantityChange(index, item.selectedQuantity + 1) },
+                                enabled = item.selectedQuantity < item.maxQuantity,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Exchange: replacement item picker
+            if (returnType == "EXCHANGE") {
+                HorizontalDivider()
+                Text(
+                    stringResource(Res.string.exchange_label) + " →",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+
+                // Selected item chip
+                if (exchangeSelectedItem != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(exchangeSelectedItem.name, fontWeight = FontWeight.SemiBold)
+                                Text(CurrencyFormatter.formatDecimal(exchangeSelectedItem.price), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { onExchangeItemSelect(null) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Search field
+                OutlinedTextField(
+                    value = exchangeSearchQuery,
+                    onValueChange = onExchangeSearchChange,
+                    label = { Text(stringResource(Res.string.search)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                // Items list (filtered)
+                val filteredItems = if (exchangeSearchQuery.isBlank()) {
+                    exchangeMenuItems.take(10)
+                } else {
+                    exchangeMenuItems.filter { it.name.contains(exchangeSearchQuery, ignoreCase = true) }.take(10)
+                }
+
+                if (filteredItems.isNotEmpty() && exchangeSelectedItem == null) {
+                    Column(
+                        modifier = Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        filteredItems.forEach { menuItem ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { onExchangeItemSelect(menuItem) },
+                                shape = RoundedCornerShape(6.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(menuItem.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text(CurrencyFormatter.formatDecimal(menuItem.price), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Submit
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing,
+                ) { Text(stringResource(Res.string.cancel)) }
+                Button(
+                    onClick = onSubmit,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing && returnReason.isNotBlank() && returnItems.any { it.selectedQuantity > 0 } &&
+                        (returnType != "EXCHANGE" || exchangeSelectedItem != null),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (isProcessing) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onError)
+                    else Text(stringResource(Res.string.submit_return))
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

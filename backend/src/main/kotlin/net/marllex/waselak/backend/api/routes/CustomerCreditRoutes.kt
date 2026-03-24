@@ -338,7 +338,7 @@ fun Route.customerCreditRoutes() {
         get("/debtors") {
             val trace = call.routeTrace()
             trace.step("List credit debtors")
-            val principal = requireRole("MANAGER")
+            val principal = requireRole("MANAGER", "CASHIER")
             planService.checkFeature(UUID.fromString(principal.vendorId), "CUSTOMER_CREDIT")
             val vendorUUID = UUID.fromString(principal.vendorId)
 

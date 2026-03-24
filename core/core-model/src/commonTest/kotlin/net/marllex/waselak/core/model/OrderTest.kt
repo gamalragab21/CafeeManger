@@ -174,10 +174,12 @@ class PaymentEnumsTest {
 
     @Test
     fun paymentMethodValues() {
-        assertEquals(3, PaymentMethod.entries.size)
+        assertEquals(5, PaymentMethod.entries.size)
         assertEquals("CASH", PaymentMethod.CASH.name)
         assertEquals("WALLET", PaymentMethod.WALLET.name)
         assertEquals("CARD", PaymentMethod.CARD.name)
+        assertEquals("SPLIT", PaymentMethod.SPLIT.name)
+        assertEquals("CREDIT", PaymentMethod.CREDIT.name)
     }
 
     @Test

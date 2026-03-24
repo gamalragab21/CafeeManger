@@ -10,10 +10,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.model.UserRole
+import net.marllex.waselak.core.common.logging.AppLogger
 
 class LoginViewModel constructor(
     private val authRepository: AuthRepository,
 ) : ViewModel() {
+    private companion object { private const val TAG = "Login" }
+
 
     data class UiState(
         val phone: String = "",
@@ -53,6 +56,7 @@ class LoginViewModel constructor(
             authRepository.login(state.phone, state.password, appType)
                 .onSuccess { user ->
                     if (isRoleAllowed(user.role, appType)) {
+                    AppLogger.i(TAG, "Data loaded successfully")
                         _uiState.update { it.copy(isLoading = false) }
                         onSuccess()
                     } else {

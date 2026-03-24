@@ -1,4 +1,5 @@
 package net.marllex.waselak.feature.delivery.orders
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -95,6 +96,8 @@ private fun localizedPayment(method: PaymentMethod): String = when (method) {
     PaymentMethod.CASH -> stringResource(Res.string.payment_cash)
     PaymentMethod.WALLET -> stringResource(Res.string.payment_wallet)
     PaymentMethod.CARD -> stringResource(Res.string.payment_card)
+    PaymentMethod.SPLIT -> stringResource(Res.string.payment_split)
+    PaymentMethod.CREDIT -> stringResource(Res.string.payment_credit)
 }
 
 private fun formatAmount(amount: Double, currency: String = "EGP"): String {
@@ -135,6 +138,8 @@ fun DeliveryReceiptScreen(
     val channelLabel = stringResource(Res.string.channel)
     val paymentLabel = stringResource(Res.string.payment)
     val cashierLabel = stringResource(Res.string.cashier)
+    val doctorLabel = stringResource(Res.string.doctor_label)
+    val diagnosisLabel = stringResource(Res.string.diagnosis_label)
     val clientLabel = stringResource(Res.string.client_name)
     val phoneLabel = stringResource(Res.string.client_phone)
     val addressLabel = stringResource(Res.string.client_address)
@@ -154,16 +159,9 @@ fun DeliveryReceiptScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(receiptTitle) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backStr)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = receiptTitle,
+                onNavigateBack = onBack,
             )
         },
     ) { padding ->
@@ -253,6 +251,8 @@ fun DeliveryReceiptScreen(
                                     ReceiptDataRow(channelLabel, localizedChannel(order.channel), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(paymentLabel, localizedPayment(order.paymentMethod), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(cashierLabel, order.cashierName ?: "-", labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    order.doctorName?.let { ReceiptDataRow(doctorLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
+                                    order.diagnosis?.let { ReceiptDataRow(diagnosisLabel, it, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary) }
                                 }
 
                                 // Client Info

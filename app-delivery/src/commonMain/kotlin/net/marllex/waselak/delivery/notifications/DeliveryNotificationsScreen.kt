@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,22 +34,11 @@ fun DeliveryNotificationsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(Res.string.notifications))
-                        if (uiState.count.hasUnread) {
-                            Badge { Text("${uiState.count.unread}") }
-                        }
-                    }
-                },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
+            WaselakTopAppBar(
+                title = stringResource(Res.string.notifications),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
                 actions = {
                     if (uiState.count.hasUnread) {
                         TextButton(onClick = viewModel::markAllRead) { Text(stringResource(Res.string.mark_all_read)) }
@@ -60,25 +50,26 @@ fun DeliveryNotificationsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.notifications.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
-            uiState.displayedNotifications.isEmpty() -> EmptyView(if (uiState.showUnreadOnly) stringResource(Res.string.no_unread_notifications) else stringResource(Res.string.no_notifications_yet))
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-            ) {
-                items(uiState.displayedNotifications, key = { it.id }) { notification ->
-                    NotificationCard(
-                        notification = notification,
-                        onMarkRead = { viewModel.markRead(notification.id) },
-                        onDelete = { viewModel.delete(notification.id) },
-                    )
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when {
+                uiState.isLoading && uiState.notifications.isEmpty() -> LoadingIndicator()
+                uiState.error != null && uiState.notifications.isEmpty() -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
+                uiState.displayedNotifications.isEmpty() -> EmptyView(if (uiState.showUnreadOnly) stringResource(Res.string.no_unread_notifications) else stringResource(Res.string.no_notifications_yet))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                ) {
+                    items(uiState.displayedNotifications, key = { it.id }) { notification ->
+                        NotificationCard(
+                            notification = notification,
+                            onMarkRead = { viewModel.markRead(notification.id) },
+                            onDelete = { viewModel.delete(notification.id) },
+                        )
+                    }
                 }
             }
         }

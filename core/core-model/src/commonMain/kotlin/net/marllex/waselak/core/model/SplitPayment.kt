@@ -12,7 +12,7 @@ data class OrderPayment(
     val id: String,
     val orderId: String,
     val vendorId: String,
-    val paymentMethod: String,   // CASH, CARD, WALLET, BANK_TRANSFER
+    val paymentMethod: String,   // CASH, CARD, WALLET
     val amount: Double,
     val paidBy: String? = null,
     val paidByName: String? = null,

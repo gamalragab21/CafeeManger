@@ -9,6 +9,7 @@ import net.marllex.waselak.core.database.di.databaseModule
 import net.marllex.waselak.core.network.di.networkModule
 import net.marllex.waselak.feature.auth.LoginViewModel
 import net.marllex.waselak.kds.display.KdsDisplayViewModel
+import net.marllex.waselak.kds.profile.KdsProfileViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -33,4 +34,5 @@ private val iosPlatformModule = module {
 private val kdsAppModule = module {
     viewModelOf(::LoginViewModel)
     viewModelOf(::KdsDisplayViewModel)
+    viewModelOf(::KdsProfileViewModel)
 }

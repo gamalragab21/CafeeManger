@@ -22,7 +22,9 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.ScheduledOrderRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
+import net.marllex.waselak.core.domain.repository.DrugInteractionRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
+import net.marllex.waselak.core.model.InteractionCheckResult
 import net.marllex.waselak.core.model.CartItem
 import net.marllex.waselak.core.model.Category
 import net.marllex.waselak.core.model.Customer
@@ -60,6 +62,7 @@ class PosViewModel constructor(
     private val offerRepository: OfferRepository,
     private val offlineModeManager: OfflineModeManager,
     private val api: WaselakApiClient,
+    private val drugInteractionRepository: DrugInteractionRepository,
 ) : ViewModel() {
 
     // Navigation args from reservation flow
@@ -137,6 +140,11 @@ class PosViewModel constructor(
         val showOfflineConfirmation: Boolean = false,
         // Scheduled order (PICKUP_LATER)
         val scheduledFor: Long? = null,
+        // Doctor / diagnosis (pharmacy)
+        val doctorName: String = "",
+        val diagnosis: String = "",
+        val showDrugInteractionWarning: Boolean = false,
+        val drugInteractionResult: InteractionCheckResult? = null,
         // Plan limit / feature gating
         val showPlanLimitDialog: Boolean = false,
         val planLimitMessage: String = "",
@@ -545,6 +553,9 @@ class PosViewModel constructor(
 
     fun setClientAddress(v: String) { _uiState.update { it.copy(clientAddress = v) } }
     fun setNotes(v: String) { _uiState.update { it.copy(notes = v) } }
+    fun updateDoctorName(name: String) { _uiState.update { it.copy(doctorName = name) } }
+    fun updateDiagnosis(text: String) { _uiState.update { it.copy(diagnosis = text) } }
+    fun dismissDrugInteractionWarning() { _uiState.update { it.copy(showDrugInteractionWarning = false) } }
 
     fun getSubtotal(): Double = _uiState.value.cart.fold(0.0) { acc, cartItem -> acc + cartItem.totalPrice }
 
@@ -715,6 +726,13 @@ class PosViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }
 
+            // CREDIT payment requires customer with phone — auto-create if phone exists
+            // If no customer info at all, just create order without credit tracking
+            if (paymentMethod == PaymentMethod.CREDIT && s.clientPhone.isBlank() && s.selectedCustomer == null) {
+                // Allow order creation without customer — no credit tracking, just a regular order marked as CREDIT
+                AppLogger.w("POS", "CREDIT payment without customer — order will be created without credit tracking")
+            }
+
             // Auto-create customer on submit if phone entered but no selectedCustomer
             var customerId = s.selectedCustomer?.id
             if (customerId == null && s.clientPhone.isNotBlank()) {
@@ -725,6 +743,22 @@ class PosViewModel constructor(
                     customerId = newCustomer.id
                     _uiState.update { it.copy(selectedCustomer = newCustomer) }
                 }
+            }
+
+            // Drug interaction check for pharmacy
+            if (s.businessType == "PHARMACY" && s.cart.size >= 2) {
+                val itemIds = s.cart.map { it.item.id }
+                drugInteractionRepository.checkInteractions(itemIds)
+                    .onSuccess { result ->
+                        if (result.hasInteractions && !s.showDrugInteractionWarning) {
+                            _uiState.update { it.copy(
+                                showDrugInteractionWarning = true,
+                                drugInteractionResult = result,
+                                isSubmitting = false,
+                            ) }
+                            return@launch
+                        }
+                    }
             }
 
             val orderItems = s.cart.map { cartItem ->
@@ -802,11 +836,13 @@ class PosViewModel constructor(
                             discount = scheduled.discount,
                             tax = scheduled.tax,
                             paymentMethod = paymentMethod,
+                            paymentTiming = PaymentTiming.PAY_LATER,
                             createdAt = scheduled.createdAt,
                             updatedAt = scheduled.updatedAt,
                         )
                         onSuccess(stubOrder)
-                        _uiState.update { it.copy(isSubmitting = false, createdOrder = stubOrder, cart = emptyList()) }
+                        clearOrder()
+                        _uiState.update { it.copy(isSubmitting = false, createdOrder = stubOrder) }
                     }
                     .onFailure { e ->
                         AppLogger.e("POS", "Scheduled order creation failed", e)
@@ -840,10 +876,13 @@ class PosViewModel constructor(
                     offerId = s.appliedOffer?.id,
                     pointsRedeemed = s.pointsToRedeem,
                     discountReason = discountReason,
+                    doctorName = s.doctorName.ifBlank { null },
+                    diagnosis = s.diagnosis.ifBlank { null },
                 ).onSuccess { order ->
                     AppLogger.i("POS", "Order submitted: id=${order.id}")
                     onSuccess(order)
-                    _uiState.update { it.copy(isSubmitting = false, createdOrder = order, cart = emptyList()) }
+                    clearOrder()
+                    _uiState.update { it.copy(isSubmitting = false, createdOrder = order) }
                     if (s.channel == OrderChannel.DINE_IN && s.selectedTableId != null) {
                         tableRepository.refreshTables()
                     }
@@ -882,6 +921,11 @@ class PosViewModel constructor(
                 isLookingUpCustomer = false,
                 phoneSearchResults = emptyList(),
                 showPhoneDropdown = false,
+                // Clear doctor/diagnosis & drug interactions
+                doctorName = "",
+                diagnosis = "",
+                showDrugInteractionWarning = false,
+                drugInteractionResult = null,
                 // Clear manual discount & points
                 manualDiscountValue = "",
                 manualDiscountType = "FIXED",

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +91,10 @@ fun OffersScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (uiState.isLoading && uiState.offers.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (uiState.offers.isEmpty() && !uiState.showForm) {
@@ -153,6 +157,7 @@ fun OffersScreen(
                 )
             }
         }
+        } // PullToRefreshBox
     }
 }
 

@@ -32,6 +32,12 @@
     <string name="phone_required">رقم التليفون مطلوب</string>
     <string name="address_required">عنوان التوصيل مطلوب</string>
     <string name="payment_timing">وقت الدفع</string>
+    <string name="payment_method_label">طريقة الدفع</string>
+    <string name="payment_cash">كاش</string>
+    <string name="payment_wallet">محفظة</string>
+    <string name="payment_card">بطاقة</string>
+    <string name="payment_split">تقسيم</string>
+    <string name="payment_credit">آجل</string>
     <string name="pay_now">ادفع دلوقتي</string>
     <string name="pay_later">ادفع بعدين</string>
     <string name="optional_hint">اختياري</string>
@@ -89,4 +95,11 @@
     <string name="select_time">اختار الوقت</string>
     <string name="scheduled_for_label">موعد الاستلام: %1$s</string>
     <string name="scheduled_time_required">تاريخ ووقت الاستلام مطلوب</string>
+    <!-- Pharmacy / Drug Interactions -->
+    <string name="channel_direct_dispense">صرف مباشر</string>
+    <string name="doctor_name">اسم الدكتور</string>
+    <string name="diagnosis">التشخيص</string>
+    <string name="drug_interaction_warning_title">تحذير تداخل أدوية</string>
+    <string name="drug_interaction_warning_message">تم اكتشاف تداخلات دوائية بين الأصناف في الطلب:</string>
+    <string name="drug_interaction_confirm">متابعة رغم التحذير</string>
 </resources>

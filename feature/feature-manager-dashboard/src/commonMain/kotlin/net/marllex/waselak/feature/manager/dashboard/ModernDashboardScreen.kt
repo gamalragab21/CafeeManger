@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.*
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +91,7 @@ fun BrandedTopBar(uiState: HomeDashboardUiState) {
             // Identity
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = uiState.vendor?.name ?: "Our Store",
+                    text = uiState.vendor?.name ?: stringResource(Res.string.our_store),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -138,10 +139,13 @@ fun ModernDashboardScreen(
     Scaffold(
         topBar = { BrandedTopBar(uiState) },
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -219,6 +223,7 @@ fun ModernDashboardScreen(
                 }
             }
         }
+        } // PullToRefreshBox
     }
 }
 

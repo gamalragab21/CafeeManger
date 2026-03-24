@@ -174,7 +174,11 @@ private fun localizedTabTitle(tab: ManagerTab, businessType: String = "RESTAURAN
         else -> stringResource(CoreRes.string.nav_orders)
     }
     ManagerTab.TABLES -> stringResource(CoreRes.string.nav_tables)
-    ManagerTab.MENU -> stringResource(CoreRes.string.nav_menu)
+    ManagerTab.MENU -> when (businessType) {
+        "PHARMACY" -> stringResource(CoreRes.string.nav_menu_medicines)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.nav_menu_products)
+        else -> stringResource(CoreRes.string.nav_menu)
+    }
     ManagerTab.OFFERS -> stringResource(CoreRes.string.nav_offers)
     ManagerTab.MORE -> stringResource(CoreRes.string.nav_more)
 }
@@ -339,8 +343,9 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val vendor = profileState.vendor
 
     // Compute visible tabs using domain features (works offline via cached vendor)
-    val domainFeatures = remember(vendor?.businessType) {
-        net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+    val domainFeatures = remember(vendor) {
+        if (vendor != null) net.marllex.waselak.core.model.DomainFeatures.forVendor(vendor)
+        else net.marllex.waselak.core.model.DomainFeatures.forType("RESTAURANT")
     }
 
     val visibleTabs = remember(vendor?.enableTables, domainFeatures) {
@@ -397,6 +402,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             onViewReceipt = { orderId ->
                                 navController.navigateToReceipt(orderId)
                             },
+                            businessType = vendor?.businessType,
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
@@ -482,6 +488,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                             onViewReceipt = { orderId ->
                                 navController.navigateToReceipt(orderId)
                             },
+                            businessType = vendor?.businessType,
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
@@ -547,12 +554,16 @@ private fun MenuTabContent() {
     val vendor = profileState.vendor
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf(
-        stringResource(CoreRes.string.tab_categories),
-        stringResource(CoreRes.string.tab_items),
-        stringResource(CoreRes.string.tab_stock),
-        stringResource(CoreRes.string.tab_digital_menu),
-    )
+    data class MenuTab(val title: String, val key: String)
+    val allTabs = buildList {
+        add(MenuTab(stringResource(CoreRes.string.tab_categories), "categories"))
+        add(MenuTab(stringResource(CoreRes.string.tab_items), "items"))
+        add(MenuTab(stringResource(CoreRes.string.tab_stock), "stock"))
+        if (vendor?.enableDigitalMenu != false) {
+            add(MenuTab(stringResource(CoreRes.string.tab_digital_menu), "digital_menu"))
+        }
+    }
+    val tabs = allTabs.map { it.title }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ScrollableTabRow(
@@ -594,17 +605,17 @@ private fun MenuTabContent() {
 
         Box(modifier = Modifier.fillMaxSize()) {
             val planFeatures = profileState.planInfo?.features
-            when (selectedTab) {
-                0 -> CategoriesScreen()
-                1 -> ItemsScreen()
-                2 -> {
+            when (allTabs.getOrNull(selectedTab)?.key) {
+                "categories" -> CategoriesScreen()
+                "items" -> ItemsScreen()
+                "stock" -> {
                     if (planFeatures != null && !planFeatures.stockManagement) {
                         FeatureNotAvailableView()
                     } else {
-                        StockScreen()
+                        StockScreen(showRecipes = vendor?.enableRecipe != false)
                     }
                 }
-                3 -> {
+                "digital_menu" -> {
                     if (planFeatures != null && planFeatures.digitalMenu == "NONE") {
                         FeatureNotAvailableView()
                     } else {
@@ -817,6 +828,7 @@ private fun MoreTabContent(
                 } else {
                     AnalyticsScreen(
                         onNavigateBack = { activeSubScreen = null },
+                        businessType = vendor?.businessType,
                     )
                 }
             }
@@ -914,6 +926,12 @@ private fun MoreTabContent(
 
             "drug_interactions" -> {
                 DrugInteractionsScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "doctor_stats" -> {
+                net.marllex.waselak.manager.doctorstats.DoctorStatsScreen(
                     onNavigateBack = { activeSubScreen = null },
                 )
             }
@@ -1041,21 +1059,22 @@ private fun MoreTabContent(
                         // ── Store Features Grid ──
                         MoreSectionHeader(stringResource(CoreRes.string.store_features))
 
-                        val features = net.marllex.waselak.core.model.DomainFeatures.forType(vendor?.businessType ?: "RESTAURANT")
+                        val features = if (vendor != null) net.marllex.waselak.core.model.DomainFeatures.forVendor(vendor) else net.marllex.waselak.core.model.DomainFeatures.forType("RESTAURANT")
                         // Build items with visibility flags based on business type
                         val allStoreEntries = listOf(
-                            Triple(Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)), { activeSubScreen = "analytics" }, true),
+                            Triple(Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)), { activeSubScreen = "analytics" }, vendor?.enableAnalytics != false),
                             Triple(Triple(Icons.Filled.People, stringResource(CoreRes.string.nav_staff), Color(0xFF2E7D32)), { activeSubScreen = "staff" }, true),
                             Triple(Triple(Icons.Filled.Groups, stringResource(CoreRes.string.nav_customers), Color(0xFF6A1B9A)), { activeSubScreen = "customers" }, true),
                             Triple(Triple(Icons.Filled.Security, stringResource(CoreRes.string.roles_permissions), Color(0xFFE65100)), { activeSubScreen = "users" }, true),
                             Triple(Triple(Icons.Filled.CardGiftcard, stringResource(CoreRes.string.loyalty_and_discounts), Color(0xFFF57C00)), { activeSubScreen = "loyalty_discounts" }, features.hasOffers),
-                            Triple(Triple(Icons.Filled.Inventory, stringResource(CoreRes.string.suppliers), Color(0xFF00695C)), { activeSubScreen = "suppliers" }, features.hasSuppliers),
-                            Triple(Triple(Icons.Filled.SwapHoriz, stringResource(CoreRes.string.returns_exchanges), Color(0xFFC62828)), { activeSubScreen = "returns" }, features.hasReturns),
-                            Triple(Triple(Icons.Filled.Schedule, stringResource(CoreRes.string.scheduled_orders), Color(0xFF4527A0)), { activeSubScreen = "scheduled_orders" }, features.hasPreOrders),
-                            Triple(Triple(Icons.Filled.Notifications, stringResource(CoreRes.string.notifications), Color(0xFF1565C0)), { activeSubScreen = "notifications" }, true),
-                            Triple(Triple(Icons.Filled.LocalPharmacy, stringResource(CoreRes.string.drug_interactions), Color(0xFF2E7D32)), { activeSubScreen = "drug_interactions" }, features.hasDrugInteractions),
-                            Triple(Triple(Icons.Filled.CreditCard, stringResource(CoreRes.string.customer_credit), Color(0xFF6A1B9A)), { activeSubScreen = "customer_credit" }, features.hasCustomerCredit),
-                            Triple(Triple(Icons.Filled.PointOfSale, stringResource(CoreRes.string.cash_drawer), Color(0xFF5D4037)), { activeSubScreen = "cash_drawer" }, true),
+                            Triple(Triple(Icons.Filled.Inventory, stringResource(CoreRes.string.suppliers), Color(0xFF00695C)), { activeSubScreen = "suppliers" }, features.hasSuppliers && vendor?.enableSuppliers != false),
+                            Triple(Triple(Icons.Filled.SwapHoriz, stringResource(CoreRes.string.returns_exchanges), Color(0xFFC62828)), { activeSubScreen = "returns" }, features.hasReturns && vendor?.enableReturns != false),
+                            Triple(Triple(Icons.Filled.Schedule, stringResource(CoreRes.string.scheduled_orders), Color(0xFF4527A0)), { activeSubScreen = "scheduled_orders" }, features.hasPreOrders && vendor?.enableScheduledOrders != false),
+                            Triple(Triple(Icons.Filled.Notifications, stringResource(CoreRes.string.notifications), Color(0xFF1565C0)), { activeSubScreen = "notifications" }, vendor?.enableAnnouncements != false),
+                            Triple(Triple(Icons.Filled.LocalPharmacy, stringResource(CoreRes.string.drug_interactions), Color(0xFF2E7D32)), { activeSubScreen = "drug_interactions" }, features.hasDrugInteractions && vendor?.enableDrugInteractions != false),
+                            Triple(Triple(Icons.Filled.Person, stringResource(CoreRes.string.doctor_stats), Color(0xFF1565C0)), { activeSubScreen = "doctor_stats" }, features.hasDrugInteractions && vendor?.enableDrugInteractions != false),
+                            Triple(Triple(Icons.Filled.CreditCard, stringResource(CoreRes.string.customer_credit), Color(0xFF6A1B9A)), { activeSubScreen = "customer_credit" }, features.hasCustomerCredit && vendor?.enableCustomerCredit != false),
+                            Triple(Triple(Icons.Filled.PointOfSale, stringResource(CoreRes.string.cash_drawer), Color(0xFF5D4037)), { activeSubScreen = "cash_drawer" }, vendor?.enableCashDrawer != false),
                         ).filter { it.third }
                         val storeItems = allStoreEntries.map { it.first }
                         val storeActions = allStoreEntries.map { it.second }

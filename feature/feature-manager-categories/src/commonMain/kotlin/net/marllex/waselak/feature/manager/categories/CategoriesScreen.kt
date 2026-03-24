@@ -1,6 +1,7 @@
 package net.marllex.waselak.feature.manager.categories
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,11 +59,10 @@ fun CategoriesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.categories)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.categories),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::loadCategories,
             )
         },
         floatingActionButton = {
@@ -73,26 +74,30 @@ fun CategoriesScreen(
             }
         },
     ) { padding ->
-        when {
-            uiState.isLoading -> LoadingIndicator()
-            uiState.error != null && uiState.categories.isEmpty() -> ErrorView(
-                message = uiState.error!!,
-                onRetry = viewModel::loadCategories,
-            )
-            uiState.categories.isEmpty() -> EmptyView(stringResource(Res.string.no_categories))
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(uiState.categories, key = { it.id }) { category ->
-                    CategoryCard(
-                        category = category,
-                        onEdit = { viewModel.showEditDialog(category) },
-                        onDelete = { viewModel.deleteCategory(category.id) },
-                    )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when {
+                uiState.isLoading -> LoadingIndicator()
+                uiState.error != null && uiState.categories.isEmpty() -> ErrorView(
+                    message = uiState.error!!,
+                    onRetry = viewModel::loadCategories,
+                )
+                uiState.categories.isEmpty() -> EmptyView(stringResource(Res.string.no_categories))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(uiState.categories, key = { it.id }) { category ->
+                        CategoryCard(
+                            category = category,
+                            onEdit = { viewModel.showEditDialog(category) },
+                            onDelete = { viewModel.deleteCategory(category.id) },
+                        )
+                    }
                 }
             }
         }

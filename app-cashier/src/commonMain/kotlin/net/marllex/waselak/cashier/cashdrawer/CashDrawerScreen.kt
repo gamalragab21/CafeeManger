@@ -21,8 +21,10 @@ import net.marllex.waselak.core.model.CashMovement
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
 import net.marllex.waselak.core.ui.components.LoadingIndicator
+import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import waselak.app_cashier.generated.resources.total
 import waselak.core.core_ui.generated.resources.Res
 import waselak.core.core_ui.generated.resources.*
 
@@ -36,17 +38,11 @@ fun CashDrawerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.cash_drawer)) },
-                navigationIcon = {
-                    if (onNavigateBack != null) {
-                        IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::load) { Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.refresh)) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            WaselakTopAppBar(
+                title = stringResource(Res.string.cash_drawer),
+                isLoading = uiState.isLoading,
+                onRefresh = viewModel::load,
+                onNavigateBack = onNavigateBack,
             )
         },
         floatingActionButton = {
@@ -60,7 +56,7 @@ fun CashDrawerScreen(
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             when {
                 uiState.isLoading -> LoadingIndicator()
                 uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
@@ -165,6 +161,75 @@ private fun CurrentSessionContent(session: CashDrawerSession, summary: net.marll
             }
         }
 
+        // Orders Summary
+        if (summary != null && summary.totalOrders > 0) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(Res.string.total_orders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("${summary.totalOrders}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(Res.string.total_revenue), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${summary.totalSales}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Channel Breakdown
+        if (summary != null && summary.channels.isNotEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(stringResource(Res.string.channel_breakdown), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        summary.channels.forEach { ch ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text(ch.channel, style = MaterialTheme.typography.bodyMedium)
+                                    Text("${ch.orderCount} ${stringResource(Res.string.orders)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text("${ch.totalAmount}", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Payment Method Breakdown
+        if (summary != null && summary.totalSales > 0) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(stringResource(Res.string.payment_distribution), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        if (summary.cashSales > 0) {
+                            PaymentMethodRow(stringResource(Res.string.payment_cash), summary.cashOrderCount, summary.cashSales, Color(0xFF4CAF50))
+                        }
+                        if (summary.cardSales > 0) {
+                            PaymentMethodRow(stringResource(Res.string.payment_card), summary.cardOrderCount, summary.cardSales, Color(0xFF2196F3))
+                        }
+                        if (summary.walletSales > 0) {
+                            PaymentMethodRow(stringResource(Res.string.payment_wallet), summary.walletOrderCount, summary.walletSales, Color(0xFFFF9800))
+                        }
+                        if (summary.creditSales > 0) {
+                            PaymentMethodRow(stringResource(Res.string.payment_credit), summary.creditOrderCount, summary.creditSales, Color(0xFF9C27B0))
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(Res.string.total), fontWeight = FontWeight.Bold)
+                            Text("${summary.totalSales}", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         // Movements
         item {
             Text(stringResource(Res.string.movements_count, movements.size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
@@ -185,7 +250,15 @@ private fun MovementRow(movement: CashMovement) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(movement.type, style = MaterialTheme.typography.labelMedium, color = color)
+                val typeLabel = when (movement.type) {
+                    "CASH_IN" -> stringResource(Res.string.movement_cash_in)
+                    "CASH_OUT" -> stringResource(Res.string.movement_cash_out)
+                    "SALE" -> stringResource(Res.string.movement_sale)
+                    "REFUND" -> stringResource(Res.string.movement_refund)
+                    "ADJUSTMENT" -> stringResource(Res.string.movement_adjustment)
+                    else -> movement.type
+                }
+                Text(typeLabel, style = MaterialTheme.typography.labelMedium, color = color)
                 movement.reason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 movement.createdByName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -195,12 +268,34 @@ private fun MovementRow(movement: CashMovement) {
 }
 
 @Composable
+private fun PaymentMethodRow(label: String, count: Int, amount: Double, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(4.dp), color = color, modifier = Modifier.size(8.dp)) {}
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(" ($count)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("$amount", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = color)
+    }
+}
+
+@Composable
 private fun SessionCard(session: CashDrawerSession) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(session.cashierName ?: stringResource(Res.string.cashier), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                SuggestionChip(onClick = {}, label = { Text(session.status) })
+                val statusLabel = when (session.status) {
+                    "OPEN" -> stringResource(Res.string.session_status_open)
+                    "CLOSED" -> stringResource(Res.string.session_status_closed)
+                    else -> session.status
+                }
+                SuggestionChip(onClick = {}, label = { Text(statusLabel) })
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(stringResource(Res.string.session_open_balance, "${session.openingBalance}")); Text(stringResource(Res.string.session_close_balance, "${session.closingBalance ?: "-"}"))

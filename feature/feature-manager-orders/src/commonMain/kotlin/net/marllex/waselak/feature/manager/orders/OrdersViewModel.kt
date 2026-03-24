@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.domain.repository.OrderRepository
+import net.marllex.waselak.core.domain.repository.ItemRepository
+import net.marllex.waselak.core.domain.repository.ReturnRepository
 import net.marllex.waselak.core.domain.repository.TableRepository
 import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.Order
@@ -19,11 +22,23 @@ import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
+import net.marllex.waselak.core.network.dto.CreateReturnRequest
+import net.marllex.waselak.core.network.dto.CreateReturnItemRequest
+
+data class ReturnItemSelection(
+    val orderItemId: String,
+    val itemName: String,
+    val maxQuantity: Int,
+    val selectedQuantity: Int = 0,
+    val reason: String = "",
+)
 
 class OrdersViewModel constructor(
     private val orderRepository: OrderRepository,
     private val userRepository: UserManagementRepository,
     private val tableRepository: TableRepository,
+    private val returnRepository: ReturnRepository,
+    private val itemRepository: ItemRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -62,6 +77,17 @@ class OrdersViewModel constructor(
         val refundingOrder: Order? = null,
         val refundReason: String = "",
         val isRefundProcessing: Boolean = false,
+        // Return dialog
+        val showReturnDialog: Boolean = false,
+        val returningOrder: Order? = null,
+        val returnItems: List<ReturnItemSelection> = emptyList(),
+        val returnReason: String = "",
+        val returnType: String = "RETURN", // RETURN or EXCHANGE
+        val isReturnProcessing: Boolean = false,
+        // Exchange: replacement item selection
+        val exchangeMenuItems: List<net.marllex.waselak.core.model.Item> = emptyList(),
+        val exchangeSelectedItem: net.marllex.waselak.core.model.Item? = null,
+        val exchangeSearchQuery: String = "",
         // Pagination
         val currentOffset: Int = 0,
         val totalCount: Int = 0,
@@ -493,6 +519,121 @@ class OrdersViewModel constructor(
             }.onFailure { e ->
                 AppLogger.e("Orders", "Refund failed", e)
                 _uiState.update { it.copy(isRefundProcessing = false, error = e.message) }
+            }
+        }
+    }
+
+    // ─── Return / Exchange ─────────────────────────────────────────
+
+    fun showReturnDialog(order: Order) {
+        AppLogger.d("Orders", "showReturnDialog: orderId=${order.id}")
+        viewModelScope.launch {
+            orderRepository.fetchOrder(order.id).onSuccess { fullOrder ->
+                // Get previous returns to calculate remaining returnable qty
+                val previousReturns = returnRepository.getReturns(orderId = fullOrder.id).getOrNull() ?: emptyList()
+                val returnedQtyMap = mutableMapOf<String, Int>()
+                previousReturns.filter { it.status == "COMPLETED" }.forEach { ret ->
+                    ret.items.forEach { ri ->
+                        returnedQtyMap[ri.orderItemId] = (returnedQtyMap[ri.orderItemId] ?: 0) + ri.quantity
+                    }
+                }
+
+                _uiState.update {
+                    it.copy(
+                        showReturnDialog = true,
+                        returningOrder = fullOrder,
+                        returnItems = fullOrder.items.mapNotNull { item ->
+                            val alreadyReturned = returnedQtyMap[item.id] ?: 0
+                            val remaining = item.quantity - alreadyReturned
+                            if (remaining > 0) {
+                                ReturnItemSelection(
+                                    orderItemId = item.id,
+                                    itemName = item.itemNameSnapshot,
+                                    maxQuantity = remaining,
+                                )
+                            } else null // Hide fully returned items
+                        },
+                        returnReason = "",
+                        returnType = "RETURN",
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissReturnDialog() {
+        _uiState.update { it.copy(showReturnDialog = false, returningOrder = null, returnItems = emptyList()) }
+    }
+
+    fun setReturnType(type: String) {
+        _uiState.update { it.copy(returnType = type) }
+        if (type == "EXCHANGE" && _uiState.value.exchangeMenuItems.isEmpty()) {
+            viewModelScope.launch {
+                try {
+                    val items = itemRepository.getItems().first()
+                    _uiState.update { it.copy(exchangeMenuItems = items) }
+                } catch (e: Exception) {
+                    AppLogger.e("Orders", "Failed to load menu items for exchange", e)
+                }
+            }
+        }
+    }
+    fun setReturnReason(reason: String) { _uiState.update { it.copy(returnReason = reason) } }
+    fun setExchangeSearchQuery(query: String) { _uiState.update { it.copy(exchangeSearchQuery = query) } }
+    fun selectExchangeItem(item: net.marllex.waselak.core.model.Item?) { _uiState.update { it.copy(exchangeSelectedItem = item) } }
+
+    fun updateReturnItemQuantity(index: Int, qty: Int) {
+        _uiState.update { state ->
+            state.copy(returnItems = state.returnItems.toMutableList().apply {
+                val item = this[index]
+                this[index] = item.copy(selectedQuantity = qty.coerceIn(0, item.maxQuantity))
+            })
+        }
+    }
+
+    fun submitReturn() {
+        val s = _uiState.value
+        val order = s.returningOrder ?: return
+        val selectedItems = s.returnItems.filter { it.selectedQuantity > 0 }
+        if (selectedItems.isEmpty() || s.returnReason.isBlank()) return
+        // For exchange, require a replacement item
+        if (s.returnType == "EXCHANGE" && s.exchangeSelectedItem == null) return
+
+        val reason = if (s.returnType == "EXCHANGE" && s.exchangeSelectedItem != null) {
+            "${s.returnReason} | Replacement: ${s.exchangeSelectedItem.name}"
+        } else s.returnReason
+
+        AppLogger.d("Orders", "submitReturn: orderId=${order.id}, items=${selectedItems.size}, type=${s.returnType}")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isReturnProcessing = true) }
+            returnRepository.createReturn(
+                CreateReturnRequest(
+                    orderId = order.id,
+                    returnType = s.returnType,
+                    reason = reason,
+                    items = selectedItems.map {
+                        CreateReturnItemRequest(
+                            orderItemId = it.orderItemId,
+                            quantity = it.selectedQuantity,
+                            reason = it.reason.ifBlank { null },
+                        )
+                    },
+                    exchangeItemId = s.exchangeSelectedItem?.id,
+                    exchangeQuantity = 1,
+                )
+            ).onSuccess {
+                AppLogger.i("Orders", "Return created successfully")
+                _uiState.update {
+                    it.copy(
+                        isReturnProcessing = false, showReturnDialog = false,
+                        returningOrder = null, returnItems = emptyList(),
+                        exchangeSelectedItem = null, exchangeSearchQuery = "",
+                    )
+                }
+                loadOrders()
+            }.onFailure { e ->
+                AppLogger.e("Orders", "Return failed", e)
+                _uiState.update { it.copy(isReturnProcessing = false, error = e.message) }
             }
         }
     }

@@ -29,6 +29,19 @@ fun VendorResponse.toDomain() = Vendor(
     biometricRequired = biometricRequired,
     enableOfflineMode = enableOfflineMode,
     digitalMenuUrl = digitalMenuUrl,
+    enableDigitalMenu = enableDigitalMenu,
+    enableRecipe = enableRecipe,
+    enableSplitPayment = enableSplitPayment,
+    enableCashDrawer = enableCashDrawer,
+    enableReturns = enableReturns,
+    enableCustomerCredit = enableCustomerCredit,
+    enablePreOrders = enablePreOrders,
+    enableScheduledOrders = enableScheduledOrders,
+    enableSuppliers = enableSuppliers,
+    enableDrugInteractions = enableDrugInteractions,
+    enablePrescriptions = enablePrescriptions,
+    enableAnalytics = enableAnalytics,
+    enableAnnouncements = enableAnnouncements,
     loyaltyEnabled = loyaltyEnabled,
     pointsEarnRate = pointsEarnRate,
     pointsRedeemRate = pointsRedeemRate,
@@ -198,6 +211,10 @@ fun OrderResponse.toDomain() = Order(
     refundedAt = refundedAt,
     refundedBy = refundedBy,
     refundReason = refundReason,
+    refundedAmount = refundedAmount,
+    returnedItemCount = returnedItemCount,
+    doctorName = doctorName,
+    diagnosis = diagnosis,
 )
 
 fun OrderItemResponse.toDomain() = OrderItem(
@@ -833,6 +850,16 @@ fun DrawerSummaryResponse.toDomain() = DrawerSummary(
     totalRefunds = totalRefunds,
     expectedBalance = expectedBalance,
     movementCount = movementCount,
+    totalOrders = totalOrders,
+    cashSales = cashSales,
+    cardSales = cardSales,
+    walletSales = walletSales,
+    creditSales = creditSales,
+    cashOrderCount = cashOrderCount,
+    cardOrderCount = cardOrderCount,
+    walletOrderCount = walletOrderCount,
+    creditOrderCount = creditOrderCount,
+    channels = channels.map { ChannelSummary(channel = it.channel, orderCount = it.orderCount, totalAmount = it.totalAmount) },
 )
 
 // ─── Split Payment Mappers ──────────────────────────────────────
@@ -847,6 +874,8 @@ fun OrderPaymentResponse.toDomain() = OrderPayment(
     note = note,
     createdAt = createdAt,
 )
+
+fun AddPaymentResponse.toDomain() = payment.toDomain()
 
 fun SplitPaymentSummaryResponse.toDomain() = SplitPaymentSummary(
     orderId = orderId,
@@ -1049,6 +1078,10 @@ fun ProductReturnResponse.toDomain() = ProductReturn(
     processedAt = processedAt,
     notes = notes,
     items = items.map { it.toDomain() },
+    exchangeItemId = exchangeItemId,
+    exchangeItemName = exchangeItemName,
+    exchangeItemPrice = exchangeItemPrice,
+    exchangeQuantity = exchangeQuantity,
     createdAt = createdAt,
 )
 
@@ -1107,4 +1140,43 @@ fun DeviceTokenResponse.toDomain() = DeviceToken(
     active = active,
     lastUsedAt = lastUsedAt,
     createdAt = createdAt,
+)
+
+// ─── Credit Analytics Mappers ──────────────────────────────────
+fun CreditAnalyticsResponse.toDomain() = CreditAnalytics(
+    totalOutstanding = totalOutstanding,
+    totalCreditLimit = totalCreditLimit,
+    utilizationPercent = utilizationPercent,
+    totalCreditCustomers = totalCreditCustomers,
+    totalCharges = totalCharges,
+    totalPayments = totalPayments,
+    creditOrdersCount = creditOrdersCount,
+    creditOrdersRevenue = creditOrdersRevenue,
+    topDebtors = topDebtors.map { it.toDomain() },
+)
+
+fun CreditDebtorResponse.toDomain() = CreditDebtor(
+    customerName = customerName,
+    customerPhone = customerPhone,
+    balance = balance,
+    creditLimit = creditLimit,
+)
+
+fun DoctorStatsResponse.toDomain() = DoctorStats(
+    doctorName = doctorName,
+    prescriptionCount = prescriptionCount,
+    totalItems = totalItems,
+    totalRevenue = totalRevenue,
+)
+
+// ─── Returns Analytics Mappers ──────────────────────────────────
+fun ReturnsAnalyticsResponse.toDomain() = ReturnsAnalytics(
+    totalReturns = totalReturns,
+    totalRefunds = totalRefunds,
+    totalExchanges = totalExchanges,
+    totalRefundedAmount = totalRefundedAmount,
+    totalExchangedAmount = totalExchangedAmount,
+    totalReturnedItems = totalReturnedItems,
+    returnedItemsBreakdown = returnedItemsBreakdown.map { ReturnedItemBreakdown(itemName = it.itemName, totalQuantity = it.totalQuantity, totalAmount = it.totalAmount) },
+    exchangeItems = exchangeItems.map { ExchangeItemBreakdown(itemName = it.itemName, quantity = it.quantity, price = it.price) },
 )

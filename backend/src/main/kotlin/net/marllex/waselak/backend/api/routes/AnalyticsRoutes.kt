@@ -448,5 +448,60 @@ fun Route.analyticsRoutes() {
             trace.step("Revenue stats fetch completed")
             call.respond(HttpStatusCode.OK, revenue)
         }
+
+        // Doctor statistics (pharmacy)
+        get("/doctors") {
+            val trace = call.routeTrace()
+            trace.step("Doctor stats started")
+            val principal = requireRole("MANAGER", "CASHIER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+            val from = call.parameters["from"]?.toLongOrNull()
+            val to = call.parameters["to"]?.toLongOrNull()
+
+            val stats = transaction {
+                var query = OrdersTable
+                    .innerJoin(OrderItemsTable)
+                    .selectAll()
+                    .where {
+                        (OrdersTable.vendorId eq vendorUUID) and
+                        (OrdersTable.doctorName.isNotNull()) and
+                        (OrdersTable.doctorName neq "")
+                    }
+                from?.let { f ->
+                    query = query.andWhere { OrdersTable.createdAt greaterEq Instant.fromEpochMilliseconds(f) }
+                }
+                to?.let { t ->
+                    query = query.andWhere { OrdersTable.createdAt lessEq Instant.fromEpochMilliseconds(t) }
+                }
+
+                val rows = query.toList()
+                val grouped = rows.groupBy { it[OrdersTable.doctorName]!! }
+
+                grouped.map { (doctorName, doctorRows) ->
+                    val orderIds = doctorRows.map { it[OrdersTable.id] }.distinct()
+                    val totalItems = doctorRows.sumOf { it[OrderItemsTable.quantity] }
+                    val totalRevenue = orderIds.map { oid ->
+                        doctorRows.first { it[OrdersTable.id] == oid }[OrdersTable.total].toDouble()
+                    }.distinct().sum()
+
+                    DoctorStatsDto(
+                        doctor_name = doctorName,
+                        prescription_count = orderIds.size,
+                        total_items = totalItems,
+                        total_revenue = totalRevenue,
+                    )
+                }.sortedByDescending { it.total_revenue }
+            }
+            trace.step("Doctor stats completed", mapOf("count" to stats.size.toString()))
+            call.respond(HttpStatusCode.OK, stats)
+        }
     }
 }
+
+@Serializable
+data class DoctorStatsDto(
+    val doctor_name: String,
+    val prescription_count: Int,
+    val total_items: Int,
+    val total_revenue: Double,
+)

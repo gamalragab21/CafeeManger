@@ -41,6 +41,13 @@ data class CreateOrderPaymentDto(
 )
 
 @Serializable
+data class AddPaymentResponseDto(
+    val payment: OrderPaymentDto,
+    val is_fully_paid: Boolean,
+    val remaining: Double,
+)
+
+@Serializable
 data class SplitPaymentSummaryDto(
     val order_id: String,
     val order_total: Double,
@@ -109,7 +116,7 @@ fun Route.splitPaymentRoutes() {
                 ?: throw IllegalArgumentException("Order ID required")
             val request = call.receive<CreateOrderPaymentDto>()
 
-            require(request.payment_method in listOf("CASH", "CARD", "WALLET", "BANK_TRANSFER")) {
+            require(request.payment_method in listOf("CASH", "CARD", "WALLET")) {
                 "Invalid payment method: ${request.payment_method}"
             }
             require(request.amount > 0) { "Payment amount must be positive" }
@@ -208,10 +215,10 @@ fun Route.splitPaymentRoutes() {
 
                 val newRemaining = (orderTotal - newTotalPaid).toDouble()
 
-                mapOf(
-                    "payment" to payment,
-                    "is_fully_paid" to isFullyPaid,
-                    "remaining" to if (newRemaining < 0.01) 0.0 else newRemaining,
+                AddPaymentResponseDto(
+                    payment = payment,
+                    is_fully_paid = isFullyPaid,
+                    remaining = if (newRemaining < 0.01) 0.0 else newRemaining,
                 )
             }
             trace.step("Split payment added", mapOf("orderId" to orderId, "method" to request.payment_method))
