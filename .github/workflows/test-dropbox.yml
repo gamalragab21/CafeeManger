@@ -9,6 +9,9 @@ name: Test Dropbox Upload
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   test-upload:
