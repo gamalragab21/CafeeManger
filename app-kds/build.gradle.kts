@@ -45,6 +45,10 @@ compose.desktop {
             windows {
                 val ico = project.file("src/desktopMain/resources/icon.ico")
                 if (ico.exists()) iconFile.set(ico)
+                menuGroup = "Waselak"
+                shortcut = true
+                perUserInstall = true
+                upgradeUuid = "d4e5f6a7-b8c9-0123-defa-234567890123"
             }
             linux {
                 val png = project.file("src/desktopMain/resources/icon.png")
