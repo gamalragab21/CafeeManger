@@ -482,80 +482,100 @@ jobs:
 
           echo "✅ Start message sent"
 
-          # ── Upload debug APKs ──
-          curl -s -X POST "${API}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "parse_mode=HTML" \
-            -d "text=🐛 <b>Debug Builds (Android)</b>" > /dev/null
+          # ── Helper function ──
+          send_msg() {
+            curl -s -X POST "${API}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "text=$1" > /dev/null
+          }
+
+          send_file() {
+            local file="$1"
+            local caption="$2"
+            curl -s -X POST "${API}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "document=@${file}" \
+              -F "caption=${caption}" \
+              -F "parse_mode=HTML" > /dev/null
+          }
+
+          # ── Debug APKs section ──
+          send_msg "🐛 <b>Debug Builds (Android)</b>"
+          sleep 1
 
           for FILE in all-artifacts/debug/*.apk; do
             if [ -f "$FILE" ]; then
               FILENAME=$(basename "$FILE")
+              APP=$(echo "$FILENAME" | cut -d'-' -f1)
               GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
               echo "  Sending: $FILENAME"
-              curl -s -X POST "${API}/sendDocument" \
-                -F "chat_id=${TELEGRAM_CHAT_ID}" \
-                -F "document=@${FILE}" \
-                -F "caption=🐛 <b>${FILENAME}</b>
-          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>" \
-                -F "parse_mode=HTML" > /dev/null
+              CAPTION="🐛 <b>${APP^} - Debug</b>
+          📄 ${FILENAME}
+          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>"
+              send_file "$FILE" "$CAPTION"
               echo "  ✅ $FILENAME"
-              sleep 2
+              sleep 3
             fi
           done
 
-          # ── Upload release APKs ──
-          curl -s -X POST "${API}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "parse_mode=HTML" \
-            -d "text=✅ <b>Release Builds (Android - Signed)</b>" > /dev/null
+          # ── Release APKs section ──
+          send_msg "✅ <b>Release Builds (Android - Signed)</b>"
+          sleep 1
 
           for FILE in all-artifacts/release/*.apk; do
             if [ -f "$FILE" ]; then
               FILENAME=$(basename "$FILE")
+              APP=$(echo "$FILENAME" | cut -d'-' -f1)
               GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
               echo "  Sending: $FILENAME"
-              curl -s -X POST "${API}/sendDocument" \
-                -F "chat_id=${TELEGRAM_CHAT_ID}" \
-                -F "document=@${FILE}" \
-                -F "caption=✅ <b>${FILENAME}</b>
-          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>" \
-                -F "parse_mode=HTML" > /dev/null
+              CAPTION="✅ <b>${APP^} - Release</b>
+          📄 ${FILENAME}
+          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>"
+              send_file "$FILE" "$CAPTION"
               echo "  ✅ $FILENAME"
-              sleep 2
+              sleep 3
             fi
           done
 
-          # ── Upload desktop packages (links only — files too large for Telegram) ──
-          DESKTOP_MSG="🖥️ <b>Desktop Packages</b>\n\n"
-          HAS_DESKTOP=false
-          for FILE in all-artifacts/release/*.deb all-artifacts/release/*.dmg all-artifacts/release/*.msi; do
-            if [ -f "$FILE" ]; then
-              FILENAME=$(basename "$FILE")
-              GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
-              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
-              MB=$((FILESIZE / 1024 / 1024))
-              DESKTOP_MSG="${DESKTOP_MSG}📎 <b>${FILENAME}</b> (${MB} MB)\n📥 <a href=\"${GITHUB_URL}\">Download</a>\n\n"
-              HAS_DESKTOP=true
+          # ── Desktop packages (per platform) ──
+          for PLATFORM_NAME in linux macos windows; do
+            case "$PLATFORM_NAME" in
+              linux)  EXT="deb"; ICON="🐧"; LABEL="Linux (.deb)" ;;
+              macos)  EXT="dmg"; ICON="🍎"; LABEL="macOS (.dmg)" ;;
+              windows) EXT="msi"; ICON="🪟"; LABEL="Windows (.msi)" ;;
+            esac
+
+            DESKTOP_TEXT="${ICON} <b>Desktop - ${LABEL}</b>"
+            HAS_FILES=false
+            for FILE in all-artifacts/release/*.${EXT}; do
+              if [ -f "$FILE" ]; then
+                FILENAME=$(basename "$FILE")
+                APP=$(echo "$FILENAME" | cut -d'-' -f1)
+                GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
+                FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
+                MB=$((FILESIZE / 1024 / 1024))
+                DESKTOP_TEXT="${DESKTOP_TEXT}
+          📎 <b>${APP^}</b> — ${MB} MB
+              <a href=\"${GITHUB_URL}\">⬇️ Download ${FILENAME}</a>"
+                HAS_FILES=true
+              fi
+            done
+
+            if [ "$HAS_FILES" = true ]; then
+              send_msg "$DESKTOP_TEXT"
+              sleep 1
             fi
           done
-
-          if [ "$HAS_DESKTOP" = true ]; then
-            curl -s -X POST "${API}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "parse_mode=HTML" \
-              -d "text=${DESKTOP_MSG}" > /dev/null
-          fi
 
           # ── End message ──
-          curl -s -X POST "${API}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "parse_mode=HTML" \
-            -d "text=✅ <b>All files uploaded for Waselak v${VERSION}</b>
+          send_msg "✅ <b>All files for Waselak v${VERSION} uploaded!</b>
 
-          🔗 <a href=\"${RELEASE_URL}\">Full Release on GitHub</a>
+          🔗 <a href=\"${RELEASE_URL}\">View Full Release on GitHub</a>
 
-          — Waselak CI/CD 🤖" > /dev/null
+          📅 ${DATE}  •  🏷️ ${TAG}
+
+          — Waselak CI/CD 🤖"
 
           echo "✅ All Telegram messages sent"
 
