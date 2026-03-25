@@ -5,7 +5,7 @@
 # 2. Test      — Backend (48) + KMP (28+) unit tests
 # 3. Android   — Debug + Release APKs for manager, cashier, delivery, kds, admin
 # 4. Desktop   — Linux .deb, macOS .dmg, Windows .msi (matrix)
-# 5. Upload    — All artifacts → Google Drive under v{VERSION}/debug|release/
+# 5. Release   — GitHub Release + Telegram notification
 #
 # Naming: {app}-v{version}-{DDMMYY}-{debug|release}-{platform}.{ext}
 # Example: manager-v1.0.0-110326-release-android.apk
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_upload:
-        description: "Skip Google Drive upload"
+        description: "Skip GitHub Release + Telegram"
         required: false
         default: "false"
         type: boolean
@@ -347,14 +347,19 @@ jobs:
   # ===========================================================================
   # JOB 5: UPLOAD TO GOOGLE DRIVE
   # ===========================================================================
-  upload-to-dropbox:
-    name: Upload to Dropbox
+  # upload-to-dropbox: (disabled — replaced by GitHub Releases + Telegram)
+  #   To re-enable, uncomment this block and comment out the release job below.
+
+  release-and-notify:
+    name: GitHub Release + Telegram
     runs-on: ubuntu-latest
     needs: [build-android, build-desktop]
     if: >-
       startsWith(github.ref, 'refs/tags/v') &&
       (github.event.inputs.skip_upload != 'true')
-    timeout-minutes: 90
+    timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout (for gradle.properties)
@@ -396,9 +401,9 @@ jobs:
       - name: Show all artifacts
         run: |
           echo "=== Debug ==="
-          ls -la all-artifacts/debug/
+          ls -lh all-artifacts/debug/
           echo "=== Release ==="
-          ls -la all-artifacts/release/
+          ls -lh all-artifacts/release/
 
       # ── Read version ────────────────────────────────────────────────────
       - name: Read version
@@ -406,172 +411,321 @@ jobs:
         run: |
           VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          DATE=$(date -u '+%Y-%m-%d')
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
-      # ── Upload to Dropbox ──────────────────────────────────────────────
-      - name: Upload artifacts to Dropbox
+      # ── Create GitHub Release ───────────────────────────────────────────
+      - name: Create GitHub Release
         env:
-          DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
-          DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
-          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
-          APP_VERSION: ${{ steps.vars.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          python3 << 'PYEOF'
-          import os, json, urllib.request, urllib.parse, urllib.error, sys, glob, time
+          TAG="${GITHUB_REF_NAME}"
 
-          APP_KEY = os.environ["DROPBOX_APP_KEY"]
-          APP_SECRET = os.environ["DROPBOX_APP_SECRET"]
-          REFRESH_TOKEN = os.environ["DROPBOX_REFRESH_TOKEN"]
-          VERSION = os.environ["APP_VERSION"]
-          BASE = f"/waselak-builds/v{VERSION}"
-          CHUNK = 50 * 1024 * 1024  # 50MB
+          # Create release with all files
+          gh release create "$TAG" \
+            --title "🚀 Waselak v${VERSION}" \
+            --notes "$(cat <<'NOTES'
+          ## Waselak v${VERSION}
 
-          def get_fresh_token():
-              """Get a fresh access token using refresh token."""
-              data = urllib.parse.urlencode({
-                  "grant_type": "refresh_token",
-                  "refresh_token": REFRESH_TOKEN,
-                  "client_id": APP_KEY,
-                  "client_secret": APP_SECRET,
-              }).encode()
-              req = urllib.request.Request("https://api.dropboxapi.com/oauth2/token", data=data)
-              resp = urllib.request.urlopen(req)
-              token = json.loads(resp.read())["access_token"]
-              print("🔑 Fresh token obtained")
-              return token
+          ### 🤖 Android APKs
+          **Debug:** manager, cashier, delivery, kds, admin
+          **Release:** manager, cashier, delivery, kds, admin (signed)
 
-          def create_folder(token, path):
-              """Create folder, ignore if exists."""
-              try:
-                  req = urllib.request.Request(
-                      "https://api.dropboxapi.com/2/files/create_folder_v2",
-                      data=json.dumps({"path": path, "autorename": False}).encode(),
-                      headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                  )
-                  urllib.request.urlopen(req)
-                  print(f"  📁 Created: {path}")
-              except urllib.error.HTTPError as e:
-                  body = e.read().decode()
-                  if "conflict" in body or e.code == 409:
-                      print(f"  📁 Exists: {path}")
-                  else:
-                      print(f"  ⚠️ Folder error ({e.code}): {body[:200]}")
+          ### 🖥️ Desktop Packages
+          **Linux:** .deb packages
+          **macOS:** .dmg packages
+          **Windows:** .msi installers
 
-          def upload_small(token, filepath, dropbox_path):
-              """Upload file <= 150MB."""
-              with open(filepath, "rb") as f:
-                  data = f.read()
-              req = urllib.request.Request(
-                  "https://content.dropboxapi.com/2/files/upload",
-                  data=data,
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Dropbox-API-Arg": json.dumps({"path": dropbox_path, "mode": "overwrite"}),
-                      "Content-Type": "application/octet-stream",
-                  },
-              )
-              urllib.request.urlopen(req)
+          ---
+          Built automatically by CI/CD
+          NOTES
+          )" \
+            --latest \
+            all-artifacts/debug/* \
+            all-artifacts/release/*
 
-          def upload_large(token, filepath, dropbox_path, filesize):
-              """Upload file > 150MB using upload sessions."""
-              # Start session
-              req = urllib.request.Request(
-                  "https://content.dropboxapi.com/2/files/upload_session/start",
-                  data=b"",
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Dropbox-API-Arg": json.dumps({"close": False}),
-                      "Content-Type": "application/octet-stream",
-                  },
-              )
-              resp = urllib.request.urlopen(req)
-              session_id = json.loads(resp.read())["session_id"]
+          echo "✅ GitHub Release created: $TAG"
 
-              with open(filepath, "rb") as f:
-                  offset = 0
-                  while offset < filesize:
-                      chunk = f.read(CHUNK)
-                      if not chunk:
-                          break
-                      for attempt in range(3):
-                          try:
-                              req = urllib.request.Request(
-                                  "https://content.dropboxapi.com/2/files/upload_session/append_v2",
-                                  data=chunk,
-                                  headers={
-                                      "Authorization": f"Bearer {token}",
-                                      "Dropbox-API-Arg": json.dumps({
-                                          "cursor": {"session_id": session_id, "offset": offset},
-                                          "close": False,
-                                      }),
-                                      "Content-Type": "application/octet-stream",
-                                  },
-                              )
-                              urllib.request.urlopen(req)
-                              break
-                          except urllib.error.HTTPError as e:
-                              if attempt < 2:
-                                  print(f"    ⚠️ Retry chunk at {offset} (attempt {attempt+2}/3)")
-                                  time.sleep(2)
-                                  if e.code == 401:
-                                      token = get_fresh_token()
-                              else:
-                                  raise
-                      offset += len(chunk)
-                      pct = int(offset * 100 / filesize)
-                      print(f"    {pct}% ({offset // 1024 // 1024}MB / {filesize // 1024 // 1024}MB)")
+      # ── Send to Telegram ────────────────────────────────────────────────
+      - name: Send files to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          DATE: ${{ steps.vars.outputs.date }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "⚠️ Telegram secrets not set, skipping notification"
+            exit 0
+          fi
 
-              # Finish
-              req = urllib.request.Request(
-                  "https://content.dropboxapi.com/2/files/upload_session/finish",
-                  data=b"",
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Dropbox-API-Arg": json.dumps({
-                          "cursor": {"session_id": session_id, "offset": filesize},
-                          "commit": {"path": dropbox_path, "mode": "overwrite"},
-                      }),
-                      "Content-Type": "application/octet-stream",
-                  },
-              )
-              urllib.request.urlopen(req)
-              return token
+          API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
 
-          def upload_file(token, filepath, dropbox_path):
-              filename = os.path.basename(filepath)
-              filesize = os.path.getsize(filepath)
-              mb = filesize / 1024 / 1024
-              print(f"  📤 {filename} ({mb:.1f} MB)...")
-              try:
-                  if filesize <= 150_000_000:
-                      upload_small(token, filepath, dropbox_path)
-                  else:
-                      token = upload_large(token, filepath, dropbox_path, filesize)
-                  print(f"  ✅ {filename}")
-              except Exception as e:
-                  print(f"  ❌ {filename} - {e}")
-              return token
+          # ── Start message ──
+          curl -s -X POST "${API}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=HTML" \
+            -d "text=$(cat <<MSG
+          📦 <b>Waselak v${VERSION} — New Release</b>
 
-          # === Main ===
-          token = get_fresh_token()
+          📅 Date: ${DATE}
+          🏷️ Tag: ${TAG}
+          🔗 <a href="${RELEASE_URL}">View on GitHub</a>
 
-          print("=== Creating folders ===")
-          create_folder(token, BASE)
-          create_folder(token, f"{BASE}/debug")
-          create_folder(token, f"{BASE}/release")
+          ⏳ Uploading files...
+          MSG
+          )" > /dev/null
 
-          debug_files = sorted(glob.glob("all-artifacts/debug/*"))
-          if debug_files:
-              print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
-              for f in debug_files:
-                  token = upload_file(token, f, f"{BASE}/debug/{os.path.basename(f)}")
+          echo "✅ Start message sent"
 
-          release_files = sorted(glob.glob("all-artifacts/release/*"))
-          if release_files:
-              print(f"\n=== Uploading {len(release_files)} release artifacts ===")
-              for f in release_files:
-                  token = upload_file(token, f, f"{BASE}/release/{os.path.basename(f)}")
+          # ── Upload debug APKs ──
+          curl -s -X POST "${API}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=HTML" \
+            -d "text=🐛 <b>Debug Builds (Android)</b>" > /dev/null
 
-          total = len(debug_files) + len(release_files)
-          print(f"\n=== ✅ {total} files uploaded to Dropbox at {BASE} ===")
-          PYEOF
+          for FILE in all-artifacts/debug/*.apk; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
+              echo "  Sending: $FILENAME"
+              curl -s -X POST "${API}/sendDocument" \
+                -F "chat_id=${TELEGRAM_CHAT_ID}" \
+                -F "document=@${FILE}" \
+                -F "caption=🐛 <b>${FILENAME}</b>
+          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>" \
+                -F "parse_mode=HTML" > /dev/null
+              echo "  ✅ $FILENAME"
+              sleep 2
+            fi
+          done
 
+          # ── Upload release APKs ──
+          curl -s -X POST "${API}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=HTML" \
+            -d "text=✅ <b>Release Builds (Android - Signed)</b>" > /dev/null
+
+          for FILE in all-artifacts/release/*.apk; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
+              echo "  Sending: $FILENAME"
+              curl -s -X POST "${API}/sendDocument" \
+                -F "chat_id=${TELEGRAM_CHAT_ID}" \
+                -F "document=@${FILE}" \
+                -F "caption=✅ <b>${FILENAME}</b>
+          📥 <a href=\"${GITHUB_URL}\">GitHub Download</a>" \
+                -F "parse_mode=HTML" > /dev/null
+              echo "  ✅ $FILENAME"
+              sleep 2
+            fi
+          done
+
+          # ── Upload desktop packages (links only — files too large for Telegram) ──
+          DESKTOP_MSG="🖥️ <b>Desktop Packages</b>\n\n"
+          HAS_DESKTOP=false
+          for FILE in all-artifacts/release/*.deb all-artifacts/release/*.dmg all-artifacts/release/*.msi; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
+              FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
+              MB=$((FILESIZE / 1024 / 1024))
+              DESKTOP_MSG="${DESKTOP_MSG}📎 <b>${FILENAME}</b> (${MB} MB)\n📥 <a href=\"${GITHUB_URL}\">Download</a>\n\n"
+              HAS_DESKTOP=true
+            fi
+          done
+
+          if [ "$HAS_DESKTOP" = true ]; then
+            curl -s -X POST "${API}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              -d "parse_mode=HTML" \
+              -d "text=${DESKTOP_MSG}" > /dev/null
+          fi
+
+          # ── End message ──
+          curl -s -X POST "${API}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=HTML" \
+            -d "text=✅ <b>All files uploaded for Waselak v${VERSION}</b>
+
+          🔗 <a href=\"${RELEASE_URL}\">Full Release on GitHub</a>
+
+          — Waselak CI/CD 🤖" > /dev/null
+
+          echo "✅ All Telegram messages sent"
+
+      # ── Dropbox Upload (DISABLED) ──────────────────────────────────────
+      # To re-enable Dropbox upload, uncomment below and add secrets:
+      # DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN
+      #       - name: Upload artifacts to Dropbox
+      #         env:
+      #           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+      #           DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+      #           DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+      #           APP_VERSION: ${{ steps.vars.outputs.version }}
+      #         run: |
+      #           python3 << 'PYEOF'
+      #           import os, json, urllib.request, urllib.parse, urllib.error, sys, glob, time
+      # 
+      #           APP_KEY = os.environ["DROPBOX_APP_KEY"]
+      #           APP_SECRET = os.environ["DROPBOX_APP_SECRET"]
+      #           REFRESH_TOKEN = os.environ["DROPBOX_REFRESH_TOKEN"]
+      #           VERSION = os.environ["APP_VERSION"]
+      #           BASE = f"/waselak-builds/v{VERSION}"
+      #           CHUNK = 50 * 1024 * 1024  # 50MB
+      # 
+      #           def get_fresh_token():
+      #               """Get a fresh access token using refresh token."""
+      #               data = urllib.parse.urlencode({
+      #                   "grant_type": "refresh_token",
+      #                   "refresh_token": REFRESH_TOKEN,
+      #                   "client_id": APP_KEY,
+      #                   "client_secret": APP_SECRET,
+      #               }).encode()
+      #               req = urllib.request.Request("https://api.dropboxapi.com/oauth2/token", data=data)
+      #               resp = urllib.request.urlopen(req)
+      #               token = json.loads(resp.read())["access_token"]
+      #               print("🔑 Fresh token obtained")
+      #               return token
+      # 
+      #           def create_folder(token, path):
+      #               """Create folder, ignore if exists."""
+      #               try:
+      #                   req = urllib.request.Request(
+      #                       "https://api.dropboxapi.com/2/files/create_folder_v2",
+      #                       data=json.dumps({"path": path, "autorename": False}).encode(),
+      #                       headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+      #                   )
+      #                   urllib.request.urlopen(req)
+      #                   print(f"  📁 Created: {path}")
+      #               except urllib.error.HTTPError as e:
+      #                   body = e.read().decode()
+      #                   if "conflict" in body or e.code == 409:
+      #                       print(f"  📁 Exists: {path}")
+      #                   else:
+      #                       print(f"  ⚠️ Folder error ({e.code}): {body[:200]}")
+      # 
+      #           def upload_small(token, filepath, dropbox_path):
+      #               """Upload file <= 150MB."""
+      #               with open(filepath, "rb") as f:
+      #                   data = f.read()
+      #               req = urllib.request.Request(
+      #                   "https://content.dropboxapi.com/2/files/upload",
+      #                   data=data,
+      #                   headers={
+      #                       "Authorization": f"Bearer {token}",
+      #                       "Dropbox-API-Arg": json.dumps({"path": dropbox_path, "mode": "overwrite"}),
+      #                       "Content-Type": "application/octet-stream",
+      #                   },
+      #               )
+      #               urllib.request.urlopen(req)
+      # 
+      #           def upload_large(token, filepath, dropbox_path, filesize):
+      #               """Upload file > 150MB using upload sessions."""
+      #               # Start session
+      #               req = urllib.request.Request(
+      #                   "https://content.dropboxapi.com/2/files/upload_session/start",
+      #                   data=b"",
+      #                   headers={
+      #                       "Authorization": f"Bearer {token}",
+      #                       "Dropbox-API-Arg": json.dumps({"close": False}),
+      #                       "Content-Type": "application/octet-stream",
+      #                   },
+      #               )
+      #               resp = urllib.request.urlopen(req)
+      #               session_id = json.loads(resp.read())["session_id"]
+      # 
+      #               with open(filepath, "rb") as f:
+      #                   offset = 0
+      #                   while offset < filesize:
+      #                       chunk = f.read(CHUNK)
+      #                       if not chunk:
+      #                           break
+      #                       for attempt in range(3):
+      #                           try:
+      #                               req = urllib.request.Request(
+      #                                   "https://content.dropboxapi.com/2/files/upload_session/append_v2",
+      #                                   data=chunk,
+      #                                   headers={
+      #                                       "Authorization": f"Bearer {token}",
+      #                                       "Dropbox-API-Arg": json.dumps({
+      #                                           "cursor": {"session_id": session_id, "offset": offset},
+      #                                           "close": False,
+      #                                       }),
+      #                                       "Content-Type": "application/octet-stream",
+      #                                   },
+      #                               )
+      #                               urllib.request.urlopen(req)
+      #                               break
+      #                           except urllib.error.HTTPError as e:
+      #                               if attempt < 2:
+      #                                   print(f"    ⚠️ Retry chunk at {offset} (attempt {attempt+2}/3)")
+      #                                   time.sleep(2)
+      #                                   if e.code == 401:
+      #                                       token = get_fresh_token()
+      #                               else:
+      #                                   raise
+      #                       offset += len(chunk)
+      #                       pct = int(offset * 100 / filesize)
+      #                       print(f"    {pct}% ({offset // 1024 // 1024}MB / {filesize // 1024 // 1024}MB)")
+      # 
+      #               # Finish
+      #               req = urllib.request.Request(
+      #                   "https://content.dropboxapi.com/2/files/upload_session/finish",
+      #                   data=b"",
+      #                   headers={
+      #                       "Authorization": f"Bearer {token}",
+      #                       "Dropbox-API-Arg": json.dumps({
+      #                           "cursor": {"session_id": session_id, "offset": filesize},
+      #                           "commit": {"path": dropbox_path, "mode": "overwrite"},
+      #                       }),
+      #                       "Content-Type": "application/octet-stream",
+      #                   },
+      #               )
+      #               urllib.request.urlopen(req)
+      #               return token
+      # 
+      #           def upload_file(token, filepath, dropbox_path):
+      #               filename = os.path.basename(filepath)
+      #               filesize = os.path.getsize(filepath)
+      #               mb = filesize / 1024 / 1024
+      #               print(f"  📤 {filename} ({mb:.1f} MB)...")
+      #               try:
+      #                   if filesize <= 150_000_000:
+      #                       upload_small(token, filepath, dropbox_path)
+      #                   else:
+      #                       token = upload_large(token, filepath, dropbox_path, filesize)
+      #                   print(f"  ✅ {filename}")
+      #               except Exception as e:
+      #                   print(f"  ❌ {filename} - {e}")
+      #               return token
+      # 
+      #           # === Main ===
+      #           token = get_fresh_token()
+      # 
+      #           print("=== Creating folders ===")
+      #           create_folder(token, BASE)
+      #           create_folder(token, f"{BASE}/debug")
+      #           create_folder(token, f"{BASE}/release")
+      # 
+      #           debug_files = sorted(glob.glob("all-artifacts/debug/*"))
+      #           if debug_files:
+      #               print(f"\n=== Uploading {len(debug_files)} debug artifacts ===")
+      #               for f in debug_files:
+      #                   token = upload_file(token, f, f"{BASE}/debug/{os.path.basename(f)}")
+      # 
+      #           release_files = sorted(glob.glob("all-artifacts/release/*"))
+      #           if release_files:
+      #               print(f"\n=== Uploading {len(release_files)} release artifacts ===")
+      #               for f in release_files:
+      #                   token = upload_file(token, f, f"{BASE}/release/{os.path.basename(f)}")
+      # 
+      #           total = len(debug_files) + len(release_files)
+      #           print(f"\n=== ✅ {total} files uploaded to Dropbox at {BASE} ===")
+      #           PYEOF
+      # 
