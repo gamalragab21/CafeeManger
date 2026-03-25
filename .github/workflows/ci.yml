@@ -257,20 +257,23 @@ jobs:
             gradle-args: ""
             platform: linux
             ext: deb
+            java-version: "21"
 
-          - os: macos-latest
-            os-label: macOS
+          - os: macos-14
+            os-label: macOS (ARM64)
             task: packageAllDesktopDmg
             gradle-args: ""
             platform: macos
             ext: dmg
+            java-version: "21"
 
           - os: windows-latest
             os-label: Windows
             task: packageAllDesktopMsi
-            gradle-args: -PtargetOs=windows
+            gradle-args: ""
             platform: windows
             ext: msi
+            java-version: "21"
 
     steps:
       - name: Checkout code
@@ -279,7 +282,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ matrix.java-version || env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Gradle
@@ -297,6 +300,7 @@ jobs:
           EOF
 
       - name: Build desktop packages
+        shell: bash
         run: ./gradlew ${{ matrix.task }} ${{ matrix.gradle-args }}
 
       - name: Compute version and date
