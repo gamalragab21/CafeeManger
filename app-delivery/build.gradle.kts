@@ -31,6 +31,15 @@ compose.desktop {
     application {
         mainClass = "net.marllex.waselak.delivery.MainKt"
 
+        jvmArgs += listOf(
+            "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens", "java.base/java.io=ALL-UNNAMED",
+            "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+            "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+            "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+            "--add-exports", "java.base/sun.misc=ALL-UNNAMED",
+        )
+
         nativeDistributions {
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
