@@ -37,10 +37,11 @@ compose.desktop {
             "--add-opens", "java.base/java.lang=ALL-UNNAMED",
             "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
             "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
-            "--add-exports", "java.base/sun.misc=ALL-UNNAMED",
+            "--add-exports", "jdk.unsupported/sun.misc=ALL-UNNAMED",
         )
 
         nativeDistributions {
+            modules("jdk.unsupported")
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
