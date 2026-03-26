@@ -32,8 +32,9 @@ compose.desktop {
             "--add-opens", "java.base/java.io=ALL-UNNAMED",
             "--add-opens", "java.base/java.lang=ALL-UNNAMED",
             "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
-            "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+            "--add-opens", "jdk.unsupported/sun.misc=ALL-UNNAMED",
             "--add-exports", "jdk.unsupported/sun.misc=ALL-UNNAMED",
+            "--add-reads", "jdk.unsupported=ALL-UNNAMED",
         )
 
         nativeDistributions {
