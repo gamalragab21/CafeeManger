@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 class ManagerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "manager")
+        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "manager", platform = "android")
         startKoin {
             androidLogger()
             androidContext(this@ManagerApplication)

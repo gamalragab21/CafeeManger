@@ -11,7 +11,7 @@ import net.marllex.waselak.delivery.di.deliveryDesktopKoinModules
 import org.koin.core.context.startKoin
 
 fun main() {
-    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery")
+    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery", platform = System.getProperty("os.name", "desktop").lowercase().let { os -> when { os.contains("mac") -> "macos"; os.contains("win") -> "windows"; os.contains("linux") -> "linux"; else -> "desktop" } })
     startKoin {
         modules(deliveryDesktopKoinModules())
     }

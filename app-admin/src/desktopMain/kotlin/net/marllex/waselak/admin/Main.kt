@@ -21,7 +21,7 @@ private val desktopAdminModule = module {
 }
 
 fun main() {
-    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "admin")
+    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "admin", platform = System.getProperty("os.name", "desktop").lowercase().let { os -> when { os.contains("mac") -> "macos"; os.contains("win") -> "windows"; os.contains("linux") -> "linux"; else -> "desktop" } })
     AppLogger.initialize("admin")
     applyLanguage(getPersistedLanguage())
     startKoin {

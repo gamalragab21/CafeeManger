@@ -40,7 +40,7 @@ compose.desktop {
         )
 
         nativeDistributions {
-            modules("jdk.unsupported")
+            modules("jdk.unsupported", "java.sql", "java.naming", "java.management", "java.instrument", "java.scripting", "java.compiler", "java.logging", "java.xml", "java.desktop", "java.security.jgss", "java.security.sasl", "java.datatransfer", "java.prefs", "java.net.http")
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,

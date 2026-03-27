@@ -16,7 +16,7 @@ import io.sentry.kotlin.multiplatform.protocol.User
 object CrashReporter {
     private var initialized: Boolean = false
 
-    fun initialize(dsn: String, appName: String, debug: Boolean = false) {
+    fun initialize(dsn: String, appName: String, platform: String = "unknown", debug: Boolean = false) {
         if (initialized) return
         if (dsn.isBlank()) return
         try {
@@ -25,6 +25,8 @@ object CrashReporter {
                 options.environment = if (debug) "development" else "production"
                 options.beforeSend = { event ->
                     event.setTag("app", appName)
+                    event.setTag("platform", platform)
+                    event.setTag("app_platform", "$appName-$platform")
                     event
                 }
             }

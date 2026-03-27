@@ -12,7 +12,7 @@ import org.koin.core.context.startKoin
 class AdminApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "admin")
+        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "admin", platform = "android")
         startKoin {
             androidLogger()
             androidContext(this@AdminApplication)

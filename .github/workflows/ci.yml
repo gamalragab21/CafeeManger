@@ -515,11 +515,37 @@ jobs:
           send_file() {
             local file="$1"
             local caption="$2"
-            curl -s -X POST "${API}/sendDocument" \
-              -F "chat_id=${TELEGRAM_CHAT_ID}" \
-              -F "document=@${file}" \
-              -F "caption=${caption}" \
-              -F "parse_mode=HTML" > /dev/null
+            local filesize
+            filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+            local mb=$((filesize / 1024 / 1024))
+
+            if [ "$filesize" -gt 52428800 ]; then
+              # File > 50MB — Telegram rejects, send as link instead
+              local filename
+              filename=$(basename "$file")
+              local github_url="https://github.com/${REPO}/releases/download/${TAG}/${filename}"
+              send_msg "${caption}
+          📦 ${mb} MB — <a href=\"${github_url}\">⬇️ Download from GitHub</a>"
+              echo "    (${mb}MB > 50MB limit — sent as link)"
+            else
+              local result
+              result=$(curl -s -X POST "${API}/sendDocument" \
+                -F "chat_id=${TELEGRAM_CHAT_ID}" \
+                -F "document=@${file}" \
+                -F "caption=${caption}" \
+                -F "parse_mode=HTML")
+              if echo "$result" | grep -q '"ok":true'; then
+                echo "    (sent as file)"
+              else
+                # Upload failed — send as link
+                local filename
+                filename=$(basename "$file")
+                local github_url="https://github.com/${REPO}/releases/download/${TAG}/${filename}"
+                send_msg "${caption}
+          📦 ${mb} MB — <a href=\"${github_url}\">⬇️ Download from GitHub</a>"
+                echo "    (upload failed — sent as link)"
+              fi
+            fi
           }
 
           # ── Debug APKs section ──

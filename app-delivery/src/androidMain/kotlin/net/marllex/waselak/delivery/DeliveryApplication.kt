@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 class DeliveryApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery")
+        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery", platform = "android")
         startKoin {
             androidLogger()
             androidContext(this@DeliveryApplication)

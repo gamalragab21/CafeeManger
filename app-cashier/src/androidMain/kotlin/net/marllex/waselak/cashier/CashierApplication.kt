@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 class CashierApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "cashier")
+        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "cashier", platform = "android")
         startKoin {
             androidLogger()
             androidContext(this@CashierApplication)

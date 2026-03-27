@@ -18,7 +18,7 @@ import net.marllex.waselak.core.common.logging.AppLogger
 import org.koin.java.KoinJavaComponent.getKoin
 
 fun main() {
-    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "cashier")
+    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "cashier", platform = System.getProperty("os.name", "desktop").lowercase().let { os -> when { os.contains("mac") -> "macos"; os.contains("win") -> "windows"; os.contains("linux") -> "linux"; else -> "desktop" } })
     startKoin {
         modules(cashierDesktopKoinModules())
     }
