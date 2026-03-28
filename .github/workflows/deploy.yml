@@ -8,12 +8,13 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'scripts/vps-deploy.sh'
-      - '.github/workflows/deploy.yml'
+  # Disabled until VPS is set up. Uncomment to enable auto-deploy:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'backend/**'
+  #     - 'scripts/vps-deploy.sh'
+  #     - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 concurrency:

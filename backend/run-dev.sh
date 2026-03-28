@@ -2,6 +2,7 @@
 # ─────────────────────────────────────────────────────────
 # Run backend in DEVELOPMENT mode
 # Database: waselak_db (localhost:5432)
+# Config: env/backend-debug.env
 # ─────────────────────────────────────────────────────────
 
 set -e
@@ -9,14 +10,26 @@ set -e
 echo "┌─────────────────────────────────────────────"
 echo "│ Starting Waselak Backend (DEVELOPMENT)"
 echo "│ Database: waselak_db @ localhost:5432"
+echo "│ Config: env/backend-debug.env"
 echo "└─────────────────────────────────────────────"
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
+
+# Load env from file
+ENV_FILE="env/backend-debug.env"
+if [ -f "$ENV_FILE" ]; then
+    echo "Loading config from $ENV_FILE"
+    set -a
+    source <(grep -v '^#' "$ENV_FILE" | grep -v '^$')
+    set +a
+else
+    echo "WARNING: $ENV_FILE not found, using defaults from application.conf"
+fi
 
 # Option 1: Run with Docker Compose (includes PostgreSQL)
 if [ "$1" = "--docker" ]; then
     echo "Starting with Docker Compose (dev)..."
-    docker compose -f docker-compose.yml up --build
+    docker compose -f backend/docker-compose.yml up --build
     exit 0
 fi
 
@@ -25,12 +38,4 @@ echo "Starting with Gradle..."
 echo "Make sure PostgreSQL is running on localhost:5432"
 echo ""
 
-# Dev secrets — HMAC_SECRET must match env/debug.properties in mobile apps
-export HMAC_SECRET="0003e100bafedf7a06d298c612cce6560bfd29dfad656d23303b7b0f05ac4ab2"
-export JWT_SECRET="ec1e287139629ae6a79ea83377d045b777d4444e645bf9a78c5903f87cf0b28f"
-export ADMIN_JWT_SECRET="c629b29f1ada461af9507f2ac8ecae3275263730acd28b8303d358d5b4b16ef7"
-export ADMIN_NAME="Gamal Ragab"
-export ADMIN_EMAIL="gamalragab217@gmail.com"
-export ADMIN_PASSWORD="123456"
-
-./gradlew run
+./gradlew :backend:run
