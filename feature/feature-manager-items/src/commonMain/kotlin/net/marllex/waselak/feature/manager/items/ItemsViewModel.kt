@@ -18,6 +18,7 @@ import net.marllex.waselak.core.model.Category
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.VariantGroup
 import net.marllex.waselak.core.model.VariantOption
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class EditableVariantGroup(
     val id: String = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString() + (0..9999).random(),
@@ -301,6 +302,7 @@ class ItemsViewModel constructor(
                 AppLogger.i("Items", "Item saved successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Items", "Failed to save item", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -318,6 +320,7 @@ class ItemsViewModel constructor(
         viewModelScope.launch {
             AppLogger.d("Items", "Deleting item: id=$id")
             itemRepository.deleteItem(id).onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }

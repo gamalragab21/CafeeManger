@@ -12,6 +12,7 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DeliveryStatusViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -55,6 +56,7 @@ class DeliveryStatusViewModel constructor(
                     _uiState.update { it.copy(isUpdating = false) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                     _uiState.update { it.copy(isUpdating = false, error = e.message) }
                 }

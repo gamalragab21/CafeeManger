@@ -24,6 +24,7 @@ import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 import net.marllex.waselak.core.network.dto.CreateReturnRequest
 import net.marllex.waselak.core.network.dto.CreateReturnItemRequest
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class ReturnItemSelection(
     val orderItemId: String,
@@ -164,6 +165,7 @@ class OrdersViewModel constructor(
                     )
                 }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Orders", "loadOrders failed: ${e::class.simpleName}: ${e.message}", e)
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error loading orders") }
             }
@@ -197,6 +199,7 @@ class OrdersViewModel constructor(
                     )
                 }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(isLoadingMore = false, error = e.message) }
             }
         }
@@ -308,6 +311,7 @@ class OrdersViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Orders", "Order status update failed: orderId=$orderId, target=${newStatus.name}", e)
                     _uiState.update { it.copy(error = e.message) }
                     // Auto-refresh orders to get the latest status from server
@@ -341,6 +345,7 @@ class OrdersViewModel constructor(
                     loadOrders() // Refresh orders list
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Orders", "Failed to assign delivery user", e)
                     // Keep dialog open on error, show error message
                     _uiState.update {
@@ -424,6 +429,7 @@ class OrdersViewModel constructor(
                 _uiState.update { it.copy(isEditSaving = false, showEditOrderDialog = false, editingOrder = null) }
                 loadOrders()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Orders", "Failed to edit order", e)
                 _uiState.update { it.copy(isEditSaving = false, error = e.message) }
             }
@@ -472,6 +478,7 @@ class OrdersViewModel constructor(
                     )
                 }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Orders", "Payment failed", e)
                 _uiState.update { it.copy(isPaymentProcessing = false, error = e.message) }
             }
@@ -517,6 +524,7 @@ class OrdersViewModel constructor(
                 }
                 loadOrders()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Orders", "Refund failed", e)
                 _uiState.update { it.copy(isRefundProcessing = false, error = e.message) }
             }
@@ -632,6 +640,7 @@ class OrdersViewModel constructor(
                 }
                 loadOrders()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Orders", "Return failed", e)
                 _uiState.update { it.copy(isReturnProcessing = false, error = e.message) }
             }

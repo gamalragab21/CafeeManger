@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.TaxPlaceRepository
 import net.marllex.waselak.core.model.TaxPlace
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class TaxPlacesViewModel(
     private val taxPlaceRepository: TaxPlaceRepository,
@@ -29,12 +30,14 @@ class TaxPlacesViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "TaxPlacesViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             taxPlaceRepository.getTaxPlaces()
                 .onSuccess { list -> _uiState.update { it.copy(places = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }

@@ -13,6 +13,7 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class
 DeliveryReceiptViewModel constructor(
@@ -85,6 +86,7 @@ DeliveryReceiptViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(isSharing = false, error = e.message) }
                 }
         }

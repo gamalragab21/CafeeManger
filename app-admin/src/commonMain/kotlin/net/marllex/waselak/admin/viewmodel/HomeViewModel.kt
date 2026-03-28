@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.AnalyticsOverviewDto
 import net.marllex.waselak.admin.network.PlatformAlertDto
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class HomeViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _analytics = MutableStateFlow<AnalyticsOverviewDto?>(null)
@@ -21,6 +22,7 @@ class HomeViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     fun loadData() {
+        CrashReporter.addBreadcrumb("loadData() called", "HomeViewModel")
         viewModelScope.launch {
             _isLoading.value = true
             _analytics.value = apiClient.getAnalyticsOverview()

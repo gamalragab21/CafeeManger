@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class LoginViewModel constructor(
     private val authRepository: AuthRepository,
@@ -71,6 +72,7 @@ class LoginViewModel constructor(
                     }
                 }
                 .onFailure { throwable ->
+                    CrashReporter.captureException(throwable)
                     _uiState.update {
                         it.copy(
                             isLoading = false,

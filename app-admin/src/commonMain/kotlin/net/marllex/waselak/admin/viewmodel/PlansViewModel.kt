@@ -12,6 +12,7 @@ import net.marllex.waselak.admin.network.PlanUpdateDto
 import net.marllex.waselak.admin.util.UiMessage
 import waselak.app_admin.generated.resources.Res
 import waselak.app_admin.generated.resources.*
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class PlansViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _plans = MutableStateFlow<List<PlanDto>>(emptyList())

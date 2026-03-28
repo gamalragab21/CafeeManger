@@ -13,6 +13,7 @@ import net.marllex.waselak.core.model.AnnouncementTarget
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.CreateAnnouncementRequest
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AnnouncementsViewModel constructor(
     private val api: WaselakApiClient,

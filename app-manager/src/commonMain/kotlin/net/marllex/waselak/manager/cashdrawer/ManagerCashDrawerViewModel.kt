@@ -14,6 +14,7 @@ import net.marllex.waselak.core.model.CashMovement
 import net.marllex.waselak.core.model.DrawerSummary
 import net.marllex.waselak.core.model.User
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class CashierOption(val id: String, val name: String)
 
@@ -82,6 +83,7 @@ class ManagerCashDrawerViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "ManagerCashDrawerViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -118,6 +120,7 @@ class ManagerCashDrawerViewModel(
             cashDrawerRepository.openDrawer(balance, _uiState.value.openNotes.ifBlank { null })
                 .onSuccess { _uiState.update { it.copy(isSaving = false, showOpenDialog = false) }; load() }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }

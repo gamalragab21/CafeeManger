@@ -17,6 +17,7 @@ import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 // ══════════════════════════════════════════════════════════════════════
 // Section state — independent loading per section
@@ -136,6 +137,7 @@ class DashboardViewModel constructor(
                 _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update {
                     it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed to load"))
@@ -150,6 +152,7 @@ class DashboardViewModel constructor(
                 _uiState.update { it.copy(alerts = SectionState.Success(data)) }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(alerts = SectionState.Error(e.message ?: "Failed to load"))
                 }
@@ -165,6 +168,7 @@ class DashboardViewModel constructor(
                 }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(topProducts = SectionState.Error(e.message ?: "Failed to load"))
                 }
@@ -179,6 +183,7 @@ class DashboardViewModel constructor(
                 _uiState.update { it.copy(bestCashier = SectionState.Success(best)) }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(bestCashier = SectionState.Error(e.message ?: "Failed to load"))
                 }
@@ -193,6 +198,7 @@ class DashboardViewModel constructor(
                 _uiState.update { it.copy(bestDriver = SectionState.Success(best)) }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(bestDriver = SectionState.Error(e.message ?: "Failed to load"))
                 }
@@ -206,6 +212,7 @@ class DashboardViewModel constructor(
                 _uiState.update { it.copy(stockHealth = SectionState.Success(data)) }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(stockHealth = SectionState.Error(e.message ?: "Failed to load"))
                 }

@@ -26,6 +26,7 @@ import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.Worker
 import java.io.File
 import java.io.FileOutputStream
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class WorkerQrCodeViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -86,6 +87,7 @@ class WorkerQrCodeViewModel constructor(
                             )
                         }
                     }.onFailure { e ->
+                    CrashReporter.captureException(e)
                         _uiState.update {
                             it.copy(
                                 worker = worker,
@@ -96,6 +98,7 @@ class WorkerQrCodeViewModel constructor(
                         }
                     }
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -366,6 +369,7 @@ class WorkerQrCodeViewModel constructor(
                 _uiState.update { it.copy(successMessage = "QR code regenerated successfully") }
                 loadWorkerAndQrCode()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(
                         isLoading = false,

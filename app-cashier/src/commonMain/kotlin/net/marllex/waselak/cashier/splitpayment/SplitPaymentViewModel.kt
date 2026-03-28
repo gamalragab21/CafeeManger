@@ -12,6 +12,7 @@ import net.marllex.waselak.core.domain.repository.SplitPaymentRepository
 import net.marllex.waselak.core.model.OrderPayment
 import net.marllex.waselak.core.model.SplitPaymentSummary
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class SplitPaymentViewModel(
     savedStateHandle: SavedStateHandle,
@@ -60,6 +61,7 @@ class SplitPaymentViewModel(
     }
 
     private fun load() {
+        CrashReporter.addBreadcrumb("load() called", "SplitPaymentViewModel")
         val orderId = _uiState.value.orderId
         if (orderId.isBlank()) return
         viewModelScope.launch {
@@ -67,6 +69,7 @@ class SplitPaymentViewModel(
             splitPaymentRepository.getPaymentSummary(orderId)
                 .onSuccess { s -> _uiState.update { it.copy(summary = s, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }

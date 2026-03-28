@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 import org.koin.java.KoinJavaComponent.getKoin
 
 fun main() {
-    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "kds", platform = System.getProperty("os.name", "desktop").lowercase().let { os -> when { os.contains("mac") -> "macos"; os.contains("win") -> "windows"; os.contains("linux") -> "linux"; else -> "desktop" } })
+    CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "kds", debug = BuildConfig.IS_DEBUG, platform = System.getProperty("os.name", "desktop").lowercase().let { os -> when { os.contains("mac") -> "macos"; os.contains("win") -> "windows"; os.contains("linux") -> "linux"; else -> "desktop" } })
     startKoin {
         modules(kdsDesktopKoinModules())
     }

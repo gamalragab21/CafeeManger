@@ -12,6 +12,7 @@ import kotlinx.datetime.*
 import net.marllex.waselak.core.domain.repository.AnalyticsRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AnalyticsViewModel(
     private val analyticsRepository: AnalyticsRepository,
@@ -144,6 +145,7 @@ class AnalyticsViewModel(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(exportState = ExportState.Failed(e.message ?: "Export failed")) } }
         }
     }
@@ -240,6 +242,7 @@ class AnalyticsViewModel(
         analyticsRepository.getExecutiveSummary(from, to)
             .onSuccess { data -> _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) } }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed")) }
             }
     }

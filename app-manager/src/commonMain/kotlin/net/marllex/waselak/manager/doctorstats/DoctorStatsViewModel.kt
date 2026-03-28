@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.DoctorStatsResponse
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DoctorStatsViewModel(
     private val api: WaselakApiClient,
@@ -29,6 +30,7 @@ class DoctorStatsViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "DoctorStatsViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }

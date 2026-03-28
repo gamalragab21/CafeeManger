@@ -21,6 +21,7 @@ import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class WorkerQrCodeViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -79,6 +80,7 @@ class WorkerQrCodeViewModel constructor(
                             )
                         }
                     }.onFailure { e ->
+                    CrashReporter.captureException(e)
                         _uiState.update {
                             it.copy(
                                 worker = worker,
@@ -89,6 +91,7 @@ class WorkerQrCodeViewModel constructor(
                         }
                     }
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update {
                         it.copy(isLoading = false, error = "Failed to load worker: ${e.message}")
                     }
@@ -150,6 +153,7 @@ class WorkerQrCodeViewModel constructor(
                 _uiState.update { it.copy(successMessage = "QR code regenerated successfully") }
                 loadWorkerAndQrCode()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(isLoading = false, error = "Failed to regenerate QR code: ${e.message}")
                 }

@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.AnalyticsOverviewDto
 import net.marllex.waselak.admin.network.PlatformAnalyticsDto
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AnalyticsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
     private val _analytics = MutableStateFlow<AnalyticsOverviewDto?>(null)

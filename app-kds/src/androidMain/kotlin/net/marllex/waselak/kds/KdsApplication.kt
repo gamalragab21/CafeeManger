@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 class KdsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "kds", platform = "android")
+        CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "kds", platform = "android", debug = BuildConfig.IS_DEBUG)
         startKoin {
             androidLogger()
             androidContext(this@KdsApplication)

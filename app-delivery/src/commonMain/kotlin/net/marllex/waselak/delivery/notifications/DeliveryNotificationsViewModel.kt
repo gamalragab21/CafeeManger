@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.NotificationRepository
 import net.marllex.waselak.core.model.AppNotification
 import net.marllex.waselak.core.model.NotificationCount
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DeliveryNotificationsViewModel(
     private val notificationRepository: NotificationRepository,
@@ -32,6 +33,7 @@ class DeliveryNotificationsViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "DeliveryNotificationsViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             notificationRepository.getNotifications()

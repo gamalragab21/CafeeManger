@@ -13,6 +13,7 @@ import net.marllex.waselak.core.domain.repository.NotificationRepository
 import net.marllex.waselak.core.model.AppNotification
 import net.marllex.waselak.core.model.NotificationCount
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class NotificationsViewModel(
     private val notificationRepository: NotificationRepository,
@@ -56,12 +57,14 @@ class NotificationsViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "NotificationsViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             notificationRepository.getNotifications()
                 .onSuccess { list -> _uiState.update { it.copy(notifications = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {

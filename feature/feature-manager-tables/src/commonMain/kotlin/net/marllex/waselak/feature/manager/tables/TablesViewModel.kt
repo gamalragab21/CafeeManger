@@ -23,6 +23,7 @@ import net.marllex.waselak.core.common.extensions.currentTimeString
 import net.marllex.waselak.core.common.extensions.todayDateString
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class TablesViewModel constructor(
     private val tableRepository: TableRepository,
@@ -184,6 +185,7 @@ class TablesViewModel constructor(
                     AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -195,6 +197,7 @@ class TablesViewModel constructor(
         viewModelScope.launch {
             tableRepository.updateTableStatus(table.id, newStatus.name)
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                     // Refresh to reset UI to actual server state
                     tableRepository.refreshTables()
@@ -210,6 +213,7 @@ class TablesViewModel constructor(
         AppLogger.d(TAG, "deleteTable called")
         viewModelScope.launch {
             tableRepository.deleteTable(id).onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }
@@ -323,6 +327,7 @@ class TablesViewModel constructor(
                 // Refresh reservations to update the map
                 reservationRepository.refreshReservations()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(isSavingReservation = false, error = e.message) }
             }
         }
@@ -345,6 +350,7 @@ class TablesViewModel constructor(
                     tableRepository.refreshTables()
                     reservationRepository.refreshReservations()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                 }
         }
@@ -359,6 +365,7 @@ class TablesViewModel constructor(
                     tableRepository.refreshTables()
                     reservationRepository.refreshReservations()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                 }
         }

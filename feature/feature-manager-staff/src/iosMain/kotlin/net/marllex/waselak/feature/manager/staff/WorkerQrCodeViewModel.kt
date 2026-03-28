@@ -12,6 +12,7 @@ import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.model.Worker
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class WorkerQrCodeViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -54,6 +55,7 @@ class WorkerQrCodeViewModel constructor(
                         it.copy(worker = worker, vendor = vendor, isLoading = false)
                     }
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update {
                         it.copy(isLoading = false, error = "Failed to load worker: ${e.message}")
                     }
@@ -82,6 +84,7 @@ class WorkerQrCodeViewModel constructor(
                 _uiState.update { it.copy(successMessage = "QR code regenerated successfully") }
                 loadWorker()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(isLoading = false, error = "Failed to regenerate QR code: ${e.message}")
                 }

@@ -13,6 +13,7 @@ import net.marllex.waselak.core.network.dto.CreatePrescriptionRequest
 import net.marllex.waselak.core.network.dto.DispensePrescriptionRequest
 import net.marllex.waselak.core.network.dto.DispenseItemRequest
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class PrescriptionsViewModel(
     private val prescriptionRepository: PrescriptionRepository,
@@ -48,12 +49,18 @@ class PrescriptionsViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "PrescriptionsViewModel")
         AppLogger.d(TAG, "load called")
+        CrashReporter.addBreadcrumb("Loading prescriptions", "PrescriptionsViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.prescriptions.isEmpty(), error = null) }
             prescriptionRepository.getPrescriptions(status = _uiState.value.statusFilter)
-                .onSuccess { list -> _uiState.update { it.copy(prescriptions = list, isLoading = false) } }
+                .onSuccess { list ->
+                    CrashReporter.addBreadcrumb("Prescriptions loaded: ${list.size} items", "PrescriptionsViewModel")
+                    _uiState.update { it.copy(prescriptions = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Prescriptions load failed: ${e.message}", "PrescriptionsViewModel")
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
@@ -83,6 +90,7 @@ class PrescriptionsViewModel(
 
     fun createPrescription() {
         AppLogger.d(TAG, "createPrescription called")
+        CrashReporter.addBreadcrumb("Creating prescription", "PrescriptionsViewModel")
         val state = _uiState.value
         if (state.patientName.isBlank()) return
         viewModelScope.launch {
@@ -97,7 +105,10 @@ class PrescriptionsViewModel(
             )
             prescriptionRepository.createPrescription(request)
                 .onSuccess { _uiState.update { it.copy(isSaving = false, showCreateDialog = false) }; load() }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Create prescription failed: ${e.message}", "PrescriptionsViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 
@@ -109,6 +120,7 @@ class PrescriptionsViewModel(
 
     fun dispensePrescription() {
         AppLogger.d(TAG, "dispensePrescription called")
+        CrashReporter.addBreadcrumb("Dispensing prescription", "PrescriptionsViewModel")
         val prescription = _uiState.value.dispensePrescription ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }

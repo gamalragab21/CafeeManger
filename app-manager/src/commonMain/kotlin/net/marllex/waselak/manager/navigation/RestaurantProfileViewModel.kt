@@ -14,6 +14,7 @@ import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.PlanFeaturesResponse
 import net.marllex.waselak.core.network.dto.UpdateUserRequest
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class RestaurantProfileViewModel(
     private val vendorRepository: VendorRepository,
@@ -155,6 +156,7 @@ class RestaurantProfileViewModel(
                 AppLogger.i("Profile", "Profile saved successfully")
                 _uiState.update { it.copy(isSaving = false, isEditing = false, saveSuccess = true) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Profile", "Failed to save profile", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }

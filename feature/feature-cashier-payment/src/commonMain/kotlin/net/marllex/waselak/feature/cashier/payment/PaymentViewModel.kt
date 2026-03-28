@@ -14,6 +14,7 @@ import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.network.isPlanLimitExceeded
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class PaymentViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -65,6 +66,7 @@ class PaymentViewModel constructor(
                     _uiState.update { it.copy(isProcessing = false, paymentCompleted = true) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                     when {
                         e.isFeatureNotAvailableOrOffline() -> _uiState.update {

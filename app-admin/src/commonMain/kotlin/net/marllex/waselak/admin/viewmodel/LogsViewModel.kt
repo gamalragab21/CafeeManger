@@ -13,6 +13,7 @@ import net.marllex.waselak.admin.network.*
 import net.marllex.waselak.admin.util.UiMessage
 import waselak.app_admin.generated.resources.Res
 import waselak.app_admin.generated.resources.*
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class LogsViewModel(private val apiClient: AdminApiClient) : ViewModel() {
 

@@ -81,6 +81,10 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.12")
     implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 
+    // Sentry
+    implementation("io.sentry:sentry:7.3.0")
+    implementation("io.sentry:sentry-logback:7.3.0")
+
     // Testing
     testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
     testImplementation("io.ktor:ktor-client-content-negotiation:$ktor_version")

@@ -19,6 +19,7 @@ import net.marllex.waselak.core.network.dto.ReceiveItemRequest
 import net.marllex.waselak.core.network.dto.ReceivePurchaseOrderRequest
 import net.marllex.waselak.core.network.dto.UpdateSupplierRequest
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class PoItemDraft(
     val stockId: String,
@@ -100,12 +101,14 @@ class SuppliersViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "SuppliersViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             supplierRepository.getSuppliers()
                 .onSuccess { list -> _uiState.update { it.copy(suppliers = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {

@@ -12,6 +12,7 @@ import net.marllex.waselak.core.model.CashDrawerSession
 import net.marllex.waselak.core.model.CashMovement
 import net.marllex.waselak.core.model.DrawerSummary
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class CashDrawerViewModel(
     private val cashDrawerRepository: CashDrawerRepository,
@@ -51,15 +52,21 @@ class CashDrawerViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "CashDrawerViewModel")
         AppLogger.d(TAG, "load called")
+        CrashReporter.addBreadcrumb("Loading cash drawer data", "CashDrawerViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             cashDrawerRepository.getCurrentSession()
                 .onSuccess { session ->
                     AppLogger.i(TAG, "Data loaded successfully")
+                    CrashReporter.addBreadcrumb("Cash drawer session loaded", "CashDrawerViewModel")
                     _uiState.update { it.copy(currentSession = session, movements = session?.movements ?: emptyList(), isLoading = false) }
                 }
-                .onFailure { _uiState.update { it.copy(currentSession = null, isLoading = false) } }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Cash drawer load failed: ${e.message}", "CashDrawerViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(currentSession = null, isLoading = false) } }
         }
         viewModelScope.launch {
             cashDrawerRepository.getSummary()
@@ -77,12 +84,15 @@ class CashDrawerViewModel(
     fun onOpenNotesChange(v: String) { _uiState.update { it.copy(openNotes = v) } }
     fun openDrawer() {
         AppLogger.d(TAG, "openDrawer called")
+        CrashReporter.addBreadcrumb("Opening cash drawer", "CashDrawerViewModel")
         val balance = _uiState.value.openingBalance.toDoubleOrNull() ?: 0.0
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             cashDrawerRepository.openDrawer(balance, _uiState.value.openNotes.ifBlank { null })
-                .onSuccess { _uiState.update { it.copy(isSaving = false, showOpenDialog = false) }; load() }
+                .onSuccess { CrashReporter.addBreadcrumb("Cash drawer opened", "CashDrawerViewModel"); _uiState.update { it.copy(isSaving = false, showOpenDialog = false) }; load() }
                 .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Open drawer failed: ${e.message}", "CashDrawerViewModel")
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
@@ -94,12 +104,16 @@ class CashDrawerViewModel(
     fun onCloseNotesChange(v: String) { _uiState.update { it.copy(closeNotes = v) } }
     fun closeDrawer() {
         AppLogger.d(TAG, "closeDrawer called")
+        CrashReporter.addBreadcrumb("Closing cash drawer", "CashDrawerViewModel")
         val balance = _uiState.value.closingBalance.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             cashDrawerRepository.closeDrawer(balance, _uiState.value.closeNotes.ifBlank { null })
-                .onSuccess { _uiState.update { it.copy(isSaving = false, showCloseDialog = false) }; load() }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onSuccess { CrashReporter.addBreadcrumb("Cash drawer closed", "CashDrawerViewModel"); _uiState.update { it.copy(isSaving = false, showCloseDialog = false) }; load() }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Close drawer failed: ${e.message}", "CashDrawerViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 
@@ -111,12 +125,16 @@ class CashDrawerViewModel(
     fun onMovementReasonChange(v: String) { _uiState.update { it.copy(movementReason = v) } }
     fun addMovement() {
         AppLogger.d(TAG, "addMovement called")
+        CrashReporter.addBreadcrumb("Adding cash movement: ${_uiState.value.movementType}", "CashDrawerViewModel")
         val amount = _uiState.value.movementAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             cashDrawerRepository.createMovement(_uiState.value.movementType, amount, _uiState.value.movementReason.ifBlank { null })
-                .onSuccess { _uiState.update { it.copy(isSaving = false, showMovementDialog = false) }; load() }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onSuccess { CrashReporter.addBreadcrumb("Cash movement added", "CashDrawerViewModel"); _uiState.update { it.copy(isSaving = false, showMovementDialog = false) }; load() }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Add movement failed: ${e.message}", "CashDrawerViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 }

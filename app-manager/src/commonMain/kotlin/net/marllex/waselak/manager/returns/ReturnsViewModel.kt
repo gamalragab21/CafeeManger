@@ -11,6 +11,7 @@ import net.marllex.waselak.core.domain.repository.ReturnRepository
 import net.marllex.waselak.core.model.ProductReturn
 import net.marllex.waselak.core.model.ReturnsSummary
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class ReturnsViewModel(
     private val returnRepository: ReturnRepository,
@@ -36,12 +37,14 @@ class ReturnsViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "ReturnsViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             returnRepository.getReturns()
                 .onSuccess { list -> _uiState.update { it.copy(returns = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {

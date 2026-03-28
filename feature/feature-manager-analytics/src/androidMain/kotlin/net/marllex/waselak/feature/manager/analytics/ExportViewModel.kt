@@ -14,6 +14,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class ExportViewModel constructor(
     private val analyticsRepository: AnalyticsRepository
@@ -97,6 +98,7 @@ class ExportViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -139,6 +141,7 @@ class ExportViewModel constructor(
                 }
             }
             .onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update {
                     it.copy(
                         isLoading = false,

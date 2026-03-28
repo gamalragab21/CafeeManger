@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CategoryRepository
 import net.marllex.waselak.core.model.Category
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class CategoriesViewModel constructor(
     private val categoryRepository: CategoryRepository,
@@ -78,6 +79,7 @@ class CategoriesViewModel constructor(
                     AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showDialog = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -88,6 +90,7 @@ class CategoriesViewModel constructor(
         AppLogger.d(TAG, "deleteCategory called")
         viewModelScope.launch {
             categoryRepository.deleteCategory(id).onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }

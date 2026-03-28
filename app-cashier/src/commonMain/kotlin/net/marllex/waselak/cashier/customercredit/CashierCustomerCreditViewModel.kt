@@ -11,6 +11,7 @@ import net.marllex.waselak.core.domain.repository.CustomerCreditRepository
 import net.marllex.waselak.core.model.CreditTransaction
 import net.marllex.waselak.core.model.CustomerCredit
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class CashierCustomerCreditViewModel(
     private val customerCreditRepository: CustomerCreditRepository,
@@ -41,18 +42,25 @@ class CashierCustomerCreditViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "CashierCustomerCreditViewModel")
         AppLogger.d(TAG, "load called")
+        CrashReporter.addBreadcrumb("Loading debtors", "CashierCustomerCreditViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.debtors.isEmpty(), error = null) }
             customerCreditRepository.getDebtors()
-                .onSuccess { list -> _uiState.update { it.copy(debtors = list, isLoading = false) } }
+                .onSuccess { list ->
+                    CrashReporter.addBreadcrumb("Debtors loaded: ${list.size} items", "CashierCustomerCreditViewModel")
+                    _uiState.update { it.copy(debtors = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Debtors load failed: ${e.message}", "CashierCustomerCreditViewModel")
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
     fun selectCustomer(credit: CustomerCredit) {
         AppLogger.d(TAG, "selectCustomer called")
+        CrashReporter.addBreadcrumb("Selected customer: ${credit.customerId}", "CashierCustomerCreditViewModel")
         _uiState.update { it.copy(selectedCredit = credit) }
         viewModelScope.launch {
             customerCreditRepository.getTransactions(credit.customerId)
@@ -70,6 +78,7 @@ class CashierCustomerCreditViewModel(
 
     fun recordPayment() {
         AppLogger.d(TAG, "recordPayment called")
+        CrashReporter.addBreadcrumb("Recording payment", "CashierCustomerCreditViewModel")
         val credit = _uiState.value.selectedCredit ?: return
         val amount = _uiState.value.paymentAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
@@ -85,7 +94,10 @@ class CashierCustomerCreditViewModel(
                     selectCustomer(credit)
                     load()
                 }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Record payment failed: ${e.message}", "CashierCustomerCreditViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 
@@ -97,6 +109,7 @@ class CashierCustomerCreditViewModel(
 
     fun recordCharge() {
         AppLogger.d(TAG, "recordCharge called")
+        CrashReporter.addBreadcrumb("Recording charge", "CashierCustomerCreditViewModel")
         val credit = _uiState.value.selectedCredit ?: return
         val amount = _uiState.value.chargeAmount.toDoubleOrNull() ?: return
         viewModelScope.launch {
@@ -111,7 +124,10 @@ class CashierCustomerCreditViewModel(
                     selectCustomer(credit)
                     load()
                 }
-                .onFailure { e -> _uiState.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e ->
+                    CrashReporter.addBreadcrumb("Record charge failed: ${e.message}", "CashierCustomerCreditViewModel")
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isSaving = false, error = e.message) } }
         }
     }
 }

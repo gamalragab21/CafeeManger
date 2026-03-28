@@ -11,6 +11,7 @@ import net.marllex.waselak.core.domain.repository.CustomerCreditRepository
 import net.marllex.waselak.core.model.CreditTransaction
 import net.marllex.waselak.core.model.CustomerCredit
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class CustomerCreditViewModel(
     private val customerCreditRepository: CustomerCreditRepository,
@@ -39,12 +40,14 @@ class CustomerCreditViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "CustomerCreditViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.debtors.isEmpty(), error = null) }
             customerCreditRepository.getDebtors()
                 .onSuccess { list -> _uiState.update { it.copy(debtors = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }

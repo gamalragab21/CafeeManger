@@ -12,6 +12,7 @@ import net.marllex.waselak.admin.session.AdminSessionManager
 import net.marllex.waselak.admin.util.UiMessage
 import waselak.app_admin.generated.resources.Res
 import waselak.app_admin.generated.resources.*
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class SettingsViewModel(
     private val apiClient: AdminApiClient,

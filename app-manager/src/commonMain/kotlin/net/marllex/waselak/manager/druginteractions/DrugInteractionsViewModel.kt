@@ -13,6 +13,7 @@ import net.marllex.waselak.core.model.DrugInteraction
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.network.dto.CreateDrugInteractionRequest
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DrugInteractionsViewModel(
     private val drugInteractionRepository: DrugInteractionRepository,
@@ -72,12 +73,14 @@ class DrugInteractionsViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "DrugInteractionsViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             drugInteractionRepository.getInteractions()
                 .onSuccess { list -> _uiState.update { it.copy(interactions = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }

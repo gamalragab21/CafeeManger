@@ -20,6 +20,7 @@ import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class RecipeIngredientForm(
     val stockId: String = "",
@@ -164,6 +165,7 @@ class StockViewModel constructor(
     }
 
     fun loadData() {
+        CrashReporter.addBreadcrumb("loadData() called", "StockViewModel")
         AppLogger.d(TAG, "loadData called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -325,6 +327,7 @@ class StockViewModel constructor(
                     AppLogger.i(TAG, "Data loaded successfully")
                 _uiState.update { it.copy(isSaving = false, showAddDialog = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -341,6 +344,7 @@ class StockViewModel constructor(
                     _uiState.update { it.copy(transactions = transactions, transactionsLoading = false) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(transactionsLoading = false, error = e.message) }
                 }
         }
@@ -397,6 +401,7 @@ class StockViewModel constructor(
             result.onSuccess {
                 _uiState.update { it.copy(isSaving = false, showQuantityDialog = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
@@ -416,6 +421,7 @@ class StockViewModel constructor(
         val stock = _uiState.value.deletingStock ?: return
         viewModelScope.launch {
             stockRepository.deleteStockItem(stock.id).onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(error = e.message) }
             }
             _uiState.update { it.copy(showDeleteDialog = false, deletingStock = null) }
@@ -452,6 +458,7 @@ class StockViewModel constructor(
             recipeRepository.deleteRecipe(id).onSuccess {
                 loadRecipes()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }
@@ -626,6 +633,7 @@ class StockViewModel constructor(
                 _uiState.update { it.copy(recipeSaving = false, showRecipeSheet = false, recipeError = null) }
                 loadRecipes()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(recipeSaving = false, recipeError = e.message) }
             }
         }

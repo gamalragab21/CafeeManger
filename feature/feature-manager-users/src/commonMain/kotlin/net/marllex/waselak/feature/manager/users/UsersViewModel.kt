@@ -12,6 +12,7 @@ import net.marllex.waselak.core.domain.repository.UserManagementRepository
 import net.marllex.waselak.core.model.User
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class UsersViewModel constructor(
     private val userRepository: UserManagementRepository,
@@ -75,6 +76,7 @@ class UsersViewModel constructor(
         AppLogger.d(TAG, "deleteUser called")
         viewModelScope.launch {
             userRepository.deleteUser(id).onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(error = e.message) }
             }.onSuccess { loadUsers() }
@@ -128,6 +130,7 @@ class UsersViewModel constructor(
                 _uiState.update { it.copy(isSaving = false, showChangeRoleDialog = false, changeRoleUser = null) }
                 loadUsers()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }

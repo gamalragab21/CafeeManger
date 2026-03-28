@@ -15,6 +15,7 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class ReceiptViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -58,6 +59,7 @@ class ReceiptViewModel constructor(
             vendorLoaded = true // allow progress even if vendor is null
             val fetchResult = orderRepository.fetchOrder(orderId)
             fetchResult.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
@@ -93,6 +95,7 @@ class ReceiptViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     if (e.isFeatureNotAvailableOrOffline()) {
                         // Silently hide QR/Share buttons — no bottom sheet
                         _uiState.update {

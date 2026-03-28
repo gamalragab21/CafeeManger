@@ -12,6 +12,7 @@ import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.network.isPlanLimitExceeded
 import net.marllex.waselak.core.ui.components.ShiftSummaryUiModel
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class StaffViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -161,6 +162,7 @@ class StaffViewModel constructor(
     }
 
     fun loadData() {
+        CrashReporter.addBreadcrumb("loadData() called", "StaffViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -367,6 +369,7 @@ class StaffViewModel constructor(
                     _uiState.update { it.copy(dialogPhotoUrl = url) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Staff", "Failed to upload worker photo", e)
                     _uiState.update { it.copy(error = e.message) }
                 }
@@ -465,6 +468,7 @@ class StaffViewModel constructor(
                     clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Staff", "Failed to update worker", e)
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
@@ -487,6 +491,7 @@ class StaffViewModel constructor(
                     clearWorkerDialogData()
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Staff", "Failed to create worker", e)
                     when {
                         e.isPlanLimitExceeded() -> _uiState.update { it.copy(
@@ -536,6 +541,7 @@ class StaffViewModel constructor(
                     _uiState.update { it.copy(showDeleteWorkerDialog = false, workerToDelete = null) }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Staff", "Failed to delete worker", e)
                     _uiState.update { it.copy(showDeleteWorkerDialog = false, error = e.message) }
                 }
@@ -575,6 +581,7 @@ class StaffViewModel constructor(
                         _uiState.update { it.copy(workerRoles = roles) }
                     }
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Staff", "Failed to create role", e)
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
@@ -651,6 +658,7 @@ class StaffViewModel constructor(
                 }
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Staff", "Batch pay failed", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -892,6 +900,7 @@ class StaffViewModel constructor(
                 refreshOvertimeForWorker(workerId)
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Staff", "Failed to submit overtime", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -934,6 +943,7 @@ class StaffViewModel constructor(
                 if (workerId != null) refreshOvertimeForWorker(workerId)
                 workerRepository.refreshSalaryPayments()
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("Staff", "Failed to update overtime rate", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message) }
             }

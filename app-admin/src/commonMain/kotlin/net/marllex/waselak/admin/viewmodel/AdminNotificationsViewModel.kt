@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.network.AdminSendNotificationRequest
 import net.marllex.waselak.admin.network.VendorDto
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AdminNotificationsViewModel(
     private val apiClient: AdminApiClient,

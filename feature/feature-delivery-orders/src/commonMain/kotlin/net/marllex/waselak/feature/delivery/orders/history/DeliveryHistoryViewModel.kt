@@ -13,6 +13,7 @@ import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DeliveryHistoryViewModel constructor(
     private val orderRepository: OrderRepository,
@@ -34,11 +35,13 @@ class DeliveryHistoryViewModel constructor(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "DeliveryHistoryViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             orderRepository.refreshMyDeliveryOrders(status = "COMPLETED")
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(error = e.message, isLoading = false) } }
             orderRepository.getMyDeliveryOrders(status = "COMPLETED").collect { orders ->
                 val grouped = orders.groupBy { epochDay(it.createdAt) }

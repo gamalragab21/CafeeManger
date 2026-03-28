@@ -11,6 +11,7 @@ import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.dto.PlanFeaturesResponse
 import net.marllex.waselak.core.network.dto.PlanSummaryDto
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class PlansComparisonViewModel(
     private val api: WaselakApiClient,

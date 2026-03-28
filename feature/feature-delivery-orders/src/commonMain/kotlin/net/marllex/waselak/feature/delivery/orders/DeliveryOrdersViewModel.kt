@@ -13,6 +13,7 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.model.PaymentStatus
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DeliveryOrdersViewModel constructor(
     private val orderRepository: OrderRepository,
@@ -70,6 +71,7 @@ class DeliveryOrdersViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
@@ -100,6 +102,7 @@ class DeliveryOrdersViewModel constructor(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(isLoadingMore = false, error = e.message) }
                 }
         }
@@ -124,6 +127,7 @@ class DeliveryOrdersViewModel constructor(
             orderRepository.assignDeliveryUser(orderId, "self")
                 .onSuccess { loadOrders() }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                 }
         }
@@ -134,6 +138,7 @@ class DeliveryOrdersViewModel constructor(
             orderRepository.updateOrderStatus(orderId, newStatus)
                 .onSuccess { loadOrders() }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                 }
         }
@@ -145,6 +150,7 @@ class DeliveryOrdersViewModel constructor(
             orderRepository.updatePaymentStatus(orderId, PaymentStatus.PAID)
                 .onSuccess { loadOrders() }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(error = e.message) }
                 }
         }
@@ -159,6 +165,7 @@ class DeliveryOrdersViewModel constructor(
                     onLink(link.url)
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(isSharing = false, error = e.message) }
                 }
         }

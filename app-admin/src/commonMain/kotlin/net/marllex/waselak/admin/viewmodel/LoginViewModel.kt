@@ -11,6 +11,7 @@ import net.marllex.waselak.admin.network.AdminApiClient
 import net.marllex.waselak.admin.util.UiMessage
 import waselak.app_admin.generated.resources.Res
 import waselak.app_admin.generated.resources.*
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class LoginViewModel(
     private val apiClient: AdminApiClient,
@@ -51,6 +52,7 @@ class LoginViewModel(
                 Logger.i(TAG) { "Login successful: ${loginResponse.email}" }
                 onSuccess()
             }.onFailure { exception ->
+                    CrashReporter.captureException(exception)
                 Logger.e(TAG) { "Login failed: ${exception.message}" }
                 _error.value = if (exception.message != null) UiMessage.Text(exception.message!!) else UiMessage.Resource(Res.string.unknown_error)
             }

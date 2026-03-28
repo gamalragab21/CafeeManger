@@ -14,6 +14,7 @@ import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PointsTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 enum class CustomerSortBy {
     ORDER_COUNT_DESC,
@@ -61,6 +62,7 @@ class CustomersViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             customerRepository.refreshCustomers()
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                     if (e.isFeatureNotAvailableOrOffline()) {
                         _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }

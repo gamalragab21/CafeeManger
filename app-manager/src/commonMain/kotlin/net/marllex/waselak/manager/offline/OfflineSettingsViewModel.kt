@@ -15,6 +15,7 @@ import net.marllex.waselak.core.data.sync.SyncScheduler
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.domain.repository.VendorRepository
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class OfflineSettingsViewModel(
     private val vendorRepository: VendorRepository,
@@ -47,6 +48,7 @@ class OfflineSettingsViewModel(
     init { load() }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "OfflineSettingsViewModel")
         AppLogger.d(TAG, "load called")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -61,6 +63,7 @@ class OfflineSettingsViewModel(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
@@ -110,6 +113,7 @@ class OfflineSettingsViewModel(
                     }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
         }

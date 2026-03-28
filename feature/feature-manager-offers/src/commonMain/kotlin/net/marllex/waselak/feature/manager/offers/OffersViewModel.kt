@@ -14,6 +14,7 @@ import net.marllex.waselak.core.domain.repository.ItemRepository
 import net.marllex.waselak.core.domain.repository.OfferRepository
 import net.marllex.waselak.core.model.Item
 import net.marllex.waselak.core.model.Offer
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 data class SelectedOfferItem(
     val itemId: String,
@@ -76,6 +77,7 @@ class OffersViewModel(
     }
 
     fun loadData() {
+        CrashReporter.addBreadcrumb("loadData() called", "OffersViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -170,6 +172,7 @@ class OffersViewModel(
                     _uiState.update { it.copy(formImageUrl = url, isUploadingImage = false) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("OffersVM", "Failed to upload offer image", e)
                     _uiState.update { it.copy(isUploadingImage = false, error = e.message) }
                 }
@@ -258,6 +261,7 @@ class OffersViewModel(
             result.onSuccess {
                 _uiState.update { it.copy(showForm = false, editingOffer = null, isSaving = false) }
             }.onFailure { e ->
+                    CrashReporter.captureException(e)
                 AppLogger.e("OffersVM", "Failed to save offer", e)
                 _uiState.update { it.copy(error = e.message, isSaving = false) }
             }

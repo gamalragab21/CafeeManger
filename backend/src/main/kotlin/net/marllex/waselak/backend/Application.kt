@@ -43,6 +43,7 @@ fun Application.module() {
     DatabaseConfig.init(environment.config, false)
 
     // Configure plugins
+    configureSentry()
     configureSerialization()
     configureAuthentication()
     configureCORS()

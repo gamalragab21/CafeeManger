@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.OrderRepository
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class DeliveryMapViewModel constructor(
     private val orderRepository: OrderRepository,

@@ -48,6 +48,7 @@ import net.marllex.waselak.core.model.Vendor
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.network.isPlanLimitExceeded
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class PosViewModel constructor(
     savedStateHandle: SavedStateHandle,
@@ -845,6 +846,7 @@ class PosViewModel constructor(
                         _uiState.update { it.copy(isSubmitting = false, createdOrder = stubOrder) }
                     }
                     .onFailure { e ->
+                    CrashReporter.captureException(e)
                         AppLogger.e("POS", "Scheduled order creation failed", e)
                         when {
                             e.isPlanLimitExceeded() -> _uiState.update {
@@ -887,6 +889,7 @@ class PosViewModel constructor(
                         tableRepository.refreshTables()
                     }
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("POS", "Order submission failed", e)
                     when {
                         e.isPlanLimitExceeded() -> _uiState.update {

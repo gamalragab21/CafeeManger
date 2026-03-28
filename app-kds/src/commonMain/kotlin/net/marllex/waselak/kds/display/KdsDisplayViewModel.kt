@@ -15,6 +15,7 @@ import net.marllex.waselak.core.domain.repository.KdsRepository
 import net.marllex.waselak.core.model.KdsOrder
 import net.marllex.waselak.core.model.KdsSummary
 import java.util.concurrent.atomic.AtomicInteger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 private const val TAG = "KdsDisplayVM"
 
@@ -42,6 +43,7 @@ class KdsDisplayViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "KdsDisplayViewModel")
         AppLogger.d(TAG, "Loading KDS orders, station=${_uiState.value.selectedStation}")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.orders.isEmpty(), error = null) }
@@ -53,6 +55,7 @@ class KdsDisplayViewModel(
                     _uiState.update { it.copy(orders = filtered, isLoading = false) }
                 }
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Failed to load orders: ${e.message}")
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
@@ -104,6 +107,7 @@ class KdsDisplayViewModel(
         viewModelScope.launch {
             kdsRepository.updateItemStatus(itemId, status)
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Failed to update item $itemId status: ${e.message}")
                     load()
                     _uiState.update { it.copy(error = e.message) }
@@ -131,6 +135,7 @@ class KdsDisplayViewModel(
         viewModelScope.launch {
             kdsRepository.bulkUpdateStatus(orderId, itemIds, "READY")
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     load()
                     _uiState.update { it.copy(error = e.message) }
                 }

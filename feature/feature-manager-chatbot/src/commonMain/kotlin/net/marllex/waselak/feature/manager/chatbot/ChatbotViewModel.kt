@@ -16,6 +16,7 @@ import net.marllex.waselak.feature.manager.chatbot.model.ResponseType
 import net.marllex.waselak.feature.manager.chatbot.model.SuggestionCategory
 import net.marllex.waselak.feature.manager.chatbot.model.VisualFormat
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class ChatbotViewModel(
     private val repository: ChatbotRepository
@@ -105,6 +106,7 @@ class ChatbotViewModel(
                         saveConversation()
                     },
                     onFailure = { exception ->
+                    CrashReporter.captureException(exception)
                         // Remove loading message
                         removeMessage(loadingMessage.id)
 

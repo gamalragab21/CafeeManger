@@ -14,6 +14,7 @@ import net.marllex.waselak.core.model.KdsOrder
 import net.marllex.waselak.core.model.KdsSummary
 import java.util.concurrent.atomic.AtomicInteger
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class KdsViewModel(
     private val kdsRepository: KdsRepository,
@@ -40,12 +41,18 @@ class KdsViewModel(
     }
 
     fun load() {
+        CrashReporter.addBreadcrumb("load() called", "KdsViewModel")
         AppLogger.d(TAG, "load called")
+        CrashReporter.addBreadcrumb("Loading KDS orders", "KdsViewModel")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = _uiState.value.orders.isEmpty(), error = null) }
             kdsRepository.getKdsOrders(station = _uiState.value.selectedStation)
-                .onSuccess { list -> _uiState.update { it.copy(orders = list, isLoading = false) } }
+                .onSuccess { list ->
+                    CrashReporter.addBreadcrumb("KDS orders loaded: ${list.size} items", "KdsViewModel")
+                    _uiState.update { it.copy(orders = list, isLoading = false) } }
                 .onFailure { e ->
+                    CrashReporter.addBreadcrumb("KDS orders load failed: ${e.message}", "KdsViewModel")
+                    CrashReporter.captureException(e)
                     AppLogger.e(TAG, "Load failed", e); _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
         viewModelScope.launch {
@@ -79,6 +86,7 @@ class KdsViewModel(
     }
 
     fun updateItemStatus(itemId: String, status: String) {
+        CrashReporter.addBreadcrumb("Updating KDS item status: $itemId -> $status", "KdsViewModel")
         // Optimistic UI update
         _uiState.update { state ->
             state.copy(
@@ -94,6 +102,7 @@ class KdsViewModel(
         viewModelScope.launch {
             kdsRepository.updateItemStatus(itemId, status)
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     load() // revert on failure
                     _uiState.update { it.copy(error = e.message) }
                 }
@@ -103,6 +112,7 @@ class KdsViewModel(
 
     fun markAllReady(orderId: String, itemIds: List<String>) {
         AppLogger.d(TAG, "markAllReady called")
+        CrashReporter.addBreadcrumb("Marking all ready: order=$orderId, ${itemIds.size} items", "KdsViewModel")
         // Optimistic UI update
         _uiState.update { state ->
             state.copy(
@@ -120,6 +130,7 @@ class KdsViewModel(
         viewModelScope.launch {
             kdsRepository.bulkUpdateStatus(orderId, itemIds, "READY")
                 .onFailure { e ->
+                    CrashReporter.captureException(e)
                     load() // revert on failure
                     _uiState.update { it.copy(error = e.message) }
                 }

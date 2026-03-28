@@ -16,6 +16,7 @@ import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.Worker
 import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AttendanceViewModel constructor(
     private val workerRepository: WorkerRepository,
@@ -94,6 +95,7 @@ class AttendanceViewModel constructor(
     }
 
     fun loadData() {
+        CrashReporter.addBreadcrumb("loadData() called", "AttendanceViewModel")
         viewModelScope.launch {
             AppLogger.d("Attendance", "Loading attendance data, isOffline=${networkMonitor.isOnline.value.not()}")
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -257,6 +259,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Check-in with PIN failed: workerId=$workerId", e)
                     _uiState.update {
                         it.copy(
@@ -292,6 +295,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Check-out with PIN failed: attendanceId=$attendanceId", e)
                     _uiState.update {
                         it.copy(
@@ -324,6 +328,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Check-in with QR failed", e)
                     _uiState.update {
                         it.copy(
@@ -354,6 +359,7 @@ class AttendanceViewModel constructor(
                     }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Check-out with QR failed", e)
                     _uiState.update {
                         it.copy(
@@ -378,6 +384,7 @@ class AttendanceViewModel constructor(
                     _uiState.update { it.copy(successMessage = "check_in_success") }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Manual check-in failed: workerId=$workerId", e)
                     _uiState.update { it.copy(error = e.message, isLoading = false) }
                 }
@@ -395,6 +402,7 @@ class AttendanceViewModel constructor(
                     _uiState.update { it.copy(successMessage = "check_out_success") }
                     loadData()
                 }.onFailure { e ->
+                    CrashReporter.captureException(e)
                     AppLogger.e("Attendance", "Manual check-out failed: attendanceId=$attendanceId", e)
                     _uiState.update { it.copy(error = e.message, isLoading = false) }
                 }
