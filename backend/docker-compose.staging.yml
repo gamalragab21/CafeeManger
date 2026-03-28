@@ -1,0 +1,44 @@
+# ============================================================
+# Waselak Backend — Docker Compose (Staging/Debug on VPS)
+# ============================================================
+# Single source of truth: env/backend-debug.env
+# Runs on port 8081 (separate from production on 8080)
+# ============================================================
+
+version: '3.8'
+
+services:
+  postgres-staging:
+    image: postgres:16-alpine
+    container_name: waselak-postgres-staging
+    env_file: ../env/backend-debug.env
+    environment:
+      POSTGRES_USER: waselak_db
+      POSTGRES_PASSWORD: waselak_db_dev
+      POSTGRES_DB: waselak_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waselak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend-staging:
+    build: .
+    container_name: waselak-backend-staging
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+    env_file: ../env/backend-debug.env
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres-staging:5432/waselak_db
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_staging_data:

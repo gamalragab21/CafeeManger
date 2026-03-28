@@ -57,6 +57,10 @@ class PaymentViewModel constructor(
     fun completePayment() {
         AppLogger.d(TAG, "completePayment called")
         val order = _uiState.value.order ?: return
+        CrashReporter.logTransaction("complete_payment", "payment")
+        CrashReporter.logUserAction("completePayment", "PaymentScreen", mapOf("orderId" to order.id, "total" to order.total.toString()))
+        CrashReporter.setExtra("payment.order_id", order.id)
+        CrashReporter.setExtra("payment.total", order.total.toString())
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             // Update payment status to PAID (independent from order status)

@@ -8,6 +8,7 @@ import net.marllex.waselak.core.model.User
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 import net.marllex.waselak.core.network.dto.LoginRequest
 import net.marllex.waselak.core.network.dto.RefreshTokenRequest
 import net.marllex.waselak.core.network.mapper.toDomain
@@ -81,8 +82,10 @@ class AuthRepositoryImpl(
             }
             tokenManager.clearTokens()
             _currentUser.value = null
+            CrashReporter.clearUser()
             AppLogger.i("Auth", "Logout completed, tokens cleared")
         }.onFailure { e ->
+            CrashReporter.captureException(e)
             AppLogger.e("Auth", "Logout failed", e)
         }
     }

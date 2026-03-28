@@ -24,6 +24,19 @@ application {
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
 }
 
+// Load env vars from env/backend-debug.env when running locally
+tasks.named<JavaExec>("run") {
+    val envFile = rootProject.file("env/backend-debug.env")
+    if (envFile.exists()) {
+        envFile.readLines()
+            .filter { it.isNotBlank() && !it.startsWith("#") && it.contains("=") }
+            .forEach { line ->
+                val (key, value) = line.split("=", limit = 2)
+                environment(key.trim(), value.trim())
+            }
+    }
+}
+
 val ktor_version = "3.0.3"
 val koin_version = "4.0.1"
 

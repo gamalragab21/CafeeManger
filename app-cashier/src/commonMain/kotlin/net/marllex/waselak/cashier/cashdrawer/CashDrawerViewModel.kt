@@ -83,6 +83,8 @@ class CashDrawerViewModel(
     fun onOpeningBalanceChange(v: String) { _uiState.update { it.copy(openingBalance = v) } }
     fun onOpenNotesChange(v: String) { _uiState.update { it.copy(openNotes = v) } }
     fun openDrawer() {
+        CrashReporter.logUserAction("openDrawer", "CashDrawer")
+        CrashReporter.logTransaction("open_drawer", "cashDrawer")
         AppLogger.d(TAG, "openDrawer called")
         CrashReporter.addBreadcrumb("Opening cash drawer", "CashDrawerViewModel")
         val balance = _uiState.value.openingBalance.toDoubleOrNull() ?: 0.0
@@ -103,6 +105,8 @@ class CashDrawerViewModel(
     fun onClosingBalanceChange(v: String) { _uiState.update { it.copy(closingBalance = v) } }
     fun onCloseNotesChange(v: String) { _uiState.update { it.copy(closeNotes = v) } }
     fun closeDrawer() {
+        CrashReporter.logUserAction("closeDrawer", "CashDrawer")
+        CrashReporter.logTransaction("close_drawer", "cashDrawer")
         AppLogger.d(TAG, "closeDrawer called")
         CrashReporter.addBreadcrumb("Closing cash drawer", "CashDrawerViewModel")
         val balance = _uiState.value.closingBalance.toDoubleOrNull() ?: return

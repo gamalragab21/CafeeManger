@@ -58,6 +58,14 @@ class LoginViewModel constructor(
                 .onSuccess { user ->
                     if (isRoleAllowed(user.role, appType)) {
                     AppLogger.i(TAG, "Data loaded successfully")
+                        CrashReporter.setUser(user.id, user.name, user.role.name, user.vendorId)
+                        CrashReporter.setTag("user.role", user.role.name)
+                        CrashReporter.setTag("vendor.id", user.vendorId ?: "none")
+                        CrashReporter.setExtra("user.name", user.name ?: "unknown")
+                        CrashReporter.setExtra("user.phone", state.phone)
+                        CrashReporter.logTransaction("login", "auth")
+                        CrashReporter.logUserAction("login_success", "LoginScreen", mapOf("role" to user.role.name, "app" to appType))
+                        CrashReporter.captureMessage("User logged in: ${user.name} (${user.role.name})")
                         _uiState.update { it.copy(isLoading = false) }
                         onSuccess()
                     } else {

@@ -32,6 +32,7 @@ object CrashReporter {
                 options.dsn = dsn
                 options.environment = if (debug) "development" else "production"
                 options.tracesSampleRate = 1.0
+                options.logs.enabled = true
                 options.beforeSend = { event ->
                     event.setTag("app", appName)
                     event.setTag("platform", platform)
@@ -75,6 +76,7 @@ object CrashReporter {
     fun addBreadcrumb(message: String, category: String = "navigation") {
         if (!initialized) return
         try {
+            Sentry.logger.debug("[$category] $message") { this["category"] = category }
             val breadcrumb = Breadcrumb().apply {
                 this.message = message
                 this.category = category
@@ -87,6 +89,7 @@ object CrashReporter {
     fun logInfo(tag: String, message: String) {
         if (!initialized) return
         try {
+            Sentry.logger.info("[$tag] $message") { this["tag"] = tag }
             val breadcrumb = Breadcrumb().apply {
                 this.message = message
                 this.category = tag
@@ -99,6 +102,7 @@ object CrashReporter {
     fun logWarning(tag: String, message: String) {
         if (!initialized) return
         try {
+            Sentry.logger.warn("[$tag] $message") { this["tag"] = tag }
             val breadcrumb = Breadcrumb().apply {
                 this.message = message
                 this.category = tag
@@ -111,6 +115,7 @@ object CrashReporter {
     fun logError(tag: String, message: String, throwable: Throwable? = null) {
         if (!initialized) return
         try {
+            Sentry.logger.error("[$tag] $message") { this["tag"] = tag }
             val breadcrumb = Breadcrumb().apply {
                 this.message = message
                 this.category = tag
@@ -124,6 +129,12 @@ object CrashReporter {
     fun logNetwork(method: String, url: String, statusCode: Int, duration: Long) {
         if (!initialized) return
         try {
+            Sentry.logger.info("HTTP $method $url → $statusCode (${duration}ms)") {
+                this["method"] = method
+                this["url"] = url
+                this["status_code"] = statusCode.toString()
+                this["duration_ms"] = duration.toString()
+            }
             val breadcrumb = Breadcrumb().apply {
                 this.type = "http"
                 this.category = "http"
@@ -141,6 +152,10 @@ object CrashReporter {
     fun logNavigation(from: String, to: String) {
         if (!initialized) return
         try {
+            Sentry.logger.info("Navigate: $from → $to") {
+                this["from"] = from
+                this["to"] = to
+            }
             val breadcrumb = Breadcrumb().apply {
                 this.type = "navigation"
                 this.category = "navigation"
@@ -156,6 +171,11 @@ object CrashReporter {
     fun logUserAction(action: String, screen: String, data: Map<String, String> = emptyMap()) {
         if (!initialized) return
         try {
+            Sentry.logger.info("Action: $action on $screen") {
+                this["action"] = action
+                this["screen"] = screen
+                data.forEach { (key, value) -> this[key] = value }
+            }
             val breadcrumb = Breadcrumb().apply {
                 this.type = "user"
                 this.category = "user.action"
@@ -172,7 +192,11 @@ object CrashReporter {
     fun logTransaction(name: String, operation: String) {
         if (!initialized) return
         try {
-            Sentry.startTransaction(name, operation)
+            Sentry.logger.info("Transaction: $name ($operation)") {
+                this["transaction"] = name
+                this["operation"] = operation
+            }
+            addBreadcrumb("Transaction: $name ($operation)", "performance")
         } catch (_: Exception) { }
     }
 

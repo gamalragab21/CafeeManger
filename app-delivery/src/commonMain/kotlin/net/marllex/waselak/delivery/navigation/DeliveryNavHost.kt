@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import net.marllex.waselak.core.common.crash.CrashReporter
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -567,6 +568,13 @@ fun DeliveryNavHost(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // Log navigation to Sentry
+    LaunchedEffect(currentDestination?.route) {
+        currentDestination?.route?.let { route ->
+            CrashReporter.logNavigation("delivery", route)
+        }
+    }
     val platformActions = rememberPlatformActions()
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState(initial = null)

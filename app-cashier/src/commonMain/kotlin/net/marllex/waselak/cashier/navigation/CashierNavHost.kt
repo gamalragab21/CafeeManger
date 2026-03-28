@@ -79,6 +79,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import net.marllex.waselak.core.common.crash.CrashReporter
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1444,6 +1445,13 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // Log navigation changes to Sentry
+    LaunchedEffect(currentDestination?.route) {
+        currentDestination?.route?.let { route ->
+            CrashReporter.logNavigation("cashier", route)
+        }
+    }
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState(initial = null)
     val vendor by vendorRepository.getMyVendor().collectAsState(initial = null)

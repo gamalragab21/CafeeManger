@@ -18,6 +18,11 @@ class DeliveryApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashReporter.initialize(dsn = BuildConfig.SENTRY_DSN, appName = "delivery", platform = "android", debug = BuildConfig.IS_DEBUG)
+        CrashReporter.setTag("app.version", BuildConfig.VERSION_NAME)
+        CrashReporter.setTag("app.version_code", BuildConfig.VERSION_CODE.toString())
+        CrashReporter.setTag("app.type", "delivery")
+        CrashReporter.setExtra("build.debug", BuildConfig.IS_DEBUG.toString())
+        CrashReporter.setExtra("build.base_url", BuildConfig.BASE_URL)
         startKoin {
             androidLogger()
             androidContext(this@DeliveryApplication)

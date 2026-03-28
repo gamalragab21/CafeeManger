@@ -3,6 +3,7 @@ package net.marllex.waselak.core.common.logging
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import net.marllex.waselak.core.common.crash.CrashReporter
 
 enum class LogLevel { DEBUG, INFO, WARN, ERROR }
 
@@ -21,9 +22,20 @@ object AppLogger {
         i("AppLogger", "Logger initialized for $appName")
     }
 
-    fun d(tag: String, message: String) = log(LogLevel.DEBUG, tag, message)
-    fun i(tag: String, message: String) = log(LogLevel.INFO, tag, message)
-    fun w(tag: String, message: String) = log(LogLevel.WARN, tag, message)
+    fun d(tag: String, message: String) {
+        log(LogLevel.DEBUG, tag, message)
+        CrashReporter.logInfo(tag, "[DEBUG] $message")
+    }
+
+    fun i(tag: String, message: String) {
+        log(LogLevel.INFO, tag, message)
+        CrashReporter.logInfo(tag, message)
+    }
+
+    fun w(tag: String, message: String) {
+        log(LogLevel.WARN, tag, message)
+        CrashReporter.logWarning(tag, message)
+    }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         val fullMessage = if (throwable != null) {
@@ -32,6 +44,12 @@ object AppLogger {
             message
         }
         log(LogLevel.ERROR, tag, fullMessage)
+        CrashReporter.logError(tag, message, throwable)
+    }
+
+    /** Log to file only — no Sentry bridge (used for verbose HTTP logs to avoid quota) */
+    fun logToFileOnly(tag: String, message: String) {
+        log(LogLevel.DEBUG, tag, message)
     }
 
     fun readLogFileBytes(): ByteArray {

@@ -1,9 +1,12 @@
-# Production Docker Compose
-# Usage: docker compose -f docker-compose.prod.yml up -d
+# ============================================================
+# Waselak Backend — Docker Compose (VPS)
+# ============================================================
+# Single source of truth: env/backend-release.env
 #
-# Before running, create backend/.env.prod with your production secrets:
-#   cp .env.prod.template .env.prod
-#   # Edit .env.prod with real values
+# Usage:
+#   Production:  docker compose -f docker-compose.prod.yml up -d
+#   Staging:     docker compose -f docker-compose.staging.yml up -d
+# ============================================================
 
 version: '3.8'
 
@@ -11,18 +14,13 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: waselak-postgres-prod
-    env_file: .env.prod
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-waselak_prod}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-waselak_prod}
+    env_file: ../env/backend-release.env
     ports:
       - "5433:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waselak_prod}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-waselak_prod}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,18 +32,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: .env.prod
-    environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-waselak_prod}
-      DATABASE_USER: ${POSTGRES_USER:-waselak_prod}
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:-waselak}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-waselak-api}
-      HMAC_SECRET: ${HMAC_SECRET}
-      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      SENTRY_ENV: production
+    env_file: ../env/backend-release.env
     ports:
       - "8080:8080"
     restart: unless-stopped

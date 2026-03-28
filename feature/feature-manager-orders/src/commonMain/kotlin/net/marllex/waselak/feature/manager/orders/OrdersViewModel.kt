@@ -604,6 +604,9 @@ class OrdersViewModel constructor(
         val order = s.returningOrder ?: return
         val selectedItems = s.returnItems.filter { it.selectedQuantity > 0 }
         if (selectedItems.isEmpty() || s.returnReason.isBlank()) return
+        CrashReporter.logTransaction("submit_return", "refund")
+        CrashReporter.logUserAction("submitReturn", "OrdersScreen", mapOf("orderId" to order.id, "type" to s.returnType, "items" to selectedItems.size.toString()))
+        CrashReporter.captureMessage("Return submitted: ${s.returnType} for order ${order.id}")
         // For exchange, require a replacement item
         if (s.returnType == "EXCHANGE" && s.exchangeSelectedItem == null) return
 

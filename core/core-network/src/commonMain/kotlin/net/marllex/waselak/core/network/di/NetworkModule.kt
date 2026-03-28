@@ -29,6 +29,7 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.common.crash.CrashReporter
 import kotlinx.coroutines.runBlocking
 import net.marllex.waselak.core.network.ApiException
 import net.marllex.waselak.core.network.WaselakApiClient
@@ -76,8 +77,10 @@ val networkModule = module {
                 logger = object : Logger {
                     override fun log(message: String) {
                         co.touchlab.kermit.Logger.d("KtorHttp") { message }
-                        // Also log to AppLogger file for full HTTP request/response capture
-                        AppLogger.d("HTTP", message)
+                        // Log full HTTP to file only (AppLogger without Sentry bridge)
+                        AppLogger.logToFileOnly("HTTP", message)
+                        // Log to Sentry — full detail for debugging
+                        CrashReporter.logInfo("HTTP", message)
                     }
                 }
                 level = LogLevel.ALL
@@ -87,13 +90,36 @@ val networkModule = module {
                     val path = response.call.request.url.encodedPath
                     val method = response.call.request.method.value
                     val status = response.status.value
-                    val respHeaders = response.headers.entries()
-                        .joinToString(", ") { (k, v) -> "$k: ${v.joinToString()}" }
+                    val queryString = response.call.request.url.encodedQuery
+                    val fullPath = if (queryString.isNotBlank()) "$path?$queryString" else path
+
+                    // Log request details to Sentry
+                    val reqBody = try {
+                        when (val body = response.call.request.content) {
+                            is TextContent -> body.text
+                            is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
+                            else -> ""
+                        }
+                    } catch (_: Exception) { "" }
+                    val reqTrunc = if (reqBody.length > 2000) reqBody.take(2000) + "..." else reqBody
+
+                    CrashReporter.logNetwork(method, fullPath, status, 0L)
+
+                    // Save response for body reading
+                    val savedResp = response.call.save()
+                    val respBody = try { savedResp.response.bodyAsText() } catch (_: Exception) { "<unreadable>" }
+                    val respTrunc = if (respBody.length > 2000) respBody.take(2000) + "..." else respBody
+
+                    // Log FULL request + response to Sentry as ONE entry
+                    CrashReporter.logInfo("API", "$method $fullPath → $status\n" +
+                        "REQUEST: $reqTrunc\n" +
+                        "RESPONSE: $respTrunc")
+
                     if (!response.status.isSuccess()) {
-                        val savedResp = response.call.save()
-                        val rawBody = try { savedResp.response.bodyAsText() } catch (_: Exception) { "<unreadable>" }
-                        val truncBody = if (rawBody.length > 3000) rawBody.take(3000) + "...[truncated ${rawBody.length}]" else rawBody
-                        AppLogger.e("HTTP-RES", "$method $path -> $status | headers=[$respHeaders] | body=$truncBody")
+                        val truncBody = if (respBody.length > 3000) respBody.take(3000) + "...[truncated]" else respBody
+                        val respHeaders = response.headers.entries()
+                            .joinToString(", ") { (k, v) -> "$k: ${v.joinToString()}" }
+                        AppLogger.logToFileOnly("HTTP-RES", "$method $path -> $status | headers=[$respHeaders] | body=$truncBody")
                         val errorBody = try {
                             savedResp.response.body<ApiErrorResponse>()
                         } catch (_: Exception) {
@@ -115,8 +141,6 @@ val networkModule = module {
                             errorMessage = message,
                             errorType = errorType
                         )
-                    } else {
-                        AppLogger.d("HTTP-RES", "$method $path -> $status OK | headers=[$respHeaders]")
                     }
                 }
             }

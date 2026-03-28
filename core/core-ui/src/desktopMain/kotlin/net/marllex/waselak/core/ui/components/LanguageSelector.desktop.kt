@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.MutableState
 import java.util.Locale
 import java.util.prefs.Preferences
 
@@ -37,13 +38,19 @@ private val prefs: Preferences = Preferences.userNodeForPackage(LanguageSelector
 /** Marker class for Preferences node. */
 private class LanguageSelectorDesktop
 
+/** Global observable language state — app root should observe this */
+val currentLanguageState: MutableState<String> = mutableStateOf(
+    prefs.get(PREF_KEY_LANGUAGE, Locale.getDefault().language)
+)
+
 /** Read persisted language or fall back to system default. */
 fun getPersistedLanguage(): String = prefs.get(PREF_KEY_LANGUAGE, Locale.getDefault().language)
 
-/** Apply and persist a language code. */
+/** Apply and persist a language code, triggers recomposition via currentLanguageState. */
 fun applyLanguage(code: String) {
     prefs.put(PREF_KEY_LANGUAGE, code)
     Locale.setDefault(Locale(code))
+    currentLanguageState.value = code
 }
 
 @Composable

@@ -722,7 +722,12 @@ class PosViewModel constructor(
     fun submitOrder(paymentMethod: PaymentMethod, paymentTiming: PaymentTiming = PaymentTiming.PAY_NOW, onSuccess: (Order) -> Unit) {
         val s = _uiState.value
         if (!s.canSubmit) return
+        CrashReporter.logTransaction("create_order", "order")
+        CrashReporter.setExtra("order.items_count", s.cart.size.toString())
+        CrashReporter.setExtra("order.items_count", s.cart.size.toString())
+        CrashReporter.setExtra("order.channel", s.channel.name)
 
+        CrashReporter.logUserAction("submitOrder", "PosScreen", mapOf("channel" to s.channel.name, "items" to s.cart.size.toString(), "paymentMethod" to paymentMethod.name, "timing" to paymentTiming.name))
         AppLogger.d("POS", "Submitting order: channel=${s.channel.name}, items=${s.cart.size}, paymentMethod=${paymentMethod.name}")
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }

@@ -80,6 +80,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import net.marllex.waselak.core.common.crash.CrashReporter
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -302,6 +303,13 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // Log navigation to Sentry
+    LaunchedEffect(currentDestination?.route) {
+        currentDestination?.route?.let { route ->
+            CrashReporter.logNavigation("manager", route)
+        }
+    }
     val scope = rememberCoroutineScope()
     val biometricAuth = rememberBiometricAuthenticator()
 

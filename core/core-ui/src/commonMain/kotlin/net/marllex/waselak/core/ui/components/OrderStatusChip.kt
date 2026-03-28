@@ -135,6 +135,7 @@ fun formatPaymentStatusLabel(status: PaymentStatus): String {
 fun getStatusColor(status: OrderStatus): Color {
     return when (status) {
         OrderStatus.CREATED -> StatusCreated
+        OrderStatus.IN_PROGRESS -> StatusInPreparation
         OrderStatus.IN_PREPARATION -> StatusInPreparation
         OrderStatus.READY -> StatusReady
         OrderStatus.SERVED -> StatusServed
@@ -158,6 +159,7 @@ fun getStatusColor(status: OrderStatus): Color {
 fun formatStatusLabel(status: OrderStatus): String {
     return when (status) {
         OrderStatus.CREATED -> stringResource(Res.string.status_created)
+        OrderStatus.IN_PROGRESS -> stringResource(Res.string.status_in_preparation)
         OrderStatus.IN_PREPARATION -> stringResource(Res.string.status_in_preparation)
         OrderStatus.READY -> stringResource(Res.string.status_ready)
         OrderStatus.SERVED -> stringResource(Res.string.status_served)

@@ -65,6 +65,7 @@ enum class OrderChannel {
 @Serializable
 enum class OrderStatus {
     CREATED,
+    IN_PROGRESS,
     IN_PREPARATION,
     READY,
     SERVED,              // dine-in: food served to table
