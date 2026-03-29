@@ -162,6 +162,9 @@ docker ps
 
 # Check disk usage
 df -h /
+
+# Full VPS status (one command)
+echo "=== Current Version ===" && cat /opt/waselak/CURRENT_VERSION 2>/dev/null || echo "Not deployed yet" && echo "" && echo "=== JAR File ===" && ls -lh /opt/waselak/waselak-backend.jar && echo "" && echo "=== Release Env ===" && cat /opt/waselak/release.env && echo "" && echo "=== Debug Env ===" && cat /opt/waselak/debug.env && echo "" && echo "=== Deploy History ===" && cat /opt/waselak/history/deploys.log 2>/dev/null || echo "No deploys yet" && echo "" && echo "=== Services Status ===" && systemctl is-active waselak-release waselak-debug waselak-webhook && echo "" && echo "=== Health ===" && curl -s http://localhost:8080/health && echo "" && curl -s http://localhost:8081/health
 ```
 
 ## Hostinger Firewall Rules
