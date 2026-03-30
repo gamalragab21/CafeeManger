@@ -153,8 +153,24 @@ systemctl restart waselak-debug
 # Manual deploy specific tag
 /opt/waselak/deploy.sh v1.5.0
 
-# Update admin password
-nano /opt/waselak/release.env    # change ADMIN_PASSWORD line
+# Update admin password (change 'NEW_PASSWORD' to your password)
+python3 -c "
+import bcrypt
+password = 'NEW_PASSWORD'
+hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(12)).decode()
+print(hashed)
+"
+# If bcrypt not installed:
+apt install -y python3-bcrypt 2>/dev/null || python3 -m pip install bcrypt -q
+# Copy the hash output, then run:
+docker exec -it postgres-prod psql -U waselak_prod -d waselak_prod -c "UPDATE admin_users SET password_hash = 'PASTE_HASH_HERE' WHERE email = 'gamalragab217@gmail.com';"
+# For debug database:
+docker exec -it postgres-dev psql -U waselak_db -d waselak_db -c "UPDATE admin_users SET password_hash = 'PASTE_HASH_HERE' WHERE email = 'gamalragab217@gmail.com';"
+
+# Reset database completely (WARNING: deletes all data)
+docker stop postgres-prod && docker rm postgres-prod && docker volume rm pgdata_prod
+docker run -d --name postgres-prod -e POSTGRES_USER=waselak_prod -e POSTGRES_PASSWORD=W4s3l4kPr0d2026 -e POSTGRES_DB=waselak_prod -p 5432:5432 --restart unless-stopped -v pgdata_prod:/var/lib/postgresql/data postgres:16-alpine
+nano /opt/waselak/release.env    # update ADMIN_PASSWORD before restart
 systemctl restart waselak-release
 
 # Update any config (HMAC, DB, JWT, etc.)
