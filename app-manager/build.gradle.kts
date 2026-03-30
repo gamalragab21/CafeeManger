@@ -15,6 +15,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(
@@ -54,6 +58,15 @@ compose.desktop {
             macOS {
                 bundleID = "net.marllex.waselak.manager"
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+                dockName = "Waselak Manager"
+                dmgPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
+                dmgPackageBuildVersion = project.findProperty("APP_VERSION_CODE") as? String ?: "1"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSHighResolutionCapable</key>
+                        <true/>
+                    """
+                }
             }
             windows {
                 val ico = project.file("src/desktopMain/resources/icon.ico")
@@ -61,11 +74,18 @@ compose.desktop {
                 menuGroup = "Waselak"
                 shortcut = true
                 perUserInstall = true
+                dirChooser = true
                 upgradeUuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                msiPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             }
             linux {
                 val png = project.file("src/desktopMain/resources/icon.png")
                 if (png.exists()) iconFile.set(png)
+                packageName = "waselak-manager"
+                debMaintainer = "gamalragab217@gmail.com"
+                menuGroup = "Waselak"
+                appCategory = "Office"
+                shortcut = true
             }
         }
     }

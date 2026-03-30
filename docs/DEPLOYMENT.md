@@ -153,6 +153,15 @@ systemctl restart waselak-debug
 # Manual deploy specific tag
 /opt/waselak/deploy.sh v1.5.0
 
+# Update admin password
+nano /opt/waselak/release.env    # change ADMIN_PASSWORD line
+systemctl restart waselak-release
+
+# Update any config (HMAC, DB, JWT, etc.)
+nano /opt/waselak/release.env    # edit release config
+nano /opt/waselak/debug.env      # edit debug config
+systemctl restart waselak-release waselak-debug
+
 # Health check
 curl http://localhost:8080/health
 curl http://localhost:8081/health
