@@ -363,10 +363,6 @@ jobs:
           echo "HMAC:     ${R_HMAC:0:6}...${R_HMAC: -6}"
           echo "SENTRY:   ${R_SENTRY:0:6}...${R_SENTRY: -6}"
 
-      - name: Build desktop packages
-        shell: bash
-        run: ./gradlew ${{ matrix.task }} ${{ matrix.gradle-args }}
-
       - name: Compute version and date
         id: vars
         shell: bash
@@ -376,7 +372,46 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
-      - name: Rename desktop packages
+      # ── Debug desktop build ──
+      - name: Build debug desktop packages
+        shell: bash
+        run: ./gradlew ${{ matrix.task }} -PBUILD_ENV=debug
+
+      - name: Collect debug desktop packages
+        shell: bash
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          DATE="${{ steps.vars.outputs.date }}"
+          PLATFORM="${{ matrix.platform }}"
+          EXT="${{ matrix.ext }}"
+          mkdir -p artifacts/debug
+
+          for module in app-manager app-cashier app-delivery app-kds; do
+            name="${module#app-}"
+            PKG=$(find "$module/build/compose/binaries" \
+                       -name "*.$EXT" -type f 2>/dev/null | head -1)
+            if [ -n "$PKG" ]; then
+              cp "$PKG" \
+                 "artifacts/debug/${name}-v${VERSION}-${DATE}-debug-${PLATFORM}.${EXT}"
+              echo "OK: ${name}-v${VERSION}-${DATE}-debug-${PLATFORM}.${EXT}"
+            else
+              echo "WARNING: No debug .$EXT for $module"
+            fi
+          done
+          echo "=== Debug desktop artifacts ($PLATFORM) ==="
+          ls -la artifacts/debug/
+
+      # ── Clean before release build ──
+      - name: Clean build for release
+        shell: bash
+        run: ./gradlew clean
+
+      # ── Release desktop build ──
+      - name: Build release desktop packages
+        shell: bash
+        run: ./gradlew ${{ matrix.task }} ${{ matrix.gradle-args }}
+
+      - name: Collect release desktop packages
         shell: bash
         run: |
           VERSION="${{ steps.vars.outputs.version }}"
@@ -387,24 +422,28 @@ jobs:
 
           for module in app-manager app-cashier app-delivery app-kds; do
             name="${module#app-}"
-
-            # Find the built package file
             PKG=$(find "$module/build/compose/binaries/main/$EXT" \
                        -name "*.$EXT" -type f 2>/dev/null | head -1)
-
             if [ -n "$PKG" ]; then
               cp "$PKG" \
                  "artifacts/release/${name}-v${VERSION}-${DATE}-release-${PLATFORM}.${EXT}"
               echo "OK: ${name}-v${VERSION}-${DATE}-release-${PLATFORM}.${EXT}"
             else
-              echo "WARNING: No .$EXT found for $module"
+              echo "WARNING: No release .$EXT for $module"
             fi
           done
-
-          echo "=== Desktop artifacts ($PLATFORM) ==="
+          echo "=== Release desktop artifacts ($PLATFORM) ==="
           ls -la artifacts/release/
 
-      - name: Upload desktop artifacts
+      - name: Upload debug desktop artifacts
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-debug-${{ matrix.platform }}
+          path: artifacts/debug/
+          retention-days: 3
+
+      - name: Upload release desktop artifacts
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -448,19 +487,40 @@ jobs:
           name: android-release
           path: all-artifacts/release/
 
-      - name: Download Linux desktop
+      - name: Download Linux desktop debug
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: desktop-debug-linux
+          path: all-artifacts/debug/
+
+      - name: Download macOS desktop debug
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: desktop-debug-macos
+          path: all-artifacts/debug/
+
+      - name: Download Windows desktop debug
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: desktop-debug-windows
+          path: all-artifacts/debug/
+
+      - name: Download Linux desktop release
         uses: actions/download-artifact@v4
         with:
           name: desktop-release-linux
           path: all-artifacts/release/
 
-      - name: Download macOS desktop
+      - name: Download macOS desktop release
         uses: actions/download-artifact@v4
         with:
           name: desktop-release-macos
           path: all-artifacts/release/
 
-      - name: Download Windows desktop
+      - name: Download Windows desktop release
         uses: actions/download-artifact@v4
         with:
           name: desktop-release-windows
@@ -624,7 +684,7 @@ jobs:
             fi
           done
 
-          # ── Desktop packages (per platform) ──
+          # ── Desktop packages (debug + release per platform) ──
           for PLATFORM_NAME in linux macos windows; do
             case "$PLATFORM_NAME" in
               linux)  EXT="deb"; ICON="🐧"; LABEL="Linux (.deb)" ;;
@@ -632,24 +692,45 @@ jobs:
               windows) EXT="msi"; ICON="🪟"; LABEL="Windows (.msi)" ;;
             esac
 
-            DESKTOP_TEXT="${ICON} <b>Desktop - ${LABEL}</b>"
-            HAS_FILES=false
-            for FILE in all-artifacts/release/*.${EXT}; do
+            # Debug desktop
+            DEBUG_TEXT="🐛 ${ICON} <b>Desktop Debug - ${LABEL}</b>"
+            HAS_DEBUG=false
+            for FILE in all-artifacts/debug/*-debug-${PLATFORM_NAME}.${EXT}; do
               if [ -f "$FILE" ]; then
                 FILENAME=$(basename "$FILE")
                 APP=$(echo "$FILENAME" | cut -d'-' -f1)
                 GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
                 FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
                 MB=$((FILESIZE / 1024 / 1024))
-                DESKTOP_TEXT="${DESKTOP_TEXT}
+                DEBUG_TEXT="${DEBUG_TEXT}
           📎 <b>${APP^}</b> — ${MB} MB
-              <a href=\"${GITHUB_URL}\">⬇️ Download ${FILENAME}</a>"
-                HAS_FILES=true
+              <a href=\"${GITHUB_URL}\">⬇️ Download</a>"
+                HAS_DEBUG=true
               fi
             done
+            if [ "$HAS_DEBUG" = true ]; then
+              send_msg "$DEBUG_TEXT"
+              sleep 1
+            fi
 
-            if [ "$HAS_FILES" = true ]; then
-              send_msg "$DESKTOP_TEXT"
+            # Release desktop
+            RELEASE_TEXT="✅ ${ICON} <b>Desktop Release - ${LABEL}</b>"
+            HAS_RELEASE=false
+            for FILE in all-artifacts/release/*-release-${PLATFORM_NAME}.${EXT}; do
+              if [ -f "$FILE" ]; then
+                FILENAME=$(basename "$FILE")
+                APP=$(echo "$FILENAME" | cut -d'-' -f1)
+                GITHUB_URL="https://github.com/${REPO}/releases/download/${TAG}/${FILENAME}"
+                FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE")
+                MB=$((FILESIZE / 1024 / 1024))
+                RELEASE_TEXT="${RELEASE_TEXT}
+          📎 <b>${APP^}</b> — ${MB} MB
+              <a href=\"${GITHUB_URL}\">⬇️ Download</a>"
+                HAS_RELEASE=true
+              fi
+            done
+            if [ "$HAS_RELEASE" = true ]; then
+              send_msg "$RELEASE_TEXT"
               sleep 1
             fi
           done
