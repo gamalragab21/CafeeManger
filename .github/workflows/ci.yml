@@ -489,26 +489,10 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
 
           # Create release with all files
-          RELEASE_NOTES="## Waselak v${VERSION}
-
-### 🤖 Android APKs
-**Debug:** manager, cashier, delivery, kds, admin
-**Release:** manager, cashier, delivery, kds, admin (signed)
-
-### 🖥️ Desktop Packages
-**Linux:** .deb packages
-**macOS:** .dmg packages
-**Windows:** .msi installers
-
-### 🔧 Backend
-**JAR:** waselak-backend.jar (auto-deploys to VPS)
-
----
-Built automatically by CI/CD | ${DATE}"
-
+          NOTES="Waselak v${VERSION} - Android APKs (debug+release), Desktop (Linux/macOS/Windows), Backend JAR. Built by CI/CD ${DATE}"
           gh release create "$TAG" \
-            --title "🚀 Waselak v${VERSION}" \
-            --notes "$RELEASE_NOTES" \
+            --title "Waselak v${VERSION}" \
+            --notes "$NOTES" \
             --latest \
             all-artifacts/debug/* \
             all-artifacts/release/*
