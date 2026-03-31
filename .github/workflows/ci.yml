@@ -171,6 +171,10 @@ jobs:
           R_SENTRY: ${{ secrets.RELEASE_SENTRY_DSN }}
         run: |
           printf "BASE_URL=%s\nHMAC_SECRET=%s\nSENTRY_DSN=%s\n" "$R_BASE_URL" "$R_HMAC" "$R_SENTRY" > env/release.properties
+          echo "=== Release Config Verification ==="
+          echo "BASE_URL: ${R_BASE_URL:0:6}...${R_BASE_URL: -6}"
+          echo "HMAC:     ${R_HMAC:0:6}...${R_HMAC: -6}"
+          echo "SENTRY:   ${R_SENTRY:0:6}...${R_SENTRY: -6}"
 
       # ── Build APKs ──────────────────────────────────────────────────────
       # Keystore is handled by Gradle: it reads KEYSTORE_BASE64 env var,
@@ -354,6 +358,10 @@ jobs:
           R_SENTRY: ${{ secrets.RELEASE_SENTRY_DSN }}
         run: |
           printf "BASE_URL=%s\nHMAC_SECRET=%s\nSENTRY_DSN=%s\n" "$R_BASE_URL" "$R_HMAC" "$R_SENTRY" > env/release.properties
+          echo "=== Desktop Release Config Verification ==="
+          echo "BASE_URL: ${R_BASE_URL:0:6}...${R_BASE_URL: -6}"
+          echo "HMAC:     ${R_HMAC:0:6}...${R_HMAC: -6}"
+          echo "SENTRY:   ${R_SENTRY:0:6}...${R_SENTRY: -6}"
 
       - name: Build desktop packages
         shell: bash
