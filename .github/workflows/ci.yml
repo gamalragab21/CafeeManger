@@ -165,12 +165,12 @@ jobs:
 
       # ── Reconstruct release secrets from GitHub Secrets ──────────────────
       - name: Create env/release.properties
+        env:
+          R_BASE_URL: ${{ secrets.RELEASE_BASE_URL }}
+          R_HMAC: ${{ secrets.RELEASE_HMAC_SECRET }}
+          R_SENTRY: ${{ secrets.RELEASE_SENTRY_DSN }}
         run: |
-          cat > env/release.properties << EOF
-BASE_URL=${{ secrets.RELEASE_BASE_URL }}
-HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
-SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
-EOF
+          printf "BASE_URL=%s\nHMAC_SECRET=%s\nSENTRY_DSN=%s\n" "$R_BASE_URL" "$R_HMAC" "$R_SENTRY" > env/release.properties
 
       # ── Build APKs ──────────────────────────────────────────────────────
       # Keystore is handled by Gradle: it reads KEYSTORE_BASE64 env var,
@@ -348,12 +348,12 @@ EOF
       # KmpApplicationConventionPlugin.resolveBuildEnv()
       - name: Create env/release.properties
         shell: bash
+        env:
+          R_BASE_URL: ${{ secrets.RELEASE_BASE_URL }}
+          R_HMAC: ${{ secrets.RELEASE_HMAC_SECRET }}
+          R_SENTRY: ${{ secrets.RELEASE_SENTRY_DSN }}
         run: |
-          cat > env/release.properties << EOF
-BASE_URL=${{ secrets.RELEASE_BASE_URL }}
-HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
-SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
-EOF
+          printf "BASE_URL=%s\nHMAC_SECRET=%s\nSENTRY_DSN=%s\n" "$R_BASE_URL" "$R_HMAC" "$R_SENTRY" > env/release.properties
 
       - name: Build desktop packages
         shell: bash
