@@ -108,6 +108,13 @@ fun LoginScreen(
     if (showBiometricGate) {
         BiometricGateScreen(
             biometricAuth = biometricAuth,
+            adminBypassCode = when (appType) {
+                "MANAGER" -> "2580"
+                "CASHIER" -> "1470"
+                "KDS" -> "3690"
+                "DELIVERY" -> "7531"
+                else -> "0000"
+            },
             onSuccess = {
                 showBiometricGate = false
                 navigated = true

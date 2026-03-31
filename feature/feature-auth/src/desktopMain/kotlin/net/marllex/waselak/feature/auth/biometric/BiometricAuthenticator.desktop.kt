@@ -23,7 +23,7 @@ actual class BiometricAuthenticator {
     actual fun isAvailable(): Boolean {
         return when {
             osName.contains("mac") -> checkMacOSAvailability()
-            osName.contains("win") -> true // Windows Hello is widely available
+            osName.contains("win") -> checkWindowsHelloAvailable()
             osName.contains("nux") || osName.contains("nix") -> checkLinuxAvailability()
             else -> false
         }
@@ -116,39 +116,103 @@ actual class BiometricAuthenticator {
         }
     }
 
-    // ── Windows: PowerShell → UserConsentVerifier (Windows Hello) ───────────
+    // ── Windows: Check if any credential verification is available ────────
+
+    private fun checkWindowsHelloAvailable(): Boolean = true // Always try — fallback handles failures
+
+    // ── Windows: Try multiple auth methods ──────────────────────────────
 
     private fun authenticateWindows(reason: String): BiometricResult {
+        // Method 1: Windows Hello (UserConsentVerifier — face/fingerprint/PIN)
+        val helloResult = tryWindowsHello(reason)
+        if (helloResult == BiometricResult.Success) return helloResult
+
+        // Method 2: Windows Credential UI (asks for Windows login password/PIN)
+        val credResult = tryWindowsCredentialPrompt(reason)
+        if (credResult == BiometricResult.Success) return credResult
+
+        // Method 3: If both failed, return the best error
+        return when {
+            helloResult is BiometricResult.NotAvailable && credResult is BiometricResult.NotAvailable ->
+                BiometricResult.NotAvailable
+            helloResult is BiometricResult.Cancelled || credResult is BiometricResult.Cancelled ->
+                BiometricResult.Cancelled
+            else -> BiometricResult.Error("Device verification failed")
+        }
+    }
+
+    private fun tryWindowsHello(reason: String): BiometricResult {
         return try {
-            // Use .NET UserConsentVerifier via PowerShell for Windows Hello
             val script = """
-                Add-Type -AssemblyName Windows.Security
-                ${'$'}result = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('$reason').GetAwaiter().GetResult()
-                if (${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::Verified) {
-                    exit 0
-                } elseif (${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::Canceled) {
-                    exit 1
-                } elseif (${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::DeviceNotPresent -or
-                          ${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::NotConfiguredForUser) {
+                try {
+                    Add-Type -AssemblyName Windows.Security
+                    ${'$'}result = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('$reason').GetAwaiter().GetResult()
+                    if (${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::Verified) {
+                        exit 0
+                    } elseif (${'$'}result -eq [Windows.Security.Credentials.UI.UserConsentVerificationResult]::Canceled) {
+                        exit 1
+                    } else {
+                        exit 2
+                    }
+                } catch {
                     exit 2
-                } else {
-                    exit 3
                 }
             """.trimIndent()
-
             val process = ProcessBuilder("powershell", "-NoProfile", "-Command", script)
                 .redirectErrorStream(true)
                 .start()
-
             val exitCode = process.waitFor()
             when (exitCode) {
                 0 -> BiometricResult.Success
                 1 -> BiometricResult.Cancelled
-                2 -> BiometricResult.NotAvailable
-                else -> BiometricResult.Error("Windows Hello authentication failed")
+                else -> BiometricResult.NotAvailable
             }
-        } catch (e: Exception) {
-            BiometricResult.Error(e.message ?: "Windows authentication error")
+        } catch (_: Exception) {
+            BiometricResult.NotAvailable
+        }
+    }
+
+    private fun tryWindowsCredentialPrompt(reason: String): BiometricResult {
+        return try {
+            // Use CredentialUIBroker — native Windows credential dialog (supports PIN + password + smartcard)
+            val script = """
+                Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class CredUI {
+    [DllImport("credui.dll", CharSet = CharSet.Unicode)]
+    public static extern int CredUIPromptForWindowsCredentialsW(
+        ref CREDUI_INFO info, int authError, ref uint authPackage,
+        IntPtr inBuf, uint inBufSize, out IntPtr outBuf, out uint outBufSize,
+        ref bool save, int flags);
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct CREDUI_INFO {
+        public int cbSize; public IntPtr hwnd; public string pszMessageText;
+        public string pszCaptionText; public IntPtr hbmBanner;
+    }
+}
+"@
+                ${'$'}info = New-Object CredUI+CREDUI_INFO
+                ${'$'}info.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf(${'$'}info)
+                ${'$'}info.pszCaptionText = 'Waselak'
+                ${'$'}info.pszMessageText = '$reason'
+                ${'$'}authPkg = [uint32]0; ${'$'}save = ${'$'}false
+                ${'$'}outBuf = [IntPtr]::Zero; ${'$'}outSize = [uint32]0
+                ${'$'}result = [CredUI]::CredUIPromptForWindowsCredentialsW([ref]${'$'}info, 0, [ref]${'$'}authPkg, [IntPtr]::Zero, 0, [ref]${'$'}outBuf, [ref]${'$'}outSize, [ref]${'$'}save, 0x1)
+                if (${'$'}result -eq 0) { exit 0 } elseif (${'$'}result -eq 1223) { exit 1 } else { exit 2 }
+            """.trimIndent()
+            val process = ProcessBuilder("powershell", "-NoProfile", "-Command", script)
+                .redirectErrorStream(true)
+                .start()
+            val exitCode = process.waitFor()
+            when (exitCode) {
+                0 -> BiometricResult.Success
+                1 -> BiometricResult.Cancelled
+                3 -> BiometricResult.Error("Wrong password")
+                else -> BiometricResult.NotAvailable
+            }
+        } catch (_: Exception) {
+            BiometricResult.NotAvailable
         }
     }
 
