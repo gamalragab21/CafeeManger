@@ -190,6 +190,7 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
             "Release", "release",
             "packageDmg", "packageMsi", "packageDeb", "packageRpm",
             "packageUberJarForCurrentOS",
+            "packageAllDesktop", "Dmg", "Msi", "Deb",
         )
         val isRelease = taskNames.any { task ->
             releaseIndicators.any { indicator -> task.contains(indicator) }

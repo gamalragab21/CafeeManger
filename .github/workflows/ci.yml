@@ -167,10 +167,10 @@ jobs:
       - name: Create env/release.properties
         run: |
           cat > env/release.properties << EOF
-          BASE_URL=${{ secrets.RELEASE_BASE_URL }}
-          HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
-          SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
-          EOF
+BASE_URL=${{ secrets.RELEASE_BASE_URL }}
+HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
+SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
+EOF
 
       # ── Build APKs ──────────────────────────────────────────────────────
       # Keystore is handled by Gradle: it reads KEYSTORE_BASE64 env var,
@@ -350,10 +350,10 @@ jobs:
         shell: bash
         run: |
           cat > env/release.properties << EOF
-          BASE_URL=${{ secrets.RELEASE_BASE_URL }}
-          HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
-          SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
-          EOF
+BASE_URL=${{ secrets.RELEASE_BASE_URL }}
+HMAC_SECRET=${{ secrets.RELEASE_HMAC_SECRET }}
+SENTRY_DSN=${{ secrets.RELEASE_SENTRY_DSN }}
+EOF
 
       - name: Build desktop packages
         shell: bash
@@ -489,24 +489,26 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
 
           # Create release with all files
+          RELEASE_NOTES="## Waselak v${VERSION}
+
+### 🤖 Android APKs
+**Debug:** manager, cashier, delivery, kds, admin
+**Release:** manager, cashier, delivery, kds, admin (signed)
+
+### 🖥️ Desktop Packages
+**Linux:** .deb packages
+**macOS:** .dmg packages
+**Windows:** .msi installers
+
+### 🔧 Backend
+**JAR:** waselak-backend.jar (auto-deploys to VPS)
+
+---
+Built automatically by CI/CD | ${DATE}"
+
           gh release create "$TAG" \
             --title "🚀 Waselak v${VERSION}" \
-            --notes "$(cat <<'NOTES'
-          ## Waselak v${VERSION}
-
-          ### 🤖 Android APKs
-          **Debug:** manager, cashier, delivery, kds, admin
-          **Release:** manager, cashier, delivery, kds, admin (signed)
-
-          ### 🖥️ Desktop Packages
-          **Linux:** .deb packages
-          **macOS:** .dmg packages
-          **Windows:** .msi installers
-
-          ---
-          Built automatically by CI/CD
-          NOTES
-          )" \
+            --notes "$RELEASE_NOTES" \
             --latest \
             all-artifacts/debug/* \
             all-artifacts/release/*
