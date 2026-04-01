@@ -31,6 +31,7 @@ val dataModule = module {
     single<PrescriptionRepository> { PrescriptionRepositoryImpl(get()) }
     single<DrugInteractionRepository> { DrugInteractionRepositoryImpl(get()) }
     single<CustomerCreditRepository> { CustomerCreditRepositoryImpl(get()) }
+    single<InstallmentRepository> { InstallmentRepositoryImpl(get()) }
     single<ScheduledOrderRepository> { ScheduledOrderRepositoryImpl(get()) }
     single<SupplierRepository> { SupplierRepositoryImpl(get()) }
     single<ReturnRepository> { ReturnRepositoryImpl(get()) }

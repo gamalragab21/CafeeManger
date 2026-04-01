@@ -364,6 +364,7 @@
 
     <!-- Customer Credit (Deferred Payment) -->
     <string name="customer_credit">Deferred Payments</string>
+    <string name="installments">Installments</string>
     <string name="customer">Customer</string>
     <string name="record_payment">Record Payment</string>
     <string name="charge_credit">Add to Tab</string>

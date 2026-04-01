@@ -364,6 +364,7 @@
 
     <!-- Customer Credit (البيع الآجل) -->
     <string name="customer_credit">البيع الآجل</string>
+    <string name="installments">التقسيط</string>
     <string name="customer">العميل</string>
     <string name="record_payment">تسجيل سداد</string>
     <string name="charge_credit">إضافة مديونية</string>
