@@ -46,6 +46,7 @@ object VendorsTable : UUIDTable("vendors") {
     val enablePrescriptions = bool("enable_prescriptions").default(false)
     val enableAnalytics = bool("enable_analytics").default(true)
     val enableAnnouncements = bool("enable_announcements").default(true)
+    val enableInstallments = bool("enable_installments").default(false)
     // Loyalty & discount settings
     val loyaltyEnabled = bool("loyalty_enabled").default(false)
     val pointsEarnRate = decimal("points_earn_rate", 10, 2).default(java.math.BigDecimal("1.0"))
@@ -892,6 +893,42 @@ object AppReleasesTable : UUIDTable("app_releases") {
     val isActive = bool("is_active").default(true)
     val releasedAt = timestamp("released_at").default(Clock.System.now())
     val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── Installment Plans ─────────────────────────────────────────────
+object InstallmentPlansTable : Table("installment_plans") {
+    val id = uuid("id").autoGenerate()
+    val vendorId = uuid("vendor_id").references(VendorsTable.id)
+    val customerId = uuid("customer_id").references(CustomersTable.id)
+    val orderId = uuid("order_id").references(OrdersTable.id, onDelete = ReferenceOption.SET_NULL).nullable()
+    val totalAmount = decimal("total_amount", 10, 2)
+    val downPayment = decimal("down_payment", 10, 2).default(java.math.BigDecimal.ZERO)
+    val remainingAmount = decimal("remaining_amount", 10, 2)
+    val numInstallments = integer("num_installments")
+    val installmentAmount = decimal("installment_amount", 10, 2)
+    val lateFeePercent = decimal("late_fee_percent", 5, 2).default(java.math.BigDecimal.ZERO)
+    val status = varchar("status", 20).default("ACTIVE")
+    val startDate = long("start_date")
+    val createdBy = uuid("created_by").references(UsersTable.id)
+    val createdAt = long("created_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
+    val updatedAt = long("updated_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
+    override val primaryKey = PrimaryKey(id)
+}
+
+object InstallmentPaymentsTable : Table("installment_payments") {
+    val id = uuid("id").autoGenerate()
+    val planId = uuid("plan_id").references(InstallmentPlansTable.id, onDelete = ReferenceOption.CASCADE)
+    val vendorId = uuid("vendor_id").references(VendorsTable.id)
+    val dueDate = long("due_date")
+    val amount = decimal("amount", 10, 2)
+    val paidAmount = decimal("paid_amount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val lateFee = decimal("late_fee", 10, 2).default(java.math.BigDecimal.ZERO)
+    val status = varchar("status", 20).default("PENDING")
+    val paidAt = long("paid_at").nullable()
+    val paidBy = uuid("paid_by").references(UsersTable.id, onDelete = ReferenceOption.SET_NULL).nullable()
+    val note = text("note").nullable()
+    val createdAt = long("created_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
+    override val primaryKey = PrimaryKey(id)
 }
 
 // ─── App Settings (Global, singleton row) ────────────────────────

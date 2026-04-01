@@ -35,6 +35,7 @@ fun VendorResponse.toDomain() = Vendor(
     enableCashDrawer = enableCashDrawer,
     enableReturns = enableReturns,
     enableCustomerCredit = enableCustomerCredit,
+    enableInstallments = enableInstallments,
     enablePreOrders = enablePreOrders,
     enableScheduledOrders = enableScheduledOrders,
     enableSuppliers = enableSuppliers,
@@ -1174,6 +1175,35 @@ fun DoctorStatsResponse.toDomain() = DoctorStats(
 )
 
 // ─── Returns Analytics Mappers ──────────────────────────────────
+// ─── Installments ────────────────────────────────────────────────
+
+fun InstallmentPlanResponse.toDomain() = InstallmentPlan(
+    id = id, vendorId = vendorId, customerId = customerId,
+    customerName = customerName, customerPhone = customerPhone,
+    orderId = orderId, totalAmount = totalAmount, downPayment = downPayment,
+    remainingAmount = remainingAmount, numInstallments = numInstallments,
+    installmentAmount = installmentAmount, lateFeePercent = lateFeePercent,
+    status = status, startDate = startDate,
+    payments = payments.map { it.toDomain() },
+    createdBy = createdBy, createdByName = createdByName,
+    createdAt = createdAt, updatedAt = updatedAt,
+)
+
+fun InstallmentPaymentResponse.toDomain() = InstallmentPayment(
+    id = id, planId = planId, dueDate = dueDate,
+    amount = amount, paidAmount = paidAmount, lateFee = lateFee,
+    status = status, paidAt = paidAt, paidBy = paidBy,
+    paidByName = paidByName, note = note, createdAt = createdAt,
+)
+
+fun InstallmentAnalyticsResponse.toDomain() = InstallmentAnalytics(
+    totalPlans = totalPlans, activePlans = activePlans,
+    completedPlans = completedPlans, defaultedPlans = defaultedPlans,
+    totalRevenue = totalRevenue, collectedRevenue = collectedRevenue,
+    pendingRevenue = pendingRevenue, overdueRevenue = overdueRevenue,
+    lateFeesCollected = lateFeesCollected,
+)
+
 fun ReturnsAnalyticsResponse.toDomain() = ReturnsAnalytics(
     totalReturns = totalReturns,
     totalRefunds = totalRefunds,

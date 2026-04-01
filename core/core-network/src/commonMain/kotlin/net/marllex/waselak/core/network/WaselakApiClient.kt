@@ -1195,6 +1195,37 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getCreditDebtors(): List<CustomerCreditResponse> =
         client.get("api/v1/credit/debtors").body()
 
+    // ─── Installments ───────────────────────────────────────────
+
+    suspend fun createInstallmentPlan(request: CreateInstallmentPlanRequest): InstallmentPlanResponse =
+        client.post("api/v1/installments") { setBody(request) }.body()
+
+    suspend fun getInstallmentPlans(status: String? = null): List<InstallmentPlanResponse> =
+        client.get("api/v1/installments") {
+            status?.let { parameter("status", it) }
+        }.body()
+
+    suspend fun getInstallmentPlan(planId: String): InstallmentPlanResponse =
+        client.get("api/v1/installments/$planId").body()
+
+    suspend fun recordInstallmentPayment(planId: String, request: RecordInstallmentPaymentRequest): InstallmentPaymentResponse =
+        client.post("api/v1/installments/$planId/payments") { setBody(request) }.body()
+
+    suspend fun updateInstallmentStatus(planId: String, request: UpdateInstallmentStatusRequest): InstallmentPlanResponse =
+        client.patch("api/v1/installments/$planId/status") { setBody(request) }.body()
+
+    suspend fun applyInstallmentLateFee(planId: String): InstallmentPlanResponse =
+        client.post("api/v1/installments/$planId/apply-late-fee").body()
+
+    suspend fun getCustomerInstallments(customerId: String): List<InstallmentPlanResponse> =
+        client.get("api/v1/customers/$customerId/installments").body()
+
+    suspend fun getInstallmentAnalytics(from: Long? = null, to: Long? = null): InstallmentAnalyticsResponse =
+        client.get("api/v1/analytics/installments") {
+            from?.let { parameter("from", it) }
+            to?.let { parameter("to", it) }
+        }.body()
+
     // ─── Scheduled Orders ───────────────────────────────────────
 
     suspend fun getScheduledOrders(

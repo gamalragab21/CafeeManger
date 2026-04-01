@@ -33,6 +33,7 @@ data class Vendor(
     val enableCashDrawer: Boolean = true,
     val enableReturns: Boolean = true,
     val enableCustomerCredit: Boolean = false,
+    val enableInstallments: Boolean = false,
     val enablePreOrders: Boolean = false,
     val enableScheduledOrders: Boolean = false,
     val enableSuppliers: Boolean = true,
