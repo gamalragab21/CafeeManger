@@ -205,6 +205,96 @@ echo "=== Current Version ===" && cat /opt/waselak/CURRENT_VERSION 2>/dev/null |
 | TCP | 9090 | any | Deploy webhook |
 | ICMP | any | any | Ping |
 
+## Local Gradle Tasks
+
+### Build Tasks
+
+```bash
+# Android APKs
+./gradlew assembleAllDebug       # Build 5 debug APKs
+./gradlew assembleAllRelease     # Build 5 release APKs (signed)
+
+# Desktop Packages (current OS only)
+./gradlew packageAllDesktopDmg   # 4 macOS DMGs
+./gradlew packageAllDesktopMsi   # 4 Windows MSIs
+./gradlew packageAllDesktopDeb   # 4 Linux DEBs
+./gradlew packageAllDesktopJars  # Cross-platform uber JARs (-PtargetOs=windows|linux|macos-x64|macos-arm64)
+
+# Combined (Android + Desktop)
+./gradlew buildAllDebug          # All debug artifacts
+./gradlew buildAllRelease        # All release artifacts
+
+# Backend
+./gradlew buildBackendJar        # Build backend fat JAR → build/deploy/waselak-backend.jar
+./gradlew :backend:buildFatJar   # Build JAR only (no copy)
+```
+
+### Deploy Tasks (Dropbox)
+
+```bash
+# Build + Upload to Dropbox
+./gradlew deployAllDebug         # All debug → Dropbox
+./gradlew deployAllRelease       # All release → Dropbox
+./gradlew deployAndroidDebug     # Android debug → Dropbox
+./gradlew deployAndroidRelease   # Android release → Dropbox
+./gradlew deployDesktopDebug     # Desktop debug → Dropbox
+./gradlew deployDesktopRelease   # Desktop release → Dropbox
+
+# Upload pre-built artifacts (skip build)
+./gradlew uploadToDropbox        # Upload existing artifacts to Dropbox
+```
+
+### VPS Backend Deploy
+
+```bash
+# Deploy backend to VPS
+./gradlew deployBackendToVPS     # Build JAR + SCP to VPS + restart services
+
+# Or use the script directly
+./scripts/deploy-backend-vps.sh              # Full: build + deploy
+./scripts/deploy-backend-vps.sh --jar-only   # Build JAR only
+./scripts/deploy-backend-vps.sh --deploy-only # Deploy existing JAR
+```
+
+### VPS Management
+
+```bash
+# Check VPS status
+./gradlew vpsStatus              # Health check + current version
+
+# Restart VPS services
+./gradlew vpsRestart             # Restart release + debug backends
+```
+
+### Deploy Everything (One Command)
+
+```bash
+# Build everything + upload to Dropbox + deploy backend to VPS
+./gradlew deployAll
+```
+
+### Run Apps Locally
+
+```bash
+# Desktop apps (debug, connects to VPS debug backend)
+./gradlew :app-manager:desktopRun -DmainClass=net.marllex.waselak.manager.MainKt
+./gradlew :app-cashier:desktopRun -DmainClass=net.marllex.waselak.cashier.MainKt
+./gradlew :app-kds:desktopRun -DmainClass=net.marllex.waselak.kds.MainKt
+./gradlew :app-delivery:desktopRun -DmainClass=net.marllex.waselak.delivery.MainKt
+
+# Backend (local, uses env/backend-debug.env)
+./gradlew :backend:run
+```
+
+### Testing
+
+```bash
+# Run all tests
+./gradlew :backend:test                              # Backend tests
+./gradlew :core:core-model:desktopTest               # Core model tests
+./gradlew :feature:feature-manager-orders:desktopTest # Order tests
+```
+
 ## Sentry Configuration
 
 - **DSN:** Same for all apps and backend
