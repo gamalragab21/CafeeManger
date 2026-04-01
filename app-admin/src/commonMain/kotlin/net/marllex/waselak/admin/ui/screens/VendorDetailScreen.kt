@@ -364,6 +364,7 @@ private fun VendorEditContent(
         var enableSplitPayment by remember { mutableStateOf(vendor.enable_split_payment) }
         var enableCashDrawer by remember { mutableStateOf(vendor.enable_cash_drawer) }
         var enableReturns by remember { mutableStateOf(vendor.enable_returns) }
+        var enableInstallments by remember { mutableStateOf(vendor.enable_installments) }
         var enableCustomerCredit by remember { mutableStateOf(vendor.enable_customer_credit) }
         var enableScheduledOrders by remember { mutableStateOf(vendor.enable_scheduled_orders) }
         var enableSuppliers by remember { mutableStateOf(vendor.enable_suppliers) }
@@ -377,6 +378,7 @@ private fun VendorEditContent(
         EditSwitchRow("Split Payment", enableSplitPayment) { enableSplitPayment = it }
         EditSwitchRow("Cash Drawer", enableCashDrawer) { enableCashDrawer = it }
         EditSwitchRow("Returns & Exchange", enableReturns) { enableReturns = it }
+        EditSwitchRow("Installments", enableInstallments) { enableInstallments = it }
         EditSwitchRow("Customer Credit", enableCustomerCredit) { enableCustomerCredit = it }
         EditSwitchRow("Scheduled Orders", enableScheduledOrders) { enableScheduledOrders = it }
         EditSwitchRow("Suppliers", enableSuppliers) { enableSuppliers = it }
@@ -468,6 +470,7 @@ private fun VendorEditContent(
                         enable_split_payment = enableSplitPayment,
                         enable_cash_drawer = enableCashDrawer,
                         enable_returns = enableReturns,
+                        enable_installments = enableInstallments,
                         enable_customer_credit = enableCustomerCredit,
                         enable_pre_orders = enableScheduledOrders,
                         enable_scheduled_orders = enableScheduledOrders,

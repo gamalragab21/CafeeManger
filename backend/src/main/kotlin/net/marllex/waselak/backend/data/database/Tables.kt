@@ -558,6 +558,7 @@ object SubscriptionPlansTable : UUIDTable("subscription_plans") {
     val cashDrawer = bool("cash_drawer").default(false)
     val splitPayment = bool("split_payment").default(false)
     val customerCredit = bool("customer_credit").default(false)
+    val installments = bool("installments").default(false)
     val suppliers = bool("suppliers").default(false)
     val returns = bool("returns").default(false)
     val prescriptions = bool("prescriptions").default(false)

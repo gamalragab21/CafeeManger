@@ -113,7 +113,7 @@ class PlanService {
                 cashDrawer = plan[SubscriptionPlansTable.cashDrawer],
                 splitPayment = plan[SubscriptionPlansTable.splitPayment],
                 customerCredit = plan[SubscriptionPlansTable.customerCredit],
-                installments = true, // Available on all plans
+                installments = plan[SubscriptionPlansTable.installments],
                 suppliers = plan[SubscriptionPlansTable.suppliers],
                 returns = plan[SubscriptionPlansTable.returns],
                 prescriptions = plan[SubscriptionPlansTable.prescriptions],

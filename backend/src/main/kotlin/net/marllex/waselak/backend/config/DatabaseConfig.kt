@@ -272,6 +272,7 @@ object DatabaseConfig {
                 val tableManagement: Boolean, val workerQrcode: Boolean, val digitalReceipt: Boolean,
                 val loyaltyPoints: Boolean, val manualDiscount: Boolean, val offersManagement: Boolean,
                 val cashDrawer: Boolean, val splitPayment: Boolean, val customerCredit: Boolean,
+                val installments: Boolean = false,
                 val suppliers: Boolean, val returns: Boolean, val prescriptions: Boolean,
                 val drugInteractions: Boolean, val scheduledOrders: Boolean, val kds: Boolean,
                 val notifications: Boolean,
@@ -288,6 +289,7 @@ object DatabaseConfig {
                     tableManagement = false, workerQrcode = false, digitalReceipt = false,
                     loyaltyPoints = true, manualDiscount = true, offersManagement = false,
                     cashDrawer = true, splitPayment = false, customerCredit = false,
+                    installments = false,
                     suppliers = false, returns = false, prescriptions = false,
                     drugInteractions = false, scheduledOrders = false, kds = false,
                     notifications = true,
@@ -301,6 +303,7 @@ object DatabaseConfig {
                     tableManagement = true, workerQrcode = true, digitalReceipt = false,
                     loyaltyPoints = true, manualDiscount = true, offersManagement = true,
                     cashDrawer = true, splitPayment = true, customerCredit = true,
+                    installments = true,
                     suppliers = true, returns = true, prescriptions = true,
                     drugInteractions = true, scheduledOrders = false, kds = true,
                     notifications = true,
@@ -314,6 +317,7 @@ object DatabaseConfig {
                     tableManagement = true, workerQrcode = true, digitalReceipt = true,
                     loyaltyPoints = true, manualDiscount = true, offersManagement = true,
                     cashDrawer = true, splitPayment = true, customerCredit = true,
+                    installments = true,
                     suppliers = true, returns = true, prescriptions = true,
                     drugInteractions = true, scheduledOrders = true, kds = true,
                     notifications = true,
@@ -353,6 +357,7 @@ object DatabaseConfig {
                         it[cashDrawer] = plan.cashDrawer
                         it[splitPayment] = plan.splitPayment
                         it[customerCredit] = plan.customerCredit
+                        it[installments] = plan.installments
                         it[suppliers] = plan.suppliers
                         it[returns] = plan.returns
                         it[prescriptions] = plan.prescriptions
