@@ -40,6 +40,7 @@ data class VendorPlanLimits(
     val cashDrawer: Boolean,
     val splitPayment: Boolean,
     val customerCredit: Boolean,
+    val installments: Boolean,
     val suppliers: Boolean,
     val returns: Boolean,
     val prescriptions: Boolean,
@@ -112,6 +113,7 @@ class PlanService {
                 cashDrawer = plan[SubscriptionPlansTable.cashDrawer],
                 splitPayment = plan[SubscriptionPlansTable.splitPayment],
                 customerCredit = plan[SubscriptionPlansTable.customerCredit],
+                installments = true, // Available on all plans
                 suppliers = plan[SubscriptionPlansTable.suppliers],
                 returns = plan[SubscriptionPlansTable.returns],
                 prescriptions = plan[SubscriptionPlansTable.prescriptions],
@@ -306,6 +308,9 @@ class PlanService {
             )
             "CUSTOMER_CREDIT" -> if (!limits.customerCredit) throw FeatureNotAvailableException(
                 "Customer credit is not available on the ${limits.planDisplayName} plan. Please upgrade."
+            )
+            "INSTALLMENTS" -> if (!limits.installments) throw FeatureNotAvailableException(
+                "Installment plans are not available on the ${limits.planDisplayName} plan. Please upgrade."
             )
             "SUPPLIERS" -> if (!limits.suppliers) throw FeatureNotAvailableException(
                 "Supplier management is not available on the ${limits.planDisplayName} plan. Please upgrade."

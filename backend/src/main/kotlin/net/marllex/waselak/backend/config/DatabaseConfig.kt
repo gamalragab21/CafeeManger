@@ -81,6 +81,8 @@ object DatabaseConfig {
                 DrugInteractionsTable,
                 CustomerCreditsTable,
                 CreditTransactionsTable,
+                InstallmentPlansTable,
+                InstallmentPaymentsTable,
                 ScheduledOrdersTable,
                 ScheduledOrderItemsTable,
                 SuppliersTable,
@@ -110,6 +112,7 @@ object DatabaseConfig {
                 PrescriptionsTable, PrescriptionItemsTable,
                 DrugInteractionsTable,
                 CustomerCreditsTable, CreditTransactionsTable,
+                InstallmentPlansTable, InstallmentPaymentsTable,
                 ScheduledOrdersTable, ScheduledOrderItemsTable,
                 SuppliersTable, PurchaseOrdersTable, PurchaseOrderItemsTable,
                 NotificationsTable, DeviceTokensTable,
@@ -451,6 +454,7 @@ object DatabaseConfig {
                 val defaultTaxPercent: Double, val stockMode: String,
                 val loyaltyEnabled: Boolean, val phonePrefix: String,
                 val enableDigitalMenu: Boolean = true, val enableRecipe: Boolean = true,
+                val enableInstallments: Boolean = false,
             )
 
             data class CategorySeed(val catName: String, val order: Int)
@@ -759,6 +763,7 @@ object DatabaseConfig {
                     it[loyaltyEnabled] = vendor.loyaltyEnabled
                     it[enableDigitalMenu] = vendor.enableDigitalMenu
                     it[enableRecipe] = vendor.enableRecipe
+                    it[enableInstallments] = vendor.enableInstallments
                     it[createdAt] = now
                     it[updatedAt] = now
                 }

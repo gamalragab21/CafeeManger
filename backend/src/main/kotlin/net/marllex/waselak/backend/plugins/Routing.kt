@@ -92,6 +92,7 @@ fun Application.configureRouting() {
             prescriptionRoutes() // Pharmacy prescriptions
             drugInteractionRoutes() // Drug interaction warnings
             customerCreditRoutes() // Customer credit accounts
+            installmentRoutes() // Installment payment plans
             scheduledOrderRoutes() // Pre-orders / scheduled orders
             supplierRoutes() // Suppliers & purchase orders
             notificationRoutes() // Unified notifications & device tokens

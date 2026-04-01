@@ -19,6 +19,7 @@ data class DomainDefaults(
     val stockMode: String,
     val enableDigitalMenu: Boolean = true,
     val enableRecipe: Boolean = true,
+    val enableInstallments: Boolean = false,
 ) {
     companion object {
         /**
@@ -63,6 +64,7 @@ data class DomainDefaults(
                 stockMode = "ENFORCE",
                 enableDigitalMenu = false,
                 enableRecipe = false,
+                enableInstallments = false,
             )
             "BAKERY" -> DomainDefaults(
                 enableTables = false,
@@ -113,6 +115,7 @@ data class DomainDefaults(
                 stockMode = "ENFORCE",
                 enableDigitalMenu = false,
                 enableRecipe = false,
+                enableInstallments = true,
             )
             "JUICE_BAR" -> DomainDefaults(
                 enableTables = true,

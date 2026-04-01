@@ -54,6 +54,7 @@ data class AdminVendorResponse(
     val enable_cash_drawer: Boolean = true,
     val enable_returns: Boolean = true,
     val enable_customer_credit: Boolean = false,
+    val enable_installments: Boolean = false,
     val enable_pre_orders: Boolean = false,
     val enable_scheduled_orders: Boolean = false,
     val enable_suppliers: Boolean = true,
@@ -103,6 +104,7 @@ data class AdminUpdateVendorRequest(
     val enable_cash_drawer: Boolean? = null,
     val enable_returns: Boolean? = null,
     val enable_customer_credit: Boolean? = null,
+    val enable_installments: Boolean? = null,
     val enable_pre_orders: Boolean? = null,
     val enable_scheduled_orders: Boolean? = null,
     val enable_suppliers: Boolean? = null,
@@ -367,6 +369,7 @@ private fun mapVendorRow(row: ResultRow, usersCount: Int = 0): AdminVendorRespon
         enable_cash_drawer = row[VendorsTable.enableCashDrawer],
         enable_returns = row[VendorsTable.enableReturns],
         enable_customer_credit = row[VendorsTable.enableCustomerCredit],
+        enable_installments = row[VendorsTable.enableInstallments],
         enable_pre_orders = row[VendorsTable.enablePreOrders],
         enable_scheduled_orders = row[VendorsTable.enableScheduledOrders],
         enable_suppliers = row[VendorsTable.enableSuppliers],
@@ -782,6 +785,7 @@ fun Route.adminRoutes() {
                     request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
                     request.enable_returns?.let { stmt[enableReturns] = it }
                     request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                    request.enable_installments?.let { stmt[enableInstallments] = it }
                     request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
                     request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
                     request.enable_suppliers?.let { stmt[enableSuppliers] = it }

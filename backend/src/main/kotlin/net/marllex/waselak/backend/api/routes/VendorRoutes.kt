@@ -53,6 +53,7 @@ data class VendorResponse(
     val enable_cash_drawer: Boolean = true,
     val enable_returns: Boolean = true,
     val enable_customer_credit: Boolean = false,
+    val enable_installments: Boolean = false,
     val enable_pre_orders: Boolean = false,
     val enable_scheduled_orders: Boolean = false,
     val enable_suppliers: Boolean = true,
@@ -104,6 +105,7 @@ data class UpdateVendorRequest(
     val enable_cash_drawer: Boolean? = null,
     val enable_returns: Boolean? = null,
     val enable_customer_credit: Boolean? = null,
+    val enable_installments: Boolean? = null,
     val enable_pre_orders: Boolean? = null,
     val enable_scheduled_orders: Boolean? = null,
     val enable_suppliers: Boolean? = null,
@@ -332,6 +334,7 @@ fun Route.vendorRoutes() {
                 enable_cash_drawer = vendor[VendorsTable.enableCashDrawer],
                 enable_returns = vendor[VendorsTable.enableReturns],
                 enable_customer_credit = vendor[VendorsTable.enableCustomerCredit],
+                enable_installments = vendor[VendorsTable.enableInstallments],
                 enable_pre_orders = vendor[VendorsTable.enablePreOrders],
                 enable_scheduled_orders = vendor[VendorsTable.enableScheduledOrders],
                 enable_suppliers = vendor[VendorsTable.enableSuppliers],
@@ -444,6 +447,7 @@ fun Route.vendorRoutes() {
                     request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
                     request.enable_returns?.let { stmt[enableReturns] = it }
                     request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                    request.enable_installments?.let { stmt[enableInstallments] = it }
                     request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
                     request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
                     request.enable_suppliers?.let { stmt[enableSuppliers] = it }
@@ -507,6 +511,7 @@ fun Route.vendorRoutes() {
                 enable_cash_drawer = updated[VendorsTable.enableCashDrawer],
                 enable_returns = updated[VendorsTable.enableReturns],
                 enable_customer_credit = updated[VendorsTable.enableCustomerCredit],
+                enable_installments = updated[VendorsTable.enableInstallments],
                 enable_pre_orders = updated[VendorsTable.enablePreOrders],
                 enable_scheduled_orders = updated[VendorsTable.enableScheduledOrders],
                 enable_suppliers = updated[VendorsTable.enableSuppliers],
