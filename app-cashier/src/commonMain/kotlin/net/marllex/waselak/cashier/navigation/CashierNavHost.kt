@@ -194,6 +194,7 @@ enum class CashierDrawerItem(
     PRESCRIPTIONS("cashier/prescriptions", "Prescriptions", Icons.Filled.LocalPharmacy),
     SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
     CUSTOMER_CREDIT("cashier/customer_credit", "Customer Credit", Icons.Filled.CreditCard),
+    INSTALLMENTS("cashier/installments", "Installments", Icons.Filled.CalendarMonth),
     RETURNS("cashier/returns", "Returns", Icons.Filled.Refresh),
     ABOUT("cashier/about", "About", Icons.Filled.Info),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),
@@ -229,6 +230,7 @@ private fun localizedDrawerTitle(item: CashierDrawerItem): String = when (item) 
     CashierDrawerItem.PRESCRIPTIONS -> stringResource(CoreRes.string.prescriptions)
     CashierDrawerItem.SPLIT_PAYMENT -> stringResource(CoreRes.string.split_payment)
     CashierDrawerItem.CUSTOMER_CREDIT -> stringResource(CoreRes.string.customer_credit)
+    CashierDrawerItem.INSTALLMENTS -> stringResource(CoreRes.string.installments)
     CashierDrawerItem.RETURNS -> stringResource(CoreRes.string.returns_exchanges)
     CashierDrawerItem.ABOUT -> stringResource(CoreRes.string.about_and_updates)
     CashierDrawerItem.PROFILE -> stringResource(CoreRes.string.nav_profile)
@@ -1644,6 +1646,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 CashierDrawerItem.PRESCRIPTIONS -> false // Removed: doctor info is now part of orders
                 CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments && vendor?.enableSplitPayment != false
                 CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit && vendor?.enableCustomerCredit != false
+                CashierDrawerItem.INSTALLMENTS -> domainFeatures.hasInstallments && vendor?.enableInstallments != false
                 CashierDrawerItem.RETURNS -> domainFeatures.hasReturns && vendor?.enableReturns != false
                 CashierDrawerItem.CASH_DRAWER -> vendor?.enableCashDrawer != false
                 else -> true
@@ -1731,6 +1734,9 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
             CashierCustomerCreditScreen()
+        }
+        composable(CashierDrawerItem.INSTALLMENTS.route) {
+            net.marllex.waselak.cashier.installments.CashierInstallmentsScreen()
         }
         composable(CashierDrawerItem.RETURNS.route) {
             net.marllex.waselak.cashier.returns.ReturnsScreen(
