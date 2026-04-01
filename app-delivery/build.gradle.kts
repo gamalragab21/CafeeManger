@@ -46,16 +46,18 @@ compose.desktop {
         )
 
         nativeDistributions {
+            includeAllModules = true
             modules("jdk.unsupported", "java.sql", "java.naming", "java.management", "java.instrument", "java.scripting", "java.compiler", "java.logging", "java.xml", "java.desktop", "java.security.jgss", "java.security.sasl", "java.datatransfer", "java.prefs", "java.net.http")
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
             )
-            packageName = "Waselak Delivery"
+            val isDebugDesktop = (project.findProperty("BUILD_ENV") as? String)?.lowercase() == "debug"
+            packageName = if (isDebugDesktop) "Waselak Delivery Debug" else "Waselak Delivery"
             packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             vendor = "Marllex"
-            description = "Waselak Restaurant Delivery"
+            description = if (isDebugDesktop) "Waselak Delivery (Debug)" else "Waselak Restaurant Delivery"
 
             macOS {
                 bundleID = "net.marllex.waselak.delivery"
@@ -77,7 +79,7 @@ compose.desktop {
                 shortcut = true
                 perUserInstall = true
                 dirChooser = true
-                upgradeUuid = "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                upgradeUuid = if (isDebugDesktop) "c3d4e5f6-a7b8-9012-cdef-123456789013" else "c3d4e5f6-a7b8-9012-cdef-123456789012"
                 msiPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             }
             linux {

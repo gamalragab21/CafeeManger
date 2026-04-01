@@ -42,16 +42,18 @@ compose.desktop {
         )
 
         nativeDistributions {
+            includeAllModules = true
             modules("jdk.unsupported", "java.sql", "java.naming", "java.management", "java.instrument", "java.scripting", "java.compiler", "java.logging", "java.xml", "java.desktop", "java.security.jgss", "java.security.sasl", "java.datatransfer", "java.prefs", "java.net.http")
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
             )
-            packageName = "Waselak KDS"
+            val isDebugDesktop = (project.findProperty("BUILD_ENV") as? String)?.lowercase() == "debug"
+            packageName = if (isDebugDesktop) "Waselak KDS Debug" else "Waselak KDS"
             packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             vendor = "Marllex"
-            description = "Waselak Kitchen Display System"
+            description = if (isDebugDesktop) "Waselak KDS (Debug)" else "Waselak Kitchen Display System"
 
             macOS {
                 bundleID = "net.marllex.waselak.kds"
@@ -73,7 +75,7 @@ compose.desktop {
                 shortcut = true
                 perUserInstall = true
                 dirChooser = true
-                upgradeUuid = "d4e5f6a7-b8c9-0123-defa-234567890123"
+                upgradeUuid = if (isDebugDesktop) "d4e5f6a7-b8c9-0123-defa-234567890124" else "d4e5f6a7-b8c9-0123-defa-234567890123"
                 msiPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             }
             linux {
