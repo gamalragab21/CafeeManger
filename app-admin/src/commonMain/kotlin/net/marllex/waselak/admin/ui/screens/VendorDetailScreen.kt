@@ -441,10 +441,6 @@ private fun VendorEditContent(
                         enable_announcements = enableAnnouncements,
                         enable_digital_menu = enableDigitalMenu,
                         enable_recipe = enableRecipe,
-                        facebook_url = facebookUrl.ifBlank { null },
-                        landing_page_url = landingPageUrl.ifBlank { null },
-                        instagram_url = instagramUrl.ifBlank { null },
-                        whatsapp_number = whatsappNumber.ifBlank { null },
                     )
                     onSave(request)
                 },
