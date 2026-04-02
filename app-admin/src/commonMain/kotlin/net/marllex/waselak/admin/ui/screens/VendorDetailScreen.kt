@@ -392,46 +392,6 @@ private fun VendorEditContent(
         Spacer(Modifier.height(16.dp))
 
         // ─── Social Links Section ──────────────────
-        Text("Social Links", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-
-        var facebookUrl by remember { mutableStateOf(vendor.facebook_url ?: "") }
-        var landingPageUrl by remember { mutableStateOf(vendor.landing_page_url ?: "") }
-        var instagramUrl by remember { mutableStateOf(vendor.instagram_url ?: "") }
-        var whatsappNumber by remember { mutableStateOf(vendor.whatsapp_number ?: "") }
-
-        OutlinedTextField(
-            value = landingPageUrl,
-            onValueChange = { landingPageUrl = it },
-            label = { Text("Website / Landing Page") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = facebookUrl,
-            onValueChange = { facebookUrl = it },
-            label = { Text("Facebook URL") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = instagramUrl,
-            onValueChange = { instagramUrl = it },
-            label = { Text("Instagram URL") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = whatsappNumber,
-            onValueChange = { whatsappNumber = it },
-            label = { Text("WhatsApp Number") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-
         Spacer(Modifier.height(16.dp))
 
         // ─── Action Buttons ──────────────────────────

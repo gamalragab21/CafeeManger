@@ -58,6 +58,7 @@ import net.marllex.waselak.admin.session.AdminSessionManager
 import net.marllex.waselak.admin.ui.screens.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import androidx.activity.compose.BackHandler
 import org.koin.compose.koinInject
 import waselak.app_admin.generated.resources.*
 import waselak.app_admin.generated.resources.Res
@@ -153,14 +154,16 @@ private fun MainScaffold(
     val scope = rememberCoroutineScope()
 
     // Back handler: detail → tab view, tab → home, home → close
+    val canGoBack = showCreateVendor || vendorDetailId != null || selectedTab != 0
     val onBack: () -> Unit = {
         when {
             showCreateVendor -> { showCreateVendor = false }
             vendorDetailId != null -> { vendorDetailId = null }
             selectedTab != 0 -> { selectedTab = 0 }
-            // else: system handles app close
         }
     }
+
+    BackHandler(enabled = canGoBack) { onBack() }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
