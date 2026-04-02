@@ -194,7 +194,7 @@ enum class CashierDrawerItem(
     PRESCRIPTIONS("cashier/prescriptions", "Prescriptions", Icons.Filled.LocalPharmacy),
     SPLIT_PAYMENT("cashier/split_payment", "Split Payment", Icons.Filled.Payment),
     CUSTOMER_CREDIT("cashier/customer_credit", "Customer Credit", Icons.Filled.CreditCard),
-    INSTALLMENTS("cashier/installments", "Installments", Icons.Filled.CalendarMonth),
+    INSTALLMENTS("cashier/installments", "Installments", Icons.Filled.Schedule),
     RETURNS("cashier/returns", "Returns", Icons.Filled.Refresh),
     ABOUT("cashier/about", "About", Icons.Filled.Info),
     PROFILE("cashier/profile", "Profile", Icons.Filled.Person),

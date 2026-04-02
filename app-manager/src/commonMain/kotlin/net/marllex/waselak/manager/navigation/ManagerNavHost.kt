@@ -1124,7 +1124,7 @@ private fun MoreTabContent(
                             Triple(Triple(Icons.Filled.LocalPharmacy, stringResource(CoreRes.string.drug_interactions), Color(0xFF2E7D32)), { activeSubScreen = "drug_interactions" }, features.hasDrugInteractions && vendor?.enableDrugInteractions != false),
                             Triple(Triple(Icons.Filled.Person, stringResource(CoreRes.string.doctor_stats), Color(0xFF1565C0)), { activeSubScreen = "doctor_stats" }, features.hasDrugInteractions && vendor?.enableDrugInteractions != false),
                             Triple(Triple(Icons.Filled.CreditCard, stringResource(CoreRes.string.customer_credit), Color(0xFF6A1B9A)), { activeSubScreen = "customer_credit" }, features.hasCustomerCredit && vendor?.enableCustomerCredit != false),
-                            Triple(Triple(Icons.Filled.CalendarMonth, stringResource(CoreRes.string.installments), Color(0xFF00695C)), { activeSubScreen = "installments" }, features.hasInstallments && vendor?.enableInstallments != false),
+                            Triple(Triple(Icons.Filled.Schedule, stringResource(CoreRes.string.installments), Color(0xFF00695C)), { activeSubScreen = "installments" }, features.hasInstallments && vendor?.enableInstallments != false),
                             Triple(Triple(Icons.Filled.PointOfSale, stringResource(CoreRes.string.cash_drawer), Color(0xFF5D4037)), { activeSubScreen = "cash_drawer" }, vendor?.enableCashDrawer != false),
                         ).filter { it.third }
                         val storeItems = allStoreEntries.map { it.first }

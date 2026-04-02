@@ -100,7 +100,7 @@ private fun ResultRow.toInstallmentPlanDto(payments: List<InstallmentPaymentDto>
     val customerRow = CustomersTable.selectAll().where { CustomersTable.id eq this@toInstallmentPlanDto[InstallmentPlansTable.customerId] }.firstOrNull()
     val creatorRow = UsersTable.selectAll().where { UsersTable.id eq this@toInstallmentPlanDto[InstallmentPlansTable.createdBy] }.firstOrNull()
     return InstallmentPlanDto(
-        id = this[InstallmentPlansTable.id].toString(),
+        id = this[InstallmentPlansTable.id].value.toString(),
         vendor_id = this[InstallmentPlansTable.vendorId].toString(),
         customer_id = this[InstallmentPlansTable.customerId].toString(),
         customer_name = customerRow?.get(CustomersTable.name),
@@ -128,7 +128,7 @@ private fun ResultRow.toInstallmentPaymentDto(): InstallmentPaymentDto {
         UsersTable.selectAll().where { UsersTable.id eq id }.firstOrNull()?.get(UsersTable.name)
     }
     return InstallmentPaymentDto(
-        id = this[InstallmentPaymentsTable.id].toString(),
+        id = this[InstallmentPaymentsTable.id].value.toString(),
         plan_id = this[InstallmentPaymentsTable.planId].toString(),
         due_date = this[InstallmentPaymentsTable.dueDate],
         amount = this[InstallmentPaymentsTable.amount].toDouble(),
@@ -165,7 +165,7 @@ fun Route.installmentRoutes() {
 
             // POST /installments — Create plan
             post("/installments") {
-                routeTrace("POST /installments")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 planService.checkFeature(vendorId, "INSTALLMENTS")
@@ -182,10 +182,7 @@ fun Route.installmentRoutes() {
                 val monthlyAmount = Math.round(remaining / request.num_installments * 100.0) / 100.0
 
                 val result = transaction {
-                    val planId = UUID.randomUUID()
-
-                    InstallmentPlansTable.insert {
-                        it[id] = planId
+                    val planId = InstallmentPlansTable.insertAndGetId {
                         it[InstallmentPlansTable.vendorId] = vendorId
                         it[customerId] = UUID.fromString(request.customer_id)
                         it[orderId] = request.order_id?.let { oid -> UUID.fromString(oid) }
@@ -200,14 +197,13 @@ fun Route.installmentRoutes() {
                         it[createdBy] = UUID.fromString(principal.userId)
                         it[createdAt] = now
                         it[updatedAt] = now
-                    }
+                    }.value
 
                     // Generate monthly payment schedule
                     val oneMonthMs = 30L * 24 * 60 * 60 * 1000
                     for (i in 0 until request.num_installments) {
                         val dueDate = startDate + (i * oneMonthMs)
-                        InstallmentPaymentsTable.insert {
-                            it[id] = UUID.randomUUID()
+                        InstallmentPaymentsTable.insertAndGetId {
                             it[InstallmentPaymentsTable.planId] = planId
                             it[InstallmentPaymentsTable.vendorId] = vendorId
                             it[InstallmentPaymentsTable.dueDate] = dueDate
@@ -227,7 +223,7 @@ fun Route.installmentRoutes() {
 
             // GET /installments — List plans
             get("/installments") {
-                routeTrace("GET /installments")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val statusFilter = call.request.queryParameters["status"]
@@ -241,7 +237,7 @@ fun Route.installmentRoutes() {
                     }
                     query.orderBy(InstallmentPlansTable.createdAt, SortOrder.DESC).map { row ->
                         val payments = InstallmentPaymentsTable.selectAll().where {
-                            InstallmentPaymentsTable.planId eq row[InstallmentPlansTable.id]
+                            InstallmentPaymentsTable.planId eq row[InstallmentPlansTable.id].value
                         }.orderBy(InstallmentPaymentsTable.dueDate).map { it.toInstallmentPaymentDto() }
                         row.toInstallmentPlanDto(payments)
                     }
@@ -252,7 +248,7 @@ fun Route.installmentRoutes() {
 
             // GET /installments/{id} — Plan detail
             get("/installments/{id}") {
-                routeTrace("GET /installments/{id}")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val planId = UUID.fromString(call.parameters["id"]!!)
@@ -265,7 +261,7 @@ fun Route.installmentRoutes() {
 
             // POST /installments/{id}/payments — Record payment
             post("/installments/{id}/payments") {
-                routeTrace("POST /installments/{id}/payments")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val planId = UUID.fromString(call.parameters["id"]!!)
@@ -328,7 +324,7 @@ fun Route.installmentRoutes() {
 
             // PATCH /installments/{id}/status — Change plan status (MANAGER only)
             patch("/installments/{id}/status") {
-                routeTrace("PATCH /installments/{id}/status")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val planId = UUID.fromString(call.parameters["id"]!!)
@@ -354,7 +350,7 @@ fun Route.installmentRoutes() {
 
             // POST /installments/{id}/apply-late-fee — Apply late fee (MANAGER only)
             post("/installments/{id}/apply-late-fee") {
-                routeTrace("POST /installments/{id}/apply-late-fee")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val planId = UUID.fromString(call.parameters["id"]!!)
@@ -401,7 +397,7 @@ fun Route.installmentRoutes() {
 
             // GET /customers/{customerId}/installments — Customer's plans
             get("/customers/{customerId}/installments") {
-                routeTrace("GET /customers/{customerId}/installments")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val customerId = UUID.fromString(call.parameters["customerId"]!!)
@@ -412,7 +408,7 @@ fun Route.installmentRoutes() {
                             (InstallmentPlansTable.customerId eq customerId)
                     }.orderBy(InstallmentPlansTable.createdAt, SortOrder.DESC).map { row ->
                         val payments = InstallmentPaymentsTable.selectAll().where {
-                            InstallmentPaymentsTable.planId eq row[InstallmentPlansTable.id]
+                            InstallmentPaymentsTable.planId eq row[InstallmentPlansTable.id].value
                         }.orderBy(InstallmentPaymentsTable.dueDate).map { it.toInstallmentPaymentDto() }
                         row.toInstallmentPlanDto(payments)
                     }
@@ -423,7 +419,7 @@ fun Route.installmentRoutes() {
 
             // GET /analytics/installments — Analytics
             get("/analytics/installments") {
-                routeTrace("GET /analytics/installments")
+                val trace = call.routeTrace()
                 val principal = requireRole("MANAGER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val from = call.request.queryParameters["from"]?.toLongOrNull()

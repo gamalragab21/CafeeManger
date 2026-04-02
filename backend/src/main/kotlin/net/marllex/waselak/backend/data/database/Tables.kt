@@ -897,11 +897,10 @@ object AppReleasesTable : UUIDTable("app_releases") {
 }
 
 // ─── Installment Plans ─────────────────────────────────────────────
-object InstallmentPlansTable : Table("installment_plans") {
-    val id = uuid("id").autoGenerate()
-    val vendorId = uuid("vendor_id").references(VendorsTable.id)
-    val customerId = uuid("customer_id").references(CustomersTable.id)
-    val orderId = uuid("order_id").references(OrdersTable.id, onDelete = ReferenceOption.SET_NULL).nullable()
+object InstallmentPlansTable : UUIDTable("installment_plans") {
+    val vendorId = reference("vendor_id", VendorsTable)
+    val customerId = reference("customer_id", CustomersTable)
+    val orderId = optReference("order_id", OrdersTable, onDelete = ReferenceOption.SET_NULL)
     val totalAmount = decimal("total_amount", 10, 2)
     val downPayment = decimal("down_payment", 10, 2).default(java.math.BigDecimal.ZERO)
     val remainingAmount = decimal("remaining_amount", 10, 2)
@@ -910,26 +909,23 @@ object InstallmentPlansTable : Table("installment_plans") {
     val lateFeePercent = decimal("late_fee_percent", 5, 2).default(java.math.BigDecimal.ZERO)
     val status = varchar("status", 20).default("ACTIVE")
     val startDate = long("start_date")
-    val createdBy = uuid("created_by").references(UsersTable.id)
+    val createdBy = reference("created_by", UsersTable)
     val createdAt = long("created_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
     val updatedAt = long("updated_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
-    override val primaryKey = PrimaryKey(id)
 }
 
-object InstallmentPaymentsTable : Table("installment_payments") {
-    val id = uuid("id").autoGenerate()
-    val planId = uuid("plan_id").references(InstallmentPlansTable.id, onDelete = ReferenceOption.CASCADE)
-    val vendorId = uuid("vendor_id").references(VendorsTable.id)
+object InstallmentPaymentsTable : UUIDTable("installment_payments") {
+    val planId = reference("plan_id", InstallmentPlansTable, onDelete = ReferenceOption.CASCADE)
+    val vendorId = reference("vendor_id", VendorsTable)
     val dueDate = long("due_date")
     val amount = decimal("amount", 10, 2)
     val paidAmount = decimal("paid_amount", 10, 2).default(java.math.BigDecimal.ZERO)
     val lateFee = decimal("late_fee", 10, 2).default(java.math.BigDecimal.ZERO)
     val status = varchar("status", 20).default("PENDING")
     val paidAt = long("paid_at").nullable()
-    val paidBy = uuid("paid_by").references(UsersTable.id, onDelete = ReferenceOption.SET_NULL).nullable()
+    val paidBy = optReference("paid_by", UsersTable, onDelete = ReferenceOption.SET_NULL)
     val note = text("note").nullable()
     val createdAt = long("created_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
-    override val primaryKey = PrimaryKey(id)
 }
 
 // ─── App Settings (Global, singleton row) ────────────────────────
