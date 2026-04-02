@@ -60,7 +60,7 @@ compose.desktop {
             macOS {
                 bundleID = "net.marllex.waselak.cashier"
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
-                dockName = "Waselak Cashier"
+                dockName = if (isDebugDesktop) "Waselak Cashier Debug" else "Waselak Cashier"
                 dmgPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
                 dmgPackageBuildVersion = project.findProperty("APP_VERSION_CODE") as? String ?: "1"
                 infoPlist {

@@ -300,6 +300,13 @@ fun Route.vendorRoutes() {
                 "name" to vendor[VendorsTable.name]
             ))
 
+            // Get plan limits to combine with vendor toggles
+            val planLimits = try {
+                planService.getVendorPlanLimits(UUID.fromString(principal.vendorId))
+            } catch (_: Exception) {
+                null
+            }
+
             val host = call.request.header("Host") ?: "localhost:8080"
             val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
 
@@ -330,17 +337,20 @@ fun Route.vendorRoutes() {
                 digital_menu_url = vendor[VendorsTable.digitalMenuUrl],
                 enable_digital_menu = vendor[VendorsTable.enableDigitalMenu],
                 enable_recipe = vendor[VendorsTable.enableRecipe],
-                enable_split_payment = vendor[VendorsTable.enableSplitPayment],
-                enable_cash_drawer = vendor[VendorsTable.enableCashDrawer],
-                enable_returns = vendor[VendorsTable.enableReturns],
-                enable_customer_credit = vendor[VendorsTable.enableCustomerCredit],
-                enable_installments = vendor[VendorsTable.enableInstallments],
+                // Feature flags: vendor toggle AND plan check combined
+                // A feature is only enabled if BOTH the vendor toggle is ON and the plan allows it
+                // If no plan (planLimits == null), allow all features (demo/trial mode)
+                enable_split_payment = vendor[VendorsTable.enableSplitPayment] && (planLimits?.splitPayment ?: true),
+                enable_cash_drawer = vendor[VendorsTable.enableCashDrawer] && (planLimits?.cashDrawer ?: true),
+                enable_returns = vendor[VendorsTable.enableReturns] && (planLimits?.returns ?: true),
+                enable_customer_credit = vendor[VendorsTable.enableCustomerCredit] && (planLimits?.customerCredit ?: true),
+                enable_installments = vendor[VendorsTable.enableInstallments] && (planLimits?.installments ?: true),
                 enable_pre_orders = vendor[VendorsTable.enablePreOrders],
-                enable_scheduled_orders = vendor[VendorsTable.enableScheduledOrders],
-                enable_suppliers = vendor[VendorsTable.enableSuppliers],
-                enable_drug_interactions = vendor[VendorsTable.enableDrugInteractions],
-                enable_prescriptions = vendor[VendorsTable.enablePrescriptions],
-                enable_analytics = vendor[VendorsTable.enableAnalytics],
+                enable_scheduled_orders = vendor[VendorsTable.enableScheduledOrders] && (planLimits?.scheduledOrders ?: true),
+                enable_suppliers = vendor[VendorsTable.enableSuppliers] && (planLimits?.suppliers ?: true),
+                enable_drug_interactions = vendor[VendorsTable.enableDrugInteractions] && (planLimits?.drugInteractions ?: true),
+                enable_prescriptions = vendor[VendorsTable.enablePrescriptions] && (planLimits?.prescriptions ?: true),
+                enable_analytics = vendor[VendorsTable.enableAnalytics] && ((planLimits?.analytics ?: "FULL") != "NONE"),
                 enable_announcements = vendor[VendorsTable.enableAnnouncements],
                 loyalty_enabled = vendor[VendorsTable.loyaltyEnabled],
                 points_earn_rate = vendor[VendorsTable.pointsEarnRate].toDouble(),
@@ -477,6 +487,11 @@ fun Route.vendorRoutes() {
                 "name" to updated[VendorsTable.name]
             ))
 
+            // Get plan limits for combined flag response
+            val planLimits = try {
+                planService.getVendorPlanLimits(UUID.fromString(principal.vendorId))
+            } catch (_: Exception) { null }
+
             val putHost = call.request.header("Host") ?: "localhost:8080"
             val putScheme = call.request.header("X-Forwarded-Proto") ?: "http"
 
@@ -507,17 +522,18 @@ fun Route.vendorRoutes() {
                 digital_menu_url = updated[VendorsTable.digitalMenuUrl],
                 enable_digital_menu = updated[VendorsTable.enableDigitalMenu],
                 enable_recipe = updated[VendorsTable.enableRecipe],
-                enable_split_payment = updated[VendorsTable.enableSplitPayment],
-                enable_cash_drawer = updated[VendorsTable.enableCashDrawer],
-                enable_returns = updated[VendorsTable.enableReturns],
-                enable_customer_credit = updated[VendorsTable.enableCustomerCredit],
-                enable_installments = updated[VendorsTable.enableInstallments],
+                // Feature flags: vendor toggle AND plan combined (same as GET /me)
+                enable_split_payment = updated[VendorsTable.enableSplitPayment] && (planLimits?.splitPayment ?: true),
+                enable_cash_drawer = updated[VendorsTable.enableCashDrawer] && (planLimits?.cashDrawer ?: true),
+                enable_returns = updated[VendorsTable.enableReturns] && (planLimits?.returns ?: true),
+                enable_customer_credit = updated[VendorsTable.enableCustomerCredit] && (planLimits?.customerCredit ?: true),
+                enable_installments = updated[VendorsTable.enableInstallments] && (planLimits?.installments ?: true),
                 enable_pre_orders = updated[VendorsTable.enablePreOrders],
-                enable_scheduled_orders = updated[VendorsTable.enableScheduledOrders],
-                enable_suppliers = updated[VendorsTable.enableSuppliers],
-                enable_drug_interactions = updated[VendorsTable.enableDrugInteractions],
-                enable_prescriptions = updated[VendorsTable.enablePrescriptions],
-                enable_analytics = updated[VendorsTable.enableAnalytics],
+                enable_scheduled_orders = updated[VendorsTable.enableScheduledOrders] && (planLimits?.scheduledOrders ?: true),
+                enable_suppliers = updated[VendorsTable.enableSuppliers] && (planLimits?.suppliers ?: true),
+                enable_drug_interactions = updated[VendorsTable.enableDrugInteractions] && (planLimits?.drugInteractions ?: true),
+                enable_prescriptions = updated[VendorsTable.enablePrescriptions] && (planLimits?.prescriptions ?: true),
+                enable_analytics = updated[VendorsTable.enableAnalytics] && ((planLimits?.analytics ?: "FULL") != "NONE"),
                 enable_announcements = updated[VendorsTable.enableAnnouncements],
                 loyalty_enabled = updated[VendorsTable.loyaltyEnabled],
                 points_earn_rate = updated[VendorsTable.pointsEarnRate].toDouble(),
