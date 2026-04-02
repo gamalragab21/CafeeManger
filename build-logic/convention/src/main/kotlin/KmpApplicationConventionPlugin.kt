@@ -190,12 +190,18 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
             "Release", "release",
             "packageDmg", "packageMsi", "packageDeb", "packageRpm",
             "packageUberJarForCurrentOS",
-            "packageAllDesktop", "Dmg", "Msi", "Deb",
+            "packageAllDesktop",
         )
-        val isRelease = taskNames.any { task ->
+        // Exclude false positives: "assembleDebug" contains "Deb" but is NOT release
+        val debugIndicators = listOf("Debug", "debug", "desktopRun")
+        val hasDebugTask = taskNames.any { task ->
+            debugIndicators.any { indicator -> task.contains(indicator) }
+        }
+        val hasReleaseTask = taskNames.any { task ->
             releaseIndicators.any { indicator -> task.contains(indicator) }
         }
-        return if (isRelease) "release" else "debug"
+        // Debug takes priority over release indicators to avoid "assembleDebug" matching "Deb"
+        return if (hasDebugTask) "debug" else if (hasReleaseTask) "release" else "debug"
     }
 
     /**
