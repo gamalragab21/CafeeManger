@@ -252,7 +252,29 @@ class PlanService {
     }
 
     // ─── Feature gate checks ──────────────────────────────────────
+    // Admin toggle is the SOURCE OF TRUTH. If admin enabled a feature
+    // for a vendor, it works regardless of the plan.
+    // Plan check only applies when admin hasn't explicitly enabled it.
     fun checkFeature(vendorId: UUID, feature: String) {
+        // Check if admin explicitly enabled this feature for the vendor
+        val vendorToggle = transaction {
+            VendorsTable.selectAll().where { VendorsTable.id eq vendorId }.firstOrNull()
+        }
+        if (vendorToggle != null) {
+            val adminEnabled = when (feature) {
+                "SPLIT_PAYMENT" -> vendorToggle[VendorsTable.enableSplitPayment]
+                "CASH_DRAWER" -> vendorToggle[VendorsTable.enableCashDrawer]
+                "CUSTOMER_CREDIT" -> vendorToggle[VendorsTable.enableCustomerCredit]
+                "INSTALLMENTS" -> vendorToggle[VendorsTable.enableInstallments]
+                "SUPPLIERS" -> vendorToggle[VendorsTable.enableSuppliers]
+                "RETURNS" -> vendorToggle[VendorsTable.enableReturns]
+                "SCHEDULED_ORDERS" -> vendorToggle[VendorsTable.enableScheduledOrders]
+                else -> null // No vendor toggle for this feature — use plan check
+            }
+            // If admin explicitly enabled it, allow access (skip plan check)
+            if (adminEnabled == true) return
+        }
+
         val limits = getVendorPlanLimits(vendorId)
         when (feature) {
             "STOCK" -> if (!limits.stockManagement) throw FeatureNotAvailableException(
