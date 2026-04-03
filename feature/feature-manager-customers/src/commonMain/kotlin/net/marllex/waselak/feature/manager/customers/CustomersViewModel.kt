@@ -8,8 +8,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.CustomerRepository
+import net.marllex.waselak.core.domain.repository.InstallmentRepository
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
+import net.marllex.waselak.core.model.InstallmentPlan
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PointsTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
@@ -27,6 +29,7 @@ enum class LoyaltyFilter { HAS_POINTS, NO_POINTS }
 
 class CustomersViewModel(
     private val customerRepository: CustomerRepository,
+    private val installmentRepository: InstallmentRepository,
 ) : ViewModel() {
     private companion object { private const val TAG = "Customers" }
 
@@ -40,11 +43,19 @@ class CustomersViewModel(
         val selectedCustomerOrders: List<Order> = emptyList(),
         val pointsHistory: List<PointsTransaction> = emptyList(),
         val discountOrders: List<Order> = emptyList(),
+        val installmentPlans: List<InstallmentPlan> = emptyList(),
         val isLoadingPointsHistory: Boolean = false,
         val isLoadingDiscountOrders: Boolean = false,
+        val isLoadingInstallments: Boolean = false,
         val loyaltyFilter: LoyaltyFilter? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
+        // Edit customer
+        val showEditDialog: Boolean = false,
+        val editName: String = "",
+        val editPhone: String = "",
+        val editNotes: String = "",
+        val isSaving: Boolean = false,
         val showFeatureNotAvailable: Boolean = false,
         val featureNotAvailableMessage: String = "",
     )
@@ -129,6 +140,7 @@ class CustomersViewModel(
                 selectedCustomerOrders = emptyList(),
                 pointsHistory = emptyList(),
                 discountOrders = emptyList(),
+                installmentPlans = emptyList(),
             )
         }
         if (customer != null) {
@@ -151,6 +163,12 @@ class CustomersViewModel(
                     .onSuccess { orders -> _uiState.update { it.copy(discountOrders = orders, isLoadingDiscountOrders = false) } }
                     .onFailure { _uiState.update { it.copy(isLoadingDiscountOrders = false) } }
             }
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoadingInstallments = true) }
+                installmentRepository.getCustomerPlans(customer.id)
+                    .onSuccess { plans -> _uiState.update { it.copy(installmentPlans = plans, isLoadingInstallments = false) } }
+                    .onFailure { _uiState.update { it.copy(isLoadingInstallments = false) } }
+            }
         }
     }
 
@@ -172,6 +190,55 @@ class CustomersViewModel(
         viewModelScope.launch {
             customerRepository.deleteCustomer(id).onSuccess {
                 _uiState.update { it.copy(selectedCustomer = null) }
+                loadCustomers()
+            }
+        }
+    }
+
+    // ── Edit Customer ──
+
+    fun showEditDialog() {
+        val customer = _uiState.value.selectedCustomer ?: return
+        _uiState.update {
+            it.copy(
+                showEditDialog = true,
+                editName = customer.name ?: "",
+                editPhone = customer.phone,
+                editNotes = customer.notes ?: "",
+            )
+        }
+    }
+
+    fun dismissEditDialog() { _uiState.update { it.copy(showEditDialog = false) } }
+    fun onEditName(v: String) { _uiState.update { it.copy(editName = v) } }
+    fun onEditPhone(v: String) { _uiState.update { it.copy(editPhone = v.filter { c -> c.isDigit() || c == '+' }) } }
+    fun onEditNotes(v: String) { _uiState.update { it.copy(editNotes = v) } }
+
+    fun saveCustomer() {
+        val s = _uiState.value
+        val customer = s.selectedCustomer ?: return
+        if (s.editName.isBlank() || s.editPhone.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            customerRepository.updateCustomer(
+                id = customer.id,
+                name = s.editName,
+                phone = s.editPhone,
+                notes = s.editNotes.ifBlank { null },
+            ).onSuccess { updated ->
+                AppLogger.i(TAG, "Customer updated")
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        showEditDialog = false,
+                        selectedCustomer = updated,
+                    )
+                }
+                loadCustomers()
+            }.onFailure { e ->
+                CrashReporter.captureException(e)
+                _uiState.update { it.copy(isSaving = false, error = e.message) }
             }
         }
     }

@@ -17,7 +17,13 @@ data class CreateInstallmentPlanRequest(
 @Serializable
 data class RecordInstallmentPaymentRequest(
     val amount: Double,
+    @SerialName("payment_id") val paymentId: String? = null,
     val note: String? = null,
+)
+
+@Serializable
+data class ApplyLateFeeRequest(
+    @SerialName("payment_id") val paymentId: String,
 )
 
 @Serializable
@@ -61,6 +67,7 @@ data class InstallmentPaymentResponse(
     @SerialName("paid_by") val paidBy: String? = null,
     @SerialName("paid_by_name") val paidByName: String? = null,
     val note: String? = null,
+    @SerialName("late_fee_enabled") val lateFeeEnabled: Boolean = true,
     @SerialName("created_at") val createdAt: Long = 0,
 )
 

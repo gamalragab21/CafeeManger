@@ -925,6 +925,7 @@ object InstallmentPaymentsTable : UUIDTable("installment_payments") {
     val paidAt = long("paid_at").nullable()
     val paidBy = optReference("paid_by", UsersTable, onDelete = ReferenceOption.SET_NULL)
     val note = text("note").nullable()
+    val lateFeeEnabled = bool("late_fee_enabled").default(true)
     val createdAt = long("created_at").clientDefault { Clock.System.now().toEpochMilliseconds() }
 }
 

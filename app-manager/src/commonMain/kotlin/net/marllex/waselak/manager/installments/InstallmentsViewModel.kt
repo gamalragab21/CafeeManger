@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.domain.repository.InstallmentRepository
+import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.InstallmentAnalytics
 import net.marllex.waselak.core.model.InstallmentPayment
 import net.marllex.waselak.core.model.InstallmentPlan
@@ -16,6 +18,7 @@ import net.marllex.waselak.core.common.crash.CrashReporter
 
 class InstallmentsViewModel(
     private val installmentRepository: InstallmentRepository,
+    private val customerRepository: CustomerRepository,
 ) : ViewModel() {
     private companion object { private const val TAG = "Installments" }
 
@@ -35,9 +38,22 @@ class InstallmentsViewModel(
         val createDownPayment: String = "0",
         val createMonths: String = "3",
         val createLateFeePercent: String = "0",
+        val createStartMonth: Int = 0, // 0=this month, 1=next month, 2=+2 months, etc.
         val isCreating: Boolean = false,
+        // Customer selection
+        val customers: List<Customer> = emptyList(),
+        val customerSearchQuery: String = "",
+        val selectedCustomer: Customer? = null,
+        // Create new customer
+        val showCreateCustomer: Boolean = false,
+        val newCustomerPhone: String = "",
+        val newCustomerName: String = "",
+        val newCustomerAddress: String = "",
+        val isCreatingCustomer: Boolean = false,
+        val createCustomerError: String? = null,
         // Record payment dialog
         val showPaymentDialog: Boolean = false,
+        val targetPaymentId: String? = null,
         val paymentAmount: String = "",
         val paymentNote: String = "",
         val isSaving: Boolean = false,
@@ -48,12 +64,22 @@ class InstallmentsViewModel(
         val filteredPlans: List<InstallmentPlan>
             get() = if (statusFilter == null) plans
             else plans.filter { it.status == statusFilter }
+
+        val filteredCustomers: List<Customer>
+            get() = if (customerSearchQuery.isBlank()) customers
+            else customers.filter {
+                (it.name?.contains(customerSearchQuery, ignoreCase = true) == true) ||
+                    it.phone.contains(customerSearchQuery)
+            }
     }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        loadCustomers()
+    }
 
     fun load() {
         CrashReporter.addBreadcrumb("load()", TAG)
@@ -74,6 +100,102 @@ class InstallmentsViewModel(
         viewModelScope.launch {
             installmentRepository.getAnalytics()
                 .onSuccess { a -> _uiState.update { it.copy(analytics = a) } }
+        }
+    }
+
+    private fun loadCustomers() {
+        viewModelScope.launch {
+            customerRepository.refreshCustomers()
+            customerRepository.getCustomers().collect { list ->
+                _uiState.update { it.copy(customers = list) }
+            }
+        }
+    }
+
+    fun onCustomerSearch(query: String) {
+        _uiState.update { it.copy(customerSearchQuery = query) }
+    }
+
+    fun selectCustomer(customer: Customer) {
+        _uiState.update {
+            it.copy(
+                selectedCustomer = customer,
+                createCustomerId = customer.id,
+                createCustomerName = customer.name ?: customer.phone,
+                customerSearchQuery = "",
+            )
+        }
+    }
+
+    fun clearCustomerSelection() {
+        _uiState.update {
+            it.copy(selectedCustomer = null, createCustomerId = "", createCustomerName = "")
+        }
+    }
+
+    fun showCreateCustomerForm() {
+        _uiState.update { it.copy(showCreateCustomer = true, newCustomerPhone = "", newCustomerName = "", newCustomerAddress = "") }
+    }
+
+    fun hideCreateCustomerForm() {
+        _uiState.update { it.copy(showCreateCustomer = false) }
+    }
+
+    fun onNewCustomerPhone(v: String) {
+        val digitsOnly = v.filter { it.isDigit() || it == '+' }
+        _uiState.update { it.copy(newCustomerPhone = digitsOnly, createCustomerError = null) }
+    }
+    fun onNewCustomerName(v: String) { _uiState.update { it.copy(newCustomerName = v, createCustomerError = null) } }
+    fun onNewCustomerAddress(v: String) { _uiState.update { it.copy(newCustomerAddress = v) } }
+
+    fun createNewCustomer() {
+        val s = _uiState.value
+        if (s.newCustomerPhone.isBlank() || s.newCustomerName.isBlank()) return
+
+        // Check locally first if phone already exists
+        val existing = s.customers.find { it.phone == s.newCustomerPhone }
+        if (existing != null) {
+            _uiState.update {
+                it.copy(createCustomerError = "phone_exists:${existing.name ?: existing.phone}")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCreatingCustomer = true, createCustomerError = null) }
+            customerRepository.createCustomer(
+                phone = s.newCustomerPhone,
+                name = s.newCustomerName,
+            ).onSuccess { customer ->
+                // Add address if provided
+                if (s.newCustomerAddress.isNotBlank()) {
+                    customerRepository.addAddress(
+                        customerId = customer.id,
+                        address = s.newCustomerAddress,
+                        isDefault = true,
+                    )
+                }
+                _uiState.update {
+                    it.copy(
+                        isCreatingCustomer = false,
+                        showCreateCustomer = false,
+                        createCustomerError = null,
+                        selectedCustomer = customer,
+                        createCustomerId = customer.id,
+                        createCustomerName = customer.name ?: customer.phone,
+                        customerSearchQuery = "",
+                    )
+                }
+                loadCustomers() // Refresh list
+            }.onFailure { e ->
+                val msg = e.message ?: ""
+                if (msg.contains("PHONE_EXISTS") || msg.contains("Conflict")) {
+                    _uiState.update { it.copy(isCreatingCustomer = false, createCustomerError = "phone_exists:${s.newCustomerPhone}") }
+                } else {
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(isCreatingCustomer = false, error = e.message) }
+                }
+            }
         }
     }
 
@@ -101,7 +223,9 @@ class InstallmentsViewModel(
                 showCreateDialog = true,
                 createCustomerId = "", createCustomerName = "",
                 createTotalAmount = "", createDownPayment = "0",
-                createMonths = "3", createLateFeePercent = "0",
+                createMonths = "3", createLateFeePercent = "0", createStartMonth = 0,
+                selectedCustomer = null, customerSearchQuery = "",
+                showCreateCustomer = false, newCustomerPhone = "", newCustomerName = "", newCustomerAddress = "",
             )
         }
     }
@@ -113,6 +237,7 @@ class InstallmentsViewModel(
     fun onCreateDownPayment(v: String) { _uiState.update { it.copy(createDownPayment = v) } }
     fun onCreateMonths(v: String) { _uiState.update { it.copy(createMonths = v) } }
     fun onCreateLateFeePercent(v: String) { _uiState.update { it.copy(createLateFeePercent = v) } }
+    fun onCreateStartMonth(v: Int) { _uiState.update { it.copy(createStartMonth = v) } }
 
     fun createPlan() {
         CrashReporter.addBreadcrumb("createPlan()", TAG)
@@ -123,6 +248,13 @@ class InstallmentsViewModel(
         val fee = s.createLateFeePercent.toDoubleOrNull() ?: 0.0
         if (s.createCustomerId.isBlank() || total <= 0 || months <= 0) return
 
+        // Calculate start date based on selected month offset
+        val startDate = if (s.createStartMonth > 0) {
+            val now = java.time.LocalDate.now()
+            val startMonth = now.plusMonths(s.createStartMonth.toLong()).withDayOfMonth(1)
+            startMonth.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } else null // null = backend uses current time
+
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true) }
             installmentRepository.createPlan(
@@ -131,6 +263,7 @@ class InstallmentsViewModel(
                 numInstallments = months,
                 downPayment = down,
                 lateFeePercent = fee,
+                startDate = startDate,
             )
                 .onSuccess {
                     AppLogger.i(TAG, "Plan created successfully")
@@ -146,7 +279,12 @@ class InstallmentsViewModel(
 
     // ── Record Payment ──
 
-    fun showPaymentDialog() { _uiState.update { it.copy(showPaymentDialog = true, paymentAmount = "", paymentNote = "") } }
+    fun showPaymentDialog() { showPaymentDialogForPayment(null) }
+
+    fun showPaymentDialogForPayment(paymentId: String?) {
+        _uiState.update { it.copy(showPaymentDialog = true, targetPaymentId = paymentId, paymentAmount = "", paymentNote = "") }
+    }
+
     fun dismissPaymentDialog() { _uiState.update { it.copy(showPaymentDialog = false) } }
     fun onPaymentAmount(v: String) { _uiState.update { it.copy(paymentAmount = v) } }
     fun onPaymentNote(v: String) { _uiState.update { it.copy(paymentNote = v) } }
@@ -160,7 +298,7 @@ class InstallmentsViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            installmentRepository.recordPayment(plan.id, amount, s.paymentNote.ifBlank { null })
+            installmentRepository.recordPayment(plan.id, amount, s.paymentNote.ifBlank { null }, s.targetPaymentId)
                 .onSuccess {
                     AppLogger.i(TAG, "Payment recorded")
                     _uiState.update { it.copy(isSaving = false, showPaymentDialog = false, successMessage = "payment_recorded") }
@@ -197,6 +335,23 @@ class InstallmentsViewModel(
 
     // ── Late Fee ──
 
+    fun applyLateFeeForPayment(paymentId: String) {
+        CrashReporter.addBreadcrumb("applyLateFee($paymentId)", TAG)
+        val plan = _uiState.value.selectedPlan ?: return
+        viewModelScope.launch {
+            installmentRepository.applyLateFee(plan.id, paymentId)
+                .onSuccess {
+                    _uiState.update { it.copy(successMessage = "late_fee_applied") }
+                    selectPlan(plan)
+                    load()
+                }
+                .onFailure { e ->
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
     fun applyLateFee() {
         CrashReporter.addBreadcrumb("applyLateFee()", TAG)
         val plan = _uiState.value.selectedPlan ?: return
@@ -204,6 +359,24 @@ class InstallmentsViewModel(
             installmentRepository.applyLateFee(plan.id)
                 .onSuccess {
                     _uiState.update { it.copy(successMessage = "late_fee_applied") }
+                    selectPlan(plan)
+                    load()
+                }
+                .onFailure { e ->
+                    CrashReporter.captureException(e)
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    // ── Toggle Late Fee ──
+
+    fun toggleLateFee(paymentId: String, enabled: Boolean) {
+        CrashReporter.addBreadcrumb("toggleLateFee($paymentId, $enabled)", TAG)
+        val plan = _uiState.value.selectedPlan ?: return
+        viewModelScope.launch {
+            installmentRepository.toggleLateFee(plan.id, paymentId, enabled)
+                .onSuccess {
                     selectPlan(plan)
                     load()
                 }

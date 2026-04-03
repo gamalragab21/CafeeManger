@@ -42,6 +42,7 @@ import net.marllex.waselak.backend.data.database.TablesTable
 import net.marllex.waselak.backend.data.database.UsersTable
 import net.marllex.waselak.backend.data.database.ProductReturnsTable
 import net.marllex.waselak.backend.data.database.ReturnItemsTable
+import net.marllex.waselak.backend.data.database.InstallmentPaymentsTable
 import net.marllex.waselak.backend.domain.service.OrderService
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.config.JwtConfig
@@ -155,6 +156,8 @@ data class ShiftSummaryDto(
     val cancelled_count: Int,
     val refunded_total: Double,
     val refunded_count: Int,
+    val installment_payments: Double = 0.0,
+    val installment_payment_count: Int = 0,
 )
 
 @Serializable
@@ -456,14 +459,12 @@ fun Route.orderRoutes() {
                         // MANAGER sees all orders
                     }
 
+                    val todayStartMs = java.time.LocalDate.now()
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant().toEpochMilli()
+                    val todayStart = kotlinx.datetime.Instant.fromEpochMilliseconds(todayStartMs)
+
                     if (scope == "today") {
-                        // Start of today using java.time (available on JVM backend)
-                        val todayStart = kotlinx.datetime.Instant.fromEpochMilliseconds(
-                            java.time.LocalDate.now()
-                                .atStartOfDay(java.time.ZoneId.systemDefault())
-                                .toInstant()
-                                .toEpochMilli()
-                        )
                         // Include orders created today OR paid today
                         query = query.andWhere {
                             (OrdersTable.createdAt greaterEq todayStart) or
@@ -491,6 +492,22 @@ fun Route.orderRoutes() {
                     val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
                     val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
 
+                    // Installment payments by this cashier
+                    val installmentQuery = InstallmentPaymentsTable.selectAll().where {
+                        (InstallmentPaymentsTable.vendorId eq vendorUUID) and
+                            (InstallmentPaymentsTable.paidBy eq userUUID) and
+                            (InstallmentPaymentsTable.status inList listOf("PAID", "PARTIALLY_PAID"))
+                    }
+                    if (scope == "today") {
+                        installmentQuery.andWhere { InstallmentPaymentsTable.paidAt greaterEq todayStartMs }
+                    } else {
+                        from?.let { ts ->
+                            installmentQuery.andWhere { InstallmentPaymentsTable.paidAt greaterEq ts }
+                        }
+                    }
+                    val installmentPmts = installmentQuery.toList()
+                    val installmentTotal = installmentPmts.sumOf { it[InstallmentPaymentsTable.paidAmount].toDouble() }
+
                     fun Double.r2() = Math.round(this * 100.0) / 100.0
                     ShiftSummaryDto(
                         total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() }.r2(),
@@ -505,6 +522,8 @@ fun Route.orderRoutes() {
                         cancelled_count = cancelled.size,
                         refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         refunded_count = refunded.size,
+                        installment_payments = installmentTotal.r2(),
+                        installment_payment_count = installmentPmts.size,
                     )
                 }
                 trace.step("Summary calculated", mapOf(
@@ -589,6 +608,15 @@ fun Route.orderRoutes() {
                     val walletCompleted = completed.filter { it[OrdersTable.paymentMethod] == "WALLET" }
                     val cardCompleted = completed.filter { it[OrdersTable.paymentMethod] == "CARD" }
 
+                    // Installment payments by this user
+                    val installmentPmts = InstallmentPaymentsTable.selectAll().where {
+                        (InstallmentPaymentsTable.vendorId eq vendorUUID) and
+                            (InstallmentPaymentsTable.paidBy eq targetUserUUID) and
+                            (InstallmentPaymentsTable.status inList listOf("PAID", "PARTIALLY_PAID")) and
+                            (InstallmentPaymentsTable.paidAt greaterEq filterFrom.toEpochMilliseconds())
+                    }.toList()
+                    val installmentTotal = installmentPmts.sumOf { it[InstallmentPaymentsTable.paidAmount].toDouble() }
+
                     fun Double.r2() = Math.round(this * 100.0) / 100.0
                     ShiftSummaryDto(
                         total_revenue = completed.sumOf { it[OrdersTable.total].toDouble() }.r2(),
@@ -603,6 +631,8 @@ fun Route.orderRoutes() {
                         cancelled_count = cancelled.size,
                         refunded_total = refunded.sumOf { it[OrdersTable.total].toDouble() }.r2(),
                         refunded_count = refunded.size,
+                        installment_payments = installmentTotal.r2(),
+                        installment_payment_count = installmentPmts.size,
                     )
                 }
                 trace.step("Summary calculated", mapOf(

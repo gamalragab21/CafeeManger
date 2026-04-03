@@ -66,6 +66,8 @@ data class ShiftSummaryResponse(
     @SerialName("cancelled_count") val cancelledCount: Int,
     @SerialName("refunded_total") val refundedTotal: Double,
     @SerialName("refunded_count") val refundedCount: Int,
+    @SerialName("installment_payments") val installmentPayments: Double = 0.0,
+    @SerialName("installment_payment_count") val installmentPaymentCount: Int = 0,
 )
 
 @Serializable

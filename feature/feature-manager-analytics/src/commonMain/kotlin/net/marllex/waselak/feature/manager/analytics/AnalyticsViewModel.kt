@@ -10,12 +10,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
 import net.marllex.waselak.core.domain.repository.AnalyticsRepository
+import net.marllex.waselak.core.domain.repository.InstallmentRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AnalyticsViewModel(
     private val analyticsRepository: AnalyticsRepository,
+    private val installmentRepository: InstallmentRepository,
 ) : ViewModel() {
     private companion object { private const val TAG = "Analytics" }
 
@@ -69,6 +71,7 @@ class AnalyticsViewModel(
         val creditAnalytics: SectionState<CreditAnalytics> = SectionState.Loading,
         val doctorStats: SectionState<List<DoctorStats>> = SectionState.Loading,
         val returnsAnalytics: SectionState<ReturnsAnalytics> = SectionState.Loading,
+        val installmentAnalytics: SectionState<InstallmentAnalytics> = SectionState.Loading,
         val exportState: ExportState = ExportState.Idle,
         val isFeatureGated: Boolean = false,
         val showFeatureNotAvailable: Boolean = false,
@@ -125,6 +128,7 @@ class AnalyticsViewModel(
                 "creditAnalytics" -> loadCreditAnalytics(from, to)
                 "doctorStats" -> loadDoctorStats(from, to)
                 "returnsAnalytics" -> loadReturnsAnalytics(from, to)
+                "installmentAnalytics" -> loadInstallmentAnalytics(from, to)
             }
         }
     }
@@ -206,6 +210,7 @@ class AnalyticsViewModel(
                 loyaltyAnalytics = SectionState.Loading,
                 staffCosts = SectionState.Loading,
                 supplierAnalytics = SectionState.Loading,
+                installmentAnalytics = SectionState.Loading,
             )
         }
 
@@ -229,12 +234,13 @@ class AnalyticsViewModel(
             val d16 = async { loadCreditAnalytics(from, to) }
             val d17 = async { loadDoctorStats(from, to) }
             val d18 = async { loadReturnsAnalytics(from, to) }
+            val d19 = async { loadInstallmentAnalytics(from, to) }
 
             // Await all (each one updates state independently)
             d1.await(); d2.await(); d3.await(); d4.await(); d5.await()
             d6.await(); d7.await(); d8.await(); d9.await(); d10.await()
             d11.await(); d12.await(); d13.await(); d14.await(); d15.await()
-            d16.await(); d17.await(); d18.await()
+            d16.await(); d17.await(); d18.await(); d19.await()
         }
     }
 
@@ -347,6 +353,12 @@ class AnalyticsViewModel(
         analyticsRepository.getReturnsAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(returnsAnalytics = SectionState.Success(data)) } }
             .onFailure { e -> _uiState.update { it.copy(returnsAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+    }
+
+    private suspend fun loadInstallmentAnalytics(from: Long, to: Long) {
+        installmentRepository.getAnalytics(from, to)
+            .onSuccess { data -> _uiState.update { it.copy(installmentAnalytics = SectionState.Success(data)) } }
+            .onFailure { e -> _uiState.update { it.copy(installmentAnalytics = SectionState.Error(e.message ?: "Failed")) } }
     }
 
     // ── Date range calculation ───────────────────────────────────────

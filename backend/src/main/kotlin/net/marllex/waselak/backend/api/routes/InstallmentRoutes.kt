@@ -13,7 +13,7 @@ import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.ktor.ext.inject
+import org.koin.java.KoinJavaComponent
 import java.math.BigDecimal
 import java.util.*
 import net.marllex.waselak.backend.domain.service.PlanService
@@ -34,7 +34,13 @@ data class CreateInstallmentPlanDto(
 @Serializable
 data class RecordInstallmentPaymentDto(
     val amount: Double,
+    val payment_id: String? = null, // optional: pay specific payment (for partial remaining)
     val note: String? = null,
+)
+
+@Serializable
+data class ApplyLateFeeDto(
+    val payment_id: String, // apply fee to specific payment
 )
 
 @Serializable
@@ -78,6 +84,7 @@ data class InstallmentPaymentDto(
     val paid_by: String? = null,
     val paid_by_name: String? = null,
     val note: String? = null,
+    val late_fee_enabled: Boolean = true,
     val created_at: Long,
 )
 
@@ -139,6 +146,7 @@ private fun ResultRow.toInstallmentPaymentDto(): InstallmentPaymentDto {
         paid_by = paidById?.toString(),
         paid_by_name = paidByName,
         note = this[InstallmentPaymentsTable.note],
+        late_fee_enabled = this[InstallmentPaymentsTable.lateFeeEnabled],
         created_at = this[InstallmentPaymentsTable.createdAt],
     )
 }
@@ -158,7 +166,7 @@ private fun loadPlanWithPayments(planId: UUID, vendorId: UUID): InstallmentPlanD
 // ── Routes ──────────────────────────────────────────────────────────────
 
 fun Route.installmentRoutes() {
-    val planService by inject<PlanService>()
+    val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
 
     route("/api/v1") {
         authenticate("auth-jwt") {
@@ -259,7 +267,7 @@ fun Route.installmentRoutes() {
                 call.respond(plan)
             }
 
-            // POST /installments/{id}/payments — Record payment
+            // POST /installments/{id}/payments — Record payment (supports partial)
             post("/installments/{id}/payments") {
                 val trace = call.routeTrace()
                 val principal = requireRole("MANAGER", "CASHIER")
@@ -271,22 +279,40 @@ fun Route.installmentRoutes() {
                 val now = Clock.System.now().toEpochMilliseconds()
 
                 val payment = transaction {
-                    // Find next unpaid installment
-                    val nextPayment = InstallmentPaymentsTable.selectAll().where {
-                        (InstallmentPaymentsTable.planId eq planId) and
-                            (InstallmentPaymentsTable.status inList listOf("PENDING", "OVERDUE"))
-                    }.orderBy(InstallmentPaymentsTable.dueDate).firstOrNull()
-                        ?: throw NoSuchElementException("No pending payments found")
+                    // Find target payment: specific ID or next unpaid
+                    val targetPayment = if (request.payment_id != null) {
+                        InstallmentPaymentsTable.selectAll().where {
+                            (InstallmentPaymentsTable.id eq UUID.fromString(request.payment_id)) and
+                                (InstallmentPaymentsTable.planId eq planId) and
+                                (InstallmentPaymentsTable.status inList listOf("PENDING", "OVERDUE", "PARTIALLY_PAID"))
+                        }.firstOrNull() ?: throw NoSuchElementException("Payment not found or already fully paid")
+                    } else {
+                        // Find first PARTIALLY_PAID, then OVERDUE, then PENDING
+                        InstallmentPaymentsTable.selectAll().where {
+                            (InstallmentPaymentsTable.planId eq planId) and
+                                (InstallmentPaymentsTable.status inList listOf("PARTIALLY_PAID", "PENDING", "OVERDUE"))
+                        }.orderBy(
+                            InstallmentPaymentsTable.status to SortOrder.ASC, // OVERDUE first alphabetically, then PARTIALLY_PAID, then PENDING
+                            InstallmentPaymentsTable.dueDate to SortOrder.ASC
+                        ).firstOrNull() ?: throw NoSuchElementException("No pending payments found")
+                    }
 
-                    val paymentId = nextPayment[InstallmentPaymentsTable.id]
+                    val paymentId = targetPayment[InstallmentPaymentsTable.id]
+                    val existingPaid = targetPayment[InstallmentPaymentsTable.paidAmount].toDouble()
+                    val dueAmount = targetPayment[InstallmentPaymentsTable.amount].toDouble() + targetPayment[InstallmentPaymentsTable.lateFee].toDouble()
+                    val newTotalPaid = existingPaid + request.amount
+                    val isFullyPaid = newTotalPaid >= dueAmount
 
                     // Update payment
                     InstallmentPaymentsTable.update({ InstallmentPaymentsTable.id eq paymentId }) {
-                        it[paidAmount] = BigDecimal.valueOf(request.amount)
-                        it[status] = "PAID"
+                        it[paidAmount] = BigDecimal.valueOf(newTotalPaid)
+                        it[status] = if (isFullyPaid) "PAID" else "PARTIALLY_PAID"
                         it[paidAt] = now
                         it[paidBy] = UUID.fromString(principal.userId)
-                        it[note] = request.note
+                        if (request.note != null) {
+                            val existingNote = targetPayment[InstallmentPaymentsTable.note]
+                            it[note] = if (existingNote.isNullOrBlank()) request.note else "$existingNote | ${request.note}"
+                        }
                     }
 
                     // Update plan remaining amount
@@ -303,7 +329,7 @@ fun Route.installmentRoutes() {
                     // Check if all payments are done → complete the plan
                     val pendingCount = InstallmentPaymentsTable.selectAll().where {
                         (InstallmentPaymentsTable.planId eq planId) and
-                            (InstallmentPaymentsTable.status inList listOf("PENDING", "OVERDUE"))
+                            (InstallmentPaymentsTable.status inList listOf("PENDING", "OVERDUE", "PARTIALLY_PAID"))
                     }.count()
 
                     if (pendingCount == 0L) {
@@ -311,6 +337,25 @@ fun Route.installmentRoutes() {
                             it[status] = "COMPLETED"
                             it[remainingAmount] = BigDecimal.ZERO
                             it[updatedAt] = now
+                        }
+                    }
+
+                    // Record cash movement for this session (if cashier has an open session)
+                    val activeSession = CashDrawerSessionsTable.selectAll().where {
+                        (CashDrawerSessionsTable.vendorId eq vendorId) and
+                            (CashDrawerSessionsTable.cashierId eq UUID.fromString(principal.userId)) and
+                            (CashDrawerSessionsTable.status eq "OPEN")
+                    }.firstOrNull()
+
+                    if (activeSession != null) {
+                        CashMovementsTable.insertAndGetId {
+                            it[sessionId] = activeSession[CashDrawerSessionsTable.id]
+                            it[CashMovementsTable.vendorId] = vendorId
+                            it[type] = "INSTALLMENT_PAYMENT"
+                            it[amount] = BigDecimal.valueOf(request.amount)
+                            it[reason] = "Installment payment - ${plan[InstallmentPlansTable.customerId]}"
+                            it[createdBy] = UUID.fromString(principal.userId)
+                            it[createdAt] = Clock.System.now()
                         }
                     }
 
@@ -349,11 +394,13 @@ fun Route.installmentRoutes() {
             }
 
             // POST /installments/{id}/apply-late-fee — Apply late fee (MANAGER only)
+            // Can apply to a specific payment or all overdue payments
             post("/installments/{id}/apply-late-fee") {
                 val trace = call.routeTrace()
                 val principal = requireRole("MANAGER")
                 val vendorId = UUID.fromString(principal.vendorId)
                 val planId = UUID.fromString(call.parameters["id"]!!)
+                val request = try { call.receive<ApplyLateFeeDto>() } catch (_: Exception) { null }
 
                 val now = Clock.System.now().toEpochMilliseconds()
 
@@ -365,32 +412,95 @@ fun Route.installmentRoutes() {
                     val feePercent = planRow[InstallmentPlansTable.lateFeePercent].toDouble()
                     if (feePercent <= 0) throw IllegalArgumentException("No late fee configured for this plan")
 
-                    // Apply fee to all overdue payments
-                    val overduePayments = InstallmentPaymentsTable.selectAll().where {
-                        (InstallmentPaymentsTable.planId eq planId) and
-                            (InstallmentPaymentsTable.status eq "OVERDUE") and
-                            (InstallmentPaymentsTable.lateFee eq BigDecimal.ZERO)
-                    }.toList()
+                    // Apply to specific payment or all overdue with no fee yet
+                    val overduePayments = if (request?.payment_id != null) {
+                        InstallmentPaymentsTable.selectAll().where {
+                            (InstallmentPaymentsTable.id eq UUID.fromString(request.payment_id)) and
+                                (InstallmentPaymentsTable.planId eq planId) and
+                                (InstallmentPaymentsTable.status inList listOf("OVERDUE", "PARTIALLY_PAID")) and
+                                (InstallmentPaymentsTable.lateFee eq BigDecimal.ZERO)
+                        }.toList()
+                    } else {
+                        InstallmentPaymentsTable.selectAll().where {
+                            (InstallmentPaymentsTable.planId eq planId) and
+                                (InstallmentPaymentsTable.status inList listOf("OVERDUE", "PARTIALLY_PAID")) and
+                                (InstallmentPaymentsTable.lateFee eq BigDecimal.ZERO)
+                        }.toList()
+                    }
 
+                    var totalFees = 0.0
                     for (payment in overduePayments) {
-                        val fee = payment[InstallmentPaymentsTable.amount].toDouble() * feePercent / 100.0
+                        val remainingDue = payment[InstallmentPaymentsTable.amount].toDouble() - payment[InstallmentPaymentsTable.paidAmount].toDouble()
+                        val fee = remainingDue * feePercent / 100.0
+                        val roundedFee = Math.round(fee * 100.0) / 100.0
                         InstallmentPaymentsTable.update({ InstallmentPaymentsTable.id eq payment[InstallmentPaymentsTable.id] }) {
-                            it[lateFee] = BigDecimal.valueOf(Math.round(fee * 100.0) / 100.0)
+                            it[lateFee] = BigDecimal.valueOf(roundedFee)
                         }
+                        totalFees += roundedFee
                     }
 
                     // Update plan remaining
-                    val totalFees = overduePayments.sumOf {
-                        it[InstallmentPaymentsTable.amount].toDouble() * feePercent / 100.0
-                    }
-                    val currentRemaining = planRow[InstallmentPlansTable.remainingAmount].toDouble()
-                    InstallmentPlansTable.update({ InstallmentPlansTable.id eq planId }) {
-                        it[remainingAmount] = BigDecimal.valueOf(currentRemaining + totalFees)
-                        it[updatedAt] = now
+                    if (totalFees > 0) {
+                        val currentRemaining = planRow[InstallmentPlansTable.remainingAmount].toDouble()
+                        InstallmentPlansTable.update({ InstallmentPlansTable.id eq planId }) {
+                            it[remainingAmount] = BigDecimal.valueOf(currentRemaining + totalFees)
+                            it[updatedAt] = now
+                        }
                     }
 
                     loadPlanWithPayments(planId, vendorId)
                 } ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "Plan not found"))
+
+                call.respond(plan)
+            }
+
+            // PATCH /installments/{id}/payments/{paymentId}/late-fee-toggle — Toggle late fee for a specific payment
+            patch("/installments/{id}/payments/{paymentId}/late-fee-toggle") {
+                val trace = call.routeTrace()
+                val principal = requireRole("MANAGER")
+                val vendorId = UUID.fromString(principal.vendorId)
+                val planId = UUID.fromString(call.parameters["id"]!!)
+                val paymentId = UUID.fromString(call.parameters["paymentId"]!!)
+
+                @Serializable
+                data class ToggleDto(val enabled: Boolean)
+                val request = call.receive<ToggleDto>()
+
+                val now = Clock.System.now().toEpochMilliseconds()
+
+                val plan = transaction {
+                    // Verify plan belongs to vendor
+                    InstallmentPlansTable.selectAll().where {
+                        (InstallmentPlansTable.id eq planId) and (InstallmentPlansTable.vendorId eq vendorId)
+                    }.firstOrNull() ?: throw NoSuchElementException("Plan not found")
+
+                    InstallmentPaymentsTable.update({
+                        (InstallmentPaymentsTable.id eq paymentId) and (InstallmentPaymentsTable.planId eq planId)
+                    }) {
+                        it[lateFeeEnabled] = request.enabled
+                        // If disabling and fee was already applied, remove the fee
+                        if (!request.enabled) {
+                            val payment = InstallmentPaymentsTable.selectAll().where {
+                                InstallmentPaymentsTable.id eq paymentId
+                            }.first()
+                            val currentFee = payment[InstallmentPaymentsTable.lateFee].toDouble()
+                            if (currentFee > 0) {
+                                it[lateFee] = BigDecimal.ZERO
+                                // Adjust plan remaining
+                                val plan = InstallmentPlansTable.selectAll().where {
+                                    InstallmentPlansTable.id eq planId
+                                }.first()
+                                val newRemaining = plan[InstallmentPlansTable.remainingAmount].toDouble() - currentFee
+                                InstallmentPlansTable.update({ InstallmentPlansTable.id eq planId }) { u ->
+                                    u[remainingAmount] = BigDecimal.valueOf(maxOf(0.0, newRemaining))
+                                    u[updatedAt] = now
+                                }
+                            }
+                        }
+                    }
+
+                    loadPlanWithPayments(planId, vendorId)
+                } ?: return@patch call.respond(HttpStatusCode.NotFound, mapOf("error" to "Plan not found"))
 
                 call.respond(plan)
             }
@@ -442,8 +552,12 @@ fun Route.installmentRoutes() {
                     } else emptyList()
 
                     val paidPayments = allPayments.filter { it[InstallmentPaymentsTable.status] == "PAID" }
+                    val partialPayments = allPayments.filter { it[InstallmentPaymentsTable.status] == "PARTIALLY_PAID" }
                     val pendingPayments = allPayments.filter { it[InstallmentPaymentsTable.status] == "PENDING" }
                     val overduePayments = allPayments.filter { it[InstallmentPaymentsTable.status] == "OVERDUE" }
+
+                    val collectedFromPaid = paidPayments.sumOf { it[InstallmentPaymentsTable.paidAmount].toDouble() }
+                    val collectedFromPartial = partialPayments.sumOf { it[InstallmentPaymentsTable.paidAmount].toDouble() }
 
                     InstallmentAnalyticsDto(
                         total_plans = plans.size,
@@ -451,10 +565,10 @@ fun Route.installmentRoutes() {
                         completed_plans = plans.count { it[InstallmentPlansTable.status] == "COMPLETED" },
                         defaulted_plans = plans.count { it[InstallmentPlansTable.status] == "DEFAULTED" },
                         total_revenue = plans.sumOf { it[InstallmentPlansTable.totalAmount].toDouble() },
-                        collected_revenue = paidPayments.sumOf { it[InstallmentPaymentsTable.paidAmount].toDouble() },
+                        collected_revenue = collectedFromPaid + collectedFromPartial,
                         pending_revenue = pendingPayments.sumOf { it[InstallmentPaymentsTable.amount].toDouble() },
                         overdue_revenue = overduePayments.sumOf { it[InstallmentPaymentsTable.amount].toDouble() + it[InstallmentPaymentsTable.lateFee].toDouble() },
-                        late_fees_collected = paidPayments.sumOf { it[InstallmentPaymentsTable.lateFee].toDouble() },
+                        late_fees_collected = (paidPayments + partialPayments).sumOf { it[InstallmentPaymentsTable.lateFee].toDouble() },
                     )
                 }
 

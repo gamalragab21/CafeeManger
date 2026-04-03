@@ -8,8 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "net.marllex.waselak.admin"
-        versionCode = 1
-        versionName = "1.0.0"
+        // versionCode and versionName are set centrally via gradle.properties → KmpApplicationConventionPlugin
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations.addAll(listOf("en", "ar"))

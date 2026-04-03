@@ -814,6 +814,8 @@ class StaffViewModel constructor(
                             cancelledCount = response.cancelledCount,
                             refundedTotal = response.refundedTotal,
                             refundedCount = response.refundedCount,
+                            installmentPayments = response.installmentPayments,
+                            installmentPaymentCount = response.installmentPaymentCount,
                         ),
                     )
                 }

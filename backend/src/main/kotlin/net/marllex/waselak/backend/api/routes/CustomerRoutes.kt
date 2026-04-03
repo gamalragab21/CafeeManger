@@ -226,12 +226,7 @@ fun Route.customerRoutes() {
                     .firstOrNull()
 
                 if (existing != null) {
-                    // Return existing customer instead of error
-                    val customerId = existing[CustomersTable.id].value
-                    val addresses = CustomerAddressesTable.selectAll()
-                        .where { CustomerAddressesTable.customerId eq customerId }
-                        .map { it.toAddressDto() }
-                    return@transaction existing.toCustomerDto(addresses)
+                    throw IllegalStateException("PHONE_EXISTS:${existing[CustomersTable.name] ?: existing[CustomersTable.phone]}")
                 }
 
                 val now = Clock.System.now()

@@ -35,4 +35,14 @@
     <string name="filter_has_points">لديه نقاط</string>
     <string name="filter_no_points">بدون نقاط</string>
     <string name="discount_amount_label">خصم: -%1$s</string>
+    <string name="tab_installments">الأقساط</string>
+    <string name="no_installment_plans">مفيش خطط تقسيط</string>
+    <string name="installment_remaining">المتبقي: %1$s</string>
+    <string name="installment_monthly">%1$d شهر \u2022 %2$s/شهر</string>
+    <string name="edit_customer">تعديل العميل</string>
+    <string name="customer_name">الاسم</string>
+    <string name="customer_phone">الهاتف</string>
+    <string name="customer_notes">ملاحظات</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
 </resources>

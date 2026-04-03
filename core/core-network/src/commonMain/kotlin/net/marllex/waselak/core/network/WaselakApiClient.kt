@@ -1214,8 +1214,15 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun updateInstallmentStatus(planId: String, request: UpdateInstallmentStatusRequest): InstallmentPlanResponse =
         client.patch("api/v1/installments/$planId/status") { setBody(request) }.body()
 
-    suspend fun applyInstallmentLateFee(planId: String): InstallmentPlanResponse =
-        client.post("api/v1/installments/$planId/apply-late-fee").body()
+    suspend fun applyInstallmentLateFee(planId: String, paymentId: String? = null): InstallmentPlanResponse =
+        client.post("api/v1/installments/$planId/apply-late-fee") {
+            if (paymentId != null) setBody(ApplyLateFeeRequest(paymentId))
+        }.body()
+
+    suspend fun toggleInstallmentLateFee(planId: String, paymentId: String, enabled: Boolean): InstallmentPlanResponse =
+        client.patch("api/v1/installments/$planId/payments/$paymentId/late-fee-toggle") {
+            setBody(mapOf("enabled" to enabled))
+        }.body()
 
     suspend fun getCustomerInstallments(customerId: String): List<InstallmentPlanResponse> =
         client.get("api/v1/customers/$customerId/installments").body()

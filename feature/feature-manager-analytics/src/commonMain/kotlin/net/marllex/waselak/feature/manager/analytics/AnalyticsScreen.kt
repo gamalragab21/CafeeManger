@@ -46,6 +46,7 @@ import net.marllex.waselak.feature.manager.analytics.components.RevenueProfitSec
 import net.marllex.waselak.feature.manager.analytics.components.StaffCostsSection
 import net.marllex.waselak.feature.manager.analytics.components.StockOverviewSection
 import net.marllex.waselak.feature.manager.analytics.components.SupplierAnalyticsSection
+import net.marllex.waselak.feature.manager.analytics.components.InstallmentAnalyticsSection
 import org.jetbrains.compose.resources.stringResource
 import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
 import net.marllex.waselak.feature.manager.analytics.generated.resources.*
@@ -66,15 +67,19 @@ fun AnalyticsScreen(
     val scope = rememberCoroutineScope()
 
     val isPharmacyOrRetail = businessType in listOf("PHARMACY", "RETAIL")
+    val hasInstallments = businessType !in listOf("PHARMACY", "RESTAURANT")
 
     // Build tabs dynamically based on business type
-    val tabs = remember(isPharmacyOrRetail) {
+    val tabs = remember(isPharmacyOrRetail, hasInstallments) {
         buildList {
             add(AnalyticsTab("Overview", "overview"))
             add(AnalyticsTab("Revenue", "revenue"))
             add(AnalyticsTab("Team", "team"))
             add(AnalyticsTab("Products", "products"))
             add(AnalyticsTab("Customers", "customers"))
+            if (hasInstallments) {
+                add(AnalyticsTab("Installments", "installments"))
+            }
             if (isPharmacyOrRetail) {
                 add(AnalyticsTab("Pharmacy", "pharmacy"))
             }
@@ -234,6 +239,15 @@ fun AnalyticsScreen(
                                 LoyaltyAnalyticsSection(
                                     state = state.loyaltyAnalytics,
                                     onRetry = { viewModel.retrySection("loyaltyAnalytics") },
+                                )
+                            }
+                        }
+
+                        "installments" -> {
+                            item {
+                                InstallmentAnalyticsSection(
+                                    state = state.installmentAnalytics,
+                                    onRetry = { viewModel.retrySection("installmentAnalytics") },
                                 )
                             }
                         }

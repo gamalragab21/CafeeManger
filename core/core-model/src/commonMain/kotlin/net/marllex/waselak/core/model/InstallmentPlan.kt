@@ -28,9 +28,30 @@ data class InstallmentPlan(
     val isCompleted get() = status == "COMPLETED"
     val isDefaulted get() = status == "DEFAULTED"
     val isCancelled get() = status == "CANCELLED"
-    val paidAmount get() = payments.filter { it.status == "PAID" }.sumOf { it.paidAmount }
+    val paidAmount get() = payments.sumOf { it.paidAmount }
     val overdueCount get() = payments.count { it.status == "OVERDUE" }
-    val nextPayment get() = payments.firstOrNull { it.status == "PENDING" || it.status == "OVERDUE" }
+    val partiallyPaidCount get() = payments.count { it.status == "PARTIALLY_PAID" }
+    val totalLateFees get() = payments.sumOf { it.lateFee }
+    val nextPayment get() = payments.firstOrNull {
+        it.status == "PARTIALLY_PAID" || it.status == "OVERDUE" || it.status == "PENDING"
+    }
+    /** Payment whose due date falls in the current calendar month (or the next unpaid if none this month) */
+    fun currentMonthPayment(nowMs: Long): InstallmentPayment? {
+        val now = java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val thisMonth = now.year * 100 + now.monthValue
+        // First try: find unpaid payment due THIS month
+        val thisMonthPayment = payments.firstOrNull { p ->
+            p.needsPayment && run {
+                val due = java.time.Instant.ofEpochMilli(p.dueDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                (due.year * 100 + due.monthValue) == thisMonth
+            }
+        }
+        // Fallback: first unpaid payment (overdue or upcoming)
+        return thisMonthPayment ?: payments.firstOrNull { it.needsPayment }
+    }
+
+    val paidPaymentsCount get() = payments.count { it.status == "PAID" }
+    val unpaidPaymentsCount get() = payments.count { it.needsPayment }
 }
 
 @Serializable
@@ -46,13 +67,18 @@ data class InstallmentPayment(
     val paidBy: String? = null,
     val paidByName: String? = null,
     val note: String? = null,
+    val lateFeeEnabled: Boolean = true,
     val createdAt: Long = 0,
 ) {
     val isPending get() = status == "PENDING"
     val isPaid get() = status == "PAID"
     val isOverdue get() = status == "OVERDUE"
+    val isPartiallyPaid get() = status == "PARTIALLY_PAID"
     val isWaived get() = status == "WAIVED"
     val totalDue get() = amount + lateFee
+    val remainingDue get() = totalDue - paidAmount
+    val canApplyLateFee get() = status in listOf("OVERDUE", "PARTIALLY_PAID", "PENDING") && lateFee == 0.0 && lateFeeEnabled
+    val needsPayment get() = status in listOf("PENDING", "OVERDUE", "PARTIALLY_PAID")
 }
 
 @Serializable

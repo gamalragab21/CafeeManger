@@ -864,6 +864,8 @@ fun DrawerSummaryResponse.toDomain() = DrawerSummary(
     cardOrderCount = cardOrderCount,
     walletOrderCount = walletOrderCount,
     creditOrderCount = creditOrderCount,
+    installmentPayments = installmentPayments,
+    installmentPaymentCount = installmentPaymentCount,
     channels = channels.map { ChannelSummary(channel = it.channel, orderCount = it.orderCount, totalAmount = it.totalAmount) },
 )
 
@@ -1193,7 +1195,8 @@ fun InstallmentPaymentResponse.toDomain() = InstallmentPayment(
     id = id, planId = planId, dueDate = dueDate,
     amount = amount, paidAmount = paidAmount, lateFee = lateFee,
     status = status, paidAt = paidAt, paidBy = paidBy,
-    paidByName = paidByName, note = note, createdAt = createdAt,
+    paidByName = paidByName, note = note,
+    lateFeeEnabled = lateFeeEnabled, createdAt = createdAt,
 )
 
 fun InstallmentAnalyticsResponse.toDomain() = InstallmentAnalytics(

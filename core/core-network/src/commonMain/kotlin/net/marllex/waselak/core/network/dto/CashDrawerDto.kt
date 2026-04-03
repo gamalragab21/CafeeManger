@@ -74,6 +74,8 @@ data class DrawerSummaryResponse(
     @SerialName("card_order_count") val cardOrderCount: Int = 0,
     @SerialName("wallet_order_count") val walletOrderCount: Int = 0,
     @SerialName("credit_order_count") val creditOrderCount: Int = 0,
+    @SerialName("installment_payments") val installmentPayments: Double = 0.0,
+    @SerialName("installment_payment_count") val installmentPaymentCount: Int = 0,
     val channels: List<ChannelSummaryResponse> = emptyList(),
 )
 

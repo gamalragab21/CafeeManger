@@ -19,9 +19,10 @@ interface InstallmentRepository {
     suspend fun getPlan(planId: String): Result<InstallmentPlan>
     suspend fun getCustomerPlans(customerId: String): Result<List<InstallmentPlan>>
 
-    suspend fun recordPayment(planId: String, amount: Double, note: String? = null): Result<InstallmentPayment>
+    suspend fun recordPayment(planId: String, amount: Double, note: String? = null, paymentId: String? = null): Result<InstallmentPayment>
     suspend fun updatePlanStatus(planId: String, status: String): Result<InstallmentPlan>
-    suspend fun applyLateFee(planId: String): Result<InstallmentPlan>
+    suspend fun applyLateFee(planId: String, paymentId: String? = null): Result<InstallmentPlan>
+    suspend fun toggleLateFee(planId: String, paymentId: String, enabled: Boolean): Result<InstallmentPlan>
 
     suspend fun getAnalytics(from: Long? = null, to: Long? = null): Result<InstallmentAnalytics>
 }

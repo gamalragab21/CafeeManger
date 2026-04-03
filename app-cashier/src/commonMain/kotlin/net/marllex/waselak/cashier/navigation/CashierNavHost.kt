@@ -1528,6 +1528,8 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         cancelledCount = response.cancelledCount,
                         refundedTotal = response.refundedTotal,
                         refundedCount = response.refundedCount,
+                        installmentPayments = response.installmentPayments,
+                        installmentPaymentCount = response.installmentPaymentCount,
                     )
                 } catch (e: Exception) {
                     if (e.isFeatureNotAvailableOrOffline()) {

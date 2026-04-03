@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,7 @@ import waselak.core.core_ui.generated.resources.signout
 import waselak.core.core_ui.generated.resources.total_revenue
 import waselak.core.core_ui.generated.resources.shift_summary_today
 import waselak.core.core_ui.generated.resources.shift_summary_session
+import waselak.core.core_ui.generated.resources.installments
 
 data class ShiftSummaryUiModel(
     val totalRevenue: Double = 0.0,
@@ -72,6 +74,8 @@ data class ShiftSummaryUiModel(
     val cancelledCount: Int = 0,
     val refundedTotal: Double = 0.0,
     val refundedCount: Int = 0,
+    val installmentPayments: Double = 0.0,
+    val installmentPaymentCount: Int = 0,
 )
 
 private fun formatAmount(amount: Double): String {
@@ -182,7 +186,8 @@ fun ShiftSummaryBottomSheet(
                 else -> {
                     val hasOrders = shiftSummary.totalOrders > 0 ||
                         shiftSummary.cancelledCount > 0 ||
-                        shiftSummary.refundedCount > 0
+                        shiftSummary.refundedCount > 0 ||
+                        shiftSummary.installmentPaymentCount > 0
 
                     if (!hasOrders) {
                         Box(
@@ -243,6 +248,16 @@ fun ShiftSummaryBottomSheet(
                             count = shiftSummary.cardOrders,
                             amount = shiftSummary.cardRevenue,
                         )
+
+                        // Installment payments
+                        if (shiftSummary.installmentPaymentCount > 0) {
+                            PaymentRow(
+                                icon = Icons.Rounded.Schedule,
+                                label = stringResource(Res.string.installments),
+                                count = shiftSummary.installmentPaymentCount,
+                                amount = shiftSummary.installmentPayments,
+                            )
+                        }
 
                         // Cancelled & Refunded
                         if (shiftSummary.cancelledCount > 0 || shiftSummary.refundedCount > 0) {

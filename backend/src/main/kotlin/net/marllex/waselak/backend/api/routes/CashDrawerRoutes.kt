@@ -93,6 +93,9 @@ data class DrawerSummaryDto(
     val card_order_count: Int = 0,
     val wallet_order_count: Int = 0,
     val credit_order_count: Int = 0,
+    // Installment payments
+    val installment_payments: Double = 0.0,
+    val installment_payment_count: Int = 0,
     // Channel breakdown
     val channels: List<ChannelSummaryDto> = emptyList(),
 )
@@ -545,15 +548,21 @@ fun Route.cashDrawerRoutes() {
                 // = opening balance
                 // + manual cash deposits (excluding opening balance which is already in manualCashIn)
                 // + cash from sales
+                // + installment payments
                 // - manual cash withdrawals
                 val cashSales = methodTotals["CASH"]?.second ?: 0.0
                 val cardSales = methodTotals["CARD"]?.second ?: 0.0
                 val walletSales = methodTotals["WALLET"]?.second ?: 0.0
                 val creditSales = methodTotals["CREDIT"]?.second ?: 0.0
 
-                // Expected = opening + all sales + manual deposits - manual withdrawals - refunds
+                // Installment payments collected during this session
+                val installmentMovements = movements.filter { it[CashMovementsTable.type] == "INSTALLMENT_PAYMENT" }
+                val installmentTotal = installmentMovements.sumOf { it[CashMovementsTable.amount].toDouble() }
+                val installmentCount = installmentMovements.size
+
+                // Expected = opening + all sales + installment payments + manual deposits - manual withdrawals - refunds
                 val additionalCashIn = (manualCashIn - openingBalance).coerceAtLeast(0.0)
-                val expectedBalance = openingBalance + additionalCashIn + totalSales - manualCashOut - totalRefunds
+                val expectedBalance = openingBalance + additionalCashIn + totalSales + installmentTotal - manualCashOut - totalRefunds
 
                 // Channel breakdown
                 val channelBreakdown = paidOrders
@@ -587,6 +596,8 @@ fun Route.cashDrawerRoutes() {
                     card_order_count = methodTotals["CARD"]?.first ?: 0,
                     wallet_order_count = methodTotals["WALLET"]?.first ?: 0,
                     credit_order_count = methodTotals["CREDIT"]?.first ?: 0,
+                    installment_payments = installmentTotal.round2(),
+                    installment_payment_count = installmentCount,
                     channels = channelBreakdown,
                 )
             }

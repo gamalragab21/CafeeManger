@@ -35,4 +35,14 @@
     <string name="filter_has_points">Has Points</string>
     <string name="filter_no_points">No Points</string>
     <string name="discount_amount_label">Discount: -%1$s</string>
+    <string name="tab_installments">Installments</string>
+    <string name="no_installment_plans">No installment plans</string>
+    <string name="installment_remaining">Remaining: %1$s</string>
+    <string name="installment_monthly">%1$d months \u2022 %2$s/month</string>
+    <string name="edit_customer">Edit Customer</string>
+    <string name="customer_name">Name</string>
+    <string name="customer_phone">Phone</string>
+    <string name="customer_notes">Notes</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
 </resources>

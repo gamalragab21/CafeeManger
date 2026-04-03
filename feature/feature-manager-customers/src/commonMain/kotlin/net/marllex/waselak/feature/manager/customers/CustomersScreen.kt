@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -43,6 +44,8 @@ import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -77,8 +80,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.common.extensions.formatEpochMs
 import net.marllex.waselak.core.common.utils.CurrencyFormatter
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.CustomerAddress
+import net.marllex.waselak.core.model.InstallmentPlan
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.PointsTransaction
 import net.marllex.waselak.core.ui.components.ErrorView
@@ -138,6 +144,18 @@ fun CustomersScreen(
             }
         }
 
+    }
+
+    // Edit Customer Dialog
+    if (uiState.showEditDialog) {
+        EditCustomerDialog(
+            uiState = uiState,
+            onDismiss = viewModel::dismissEditDialog,
+            onNameChange = viewModel::onEditName,
+            onPhoneChange = viewModel::onEditPhone,
+            onNotesChange = viewModel::onEditNotes,
+            onSave = viewModel::saveCustomer,
+        )
     }
 }
 
@@ -213,12 +231,15 @@ private fun PhoneLayout(
             orders = uiState.selectedCustomerOrders,
             pointsHistory = uiState.pointsHistory,
             discountOrders = uiState.discountOrders,
+            installmentPlans = uiState.installmentPlans,
             isLoadingPointsHistory = uiState.isLoadingPointsHistory,
             isLoadingDiscountOrders = uiState.isLoadingDiscountOrders,
+            isLoadingInstallments = uiState.isLoadingInstallments,
             onDismiss = {
                 showDetailDialog = false
                 viewModel.selectCustomer(null)
             },
+            onEdit = viewModel::showEditDialog,
             onDelete = {
                 showDeleteDialog = true
             },
@@ -315,8 +336,11 @@ private fun TabletLayout(
                     orders = uiState.selectedCustomerOrders,
                     pointsHistory = uiState.pointsHistory,
                     discountOrders = uiState.discountOrders,
+                    installmentPlans = uiState.installmentPlans,
                     isLoadingPointsHistory = uiState.isLoadingPointsHistory,
                     isLoadingDiscountOrders = uiState.isLoadingDiscountOrders,
+                    isLoadingInstallments = uiState.isLoadingInstallments,
+                    onEdit = viewModel::showEditDialog,
                     onDelete = { showDeleteDialog = true },
                 )
             } else {
@@ -614,9 +638,12 @@ private fun CustomerDetailBottomSheet(
     orders: List<Order>,
     pointsHistory: List<PointsTransaction>,
     discountOrders: List<Order>,
+    installmentPlans: List<InstallmentPlan>,
     isLoadingPointsHistory: Boolean,
     isLoadingDiscountOrders: Boolean,
+    isLoadingInstallments: Boolean,
     onDismiss: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -638,11 +665,16 @@ private fun CustomerDetailBottomSheet(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
-                TextButton(onClick = onDelete) {
-                    Text(
-                        stringResource(Res.string.delete_customer),
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                Row {
+                    TextButton(onClick = onEdit) {
+                        Text(stringResource(Res.string.edit_customer))
+                    }
+                    TextButton(onClick = onDelete) {
+                        Text(
+                            stringResource(Res.string.delete_customer),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -651,8 +683,10 @@ private fun CustomerDetailBottomSheet(
                 orders = orders,
                 pointsHistory = pointsHistory,
                 discountOrders = discountOrders,
+                installmentPlans = installmentPlans,
                 isLoadingPointsHistory = isLoadingPointsHistory,
                 isLoadingDiscountOrders = isLoadingDiscountOrders,
+                isLoadingInstallments = isLoadingInstallments,
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -669,8 +703,11 @@ private fun CustomerDetailPane(
     orders: List<Order>,
     pointsHistory: List<PointsTransaction>,
     discountOrders: List<Order>,
+    installmentPlans: List<InstallmentPlan>,
     isLoadingPointsHistory: Boolean,
     isLoadingDiscountOrders: Boolean,
+    isLoadingInstallments: Boolean,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -695,12 +732,20 @@ private fun CustomerDetailPane(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = stringResource(Res.string.delete_customer),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = stringResource(Res.string.edit_customer),
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(Res.string.delete_customer),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
 
@@ -711,8 +756,10 @@ private fun CustomerDetailPane(
                 orders = orders,
                 pointsHistory = pointsHistory,
                 discountOrders = discountOrders,
+                installmentPlans = installmentPlans,
                 isLoadingPointsHistory = isLoadingPointsHistory,
                 isLoadingDiscountOrders = isLoadingDiscountOrders,
+                isLoadingInstallments = isLoadingInstallments,
             )
         }
     }
@@ -728,14 +775,17 @@ private fun CustomerDetailContent(
     orders: List<Order>,
     pointsHistory: List<PointsTransaction>,
     discountOrders: List<Order>,
+    installmentPlans: List<InstallmentPlan>,
     isLoadingPointsHistory: Boolean,
     isLoadingDiscountOrders: Boolean,
+    isLoadingInstallments: Boolean,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
         stringResource(Res.string.tab_info),
         stringResource(Res.string.tab_points),
         stringResource(Res.string.tab_discounts),
+        stringResource(Res.string.tab_installments),
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -768,6 +818,10 @@ private fun CustomerDetailContent(
             2 -> DiscountsTabContent(
                 discountOrders = discountOrders,
                 isLoading = isLoadingDiscountOrders,
+            )
+            3 -> InstallmentsTabContent(
+                installmentPlans = installmentPlans,
+                isLoading = isLoadingInstallments,
             )
         }
     }
@@ -1149,6 +1203,119 @@ private fun DiscountsTabContent(
 }
 
 @Composable
+private fun InstallmentsTabContent(
+    installmentPlans: List<InstallmentPlan>,
+    isLoading: Boolean,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SectionHeader(
+            title = stringResource(Res.string.tab_installments),
+            icon = Icons.Outlined.Receipt,
+        )
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            installmentPlans.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.no_installment_plans),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> {
+                installmentPlans.forEach { plan ->
+                    InstallmentPlanCard(plan = plan)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstallmentPlanCard(
+    plan: InstallmentPlan,
+    modifier: Modifier = Modifier,
+) {
+    val statusColor = when (plan.status) {
+        "ACTIVE" -> ChartGreen
+        "COMPLETED" -> ChartIndigo
+        "DEFAULTED" -> StockOut
+        "CANCELLED" -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = CurrencyFormatter.formatDecimal(plan.totalAmount),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = plan.status,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor,
+                )
+            }
+            Text(
+                text = stringResource(Res.string.installment_remaining, CurrencyFormatter.formatDecimal(plan.remainingAmount)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(Res.string.installment_monthly, plan.numInstallments, CurrencyFormatter.formatDecimal(plan.installmentAmount)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (plan.overdueCount > 0) {
+                Text(
+                    text = "${plan.overdueCount} overdue",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = StockOut,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun DiscountOrderCard(
     order: Order,
     modifier: Modifier = Modifier,
@@ -1489,6 +1656,66 @@ private fun DeleteCustomerBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Edit Customer Dialog
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun EditCustomerDialog(
+    uiState: CustomersViewModel.UiState,
+    onDismiss: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.edit_customer)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = uiState.editName,
+                    onValueChange = onNameChange,
+                    label = { Text(stringResource(Res.string.customer_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = uiState.editPhone,
+                    onValueChange = onPhoneChange,
+                    label = { Text(stringResource(Res.string.customer_phone)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = uiState.editNotes,
+                    onValueChange = onNotesChange,
+                    label = { Text(stringResource(Res.string.customer_notes)) },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                enabled = uiState.editName.isNotBlank() && uiState.editPhone.isNotBlank() && !uiState.isSaving,
+            ) {
+                if (uiState.isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                else Text(stringResource(Res.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.cancel))
+            }
+        },
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════════

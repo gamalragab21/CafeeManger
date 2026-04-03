@@ -48,6 +48,7 @@ data class CashMovement(
     val isSale: Boolean get() = type == "SALE"
     val isRefund: Boolean get() = type == "REFUND"
     val isAdjustment: Boolean get() = type == "ADJUSTMENT"
+    val isInstallmentPayment: Boolean get() = type == "INSTALLMENT_PAYMENT"
 }
 
 @Serializable
@@ -70,6 +71,9 @@ data class DrawerSummary(
     val cardOrderCount: Int = 0,
     val walletOrderCount: Int = 0,
     val creditOrderCount: Int = 0,
+    // Installment payments collected in this session
+    val installmentPayments: Double = 0.0,
+    val installmentPaymentCount: Int = 0,
     // Channel breakdown
     val channels: List<ChannelSummary> = emptyList(),
 )
@@ -82,7 +86,7 @@ data class ChannelSummary(
 )
 
 enum class CashMovementType {
-    CASH_IN, CASH_OUT, SALE, REFUND, ADJUSTMENT;
+    CASH_IN, CASH_OUT, SALE, REFUND, ADJUSTMENT, INSTALLMENT_PAYMENT;
 
     companion object {
         fun fromString(value: String): CashMovementType =

@@ -31,7 +31,7 @@ fun CashierInstallmentsScreen(
         topBar = {
             if (uiState.selectedPlan != null) {
                 WaselakTopAppBar(
-                    title = "Installment Details",
+                    title = stringResource(CoreRes.string.installment_details),
                     isLoading = uiState.isLoading,
                     onRefresh = { viewModel.selectPlan(uiState.selectedPlan!!) },
                     onNavigateBack = { viewModel.clearSelection() },
@@ -56,18 +56,18 @@ fun CashierInstallmentsScreen(
                 item {
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(plan.customerName ?: "Customer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(plan.customerName ?: stringResource(CoreRes.string.customer), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Total"); Text("%.2f".format(plan.totalAmount), fontWeight = FontWeight.Bold)
+                                Text(stringResource(CoreRes.string.total)); Text("%.2f".format(plan.totalAmount), fontWeight = FontWeight.Bold)
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Remaining"); Text("%.2f".format(plan.remainingAmount), fontWeight = FontWeight.Bold, color = Color(0xFFF57C00))
+                                Text(stringResource(CoreRes.string.remaining_amount)); Text("%.2f".format(plan.remainingAmount), fontWeight = FontWeight.Bold, color = Color(0xFFF57C00))
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Monthly"); Text("%.2f".format(plan.installmentAmount))
+                                Text(stringResource(CoreRes.string.monthly_amount)); Text("%.2f".format(plan.installmentAmount))
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Status"); Text(plan.status, fontWeight = FontWeight.Bold)
+                                Text(stringResource(CoreRes.string.change_status)); Text(formatStatus(plan.status), fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -77,11 +77,11 @@ fun CashierInstallmentsScreen(
                     Button(onClick = viewModel::showPaymentDialog, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Record Payment")
+                        Text(stringResource(CoreRes.string.record_payment))
                     }
                 }
 
-                item { Text("Payment Schedule", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                item { Text(stringResource(CoreRes.string.payment_schedule), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
 
                 items(plan.payments) { payment ->
                     val statusColor = when (payment.status) {
@@ -93,12 +93,12 @@ fun CashierInstallmentsScreen(
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
-                                Text("Due: ${formatDate(payment.dueDate)}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Amount: %.2f".format(payment.amount), style = MaterialTheme.typography.bodySmall)
-                                if (payment.lateFee > 0) Text("+ Fee: %.2f".format(payment.lateFee), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
-                                if (payment.isPaid) Text("Paid: %.2f".format(payment.paidAmount), color = Color(0xFF388E3C), style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(CoreRes.string.due_date_value, formatDate(payment.dueDate)), style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(CoreRes.string.amount_value, "%.2f".format(payment.amount)), style = MaterialTheme.typography.bodySmall)
+                                if (payment.lateFee > 0) Text(stringResource(CoreRes.string.late_fee_value, "%.2f".format(payment.lateFee)), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
+                                if (payment.isPaid) Text(stringResource(CoreRes.string.paid_amount_value, "%.2f".format(payment.paidAmount)), color = Color(0xFF388E3C), style = MaterialTheme.typography.bodySmall)
                             }
-                            AssistChip(onClick = {}, label = { Text(payment.status, color = statusColor) })
+                            AssistChip(onClick = {}, label = { Text(formatStatus(payment.status), color = statusColor) })
                         }
                     }
                 }
@@ -112,7 +112,7 @@ fun CashierInstallmentsScreen(
                 if (uiState.plans.isEmpty() && !uiState.isLoading) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("No installment plans", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(CoreRes.string.no_installment_plans), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -120,12 +120,12 @@ fun CashierInstallmentsScreen(
                     ElevatedCard(onClick = { viewModel.selectPlan(plan) }, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(plan.customerName ?: "Customer", fontWeight = FontWeight.Bold)
-                                Text(plan.status, color = Color(0xFF388E3C))
+                                Text(plan.customerName ?: stringResource(CoreRes.string.customer), fontWeight = FontWeight.Bold)
+                                Text(formatStatus(plan.status), color = Color(0xFF388E3C))
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text("Total: %.2f | Remaining: %.2f".format(plan.totalAmount, plan.remainingAmount), style = MaterialTheme.typography.bodySmall)
-                            Text("${plan.numInstallments} months • %.2f/month".format(plan.installmentAmount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(CoreRes.string.total_remaining_summary, "%.2f".format(plan.totalAmount), "%.2f".format(plan.remainingAmount)), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(CoreRes.string.months_monthly_summary, plan.numInstallments, "%.2f".format(plan.installmentAmount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -136,24 +136,38 @@ fun CashierInstallmentsScreen(
     if (uiState.showPaymentDialog) {
         AlertDialog(
             onDismissRequest = viewModel::dismissPaymentDialog,
-            title = { Text("Record Payment") },
+            title = { Text(stringResource(CoreRes.string.record_payment)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     uiState.selectedPlan?.nextPayment?.let {
-                        Text("Expected: %.2f".format(it.totalDue), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(CoreRes.string.expected_value, "%.2f".format(it.totalDue)), style = MaterialTheme.typography.bodySmall)
                     }
-                    OutlinedTextField(value = uiState.paymentAmount, onValueChange = viewModel::onPaymentAmount, label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = uiState.paymentNote, onValueChange = viewModel::onPaymentNote, label = { Text("Note") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = uiState.paymentAmount, onValueChange = viewModel::onPaymentAmount, label = { Text(stringResource(CoreRes.string.amount)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = uiState.paymentNote, onValueChange = viewModel::onPaymentNote, label = { Text(stringResource(CoreRes.string.note)) }, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
                 Button(onClick = viewModel::recordPayment, enabled = !uiState.isSaving) {
-                    if (uiState.isSaving) CircularProgressIndicator(Modifier.size(16.dp)) else Text("Record")
+                    if (uiState.isSaving) CircularProgressIndicator(Modifier.size(16.dp)) else Text(stringResource(CoreRes.string.record))
                 }
             },
-            dismissButton = { TextButton(onClick = viewModel::dismissPaymentDialog) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = viewModel::dismissPaymentDialog) { Text(stringResource(CoreRes.string.cancel)) } },
         )
     }
+}
+
+@Composable
+private fun formatStatus(status: String): String = when (status) {
+    "ACTIVE" -> stringResource(CoreRes.string.installment_status_active)
+    "COMPLETED" -> stringResource(CoreRes.string.installment_status_completed)
+    "DEFAULTED" -> stringResource(CoreRes.string.installment_status_defaulted)
+    "CANCELLED" -> stringResource(CoreRes.string.installment_status_cancelled)
+    "PAID" -> stringResource(CoreRes.string.payment_status_paid)
+    "PARTIALLY_PAID" -> stringResource(CoreRes.string.payment_status_partially_paid_inst)
+    "OVERDUE" -> stringResource(CoreRes.string.payment_status_overdue)
+    "PENDING" -> stringResource(CoreRes.string.payment_status_pending)
+    "WAIVED" -> stringResource(CoreRes.string.payment_status_waived)
+    else -> status
 }
 
 private fun formatDate(timestamp: Long): String {

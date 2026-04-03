@@ -1,8 +1,15 @@
 package net.marllex.waselak.manager.installments
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,7 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import net.marllex.waselak.core.model.Customer
 import net.marllex.waselak.core.model.InstallmentPlan
 import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import org.jetbrains.compose.resources.stringResource
@@ -32,7 +42,7 @@ fun InstallmentsScreen(
         topBar = {
             if (uiState.selectedPlan != null) {
                 WaselakTopAppBar(
-                    title = "Installment Details",
+                    title = stringResource(CoreRes.string.installment_details),
                     isLoading = uiState.isLoading,
                     onRefresh = { viewModel.selectPlan(uiState.selectedPlan!!) },
                     onNavigateBack = { viewModel.clearSelection() },
@@ -49,7 +59,7 @@ fun InstallmentsScreen(
         floatingActionButton = {
             if (uiState.selectedPlan == null) {
                 FloatingActionButton(onClick = viewModel::showCreateDialog) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Plan")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(CoreRes.string.create_plan))
                 }
             }
         },
@@ -57,8 +67,9 @@ fun InstallmentsScreen(
         if (uiState.selectedPlan != null) {
             PlanDetailContent(
                 plan = uiState.selectedPlan!!,
-                onRecordPayment = viewModel::showPaymentDialog,
-                onApplyLateFee = viewModel::applyLateFee,
+                onRecordPaymentForPayment = viewModel::showPaymentDialogForPayment,
+                onApplyLateFeeForPayment = viewModel::applyLateFeeForPayment,
+                onToggleLateFee = viewModel::toggleLateFee,
                 onChangeStatus = { viewModel.showStatusDialog(uiState.selectedPlan!!) },
                 modifier = Modifier.padding(padding).fillMaxSize(),
             )
@@ -77,11 +88,20 @@ fun InstallmentsScreen(
         CreatePlanDialog(
             uiState = uiState,
             onDismiss = viewModel::dismissCreateDialog,
-            onCustomerIdChange = viewModel::onCreateCustomerId,
             onTotalAmountChange = viewModel::onCreateTotalAmount,
             onDownPaymentChange = viewModel::onCreateDownPayment,
             onMonthsChange = viewModel::onCreateMonths,
             onLateFeeChange = viewModel::onCreateLateFeePercent,
+            onCustomerSearch = viewModel::onCustomerSearch,
+            onSelectCustomer = viewModel::selectCustomer,
+            onClearCustomer = viewModel::clearCustomerSelection,
+            onShowCreateCustomer = viewModel::showCreateCustomerForm,
+            onHideCreateCustomer = viewModel::hideCreateCustomerForm,
+            onNewCustomerPhone = viewModel::onNewCustomerPhone,
+            onNewCustomerName = viewModel::onNewCustomerName,
+            onNewCustomerAddress = viewModel::onNewCustomerAddress,
+            onCreateCustomer = viewModel::createNewCustomer,
+            onStartMonthChange = viewModel::onCreateStartMonth,
             onCreate = viewModel::createPlan,
         )
     }
@@ -114,41 +134,39 @@ private fun PlansListContent(
     onStatusFilter: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(modifier = modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Analytics summary cards
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = modifier,
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Analytics summary cards (full width rows)
         uiState.analytics?.let { analytics ->
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SummaryCard("Total Plans", "${analytics.totalPlans}", Color(0xFF1976D2), Modifier.weight(1f))
-                    SummaryCard("Active", "${analytics.activePlans}", Color(0xFF388E3C), Modifier.weight(1f))
-                    SummaryCard("Overdue", "${analytics.defaultedPlans}", Color(0xFFD32F2F), Modifier.weight(1f))
-                }
-            }
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SummaryCard("Collected", "%.0f".format(analytics.collectedRevenue), Color(0xFF388E3C), Modifier.weight(1f))
-                    SummaryCard("Pending", "%.0f".format(analytics.pendingRevenue), Color(0xFFF57C00), Modifier.weight(1f))
-                    SummaryCard("Late Fees", "%.0f".format(analytics.lateFeesCollected), Color(0xFFD32F2F), Modifier.weight(1f))
-                }
-            }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.total_plans), "${analytics.totalPlans}", Color(0xFF1976D2)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.active_plans), "${analytics.activePlans}", Color(0xFF388E3C)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.overdue_plans), "${analytics.defaultedPlans}", Color(0xFFD32F2F)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.collected), "%.0f".format(analytics.collectedRevenue), Color(0xFF388E3C)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.pending_amount), "%.0f".format(analytics.pendingRevenue), Color(0xFFF57C00)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.late_fees), "%.0f".format(analytics.lateFeesCollected), Color(0xFFD32F2F)) }
         }
 
-        // Filter chips
-        item {
+        // Filter chips (full width)
+        item(span = { GridItemSpan(3) }) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = uiState.statusFilter == null, onClick = { onStatusFilter(null) }, label = { Text("All") })
-                FilterChip(selected = uiState.statusFilter == "ACTIVE", onClick = { onStatusFilter("ACTIVE") }, label = { Text("Active") })
-                FilterChip(selected = uiState.statusFilter == "OVERDUE", onClick = { onStatusFilter("OVERDUE") }, label = { Text("Overdue") })
-                FilterChip(selected = uiState.statusFilter == "COMPLETED", onClick = { onStatusFilter("COMPLETED") }, label = { Text("Completed") })
-                FilterChip(selected = uiState.statusFilter == "DEFAULTED", onClick = { onStatusFilter("DEFAULTED") }, label = { Text("Defaulted") })
+                FilterChip(selected = uiState.statusFilter == null, onClick = { onStatusFilter(null) }, label = { Text(stringResource(CoreRes.string.filter_all)) })
+                FilterChip(selected = uiState.statusFilter == "ACTIVE", onClick = { onStatusFilter("ACTIVE") }, label = { Text(stringResource(CoreRes.string.installment_status_active)) })
+                FilterChip(selected = uiState.statusFilter == "OVERDUE", onClick = { onStatusFilter("OVERDUE") }, label = { Text(stringResource(CoreRes.string.payment_status_overdue)) })
+                FilterChip(selected = uiState.statusFilter == "COMPLETED", onClick = { onStatusFilter("COMPLETED") }, label = { Text(stringResource(CoreRes.string.installment_status_completed)) })
+                FilterChip(selected = uiState.statusFilter == "DEFAULTED", onClick = { onStatusFilter("DEFAULTED") }, label = { Text(stringResource(CoreRes.string.installment_status_defaulted)) })
             }
         }
 
-        // Plans list
+        // Plans grid (3 columns)
         if (uiState.filteredPlans.isEmpty() && !uiState.isLoading) {
-            item {
+            item(span = { GridItemSpan(3) }) {
                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("No installment plans found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(CoreRes.string.no_installment_plans), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -160,13 +178,17 @@ private fun PlansListContent(
 }
 
 @Composable
-private fun SummaryCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
-    ElevatedCard(modifier = modifier) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = color)
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+private fun formatStatus(status: String): String = when (status) {
+    "ACTIVE" -> stringResource(CoreRes.string.installment_status_active)
+    "COMPLETED" -> stringResource(CoreRes.string.installment_status_completed)
+    "DEFAULTED" -> stringResource(CoreRes.string.installment_status_defaulted)
+    "CANCELLED" -> stringResource(CoreRes.string.installment_status_cancelled)
+    "PAID" -> stringResource(CoreRes.string.payment_status_paid)
+    "PARTIALLY_PAID" -> stringResource(CoreRes.string.payment_status_partially_paid_inst)
+    "OVERDUE" -> stringResource(CoreRes.string.payment_status_overdue)
+    "PENDING" -> stringResource(CoreRes.string.payment_status_pending)
+    "WAIVED" -> stringResource(CoreRes.string.payment_status_waived)
+    else -> status
 }
 
 @Composable
@@ -178,30 +200,28 @@ private fun PlanCard(plan: InstallmentPlan, onClick: () -> Unit) {
         "CANCELLED" -> Color(0xFF757575)
         else -> Color(0xFF757575)
     }
+    val borderColor = when (plan.status) {
+        "ACTIVE" -> Color(0xFF388E3C)
+        "COMPLETED" -> Color(0xFF1976D2)
+        "DEFAULTED" -> Color(0xFFD32F2F)
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
 
     ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text(plan.customerName ?: "Customer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    plan.customerPhone?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(borderColor))
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(plan.customerName ?: stringResource(CoreRes.string.customer), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                plan.customerPhone?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text("%.2f".format(plan.totalAmount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
+                Text(stringResource(CoreRes.string.remaining_value, "%.2f".format(plan.remainingAmount)), style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57C00))
+                Text(stringResource(CoreRes.string.months_count, plan.numInstallments) + " • " + "%.2f".format(plan.installmentAmount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatStatus(plan.status), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
+                    if (plan.overdueCount > 0) {
+                        Text("${plan.overdueCount} !", color = Color(0xFFD32F2F), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
                 }
-                AssistChip(onClick = {}, label = { Text(plan.status, color = statusColor) })
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Total: %.2f".format(plan.totalAmount), style = MaterialTheme.typography.bodyMedium)
-                    Text("Remaining: %.2f".format(plan.remainingAmount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("${plan.numInstallments} months", style = MaterialTheme.typography.bodyMedium)
-                    Text("%.2f/month".format(plan.installmentAmount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (plan.overdueCount > 0) {
-                Spacer(Modifier.height(4.dp))
-                Text("${plan.overdueCount} overdue payments", color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -210,73 +230,231 @@ private fun PlanCard(plan: InstallmentPlan, onClick: () -> Unit) {
 @Composable
 private fun PlanDetailContent(
     plan: InstallmentPlan,
-    onRecordPayment: () -> Unit,
-    onApplyLateFee: () -> Unit,
+    onRecordPaymentForPayment: (String?) -> Unit,
+    onApplyLateFeeForPayment: (String) -> Unit,
+    onToggleLateFee: (String, Boolean) -> Unit,
     onChangeStatus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(modifier = modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Plan info
-        item {
+    val nowMs = remember { System.currentTimeMillis() }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = modifier,
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // ── Top card: customer + status (full width) ──
+        item(span = { GridItemSpan(3) }) {
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Plan Info", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    HorizontalDivider()
-                    InfoRow("Customer", plan.customerName ?: "-")
-                    InfoRow("Phone", plan.customerPhone ?: "-")
-                    InfoRow("Total Amount", "%.2f".format(plan.totalAmount))
-                    InfoRow("Down Payment", "%.2f".format(plan.downPayment))
-                    InfoRow("Remaining", "%.2f".format(plan.remainingAmount))
-                    InfoRow("Monthly Amount", "%.2f".format(plan.installmentAmount))
-                    InfoRow("Months", "${plan.numInstallments}")
-                    InfoRow("Late Fee %", "%.1f%%".format(plan.lateFeePercent))
-                    InfoRow("Status", plan.status)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text(plan.customerName ?: "-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            plan.customerPhone?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                        AssistChip(onClick = {}, label = { Text(formatStatus(plan.status)) })
+                    }
                 }
             }
         }
 
-        // Actions
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRecordPayment, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Record Payment")
+        // ── Financial summary grid: 3 columns of stat cards ──
+        item { StatCard(stringResource(CoreRes.string.total_amount), "%.2f".format(plan.totalAmount), Color(0xFF1976D2)) }
+        item { StatCard(stringResource(CoreRes.string.total_paid_amount), "%.2f".format(plan.paidAmount), Color(0xFF388E3C)) }
+        item { StatCard(stringResource(CoreRes.string.total_remaining), "%.2f".format(plan.remainingAmount), if (plan.remainingAmount > 0) Color(0xFFF57C00) else Color(0xFF388E3C)) }
+
+        item { StatCard(stringResource(CoreRes.string.monthly_installment), "%.2f".format(plan.installmentAmount), Color(0xFF1976D2)) }
+        item { StatCard(stringResource(CoreRes.string.paid_installments, plan.paidPaymentsCount, plan.numInstallments), "", Color(0xFF388E3C)) }
+        item { StatCard(stringResource(CoreRes.string.late_fees), "%.2f".format(plan.totalLateFees), if (plan.totalLateFees > 0) Color(0xFFD32F2F) else Color(0xFF757575)) }
+
+        if (plan.downPayment > 0 || plan.lateFeePercent > 0) {
+            item { StatCard(stringResource(CoreRes.string.down_payment), "%.2f".format(plan.downPayment), Color(0xFF1976D2)) }
+            item { StatCard(stringResource(CoreRes.string.late_fee_percent), "%.1f%%".format(plan.lateFeePercent), Color(0xFFD32F2F)) }
+            item { StatCard(stringResource(CoreRes.string.plan_start_date), formatDate(plan.startDate), Color(0xFF757575)) }
+        }
+
+        // ── Current month / next due card (full width) ──
+        plan.currentMonthPayment(nowMs)?.let { current ->
+            item(span = { GridItemSpan(3) }) {
+                val isThisMonth = run {
+                    val now = java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    val due = java.time.Instant.ofEpochMilli(current.dueDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    now.year == due.year && now.monthValue == due.monthValue
                 }
-                if (plan.overdueCount > 0 && plan.lateFeePercent > 0) {
-                    OutlinedButton(onClick = onApplyLateFee, modifier = Modifier.weight(1f)) {
-                        Text("Apply Late Fee")
+                val cardColor = if (current.isOverdue) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = cardColor),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            if (isThisMonth) stringResource(CoreRes.string.this_month_summary) else stringResource(CoreRes.string.next_due_date),
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                        )
+                        HorizontalDivider()
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StatCard(stringResource(CoreRes.string.due_this_month, ""), "%.2f".format(current.totalDue), Color(0xFF1976D2), Modifier.weight(1f))
+                            StatCard(stringResource(CoreRes.string.paid_this_month, ""), "%.2f".format(current.paidAmount), Color(0xFF388E3C), Modifier.weight(1f))
+                            StatCard(stringResource(CoreRes.string.remaining_this_month, ""), "%.2f".format(current.remainingDue), if (current.isOverdue) Color(0xFFD32F2F) else Color(0xFFF57C00), Modifier.weight(1f))
+                        }
+                        if (current.lateFee > 0) {
+                            Text(stringResource(CoreRes.string.late_fee_value, "%.2f".format(current.lateFee)), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(stringResource(CoreRes.string.due_date_value, formatDate(current.dueDate)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (current.needsPayment) {
+                            Button(
+                                onClick = { onRecordPaymentForPayment(current.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                if (current.isPartiallyPaid) Text(stringResource(CoreRes.string.pay_remaining) + " (%.2f)".format(current.remainingDue))
+                                else Text(stringResource(CoreRes.string.record_payment) + " (%.2f)".format(current.totalDue))
+                            }
+                        }
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+        }
+
+        // Change status button (full width)
+        item(span = { GridItemSpan(3) }) {
             OutlinedButton(onClick = onChangeStatus, modifier = Modifier.fillMaxWidth()) {
-                Text("Change Status")
+                Text(stringResource(CoreRes.string.change_status))
             }
         }
 
-        // Payment schedule
-        item {
-            Text("Payment Schedule", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        // ── Payment schedule header (full width) ──
+        item(span = { GridItemSpan(3) }) {
+            Text(stringResource(CoreRes.string.payment_schedule), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
 
-        items(plan.payments) { payment ->
-            val statusColor = when (payment.status) {
-                "PAID" -> Color(0xFF388E3C)
-                "OVERDUE" -> Color(0xFFD32F2F)
-                "PENDING" -> Color(0xFFF57C00)
-                "WAIVED" -> Color(0xFF757575)
-                else -> Color(0xFF757575)
+        // ── Payment schedule grid (3 columns) ──
+        val payments = plan.payments
+        items(payments.size, span = { GridItemSpan(1) }) { index ->
+            val payment = payments[index]
+            PaymentGridCard(
+                index = index + 1,
+                payment = payment,
+                lateFeePercent = plan.lateFeePercent,
+                onRecordPayment = { onRecordPaymentForPayment(payment.id) },
+                onApplyFee = { onApplyLateFeeForPayment(payment.id) },
+                onToggleLateFee = { enabled -> onToggleLateFee(payment.id, enabled) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier = modifier) {
+        Column(modifier = Modifier.padding(10.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (value.isNotEmpty()) {
+                Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
             }
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Due: ${formatDate(payment.dueDate)}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Amount: %.2f".format(payment.amount), style = MaterialTheme.typography.bodySmall)
-                        if (payment.lateFee > 0) Text("+ Late fee: %.2f".format(payment.lateFee), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
-                        if (payment.isPaid) Text("Paid: %.2f".format(payment.paidAmount), color = Color(0xFF388E3C), style = MaterialTheme.typography.bodySmall)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun PaymentGridCard(
+    index: Int,
+    payment: net.marllex.waselak.core.model.InstallmentPayment,
+    lateFeePercent: Double,
+    onRecordPayment: () -> Unit,
+    onApplyFee: () -> Unit,
+    onToggleLateFee: (Boolean) -> Unit,
+) {
+    val statusColor = when (payment.status) {
+        "PAID" -> Color(0xFF388E3C)
+        "PARTIALLY_PAID" -> Color(0xFFF57C00)
+        "OVERDUE" -> Color(0xFFD32F2F)
+        "PENDING" -> Color(0xFF757575)
+        "WAIVED" -> Color(0xFF9E9E9E)
+        else -> Color(0xFF757575)
+    }
+    val borderColor = when (payment.status) {
+        "PAID" -> Color(0xFF388E3C)
+        "PARTIALLY_PAID" -> Color(0xFFF57C00)
+        "OVERDUE" -> Color(0xFFD32F2F)
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Status strip at top
+            Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(borderColor))
+
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Header: #N + status
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("#$index", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(formatStatus(payment.status), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
+                }
+                // Due date
+                Text(formatDate(payment.dueDate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Amount
+                Text("%.2f".format(payment.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                // Late fee
+                if (payment.lateFee > 0) {
+                    Text("+ %.2f".format(payment.lateFee), color = Color(0xFFD32F2F), style = MaterialTheme.typography.labelSmall)
+                }
+                // Paid
+                if (payment.paidAmount > 0) {
+                    Text(stringResource(CoreRes.string.paid_amount_value, "%.2f".format(payment.paidAmount)), color = Color(0xFF388E3C), style = MaterialTheme.typography.labelSmall)
+                }
+                // Remaining
+                if (payment.needsPayment && payment.remainingDue > 0 && payment.remainingDue != payment.totalDue) {
+                    Text(stringResource(CoreRes.string.remaining_this_month, "%.2f".format(payment.remainingDue)), color = Color(0xFFF57C00), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                }
+                // Actions
+                if (payment.needsPayment) {
+                    Spacer(Modifier.height(4.dp))
+                    Button(
+                        onClick = onRecordPayment,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            if (payment.isPartiallyPaid) stringResource(CoreRes.string.pay_remaining)
+                            else stringResource(CoreRes.string.record_payment),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                        )
                     }
-                    AssistChip(onClick = {}, label = { Text(payment.status, color = statusColor) })
+                    if (payment.canApplyLateFee && lateFeePercent > 0) {
+                        OutlinedButton(
+                            onClick = onApplyFee,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(stringResource(CoreRes.string.apply_fee), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                        }
+                    }
+                    // Late fee toggle (manager can enable/disable per payment)
+                    if (lateFeePercent > 0 && !payment.isPaid) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                if (payment.lateFeeEnabled) stringResource(CoreRes.string.late_fee_on) else stringResource(CoreRes.string.late_fee_off),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (payment.lateFeeEnabled) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Switch(
+                                checked = payment.lateFeeEnabled,
+                                onCheckedChange = { onToggleLateFee(it) },
+                                modifier = Modifier.height(24.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -295,40 +473,159 @@ private fun InfoRow(label: String, value: String) {
 private fun CreatePlanDialog(
     uiState: InstallmentsViewModel.UiState,
     onDismiss: () -> Unit,
-    onCustomerIdChange: (String) -> Unit,
     onTotalAmountChange: (String) -> Unit,
     onDownPaymentChange: (String) -> Unit,
     onMonthsChange: (String) -> Unit,
     onLateFeeChange: (String) -> Unit,
+    onCustomerSearch: (String) -> Unit,
+    onSelectCustomer: (Customer) -> Unit,
+    onClearCustomer: () -> Unit,
+    onShowCreateCustomer: () -> Unit,
+    onHideCreateCustomer: () -> Unit,
+    onNewCustomerPhone: (String) -> Unit,
+    onNewCustomerName: (String) -> Unit,
+    onNewCustomerAddress: (String) -> Unit,
+    onCreateCustomer: () -> Unit,
+    onStartMonthChange: (Int) -> Unit,
     onCreate: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Installment Plan") },
+        title = { Text(stringResource(CoreRes.string.create_plan)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = uiState.createCustomerId, onValueChange = onCustomerIdChange, label = { Text("Customer ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = uiState.createTotalAmount, onValueChange = onTotalAmountChange, label = { Text("Total Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = uiState.createDownPayment, onValueChange = onDownPaymentChange, label = { Text("Down Payment") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = uiState.createMonths, onValueChange = onMonthsChange, label = { Text("Number of Months") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = uiState.createLateFeePercent, onValueChange = onLateFeeChange, label = { Text("Late Fee %") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                // Customer selector
+                if (uiState.selectedCustomer != null) {
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text(uiState.selectedCustomer.name ?: uiState.selectedCustomer.phone, fontWeight = FontWeight.Bold)
+                                Text(uiState.selectedCustomer.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = onClearCustomer) {
+                                Icon(Icons.Default.Close, contentDescription = null)
+                            }
+                        }
+                    }
+                } else if (uiState.showCreateCustomer) {
+                    // Create new customer form
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(stringResource(CoreRes.string.create_new_customer), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = onHideCreateCustomer) {
+                                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            OutlinedTextField(
+                                value = uiState.newCustomerName,
+                                onValueChange = onNewCustomerName,
+                                label = { Text(stringResource(CoreRes.string.customer)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OutlinedTextField(
+                                value = uiState.newCustomerPhone,
+                                onValueChange = onNewCustomerPhone,
+                                label = { Text(stringResource(CoreRes.string.phone)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                isError = uiState.createCustomerError != null,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            // Show error for duplicate phone
+                            if (uiState.createCustomerError != null) {
+                                val existingName = uiState.createCustomerError.substringAfter("phone_exists:", "")
+                                Text(
+                                    text = stringResource(CoreRes.string.phone_already_exists, existingName),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            OutlinedTextField(
+                                value = uiState.newCustomerAddress,
+                                onValueChange = onNewCustomerAddress,
+                                label = { Text(stringResource(CoreRes.string.address)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Button(
+                                onClick = onCreateCustomer,
+                                enabled = uiState.newCustomerName.isNotBlank() && uiState.newCustomerPhone.isNotBlank() && !uiState.isCreatingCustomer && uiState.createCustomerError == null,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (uiState.isCreatingCustomer) CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                                else Text(stringResource(CoreRes.string.create))
+                            }
+                        }
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = uiState.customerSearchQuery,
+                        onValueChange = onCustomerSearch,
+                        label = { Text(stringResource(CoreRes.string.search_customer)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (uiState.customerSearchQuery.isNotBlank() && uiState.filteredCustomers.isNotEmpty()) {
+                        ElevatedCard(modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp)) {
+                            LazyColumn {
+                                items(uiState.filteredCustomers.take(5)) { customer ->
+                                    ListItem(
+                                        headlineContent = { Text(customer.name ?: customer.phone) },
+                                        supportingContent = { if (customer.name != null) Text(customer.phone) },
+                                        modifier = Modifier.clickable { onSelectCustomer(customer) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // "Create New Customer" button
+                    TextButton(onClick = onShowCreateCustomer, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(CoreRes.string.create_new_customer))
+                    }
+                }
+
+                OutlinedTextField(value = uiState.createTotalAmount, onValueChange = onTotalAmountChange, label = { Text(stringResource(CoreRes.string.total_amount)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = uiState.createDownPayment, onValueChange = onDownPaymentChange, label = { Text(stringResource(CoreRes.string.down_payment)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = uiState.createMonths, onValueChange = onMonthsChange, label = { Text(stringResource(CoreRes.string.num_months)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = uiState.createLateFeePercent, onValueChange = onLateFeeChange, label = { Text(stringResource(CoreRes.string.late_fee_percent)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+                // Start month selector
+                Text(stringResource(CoreRes.string.start_month), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = uiState.createStartMonth == 0, onClick = { onStartMonthChange(0) }, label = { Text(stringResource(CoreRes.string.this_month_label)) })
+                    FilterChip(selected = uiState.createStartMonth == 1, onClick = { onStartMonthChange(1) }, label = { Text(stringResource(CoreRes.string.next_month_label)) })
+                    FilterChip(selected = uiState.createStartMonth == 2, onClick = { onStartMonthChange(2) }, label = { Text(stringResource(CoreRes.string.after_months_label, 2)) })
+                }
 
                 val total = uiState.createTotalAmount.toDoubleOrNull() ?: 0.0
                 val down = uiState.createDownPayment.toDoubleOrNull() ?: 0.0
                 val months = uiState.createMonths.toIntOrNull() ?: 1
                 if (total > 0 && months > 0) {
                     val monthly = (total - down) / months
-                    Text("Monthly: %.2f".format(monthly), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(CoreRes.string.monthly_preview, "%.2f".format(monthly)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
             }
         },
         confirmButton = {
-            Button(onClick = onCreate, enabled = !uiState.isCreating) {
+            Button(onClick = onCreate, enabled = !uiState.isCreating && uiState.selectedCustomer != null) {
                 if (uiState.isCreating) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Create")
+                else Text(stringResource(CoreRes.string.create))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(CoreRes.string.cancel)) } },
     )
 }
 
@@ -340,27 +637,48 @@ private fun RecordPaymentDialog(
     onNoteChange: (String) -> Unit,
     onRecord: () -> Unit,
 ) {
+    // Find the specific payment being targeted
+    val targetPayment = uiState.selectedPlan?.payments?.find { it.id == uiState.targetPaymentId }
+        ?: uiState.selectedPlan?.nextPayment
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Record Payment") },
+        title = { Text(stringResource(CoreRes.string.record_payment)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val nextPayment = uiState.selectedPlan?.nextPayment
-                if (nextPayment != null) {
-                    Text("Due: ${formatDate(nextPayment.dueDate)}", style = MaterialTheme.typography.bodySmall)
-                    Text("Expected: %.2f".format(nextPayment.totalDue), style = MaterialTheme.typography.bodySmall)
+                if (targetPayment != null) {
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(CoreRes.string.due_date_value, formatDate(targetPayment.dueDate)), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(CoreRes.string.amount_value, "%.2f".format(targetPayment.amount)), style = MaterialTheme.typography.bodySmall)
+                            if (targetPayment.lateFee > 0) {
+                                Text(stringResource(CoreRes.string.late_fee_value, "%.2f".format(targetPayment.lateFee)), style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
+                            }
+                            Text(
+                                stringResource(CoreRes.string.due_this_month, "%.2f".format(targetPayment.totalDue)),
+                                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                            )
+                            if (targetPayment.paidAmount > 0) {
+                                Text(stringResource(CoreRes.string.paid_this_month, "%.2f".format(targetPayment.paidAmount)), style = MaterialTheme.typography.bodySmall, color = Color(0xFF388E3C))
+                                Text(
+                                    stringResource(CoreRes.string.remaining_this_month, "%.2f".format(targetPayment.remainingDue)),
+                                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57C00),
+                                )
+                            }
+                        }
+                    }
                 }
-                OutlinedTextField(value = uiState.paymentAmount, onValueChange = onAmountChange, label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = uiState.paymentNote, onValueChange = onNoteChange, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = uiState.paymentAmount, onValueChange = onAmountChange, label = { Text(stringResource(CoreRes.string.amount)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = uiState.paymentNote, onValueChange = onNoteChange, label = { Text(stringResource(CoreRes.string.note_optional)) }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
             Button(onClick = onRecord, enabled = !uiState.isSaving) {
                 if (uiState.isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Record")
+                else Text(stringResource(CoreRes.string.record))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(CoreRes.string.cancel)) } },
     )
 }
 
@@ -372,21 +690,21 @@ private fun StatusChangeDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change Status") },
+        title = { Text(stringResource(CoreRes.string.change_status)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Current: ${plan.status}")
+                Text(stringResource(CoreRes.string.current_status, formatStatus(plan.status)))
                 listOf("ACTIVE", "COMPLETED", "DEFAULTED", "CANCELLED").forEach { status ->
                     if (status != plan.status) {
                         OutlinedButton(onClick = { onStatusChange(status) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(status)
+                            Text(formatStatus(status))
                         }
                     }
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(CoreRes.string.close)) } },
     )
 }
 

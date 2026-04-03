@@ -1110,7 +1110,6 @@ private fun MoreTabContent(
                         MoreSectionHeader(stringResource(CoreRes.string.store_features))
 
                         val features = if (vendor != null) net.marllex.waselak.core.model.DomainFeatures.forVendor(vendor) else net.marllex.waselak.core.model.DomainFeatures.forType("RESTAURANT")
-                        println("DEBUG FEATURES: hasInstallments=${features.hasInstallments}, vendor.enableInstallments=${vendor?.enableInstallments}, vendor.businessType=${vendor?.businessType}")
                         // Build items with visibility flags based on business type
                         val allStoreEntries = listOf(
                             Triple(Triple(Icons.Filled.BarChart, stringResource(CoreRes.string.tab_analytics), Color(0xFF1565C0)), { activeSubScreen = "analytics" }, vendor?.enableAnalytics != false),

@@ -623,6 +623,8 @@ fun DeliveryNavHost(
                         cancelledCount = response.cancelledCount,
                         refundedTotal = response.refundedTotal,
                         refundedCount = response.refundedCount,
+                        installmentPayments = response.installmentPayments,
+                        installmentPaymentCount = response.installmentPaymentCount,
                     )
                 } catch (e: Exception) {
                     shiftSummaryError = e.message ?: "Failed to load shift summary"

@@ -7,13 +7,15 @@ import io.ktor.server.netty.*
 import io.ktor.server.routing.*
 import net.marllex.waselak.backend.config.DatabaseConfig
 import net.marllex.waselak.backend.di.appModule
+import net.marllex.waselak.backend.data.database.InstallmentPaymentsTable
+import net.marllex.waselak.backend.data.database.InstallmentPlansTable
 import net.marllex.waselak.backend.data.database.VendorSubscriptionsTable
 import net.marllex.waselak.backend.data.database.VendorsTable
 import net.marllex.waselak.backend.domain.service.NotificationService
 import net.marllex.waselak.backend.domain.service.RequestLogService
 import net.marllex.waselak.backend.plugins.*
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.dsl.module
 import org.koin.ktor.ext.inject
@@ -131,6 +133,71 @@ fun Application.module() {
             }
         } catch (e: Exception) {
             log.error("Subscription check failed: ${e.message}")
+        }
+    }
+
+    // Schedule installment overdue check + auto late fee (daily, 3-minute initial delay)
+    fixedRateTimer("installment-overdue-check", daemon = true, initialDelay = 180_000L, period = 86_400_000L) {
+        try {
+            val nowMs = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+            transaction {
+                // 1. Mark PENDING payments as OVERDUE if due date has passed
+                val pendingOverdue = InstallmentPaymentsTable.selectAll().where {
+                    (InstallmentPaymentsTable.status inList listOf("PENDING", "PARTIALLY_PAID")) and
+                        (InstallmentPaymentsTable.dueDate less nowMs)
+                }.toList()
+
+                for (payment in pendingOverdue) {
+                    val currentStatus = payment[InstallmentPaymentsTable.status]
+                    if (currentStatus == "PENDING") {
+                        InstallmentPaymentsTable.update({
+                            InstallmentPaymentsTable.id eq payment[InstallmentPaymentsTable.id]
+                        }) {
+                            it[InstallmentPaymentsTable.status] = "OVERDUE"
+                        }
+                    }
+                }
+
+                // 2. Auto-apply late fees where lateFeeEnabled=true, lateFee=0, overdue
+                val overdueNoFee = InstallmentPaymentsTable.selectAll().where {
+                    (InstallmentPaymentsTable.status inList listOf("OVERDUE", "PARTIALLY_PAID")) and
+                        (InstallmentPaymentsTable.dueDate less nowMs) and
+                        (InstallmentPaymentsTable.lateFee eq java.math.BigDecimal.ZERO) and
+                        (InstallmentPaymentsTable.lateFeeEnabled eq true)
+                }.toList()
+
+                for (payment in overdueNoFee) {
+                    val planId = payment[InstallmentPaymentsTable.planId]
+                    val plan = InstallmentPlansTable.selectAll().where {
+                        InstallmentPlansTable.id eq planId
+                    }.firstOrNull() ?: continue
+
+                    val feePercent = plan[InstallmentPlansTable.lateFeePercent].toDouble()
+                    if (feePercent <= 0) continue
+
+                    val remainingDue = payment[InstallmentPaymentsTable.amount].toDouble() -
+                        payment[InstallmentPaymentsTable.paidAmount].toDouble()
+                    val fee = Math.round(remainingDue * feePercent / 100.0 * 100.0) / 100.0
+
+                    InstallmentPaymentsTable.update({
+                        InstallmentPaymentsTable.id eq payment[InstallmentPaymentsTable.id]
+                    }) {
+                        it[InstallmentPaymentsTable.lateFee] = java.math.BigDecimal.valueOf(fee)
+                    }
+
+                    val currentRemaining = plan[InstallmentPlansTable.remainingAmount].toDouble()
+                    InstallmentPlansTable.update({
+                        InstallmentPlansTable.id eq planId
+                    }) {
+                        it[InstallmentPlansTable.remainingAmount] = java.math.BigDecimal.valueOf(currentRemaining + fee)
+                        it[InstallmentPlansTable.updatedAt] = nowMs
+                    }
+                }
+
+                log.info("Installment check: ${pendingOverdue.size} marked overdue, ${overdueNoFee.size} late fees applied")
+            }
+        } catch (e: Exception) {
+            log.error("Installment overdue check failed: ${e.message}")
         }
     }
 }

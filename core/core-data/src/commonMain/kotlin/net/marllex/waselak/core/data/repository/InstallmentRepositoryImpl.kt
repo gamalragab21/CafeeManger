@@ -55,9 +55,9 @@ class InstallmentRepositoryImpl(
         apiClient.getCustomerInstallments(customerId).map { it.toDomain() }
     }
 
-    override suspend fun recordPayment(planId: String, amount: Double, note: String?): Result<InstallmentPayment> = runCatching {
-        AppLogger.d(TAG, "recordPayment: plan=$planId, amount=$amount")
-        apiClient.recordInstallmentPayment(planId, RecordInstallmentPaymentRequest(amount, note)).toDomain()
+    override suspend fun recordPayment(planId: String, amount: Double, note: String?, paymentId: String?): Result<InstallmentPayment> = runCatching {
+        AppLogger.d(TAG, "recordPayment: plan=$planId, amount=$amount, paymentId=$paymentId")
+        apiClient.recordInstallmentPayment(planId, RecordInstallmentPaymentRequest(amount, paymentId, note)).toDomain()
     }
 
     override suspend fun updatePlanStatus(planId: String, status: String): Result<InstallmentPlan> = runCatching {
@@ -65,9 +65,14 @@ class InstallmentRepositoryImpl(
         apiClient.updateInstallmentStatus(planId, UpdateInstallmentStatusRequest(status)).toDomain()
     }
 
-    override suspend fun applyLateFee(planId: String): Result<InstallmentPlan> = runCatching {
-        AppLogger.d(TAG, "applyLateFee: plan=$planId")
-        apiClient.applyInstallmentLateFee(planId).toDomain()
+    override suspend fun applyLateFee(planId: String, paymentId: String?): Result<InstallmentPlan> = runCatching {
+        AppLogger.d(TAG, "applyLateFee: plan=$planId, paymentId=$paymentId")
+        apiClient.applyInstallmentLateFee(planId, paymentId).toDomain()
+    }
+
+    override suspend fun toggleLateFee(planId: String, paymentId: String, enabled: Boolean): Result<InstallmentPlan> = runCatching {
+        AppLogger.d(TAG, "toggleLateFee: plan=$planId, payment=$paymentId, enabled=$enabled")
+        apiClient.toggleInstallmentLateFee(planId, paymentId, enabled).toDomain()
     }
 
     override suspend fun getAnalytics(from: Long?, to: Long?): Result<InstallmentAnalytics> = runCatching {

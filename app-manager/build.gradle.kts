@@ -55,7 +55,7 @@ compose.desktop {
             packageName = if (isDebugDesktop) "Waselak Manager Debug" else "Waselak Manager"
             packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             vendor = "Marllex"
-            description = if (isDebugDesktop) "Waselak Manager (Debug)" else "Waselak Restaurant Manager"
+            description = if (isDebugDesktop) "Waselak Manager Debug" else "Waselak Restaurant Manager"
 
             macOS {
                 bundleID = "net.marllex.waselak.manager"
