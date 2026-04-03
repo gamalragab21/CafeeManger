@@ -582,6 +582,7 @@ fun Route.adminApiRoutes() {
                         request.enable_cash_drawer?.let { stmt[enableCashDrawer] = it }
                         request.enable_returns?.let { stmt[enableReturns] = it }
                         request.enable_customer_credit?.let { stmt[enableCustomerCredit] = it }
+                        request.enable_installments?.let { stmt[enableInstallments] = it }
                         request.enable_pre_orders?.let { stmt[enablePreOrders] = it }
                         request.enable_scheduled_orders?.let { stmt[enableScheduledOrders] = it }
                         request.enable_suppliers?.let { stmt[enableSuppliers] = it }
@@ -983,6 +984,7 @@ fun Route.adminApiRoutes() {
                             put("enable_cash_drawer", vendorRow[VendorsTable.enableCashDrawer])
                             put("enable_returns", vendorRow[VendorsTable.enableReturns])
                             put("enable_customer_credit", vendorRow[VendorsTable.enableCustomerCredit])
+                            put("enable_installments", vendorRow[VendorsTable.enableInstallments])
                             put("enable_pre_orders", vendorRow[VendorsTable.enablePreOrders])
                             put("enable_scheduled_orders", vendorRow[VendorsTable.enableScheduledOrders])
                             put("enable_suppliers", vendorRow[VendorsTable.enableSuppliers])

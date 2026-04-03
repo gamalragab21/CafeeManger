@@ -322,6 +322,7 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         "ALTER TABLE vendors ADD COLUMN enable_cash_drawer INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE vendors ADD COLUMN enable_returns INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE vendors ADD COLUMN enable_customer_credit INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_installments INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE vendors ADD COLUMN enable_pre_orders INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE vendors ADD COLUMN enable_scheduled_orders INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE vendors ADD COLUMN enable_suppliers INTEGER NOT NULL DEFAULT 1",
