@@ -4,6 +4,7 @@ import net.marllex.waselak.core.data.offline.ConnectivityChecker
 import net.marllex.waselak.core.data.offline.OfflineModeManager
 import net.marllex.waselak.core.data.repository.*
 import net.marllex.waselak.core.data.sync.AttendanceSyncManager
+import net.marllex.waselak.core.data.sync.DataRefreshManager
 import net.marllex.waselak.core.data.sync.SyncScheduler
 import net.marllex.waselak.core.data.sync.SyncService
 import net.marllex.waselak.core.domain.repository.*
@@ -38,7 +39,8 @@ val dataModule = module {
     single<NotificationRepository> { NotificationRepositoryImpl(get()) }
     single(createdAtStart = true) { AttendanceSyncManager(get(), get(), get(), get()) }
     single { SyncService(get(), get(), get()) }
-    single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get()) }
+    single { DataRefreshManager(get(), get(), get(), get(), get(), get(), get()) }
+    single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get(), get()) }
     single { ConnectivityChecker(get(named("baseUrl")), get()) }
     single { OfflineModeManager(get(), get(), get()) }
 }

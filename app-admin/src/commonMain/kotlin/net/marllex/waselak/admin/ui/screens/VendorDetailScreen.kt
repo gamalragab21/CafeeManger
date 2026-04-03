@@ -123,6 +123,9 @@ fun VendorDetailScreen(
                         onSave = { request ->
                             viewModel.updateVendor(vendorId, request)
                         },
+                        onChangePlan = { plan ->
+                            viewModel.changePlan(vendorId, plan)
+                        },
                         onCancel = { isEditMode = false }
                     )
                 }
@@ -146,6 +149,7 @@ private fun VendorEditContent(
     detail: VendorDetailDto,
     isSaving: Boolean,
     onSave: (UpdateVendorRequest) -> Unit,
+    onChangePlan: (String) -> Unit,
     onCancel: () -> Unit
 ) {
     val vendor = detail.vendor
@@ -298,6 +302,82 @@ private fun VendorEditContent(
 
         Spacer(Modifier.height(8.dp))
 
+        // ─── Subscription Plan Section ───────────────
+        EditSectionHeader("Subscription Plan")
+
+        val plans = listOf("STARTER" to "Starter (299 EGP)", "BUSINESS" to "Business (599 EGP)", "ENTERPRISE" to "Enterprise (999 EGP)")
+        var selectedPlan by remember(vendor) { mutableStateOf(vendor.plan_name ?: "STARTER") }
+        var planExpanded by remember { mutableStateOf(false) }
+        var showPlanConfirm by remember { mutableStateOf(false) }
+        var pendingPlan by remember { mutableStateOf("") }
+
+        ExposedDropdownMenuBox(
+            expanded = planExpanded,
+            onExpandedChange = { planExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = plans.find { it.first == selectedPlan }?.second ?: selectedPlan,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Plan") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = planExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = planExpanded,
+                onDismissRequest = { planExpanded = false }
+            ) {
+                plans.forEach { (key, label) ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (key == selectedPlan) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(label, fontWeight = if (key == selectedPlan) FontWeight.Bold else FontWeight.Normal)
+                            }
+                        },
+                        onClick = {
+                            planExpanded = false
+                            if (key != selectedPlan) {
+                                pendingPlan = key
+                                showPlanConfirm = true
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        Text(
+            "Changing plan will reset all feature flags to plan defaults. You can customize them after.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (showPlanConfirm) {
+            AlertDialog(
+                onDismissRequest = { showPlanConfirm = false },
+                title = { Text("Change Plan") },
+                text = {
+                    Text("Change plan to ${plans.find { it.first == pendingPlan }?.second}?\n\nThis will reset all feature flags to the new plan's defaults. You can then customize individual features.")
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        showPlanConfirm = false
+                        selectedPlan = pendingPlan
+                        onChangePlan(pendingPlan)
+                    }) { Text("Confirm") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPlanConfirm = false }) { Text("Cancel") }
+                },
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
         // ─── Channel Config Section ──────────────────
         EditSectionHeader(stringResource(Res.string.channel_config))
 
@@ -374,20 +454,58 @@ private fun VendorEditContent(
         var enableAnnouncements by remember { mutableStateOf(vendor.enable_announcements) }
         var enableDigitalMenu by remember { mutableStateOf(vendor.enable_digital_menu) }
         var enableRecipe by remember { mutableStateOf(vendor.enable_recipe) }
+        var enableStock by remember { mutableStateOf(vendor.enable_stock) }
+        var enableAttendance by remember { mutableStateOf(vendor.enable_attendance) }
+        var enableOvertime by remember { mutableStateOf(vendor.enable_overtime) }
+        var enableSalary by remember { mutableStateOf(vendor.enable_salary) }
+        var enableCustomers by remember { mutableStateOf(vendor.enable_customers) }
+        var enableExport by remember { mutableStateOf(vendor.enable_export) }
+        var enableDigitalReceipt by remember { mutableStateOf(vendor.enable_digital_receipt) }
+        var enableWorkerQrcode by remember { mutableStateOf(vendor.enable_worker_qrcode) }
+        var enableLoyalty by remember { mutableStateOf(vendor.enable_loyalty) }
+        var enableManualDiscount by remember { mutableStateOf(vendor.enable_manual_discount) }
+        var enableOffers by remember { mutableStateOf(vendor.enable_offers) }
 
+        // Core Features
+        EditSwitchRow("Stock Management", enableStock) { enableStock = it }
+        EditSwitchRow("Analytics & Dashboard", enableAnalytics) { enableAnalytics = it }
+        EditSwitchRow("Data Export", enableExport) { enableExport = it }
+        EditSwitchRow("Customers", enableCustomers) { enableCustomers = it }
+        EditSwitchRow("Announcements", enableAnnouncements) { enableAnnouncements = it }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Payments", style = MaterialTheme.typography.labelMedium)
         EditSwitchRow("Split Payment", enableSplitPayment) { enableSplitPayment = it }
         EditSwitchRow("Cash Drawer", enableCashDrawer) { enableCashDrawer = it }
-        EditSwitchRow("Returns & Exchange", enableReturns) { enableReturns = it }
-        EditSwitchRow("Installments", enableInstallments) { enableInstallments = it }
         EditSwitchRow("Customer Credit", enableCustomerCredit) { enableCustomerCredit = it }
-        EditSwitchRow("Scheduled Orders", enableScheduledOrders) { enableScheduledOrders = it }
+        EditSwitchRow("Installments", enableInstallments) { enableInstallments = it }
+        EditSwitchRow("Manual Discount", enableManualDiscount) { enableManualDiscount = it }
+        EditSwitchRow("Digital Receipt", enableDigitalReceipt) { enableDigitalReceipt = it }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Staff & HR", style = MaterialTheme.typography.labelMedium)
+        EditSwitchRow("Attendance", enableAttendance) { enableAttendance = it }
+        EditSwitchRow("Overtime", enableOvertime) { enableOvertime = it }
+        EditSwitchRow("Salary", enableSalary) { enableSalary = it }
+        EditSwitchRow("Worker QR Code", enableWorkerQrcode) { enableWorkerQrcode = it }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Marketing", style = MaterialTheme.typography.labelMedium)
+        EditSwitchRow("Loyalty Points", enableLoyalty) { enableLoyalty = it }
+        EditSwitchRow("Offers", enableOffers) { enableOffers = it }
+        EditSwitchRow("Digital Menu", enableDigitalMenu) { enableDigitalMenu = it }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Operations", style = MaterialTheme.typography.labelMedium)
+        EditSwitchRow("Returns & Exchange", enableReturns) { enableReturns = it }
         EditSwitchRow("Suppliers", enableSuppliers) { enableSuppliers = it }
+        EditSwitchRow("Scheduled Orders", enableScheduledOrders) { enableScheduledOrders = it }
+        EditSwitchRow("Recipe", enableRecipe) { enableRecipe = it }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Pharmacy", style = MaterialTheme.typography.labelMedium)
         EditSwitchRow("Drug Interactions", enableDrugInteractions) { enableDrugInteractions = it }
         EditSwitchRow("Prescriptions", enablePrescriptions) { enablePrescriptions = it }
-        EditSwitchRow("Analytics", enableAnalytics) { enableAnalytics = it }
-        EditSwitchRow("Announcements", enableAnnouncements) { enableAnnouncements = it }
-        EditSwitchRow("Digital Menu", enableDigitalMenu) { enableDigitalMenu = it }
-        EditSwitchRow("Recipe", enableRecipe) { enableRecipe = it }
 
         Spacer(Modifier.height(16.dp))
 
@@ -441,6 +559,17 @@ private fun VendorEditContent(
                         enable_announcements = enableAnnouncements,
                         enable_digital_menu = enableDigitalMenu,
                         enable_recipe = enableRecipe,
+                        enable_stock = enableStock,
+                        enable_attendance = enableAttendance,
+                        enable_overtime = enableOvertime,
+                        enable_salary = enableSalary,
+                        enable_customers = enableCustomers,
+                        enable_export = enableExport,
+                        enable_digital_receipt = enableDigitalReceipt,
+                        enable_worker_qrcode = enableWorkerQrcode,
+                        enable_loyalty = enableLoyalty,
+                        enable_manual_discount = enableManualDiscount,
+                        enable_offers = enableOffers,
                     )
                     onSave(request)
                 },

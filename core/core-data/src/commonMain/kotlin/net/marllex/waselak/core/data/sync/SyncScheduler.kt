@@ -19,6 +19,7 @@ import net.marllex.waselak.core.common.logging.AppLogger
 class SyncScheduler(
     private val syncService: SyncService,
     private val attendanceSyncManager: AttendanceSyncManager,
+    private val dataRefreshManager: DataRefreshManager,
     private val networkMonitor: NetworkMonitor,
     private val pendingSyncDao: PendingSyncDao,
 ) {
@@ -95,6 +96,13 @@ class SyncScheduler(
                 AppLogger.i("SyncScheduler", "Attendance sync done: reason=$reason")
             } catch (e: Exception) {
                 AppLogger.e("SyncScheduler", "Attendance sync failed (non-critical): reason=$reason", e)
+            }
+            // Refresh all cached data from server to get latest changes
+            try {
+                dataRefreshManager.refreshAll()
+                AppLogger.i("SyncScheduler", "Data refresh done: reason=$reason")
+            } catch (e: Exception) {
+                AppLogger.e("SyncScheduler", "Data refresh failed (non-critical): reason=$reason", e)
             }
             _lastSyncResult.value = "Synced $count items ($reason)"
             count

@@ -330,6 +330,17 @@ private fun migrateIfNeeded(driver: SqlDriver) {
         "ALTER TABLE vendors ADD COLUMN enable_prescriptions INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE vendors ADD COLUMN enable_analytics INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE vendors ADD COLUMN enable_announcements INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_stock INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_attendance INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_overtime INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_salary INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_customers INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_export INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_digital_receipt INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_worker_qrcode INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_loyalty INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE vendors ADD COLUMN enable_manual_discount INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE vendors ADD COLUMN enable_offers INTEGER NOT NULL DEFAULT 1",
     )
     migrations.forEach { sql ->
         try {

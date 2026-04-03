@@ -196,6 +196,9 @@
     <string name="no_connection_title">مفيش إنترنت</string>
     <string name="no_connection_message">مش هنقدر نكمل من غير إنترنت. اتأكد من الاتصال أو اطلب من المدير يفعّل وضع بدون إنترنت.</string>
     <string name="retry_connection">إعادة المحاولة</string>
+    <string name="offline_mode_title">أنت غير متصل</string>
+    <string name="offline_mode_message">الإنترنت مش شغال. تقدر تكمل شغلك — الطلبات هتتحفظ محلياً وهتتزامن تلقائي لما النت يرجع.</string>
+    <string name="work_offline">اشتغل بدون نت</string>
 
     <!-- Sync Section -->
     <string name="sync_and_offline">المزامنة والاتصال</string>

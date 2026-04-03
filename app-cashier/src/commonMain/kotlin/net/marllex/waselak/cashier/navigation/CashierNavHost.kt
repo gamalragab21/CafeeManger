@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Timer
@@ -1463,6 +1464,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     val offlineModeEnabled by offlineModeManager.offlineModeEnabled.collectAsState()
     val isOffline by offlineModeManager.isOfflineActive.collectAsState()
     val pendingCount by offlineModeManager.pendingCount.collectAsState()
+    val needsOfflineConfirmation by offlineModeManager.needsOfflineConfirmation.collectAsState()
     // Show blocking dialog when offline and offline mode is NOT enabled
     val showNoConnectionDialog = !isOnline && !offlineModeEnabled
 
@@ -1690,9 +1692,9 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 onViewReceipt = { orderId ->
                     navController.navigateToReceipt(orderId)
                 },
-                onSplitPayment = { orderId ->
-                    navController.navigate("${CashierDrawerItem.SPLIT_PAYMENT.route}/$orderId")
-                },
+                onSplitPayment = if (vendor?.enableSplitPayment != false) {
+                    { orderId -> navController.navigate("${CashierDrawerItem.SPLIT_PAYMENT.route}/$orderId") }
+                } else null,
                 businessType = vendor?.businessType,
             )
         }
@@ -1728,17 +1730,21 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
         composable(CashierDrawerItem.SPLIT_PAYMENT.route) {
             SplitPaymentScreen(
+                onNavigateBack = { navController.navigateUp() },
             )
         }
         composable("${CashierDrawerItem.SPLIT_PAYMENT.route}/{orderId}") {
             SplitPaymentScreen(
+                onNavigateBack = { navController.navigateUp() },
             )
         }
         composable(CashierDrawerItem.CUSTOMER_CREDIT.route) {
             CashierCustomerCreditScreen()
         }
         composable(CashierDrawerItem.INSTALLMENTS.route) {
-            net.marllex.waselak.cashier.installments.CashierInstallmentsScreen()
+            net.marllex.waselak.cashier.installments.CashierInstallmentsScreen(
+                onNavigateBack = { navController.navigateUp() },
+            )
         }
         composable(CashierDrawerItem.RETURNS.route) {
             net.marllex.waselak.cashier.returns.ReturnsScreen(
@@ -1815,6 +1821,28 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
             confirmButton = {
                 Button(onClick = { /* connectivity auto-updates via NetworkMonitor */ }) {
                     Text(stringResource(CoreRes.string.retry_connection))
+                }
+            },
+        )
+    }
+
+    // Offline confirmation dialog: offline mode enabled but user hasn't confirmed yet
+    if (needsOfflineConfirmation) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissible */ },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.WifiOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = { Text(stringResource(CoreRes.string.offline_mode_title)) },
+            text = { Text(stringResource(CoreRes.string.offline_mode_message)) },
+            confirmButton = {
+                Button(onClick = { offlineModeManager.confirmOfflineMode() }) {
+                    Text(stringResource(CoreRes.string.work_offline))
                 }
             },
         )

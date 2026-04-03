@@ -590,6 +590,17 @@ fun Route.adminApiRoutes() {
                         request.enable_prescriptions?.let { stmt[enablePrescriptions] = it }
                         request.enable_analytics?.let { stmt[enableAnalytics] = it }
                         request.enable_announcements?.let { stmt[enableAnnouncements] = it }
+                        request.enable_stock?.let { stmt[enableStock] = it }
+                        request.enable_attendance?.let { stmt[enableAttendance] = it }
+                        request.enable_overtime?.let { stmt[enableOvertime] = it }
+                        request.enable_salary?.let { stmt[enableSalary] = it }
+                        request.enable_customers?.let { stmt[enableCustomers] = it }
+                        request.enable_export?.let { stmt[enableExport] = it }
+                        request.enable_digital_receipt?.let { stmt[enableDigitalReceipt] = it }
+                        request.enable_worker_qrcode?.let { stmt[enableWorkerQrcode] = it }
+                        request.enable_loyalty?.let { stmt[enableLoyalty] = it }
+                        request.enable_manual_discount?.let { stmt[enableManualDiscount] = it }
+                        request.enable_offers?.let { stmt[enableOffers] = it }
                         request.loyalty_enabled?.let { stmt[loyaltyEnabled] = it }
                         request.facebook_url?.let { stmt[facebookUrl] = it }
                         request.landing_page_url?.let { stmt[landingPageUrl] = it }
@@ -801,6 +812,21 @@ fun Route.adminApiRoutes() {
                 trace.step("CMS change vendor plan completed")
             }
 
+            // ─── Vendors: Reset feature flags to plan defaults ──
+            post("/vendors/{id}/reset-features") {
+                val trace = call.routeTrace()
+                trace.step("CMS reset vendor features started")
+                val vendorId = call.parameters["id"]
+                    ?: return@post call.respondText("""{"error":"Missing vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val vendorUuid = try { UUID.fromString(vendorId) } catch (_: Exception) {
+                    return@post call.respondText("""{"error":"Invalid vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+                planService.resetVendorToplanDefaults(vendorUuid)
+                val json = buildJsonObject { put("success", true); put("message", "Feature flags reset to plan defaults") }
+                call.respondText(json.toString(), ContentType.Application.Json)
+                trace.step("CMS reset vendor features completed")
+            }
+
             // ─── Vendors: Usage ───────────────────────────────────
             get("/vendors/{id}/usage") {
                 val trace = call.routeTrace()
@@ -992,6 +1018,17 @@ fun Route.adminApiRoutes() {
                             put("enable_prescriptions", vendorRow[VendorsTable.enablePrescriptions])
                             put("enable_analytics", vendorRow[VendorsTable.enableAnalytics])
                             put("enable_announcements", vendorRow[VendorsTable.enableAnnouncements])
+                            put("enable_stock", vendorRow[VendorsTable.enableStock])
+                            put("enable_attendance", vendorRow[VendorsTable.enableAttendance])
+                            put("enable_overtime", vendorRow[VendorsTable.enableOvertime])
+                            put("enable_salary", vendorRow[VendorsTable.enableSalary])
+                            put("enable_customers", vendorRow[VendorsTable.enableCustomers])
+                            put("enable_export", vendorRow[VendorsTable.enableExport])
+                            put("enable_digital_receipt", vendorRow[VendorsTable.enableDigitalReceipt])
+                            put("enable_worker_qrcode", vendorRow[VendorsTable.enableWorkerQrcode])
+                            put("enable_loyalty", vendorRow[VendorsTable.enableLoyalty])
+                            put("enable_manual_discount", vendorRow[VendorsTable.enableManualDiscount])
+                            put("enable_offers", vendorRow[VendorsTable.enableOffers])
                             put("facebook_url", vendorRow[VendorsTable.facebookUrl])
                             put("landing_page_url", vendorRow[VendorsTable.landingPageUrl])
                             put("instagram_url", vendorRow[VendorsTable.instagramUrl])

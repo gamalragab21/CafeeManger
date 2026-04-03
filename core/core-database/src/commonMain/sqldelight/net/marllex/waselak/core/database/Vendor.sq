@@ -36,6 +36,17 @@ CREATE TABLE IF NOT EXISTS vendors (
     enable_prescriptions INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     enable_analytics INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     enable_announcements INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_stock INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_attendance INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_overtime INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    enable_salary INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    enable_customers INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_export INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_digital_receipt INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    enable_worker_qrcode INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    enable_loyalty INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
+    enable_manual_discount INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
+    enable_offers INTEGER AS kotlin.Boolean NOT NULL DEFAULT 1,
     loyalty_enabled INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     points_earn_rate REAL NOT NULL DEFAULT 1.0,
     points_redeem_rate REAL NOT NULL DEFAULT 0.1,
@@ -50,11 +61,11 @@ getVendorById:
 SELECT * FROM vendors WHERE id = ?;
 
 insertVendor:
-INSERT OR REPLACE INTO vendors(id, name, logo_url, address, contact_phone, wallet_phone, default_delivery_fee, store_type, enable_tables, enable_kds, enable_dine_in, enable_delivery, enable_takeaway, enable_in_store, enable_pickup_later, business_type, tax_enabled, default_tax_percent, stock_mode, offline_mode_enabled, biometric_required, enable_offline_mode, digital_menu_url, enable_digital_menu, enable_recipe, enable_split_payment, enable_cash_drawer, enable_returns, enable_customer_credit, enable_installments, enable_pre_orders, enable_scheduled_orders, enable_suppliers, enable_drug_interactions, enable_prescriptions, enable_analytics, enable_announcements, loyalty_enabled, points_earn_rate, points_redeem_rate, min_points_redeem, max_manual_discount_percent, manual_discount_requires_pin, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO vendors(id, name, logo_url, address, contact_phone, wallet_phone, default_delivery_fee, store_type, enable_tables, enable_kds, enable_dine_in, enable_delivery, enable_takeaway, enable_in_store, enable_pickup_later, business_type, tax_enabled, default_tax_percent, stock_mode, offline_mode_enabled, biometric_required, enable_offline_mode, digital_menu_url, enable_digital_menu, enable_recipe, enable_split_payment, enable_cash_drawer, enable_returns, enable_customer_credit, enable_installments, enable_pre_orders, enable_scheduled_orders, enable_suppliers, enable_drug_interactions, enable_prescriptions, enable_analytics, enable_announcements, enable_stock, enable_attendance, enable_overtime, enable_salary, enable_customers, enable_export, enable_digital_receipt, enable_worker_qrcode, enable_loyalty, enable_manual_discount, enable_offers, loyalty_enabled, points_earn_rate, points_redeem_rate, min_points_redeem, max_manual_discount_percent, manual_discount_requires_pin, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateVendor:
-UPDATE vendors SET name = ?, logo_url = ?, address = ?, contact_phone = ?, wallet_phone = ?, default_delivery_fee = ?, store_type = ?, enable_tables = ?, enable_kds = ?, enable_dine_in = ?, enable_delivery = ?, enable_takeaway = ?, enable_in_store = ?, enable_pickup_later = ?, business_type = ?, tax_enabled = ?, default_tax_percent = ?, stock_mode = ?, offline_mode_enabled = ?, biometric_required = ?, enable_offline_mode = ?, digital_menu_url = ?, enable_digital_menu = ?, enable_recipe = ?, enable_split_payment = ?, enable_cash_drawer = ?, enable_returns = ?, enable_customer_credit = ?, enable_installments = ?, enable_pre_orders = ?, enable_scheduled_orders = ?, enable_suppliers = ?, enable_drug_interactions = ?, enable_prescriptions = ?, enable_analytics = ?, enable_announcements = ?, loyalty_enabled = ?, points_earn_rate = ?, points_redeem_rate = ?, min_points_redeem = ?, max_manual_discount_percent = ?, manual_discount_requires_pin = ?, updated_at = ?
+UPDATE vendors SET name = ?, logo_url = ?, address = ?, contact_phone = ?, wallet_phone = ?, default_delivery_fee = ?, store_type = ?, enable_tables = ?, enable_kds = ?, enable_dine_in = ?, enable_delivery = ?, enable_takeaway = ?, enable_in_store = ?, enable_pickup_later = ?, business_type = ?, tax_enabled = ?, default_tax_percent = ?, stock_mode = ?, offline_mode_enabled = ?, biometric_required = ?, enable_offline_mode = ?, digital_menu_url = ?, enable_digital_menu = ?, enable_recipe = ?, enable_split_payment = ?, enable_cash_drawer = ?, enable_returns = ?, enable_customer_credit = ?, enable_installments = ?, enable_pre_orders = ?, enable_scheduled_orders = ?, enable_suppliers = ?, enable_drug_interactions = ?, enable_prescriptions = ?, enable_analytics = ?, enable_announcements = ?, enable_stock = ?, enable_attendance = ?, enable_overtime = ?, enable_salary = ?, enable_customers = ?, enable_export = ?, enable_digital_receipt = ?, enable_worker_qrcode = ?, enable_loyalty = ?, enable_manual_discount = ?, enable_offers = ?, loyalty_enabled = ?, points_earn_rate = ?, points_redeem_rate = ?, min_points_redeem = ?, max_manual_discount_percent = ?, manual_discount_requires_pin = ?, updated_at = ?
 WHERE id = ?;
 
 deleteVendor:

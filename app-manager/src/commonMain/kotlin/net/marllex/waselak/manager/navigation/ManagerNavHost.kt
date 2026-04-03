@@ -421,10 +421,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.OFFERS.route) { OffersScreen() }
                     composable(ManagerTab.TABLES.route) {
-                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-                        val profileState by profileVm.uiState.collectAsState()
-                        val planFeatures = profileState.planInfo?.features
-                        if (planFeatures != null && planFeatures.tableManagement == false) {
+                        if (vendor?.enableTables == false) {
                             FeatureNotAvailableView()
                         } else {
                             TablesScreen()
@@ -445,10 +442,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         route = "worker_qr_code/{workerId}",
                         arguments = listOf(navArgument("workerId") { type = NavType.StringType })
                     ) {
-                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-                        val profileState by profileVm.uiState.collectAsState()
-                        val planFeatures = profileState.planInfo?.features
-                        if (planFeatures != null && !planFeatures.workerQrcode) {
+                        if (vendor?.enableWorkerQrcode == false) {
                             FeatureNotAvailableView()
                         } else {
                             WorkerQrCodeScreen(
@@ -507,10 +501,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
                     composable(ManagerTab.OFFERS.route) { OffersScreen() }
                     composable(ManagerTab.TABLES.route) {
-                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-                        val profileState by profileVm.uiState.collectAsState()
-                        val planFeatures = profileState.planInfo?.features
-                        if (planFeatures != null && planFeatures.tableManagement == false) {
+                        if (vendor?.enableTables == false) {
                             FeatureNotAvailableView()
                         } else {
                             TablesScreen()
@@ -531,10 +522,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         route = "worker_qr_code/{workerId}",
                         arguments = listOf(navArgument("workerId") { type = NavType.StringType })
                     ) {
-                        val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
-                        val profileState by profileVm.uiState.collectAsState()
-                        val planFeatures = profileState.planInfo?.features
-                        if (planFeatures != null && !planFeatures.workerQrcode) {
+                        if (vendor?.enableWorkerQrcode == false) {
                             FeatureNotAvailableView()
                         } else {
                             WorkerQrCodeScreen(
@@ -617,19 +605,18 @@ private fun MenuTabContent() {
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            val planFeatures = profileState.planInfo?.features
             when (allTabs.getOrNull(selectedTab)?.key) {
                 "categories" -> CategoriesScreen()
                 "items" -> ItemsScreen()
                 "stock" -> {
-                    if (planFeatures != null && !planFeatures.stockManagement) {
+                    if (vendor?.enableStock == false) {
                         FeatureNotAvailableView()
                     } else {
                         StockScreen(showRecipes = vendor?.enableRecipe != false)
                     }
                 }
                 "digital_menu" -> {
-                    if (planFeatures != null && planFeatures.digitalMenu == "NONE") {
+                    if (vendor?.enableDigitalMenu == false) {
                         FeatureNotAvailableView()
                     } else {
                         DigitalMenuSection(
@@ -818,7 +805,6 @@ private fun MoreTabContent(
 ) {
     val profileVm: RestaurantProfileViewModel = org.koin.compose.viewmodel.koinViewModel()
     val profileState by profileVm.uiState.collectAsState()
-    val planFeatures = profileState.planInfo?.features
     val vendor = profileState.vendor
 
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
@@ -827,7 +813,7 @@ private fun MoreTabContent(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (activeSubScreen) {
             "analytics" -> {
-                if (planFeatures != null && planFeatures.analytics == "NONE") {
+                if (vendor?.enableAnalytics == false) {
                     TopAppBar(
                         title = { Text(stringResource(CoreRes.string.tab_analytics)) },
                         navigationIcon = {
@@ -849,16 +835,16 @@ private fun MoreTabContent(
             "staff" -> {
                 StaffScreen(
                     onNavigateToWorkerQrCode = onNavigateToWorkerQrCode,
-                    isAttendanceEnabled = planFeatures?.workerAttendance != false,
-                    isSalaryEnabled = planFeatures?.salaries != false,
-                    isOvertimeEnabled = planFeatures?.overtime != false,
-                    isDeliveryEnabled = planFeatures?.deliveryModule != false,
+                    isAttendanceEnabled = vendor?.enableAttendance != false,
+                    isSalaryEnabled = vendor?.enableSalary != false,
+                    isOvertimeEnabled = vendor?.enableOvertime != false,
+                    isDeliveryEnabled = vendor?.enableDelivery != false,
                     onNavigateBack = { activeSubScreen = null },
                 )
             }
 
             "customers" -> {
-                if (planFeatures != null && !planFeatures.customerManagement) {
+                if (vendor?.enableCustomers == false) {
                     TopAppBar(
                         title = { Text(stringResource(CoreRes.string.nav_customers)) },
                         navigationIcon = {

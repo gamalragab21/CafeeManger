@@ -251,6 +251,25 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
         }
     }
 
+    fun changePlan(vendorId: String, plan: String) {
+        viewModelScope.launch {
+            _isSaving.value = true
+            try {
+                val success = apiClient.changeVendorPlan(vendorId, plan, null)
+                if (success) {
+                    _message.value = UiMessage.Text("Plan changed to $plan — feature defaults applied")
+                    loadVendorDetail(vendorId) // Reload to get updated flags
+                } else {
+                    _message.value = UiMessage.Text("Failed to change plan")
+                }
+            } catch (e: Exception) {
+                _message.value = UiMessage.Text(e.message ?: "Error changing plan")
+            } finally {
+                _isSaving.value = false
+            }
+        }
+    }
+
     // ── User management ──────────────────────────────────────────────────
     fun createUser(vendorId: String, name: String, phone: String, password: String, role: String, email: String?) {
         viewModelScope.launch {

@@ -103,6 +103,14 @@ data class DomainFeatures(
         fun forVendor(vendor: Vendor): DomainFeatures {
             val base = forType(vendor.businessType)
             return base.copy(
+                hasTables = vendor.enableTables,
+                hasDineIn = vendor.enableDineIn,
+                hasDelivery = vendor.enableDelivery,
+                hasTakeaway = vendor.enableTakeaway,
+                hasInStore = vendor.enableInStore,
+                hasPickupLater = vendor.enablePickupLater,
+                hasKDS = vendor.enableKds,
+                hasRecipes = vendor.enableRecipe,
                 hasSplitPayments = vendor.enableSplitPayment,
                 hasCashDrawer = vendor.enableCashDrawer,
                 hasReturns = vendor.enableReturns,
@@ -112,6 +120,8 @@ data class DomainFeatures(
                 hasSuppliers = vendor.enableSuppliers,
                 hasPrescriptions = vendor.enablePrescriptions,
                 hasDrugInteractions = vendor.enableDrugInteractions,
+                hasLoyalty = vendor.enableLoyalty,
+                hasOffers = vendor.enableOffers,
             )
         }
 

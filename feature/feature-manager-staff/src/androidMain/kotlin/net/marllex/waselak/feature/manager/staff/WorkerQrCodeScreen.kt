@@ -61,19 +61,9 @@ actual fun WorkerQrCodeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Worker Badge") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            net.marllex.waselak.core.ui.components.WaselakTopAppBar(
+                title = "Worker Badge",
+                onNavigateBack = onNavigateBack,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

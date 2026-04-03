@@ -196,6 +196,9 @@
     <string name="no_connection_title">No Internet Connection</string>
     <string name="no_connection_message">Cannot continue without internet. Please check your connection or ask your manager to enable offline mode.</string>
     <string name="retry_connection">Retry</string>
+    <string name="offline_mode_title">You are offline</string>
+    <string name="offline_mode_message">Your internet connection is down. You can continue working offline — orders will be saved locally and synced automatically when connection returns.</string>
+    <string name="work_offline">Work Offline</string>
 
     <!-- Sync Section -->
     <string name="sync_and_offline">Sync &amp; Offline</string>

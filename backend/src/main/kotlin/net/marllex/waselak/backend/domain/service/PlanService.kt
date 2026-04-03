@@ -255,103 +255,49 @@ class PlanService {
     // Admin toggle is the SOURCE OF TRUTH. If admin enabled a feature
     // for a vendor, it works regardless of the plan.
     // Plan check only applies when admin hasn't explicitly enabled it.
+    /**
+     * Check if a feature is enabled for this vendor.
+     * All features are controlled by vendor-level toggles (admin configuration).
+     * No plan-based restriction — admin can enable/disable anything per merchant.
+     */
     fun checkFeature(vendorId: UUID, feature: String) {
-        // Check if admin explicitly enabled this feature for the vendor
-        val vendorToggle = transaction {
+        val vendor = transaction {
             VendorsTable.selectAll().where { VendorsTable.id eq vendorId }.firstOrNull()
-        }
-        if (vendorToggle != null) {
-            val adminEnabled = when (feature) {
-                "SPLIT_PAYMENT" -> vendorToggle[VendorsTable.enableSplitPayment]
-                "CASH_DRAWER" -> vendorToggle[VendorsTable.enableCashDrawer]
-                "CUSTOMER_CREDIT" -> vendorToggle[VendorsTable.enableCustomerCredit]
-                "INSTALLMENTS" -> vendorToggle[VendorsTable.enableInstallments]
-                "SUPPLIERS" -> vendorToggle[VendorsTable.enableSuppliers]
-                "RETURNS" -> vendorToggle[VendorsTable.enableReturns]
-                "SCHEDULED_ORDERS" -> vendorToggle[VendorsTable.enableScheduledOrders]
-                else -> null // No vendor toggle for this feature — use plan check
-            }
-            // If admin explicitly enabled it, allow access (skip plan check)
-            if (adminEnabled == true) return
+        } ?: throw FeatureNotAvailableException("Vendor not found")
+
+        val enabled = when (feature) {
+            "STOCK" -> vendor[VendorsTable.enableStock]
+            "WORKER", "ATTENDANCE" -> vendor[VendorsTable.enableAttendance]
+            "OVERTIME" -> vendor[VendorsTable.enableOvertime]
+            "SALARY" -> vendor[VendorsTable.enableSalary]
+            "CUSTOMER" -> vendor[VendorsTable.enableCustomers]
+            "DELIVERY" -> vendor[VendorsTable.enableDelivery]
+            "ANALYTICS" -> vendor[VendorsTable.enableAnalytics]
+            "EXPORT" -> vendor[VendorsTable.enableExport]
+            "DIGITAL_MENU" -> vendor[VendorsTable.enableDigitalMenu]
+            "TABLE" -> vendor[VendorsTable.enableTables]
+            "DIGITAL_RECEIPT" -> vendor[VendorsTable.enableDigitalReceipt]
+            "WORKER_QRCODE" -> vendor[VendorsTable.enableWorkerQrcode]
+            "LOYALTY" -> vendor[VendorsTable.enableLoyalty]
+            "MANUAL_DISCOUNT" -> vendor[VendorsTable.enableManualDiscount]
+            "OFFERS" -> vendor[VendorsTable.enableOffers]
+            "CASH_DRAWER" -> vendor[VendorsTable.enableCashDrawer]
+            "SPLIT_PAYMENT" -> vendor[VendorsTable.enableSplitPayment]
+            "CUSTOMER_CREDIT" -> vendor[VendorsTable.enableCustomerCredit]
+            "INSTALLMENTS" -> vendor[VendorsTable.enableInstallments]
+            "SUPPLIERS" -> vendor[VendorsTable.enableSuppliers]
+            "RETURNS" -> vendor[VendorsTable.enableReturns]
+            "PRESCRIPTIONS" -> vendor[VendorsTable.enablePrescriptions]
+            "DRUG_INTERACTIONS" -> vendor[VendorsTable.enableDrugInteractions]
+            "SCHEDULED_ORDERS" -> vendor[VendorsTable.enableScheduledOrders]
+            "KDS" -> vendor[VendorsTable.enableKds]
+            "RECIPE" -> vendor[VendorsTable.enableRecipe]
+            "ANNOUNCEMENTS" -> vendor[VendorsTable.enableAnnouncements]
+            else -> true // Unknown features are allowed by default
         }
 
-        val limits = getVendorPlanLimits(vendorId)
-        when (feature) {
-            "STOCK" -> if (!limits.stockManagement) throw FeatureNotAvailableException(
-                "Stock management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "WORKER", "ATTENDANCE" -> if (!limits.workerAttendance) throw FeatureNotAvailableException(
-                "Worker & attendance management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "OVERTIME" -> if (!limits.overtime) throw FeatureNotAvailableException(
-                "Overtime management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "SALARY" -> if (!limits.salaries) throw FeatureNotAvailableException(
-                "Salary management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "CUSTOMER" -> if (!limits.customerManagement) throw FeatureNotAvailableException(
-                "Customer management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "DELIVERY" -> if (!limits.deliveryModule) throw FeatureNotAvailableException(
-                "Delivery module is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "ANALYTICS" -> if (limits.analytics == "NONE") throw FeatureNotAvailableException(
-                "Analytics & dashboard is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "EXPORT" -> if (limits.analytics == "NONE") throw FeatureNotAvailableException(
-                "Data export is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "DIGITAL_MENU" -> if (limits.digitalMenu == "NONE") throw FeatureNotAvailableException(
-                "Digital menu is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "TABLE" -> if (!limits.tableManagement) throw FeatureNotAvailableException(
-                "Table management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "DIGITAL_RECEIPT" -> if (!limits.digitalReceipt) throw FeatureNotAvailableException(
-                "Digital receipt is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "WORKER_QRCODE" -> if (!limits.workerQrcode) throw FeatureNotAvailableException(
-                "Worker QR code / ID card is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "LOYALTY" -> if (!limits.loyaltyPoints) throw FeatureNotAvailableException(
-                "Loyalty points is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "MANUAL_DISCOUNT" -> if (!limits.manualDiscount) throw FeatureNotAvailableException(
-                "Manual discounts is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "OFFERS" -> if (!limits.offersManagement) throw FeatureNotAvailableException(
-                "Offers management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "CASH_DRAWER" -> if (!limits.cashDrawer) throw FeatureNotAvailableException(
-                "Cash drawer management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "SPLIT_PAYMENT" -> if (!limits.splitPayment) throw FeatureNotAvailableException(
-                "Split payment is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "CUSTOMER_CREDIT" -> if (!limits.customerCredit) throw FeatureNotAvailableException(
-                "Customer credit is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "INSTALLMENTS" -> if (!limits.installments) throw FeatureNotAvailableException(
-                "Installment plans are not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "SUPPLIERS" -> if (!limits.suppliers) throw FeatureNotAvailableException(
-                "Supplier management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "RETURNS" -> if (!limits.returns) throw FeatureNotAvailableException(
-                "Returns management is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "PRESCRIPTIONS" -> if (!limits.prescriptions) throw FeatureNotAvailableException(
-                "Prescriptions is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "DRUG_INTERACTIONS" -> if (!limits.drugInteractions) throw FeatureNotAvailableException(
-                "Drug interactions is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "SCHEDULED_ORDERS" -> if (!limits.scheduledOrders) throw FeatureNotAvailableException(
-                "Scheduled orders is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
-            "KDS" -> if (!limits.kds) throw FeatureNotAvailableException(
-                "Kitchen display system is not available on the ${limits.planDisplayName} plan. Please upgrade."
-            )
+        if (!enabled) {
+            throw FeatureNotAvailableException("This feature is not enabled for your store. Contact admin to enable it.")
         }
     }
 
@@ -389,7 +335,66 @@ class PlanService {
                     it[updatedAt] = Clock.System.now()
                 }
             }
-            logger.info("Vendor $vendorId assigned to plan $planName")
+            // Apply plan feature defaults to vendor toggles
+            applyPlanDefaults(vendorId, plan)
+
+            logger.info("Vendor $vendorId assigned to plan $planName — feature defaults applied")
+        }
+    }
+
+    /**
+     * Apply plan feature flags as defaults to vendor enable_* columns.
+     * Only sets flags that the plan defines — admin can override afterward.
+     */
+    private fun applyPlanDefaults(vendorId: UUID, plan: org.jetbrains.exposed.sql.ResultRow) {
+        transaction {
+            VendorsTable.update({ VendorsTable.id eq vendorId }) {
+                it[enableStock] = plan[SubscriptionPlansTable.stockManagement]
+                it[enableAttendance] = plan[SubscriptionPlansTable.workerAttendance]
+                it[enableDelivery] = plan[SubscriptionPlansTable.deliveryModule]
+                it[enableAnalytics] = plan[SubscriptionPlansTable.analytics] != "NONE"
+                it[enableExport] = plan[SubscriptionPlansTable.analytics] != "NONE"
+                it[enableDigitalMenu] = plan[SubscriptionPlansTable.digitalMenu] != "NONE"
+                it[enableOvertime] = plan[SubscriptionPlansTable.overtime]
+                it[enableSalary] = plan[SubscriptionPlansTable.salaries]
+                it[enableCustomers] = plan[SubscriptionPlansTable.customerManagement]
+                it[enableTables] = plan[SubscriptionPlansTable.tableManagement]
+                it[enableDigitalReceipt] = plan[SubscriptionPlansTable.digitalReceipt]
+                it[enableWorkerQrcode] = plan[SubscriptionPlansTable.workerQrcode]
+                it[enableLoyalty] = plan[SubscriptionPlansTable.loyaltyPoints]
+                it[enableManualDiscount] = plan[SubscriptionPlansTable.manualDiscount]
+                it[enableOffers] = plan[SubscriptionPlansTable.offersManagement]
+                it[enableCashDrawer] = plan[SubscriptionPlansTable.cashDrawer]
+                it[enableSplitPayment] = plan[SubscriptionPlansTable.splitPayment]
+                it[enableCustomerCredit] = plan[SubscriptionPlansTable.customerCredit]
+                it[enableInstallments] = plan[SubscriptionPlansTable.installments]
+                it[enableSuppliers] = plan[SubscriptionPlansTable.suppliers]
+                it[enableReturns] = plan[SubscriptionPlansTable.returns]
+                it[enablePrescriptions] = plan[SubscriptionPlansTable.prescriptions]
+                it[enableDrugInteractions] = plan[SubscriptionPlansTable.drugInteractions]
+                it[enableScheduledOrders] = plan[SubscriptionPlansTable.scheduledOrders]
+                it[enableKds] = plan[SubscriptionPlansTable.kds]
+                it[enableAnnouncements] = plan[SubscriptionPlansTable.notifications]
+                it[updatedAt] = Clock.System.now()
+            }
+        }
+    }
+
+    /**
+     * Reset vendor feature flags to their plan defaults.
+     * Admin can call this to "restore" a vendor's features to what the plan provides.
+     */
+    fun resetVendorToplanDefaults(vendorId: UUID) {
+        transaction {
+            val sub = VendorSubscriptionsTable.selectAll()
+                .where { VendorSubscriptionsTable.vendorId eq vendorId }
+                .firstOrNull() ?: throw NoSuchElementException("Vendor has no subscription")
+
+            val plan = SubscriptionPlansTable.selectAll()
+                .where { SubscriptionPlansTable.id eq sub[VendorSubscriptionsTable.planId] }
+                .first()
+
+            applyPlanDefaults(vendorId, plan)
         }
     }
 

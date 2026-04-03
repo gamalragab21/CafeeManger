@@ -22,11 +22,17 @@ class CashierInstallmentsViewModel(
         val selectedPlan: InstallmentPlan? = null,
         val isLoading: Boolean = true,
         val error: String? = null,
+        val statusFilter: String? = null,
         val showPaymentDialog: Boolean = false,
+        val targetPaymentId: String? = null,
         val paymentAmount: String = "",
         val paymentNote: String = "",
         val isSaving: Boolean = false,
-    )
+    ) {
+        val filteredPlans: List<InstallmentPlan>
+            get() = if (statusFilter == null) plans
+            else plans.filter { it.status == statusFilter }
+    }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -46,6 +52,10 @@ class CashierInstallmentsViewModel(
         }
     }
 
+    fun onStatusFilter(status: String?) {
+        _uiState.update { it.copy(statusFilter = status) }
+    }
+
     fun selectPlan(plan: InstallmentPlan) {
         viewModelScope.launch {
             installmentRepository.getPlan(plan.id)
@@ -56,7 +66,10 @@ class CashierInstallmentsViewModel(
 
     fun clearSelection() { _uiState.update { it.copy(selectedPlan = null) } }
 
-    fun showPaymentDialog() { _uiState.update { it.copy(showPaymentDialog = true, paymentAmount = "", paymentNote = "") } }
+    fun showPaymentDialogForPayment(paymentId: String?) {
+        _uiState.update { it.copy(showPaymentDialog = true, targetPaymentId = paymentId, paymentAmount = "", paymentNote = "") }
+    }
+
     fun dismissPaymentDialog() { _uiState.update { it.copy(showPaymentDialog = false) } }
     fun onPaymentAmount(v: String) { _uiState.update { it.copy(paymentAmount = v) } }
     fun onPaymentNote(v: String) { _uiState.update { it.copy(paymentNote = v) } }
@@ -70,7 +83,7 @@ class CashierInstallmentsViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            installmentRepository.recordPayment(plan.id, amount, s.paymentNote.ifBlank { null })
+            installmentRepository.recordPayment(plan.id, amount, s.paymentNote.ifBlank { null }, s.targetPaymentId)
                 .onSuccess {
                     _uiState.update { it.copy(isSaving = false, showPaymentDialog = false) }
                     selectPlan(plan)
