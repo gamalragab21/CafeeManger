@@ -58,7 +58,7 @@ import net.marllex.waselak.admin.session.AdminSessionManager
 import net.marllex.waselak.admin.ui.screens.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import androidx.activity.compose.BackHandler
+// BackHandler is Android-only; on Desktop, back navigation is handled via UI buttons
 import org.koin.compose.koinInject
 import waselak.app_admin.generated.resources.*
 import waselak.app_admin.generated.resources.Res
@@ -163,7 +163,7 @@ private fun MainScaffold(
         }
     }
 
-    BackHandler(enabled = canGoBack) { onBack() }
+    // Back navigation handled via UI back buttons (no system BackHandler on Desktop)
 
     ModalNavigationDrawer(
         drawerState = drawerState,

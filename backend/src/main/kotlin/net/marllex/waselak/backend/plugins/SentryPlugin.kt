@@ -51,7 +51,11 @@ fun Application.configureSentry() {
                 type = "http"
                 category = "http.request"
                 message = "$method $path -> $status (${duration}ms)"
-                level = if (status in 200..399) SentryLevel.INFO else SentryLevel.ERROR
+                level = when {
+                    status in 200..399 -> SentryLevel.INFO
+                    status in 400..499 -> SentryLevel.INFO // 4xx = expected business logic
+                    else -> SentryLevel.ERROR // 5xx = real server errors
+                }
                 setData("method", method)
                 setData("path", path)
                 setData("status_code", status.toString())
@@ -59,8 +63,11 @@ fun Application.configureSentry() {
             }
             Sentry.addBreadcrumb(breadcrumb)
 
-            // Capture 4xx/5xx responses as Sentry events
-            if (status in 400..599) {
+            // Only capture real server errors (500+) as Sentry events
+            // 4xx responses are expected business logic:
+            //   400 = bad request, 401 = expired token, 403 = feature not available,
+            //   404 = not found, 409 = conflict (duplicate)
+            if (status in 500..599) {
                 Sentry.withScope { scope ->
                     scope.setTag("http.method", method)
                     scope.setTag("http.path", path)
@@ -73,7 +80,7 @@ fun Application.configureSentry() {
                         this.message = Message().apply {
                             this.message = "HTTP $status: $method $path"
                         }
-                        level = if (status in 400..499) SentryLevel.WARNING else SentryLevel.ERROR
+                        level = SentryLevel.ERROR
                     }
                     Sentry.captureEvent(event)
                 }

@@ -34,19 +34,89 @@ object CrashReporter {
                 options.tracesSampleRate = 1.0
                 options.logs.enabled = true
                 options.beforeSend = { event ->
-                    event.setTag("app", appName)
-                    event.setTag("platform", platform)
-                    event.setTag("app_platform", "$appName-$platform")
-                    event.setTag("release", "$appName@$version")
-                    event
+                    // 1. Drop events with no exceptions (Sentry SDK diagnostic/thread dumps)
+                    val hasNoExceptions = event.exceptions.isNullOrEmpty()
+
+                    // 2. Drop business logic errors — not real crashes
+                    val isBusinessLogic = event.exceptions?.any { ex ->
+                        val type = ex.type ?: ""
+                        val value = ex.value ?: ""
+                        type.contains("CancellationException") ||
+                            value.contains("Job was cancelled") ||
+                            value.contains("FEATURE_NOT_AVAILABLE") ||
+                            value.contains("feature is not enabled") ||
+                            value.contains("not available on your current plan") ||
+                            value.contains("PLAN_LIMIT_EXCEEDED") ||
+                            value.contains("ACCOUNT_SUSPENDED") ||
+                            value.contains("PHONE_EXISTS") ||
+                            value.contains("No pending payments") ||
+                            value.contains("Plan not found") ||
+                            value.contains("Vendor not found") ||
+                            value.contains("requires network connection") ||
+                            value.contains("Invalid or expired token") ||
+                            value.contains("Unauthorized") ||
+                            value.contains("Unable to resolve host") ||
+                            value.contains("No address associated") ||
+                            type.contains("SocketTimeoutException") ||
+                            type.contains("ConnectException") ||
+                            type.contains("UnknownHostException") ||
+                            type.contains("ApiException") ||
+                            (type.contains("ClientRequestException") && (value.contains("401") || value.contains("403") || value.contains("409") || value.contains("400")))
+                    } == true
+
+                    if (hasNoExceptions || isBusinessLogic) {
+                        null // Drop the event
+                    } else {
+                        event.setTag("app", appName)
+                        event.setTag("platform", platform)
+                        event.setTag("app_platform", "$appName-$platform")
+                        event.setTag("release", "$appName@$version")
+                        event
+                    }
                 }
             }
             initialized = true
         } catch (_: Exception) { }
     }
 
+    /** Exceptions that are business logic, not real crashes — never send to Sentry */
+    private val ignoredMessages = listOf(
+        "CancellationException",
+        "Job was cancelled",
+        "FEATURE_NOT_AVAILABLE",
+        "feature is not enabled",
+        "not available on your current plan",
+        "PLAN_LIMIT_EXCEEDED",
+        "ACCOUNT_SUSPENDED",
+        "PHONE_EXISTS",
+        "No pending payments",
+        "Plan not found",
+        "Vendor not found",
+        "Invalid or expired token",
+        "Invalid credentials",
+        "Unauthorized",
+        "401",
+        "requires network connection",
+        "No address associated with hostname",
+        "Unable to resolve host",
+        "timeout",
+        "SocketTimeoutException",
+        "ConnectException",
+        "Bad Request",
+        "Not Found",
+        "already exists",
+    )
+
+    private fun shouldIgnore(throwable: Throwable): Boolean {
+        if (throwable is kotlinx.coroutines.CancellationException) return true
+        if (throwable.cause is kotlinx.coroutines.CancellationException) return true
+        val msg = throwable.message ?: ""
+        return ignoredMessages.any { msg.contains(it, ignoreCase = true) }
+    }
+
     fun captureException(throwable: Throwable) {
         if (!initialized) return
+        if (shouldIgnore(throwable)) return
         try { Sentry.captureException(throwable) } catch (_: Exception) { }
     }
 

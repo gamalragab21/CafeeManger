@@ -337,8 +337,10 @@ class PlanService {
             }
             // Apply plan feature defaults to vendor toggles
             applyPlanDefaults(vendorId, plan)
+            // Then apply business-type overrides (disable features that don't fit the business)
+            applyBusinessTypeOverrides(vendorId)
 
-            logger.info("Vendor $vendorId assigned to plan $planName — feature defaults applied")
+            logger.info("Vendor $vendorId assigned to plan $planName — feature defaults + business type overrides applied")
         }
     }
 
@@ -381,6 +383,61 @@ class PlanService {
     }
 
     /**
+     * After plan defaults are applied, override features based on business type.
+     * For example: retail/pharmacy should never have tables/dineIn/KDS enabled.
+     */
+    private fun applyBusinessTypeOverrides(vendorId: UUID) {
+        transaction {
+            val vendor = VendorsTable.selectAll().where { VendorsTable.id eq vendorId }.firstOrNull() ?: return@transaction
+            val bt = vendor[VendorsTable.businessType]
+
+            VendorsTable.update({ VendorsTable.id eq vendorId }) {
+                when (bt) {
+                    "PHARMACY" -> {
+                        it[enableTables] = false
+                        it[enableKds] = false
+                        it[enableDineIn] = false
+                        it[enableTakeaway] = false
+                        it[enableRecipe] = false
+                        it[enableInStore] = true
+                        it[enablePickupLater] = true
+                        it[enablePrescriptions] = true
+                        it[enableDrugInteractions] = true
+                    }
+                    "SUPERMARKET", "GROCERY" -> {
+                        it[enableTables] = false
+                        it[enableKds] = false
+                        it[enableDineIn] = false
+                        it[enableTakeaway] = false
+                        it[enableRecipe] = false
+                        it[enableInStore] = true
+                        it[enablePickupLater] = true
+                    }
+                    "RETAIL" -> {
+                        it[enableTables] = false
+                        it[enableKds] = false
+                        it[enableDineIn] = false
+                        it[enableTakeaway] = false
+                        it[enableDelivery] = false
+                        it[enableRecipe] = false
+                        it[enableInStore] = true
+                        it[enablePickupLater] = true
+                    }
+                    "BAKERY" -> {
+                        it[enableTables] = false
+                        it[enableDineIn] = false
+                        it[enableInStore] = true
+                        it[enablePickupLater] = true
+                    }
+                    // RESTAURANT, CAFE, JUICE_BAR — plan defaults are fine
+                    else -> { /* no overrides needed */ }
+                }
+                it[updatedAt] = Clock.System.now()
+            }
+        }
+    }
+
+    /**
      * Reset vendor feature flags to their plan defaults.
      * Admin can call this to "restore" a vendor's features to what the plan provides.
      */
@@ -395,6 +452,7 @@ class PlanService {
                 .first()
 
             applyPlanDefaults(vendorId, plan)
+            applyBusinessTypeOverrides(vendorId)
         }
     }
 

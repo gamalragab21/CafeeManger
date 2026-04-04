@@ -36,6 +36,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -189,6 +192,14 @@ private fun localizedTabTitle(tab: ManagerTab, businessType: String = "RESTAURAN
     ManagerTab.MORE -> stringResource(CoreRes.string.nav_more)
 }
 
+/** Returns the right icon for the MENU tab based on business type */
+private fun menuTabIcon(businessType: String?): ImageVector = when (businessType) {
+    "PHARMACY" -> Icons.Filled.LocalPharmacy
+    "SUPERMARKET", "GROCERY", "RETAIL" -> Icons.Filled.ShoppingCart
+    "JUICE_BAR", "CAFE" -> Icons.Filled.LocalCafe
+    else -> Icons.Filled.Restaurant // RESTAURANT, BAKERY, default
+}
+
 // --- Adaptive Bottom Bar (phone) ---
 @Composable
 private fun ManagerBottomBar(
@@ -220,7 +231,7 @@ private fun ManagerBottomBar(
                 },
                 icon = {
                     Icon(
-                        imageVector = tab.icon,
+                        imageVector = if (tab == ManagerTab.MENU) menuTabIcon(businessType) else tab.icon,
                         contentDescription = title,
                     )
                 },
@@ -273,7 +284,7 @@ private fun ManagerNavRail(
                 },
                 icon = {
                     Icon(
-                        imageVector = tab.icon,
+                        imageVector = if (tab == ManagerTab.MENU) menuTabIcon(businessType) else tab.icon,
                         contentDescription = title,
                     )
                 },
@@ -556,10 +567,25 @@ private fun MenuTabContent() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     data class MenuTab(val title: String, val key: String)
+    val bt = vendor?.businessType ?: "RESTAURANT"
+    val categoriesLabel = when (bt) {
+        "PHARMACY" -> stringResource(CoreRes.string.tab_categories_sections)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.tab_categories_sections)
+        else -> stringResource(CoreRes.string.tab_categories)
+    }
+    val itemsLabel = when (bt) {
+        "PHARMACY" -> stringResource(CoreRes.string.tab_items_medicines)
+        "SUPERMARKET", "GROCERY", "RETAIL" -> stringResource(CoreRes.string.tab_items_products)
+        else -> stringResource(CoreRes.string.tab_items)
+    }
+    val stockLabel = when (bt) {
+        "SUPERMARKET", "GROCERY", "RETAIL", "PHARMACY" -> stringResource(CoreRes.string.tab_stock_inventory)
+        else -> stringResource(CoreRes.string.tab_stock)
+    }
     val allTabs = buildList {
-        add(MenuTab(stringResource(CoreRes.string.tab_categories), "categories"))
-        add(MenuTab(stringResource(CoreRes.string.tab_items), "items"))
-        add(MenuTab(stringResource(CoreRes.string.tab_stock), "stock"))
+        add(MenuTab(categoriesLabel, "categories"))
+        add(MenuTab(itemsLabel, "items"))
+        add(MenuTab(stockLabel, "stock"))
         if (vendor?.enableDigitalMenu != false) {
             add(MenuTab(stringResource(CoreRes.string.tab_digital_menu), "digital_menu"))
         }

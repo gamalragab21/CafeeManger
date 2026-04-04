@@ -129,6 +129,10 @@
     <string name="tab_items">Items</string>
     <string name="tab_stock">Stock</string>
     <string name="tab_digital_menu">Digital Menu</string>
+    <string name="tab_categories_sections">Sections</string>
+    <string name="tab_items_products">Products</string>
+    <string name="tab_items_medicines">Medicines</string>
+    <string name="tab_stock_inventory">Inventory</string>
 
     <!-- Profile Sub-Tabs -->
     <string name="tab_store">Store</string>
