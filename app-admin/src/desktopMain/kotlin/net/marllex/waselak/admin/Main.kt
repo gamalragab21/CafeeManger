@@ -30,7 +30,7 @@ fun main() {
     application {
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Waselak Admin",
+            title = if (net.marllex.waselak.config.BuildConfig.IS_DEBUG) "Waselak Admin Debug" else "Waselak Admin",
             icon = painterResource("icon.png"),
             state = rememberWindowState(width = 1200.dp, height = 800.dp),
         ) {

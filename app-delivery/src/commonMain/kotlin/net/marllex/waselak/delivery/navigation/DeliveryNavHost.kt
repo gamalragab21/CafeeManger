@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -262,12 +263,10 @@ private fun DeliveryProfileScreen(
         ) {
             // Profile header card with store logo
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
                 ) {
                     Column(
                         modifier = Modifier
@@ -300,7 +299,7 @@ private fun DeliveryProfileScreen(
                             text = vendor?.name ?: "",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(8.dp))
                         ProfileAvatar(
@@ -337,7 +336,7 @@ private fun DeliveryProfileScreen(
                 }
 
                 item {
-                    Card(
+                    ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                     ) {
@@ -388,7 +387,7 @@ private fun DeliveryProfileScreen(
             }
 
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 ) {
@@ -436,7 +435,7 @@ private fun DeliveryProfileScreen(
             }
 
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 ) {

@@ -7,21 +7,23 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import net.marllex.waselak.core.ui.components.WaselakTopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.marllex.waselak.core.model.KdsOrder
@@ -36,6 +38,20 @@ import org.koin.compose.viewmodel.koinViewModel
 import waselak.core.core_ui.generated.resources.Res
 import waselak.core.core_ui.generated.resources.*
 
+private fun formatElapsedTime(minutes: Long): String {
+    val hrs = minutes / 60
+    val mins = minutes % 60
+    val secs = 0L // Backend sends whole minutes, show :00 for seconds
+    return if (hrs > 0) "%d:%02d:%02d".format(hrs, mins, secs)
+    else "%02d:%02d".format(mins, secs)
+}
+
+private val ColorPending = Color(0xFFFF9800)
+private val ColorCooking = Color(0xFF2196F3)
+private val ColorReady = Color(0xFF4CAF50)
+private val ColorServed = Color(0xFF9E9E9E)
+private val ColorUrgent = Color(0xFFD32F2F)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KdsDisplayScreen(
@@ -46,7 +62,6 @@ fun KdsDisplayScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
 
-    // Start/stop polling based on screen lifecycle
     DisposableEffect(viewModel) {
         viewModel.startPolling()
         onDispose { viewModel.stopPolling() }
@@ -60,9 +75,7 @@ fun KdsDisplayScreen(
                     Text(stringResource(Res.string.close))
                 }
             },
-            text = {
-                LanguageSelector()
-            },
+            text = { LanguageSelector() },
         )
     }
 
@@ -73,10 +86,14 @@ fun KdsDisplayScreen(
                 isLoading = uiState.isLoading,
                 onRefresh = viewModel::load,
                 actions = {
-                    // Summary chips
-                    SummaryChip(stringResource(Res.string.pending), uiState.summary.pending, Color(0xFFFF9800))
-                    SummaryChip(stringResource(Res.string.cooking), uiState.summary.cooking, Color(0xFF2196F3))
-                    SummaryChip(stringResource(Res.string.ready), uiState.summary.ready, Color(0xFF4CAF50))
+                    // Summary badges
+                    SummaryBadge(stringResource(Res.string.pending), uiState.summary.pending, ColorPending)
+                    Spacer(Modifier.width(4.dp))
+                    SummaryBadge(stringResource(Res.string.cooking), uiState.summary.cooking, ColorCooking)
+                    Spacer(Modifier.width(4.dp))
+                    SummaryBadge(stringResource(Res.string.ready), uiState.summary.ready, ColorReady)
+                    Spacer(Modifier.width(8.dp))
+
                     // Station filter
                     val stations = uiState.orders.flatMap { o -> o.items.mapNotNull { it.kitchenStation } }.distinct()
                     if (stations.isNotEmpty()) {
@@ -99,16 +116,16 @@ fun KdsDisplayScreen(
                         }
                     }
                     IconButton(onClick = { showLanguageDialog = true }) {
-                        Icon(Icons.Default.Language, contentDescription = "Language / اللغة")
+                        Icon(Icons.Default.Language, contentDescription = null)
                     }
                     IconButton(onClick = onNavigateToProfile) {
-                        Icon(Icons.Default.Person, contentDescription = stringResource(Res.string.profile))
+                        Icon(Icons.Default.Person, contentDescription = null)
                     }
                 },
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
             when {
                 uiState.isLoading && uiState.orders.isEmpty() -> LoadingIndicator()
                 uiState.error != null && uiState.orders.isEmpty() -> ErrorView(
@@ -125,10 +142,10 @@ fun KdsDisplayScreen(
                     }
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(columns),
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp),
                     ) {
                         items(uiState.orders, key = { it.orderId }) { order ->
                             KdsOrderCard(
@@ -152,27 +169,23 @@ fun KdsDisplayScreen(
 }
 
 @Composable
-private fun SummaryChip(label: String, count: Int, color: Color) {
+private fun SummaryBadge(label: String, count: Int, color: Color) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(20.dp),
         color = color.copy(alpha = 0.15f),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "$count",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = color,
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = color,
-            )
+            Box(
+                modifier = Modifier.size(24.dp).clip(CircleShape).background(color),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("$count", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
         }
     }
 }
@@ -183,83 +196,140 @@ private fun KdsOrderCard(
     onItemStatusChange: (String, String) -> Unit,
     onMarkAllReady: () -> Unit,
 ) {
+    val isUrgent = order.elapsedMinutes > 15
     val borderColor = when {
-        order.hasPendingItems -> Color(0xFFFF9800)
-        order.hasCookingItems -> Color(0xFF2196F3)
-        order.allReady -> Color(0xFF4CAF50)
-        else -> Color(0xFF9E9E9E)
+        isUrgent -> ColorUrgent
+        order.hasPendingItems -> ColorPending
+        order.hasCookingItems -> ColorCooking
+        order.allReady -> ColorReady
+        else -> ColorServed
     }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                drawRect(
-                    color = borderColor,
-                    topLeft = Offset.Zero,
-                    size = Size(6.dp.toPx(), size.height),
-                )
-            },
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Order header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(
-                        "#${order.orderNumber}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                    )
-                    Text(
-                        "${order.channel}${order.tableNumber?.let { stringResource(Res.string.table_label, it) } ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        stringResource(Res.string.elapsed_minutes, order.elapsedMinutes),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (order.elapsedMinutes > 15) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (!order.allReady) {
-                        Button(
-                            onClick = onMarkAllReady,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        Column {
+            // Top color bar
+            Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(borderColor))
+
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Header: Order # + Time
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    // Order number + channel
+                    Column {
+                        Text(
+                            "#${order.orderNumber}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(Res.string.all_ready), fontSize = 14.sp)
+                            Text(
+                                order.channel,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            order.tableNumber?.let {
+                                Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                    Text(
+                                        stringResource(Res.string.table_label, it),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Timer
+                    Column(horizontalAlignment = Alignment.End) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isUrgent) ColorUrgent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = if (isUrgent) ColorUrgent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    formatElapsedTime(order.elapsedMinutes),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isUrgent) ColorUrgent else MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 22.sp,
+                                )
+                            }
                         }
                     }
                 }
-            }
-            order.clientName?.let {
-                Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            }
-            order.notes?.let {
-                Text(
-                    stringResource(Res.string.note_prefix, it),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            // Items
-            order.items.forEach { item ->
-                KdsItemRow(
-                    item = item,
-                    onStatusChange = { status -> onItemStatusChange(item.id, status) },
-                )
-                Spacer(Modifier.height(6.dp))
+
+                // Client name
+                order.clientName?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                }
+
+                // Notes
+                order.notes?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    ) {
+                        Text(
+                            stringResource(Res.string.note_prefix, it),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(12.dp))
+
+                // Items
+                order.items.forEach { item ->
+                    KdsItemRow(
+                        item = item,
+                        onStatusChange = { status -> onItemStatusChange(item.id, status) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // Mark All Ready button
+                if (!order.allReady && !order.allServed) {
+                    Spacer(Modifier.height(4.dp))
+                    Button(
+                        onClick = onMarkAllReady,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ColorReady),
+                    ) {
+                        Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(Res.string.all_ready), fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -267,72 +337,91 @@ private fun KdsOrderCard(
 
 @Composable
 private fun KdsItemRow(item: KdsOrderItem, onStatusChange: (String) -> Unit) {
-    val bgColor = when {
-        item.isPending -> Color(0x1AFF9800)
-        item.isCooking -> Color(0x1A2196F3)
-        item.isReady -> Color(0x1A4CAF50)
-        item.isServed -> Color(0x1A9E9E9E)
+    val statusColor = when {
+        item.isPending -> ColorPending
+        item.isCooking -> ColorCooking
+        item.isReady -> ColorReady
+        item.isServed -> ColorServed
         else -> Color.Transparent
     }
+    val bgColor = statusColor.copy(alpha = 0.08f)
     val nextStatus = when {
         item.isPending -> "COOKING"
         item.isCooking -> "READY"
         item.isReady -> "SERVED"
         else -> null
     }
+    val buttonLabel = when {
+        item.isPending -> stringResource(Res.string.start)
+        item.isCooking -> stringResource(Res.string.ready)
+        item.isReady -> stringResource(Res.string.served)
+        else -> ""
+    }
+    val buttonColor = when {
+        item.isPending -> ColorPending
+        item.isCooking -> ColorCooking
+        item.isReady -> ColorReady
+        else -> ColorServed
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(bgColor, RoundedCornerShape(8.dp))
-            .padding(14.dp),
+            .background(bgColor, RoundedCornerShape(12.dp))
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Quantity badge
+        Box(
+            modifier = Modifier.size(36.dp).clip(CircleShape).background(statusColor.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "${item.quantity}x",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = statusColor,
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        // Item details
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "${item.quantity}x ${item.itemName}",
+                item.itemName,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
+                fontSize = 17.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             item.note?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium,
-                )
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
             }
             VariantDisplayHelper.formatVariantSummary(item.variantOptions)?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+
+        Spacer(Modifier.width(8.dp))
+
+        // Status button or served check
         if (nextStatus != null) {
             Button(
                 onClick = { onStatusChange(nextStatus) },
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
             ) {
-                Text(
-                    when (item.kitchenStatus) {
-                        "PENDING" -> stringResource(Res.string.start)
-                        "COOKING" -> stringResource(Res.string.ready)
-                        "READY" -> stringResource(Res.string.served)
-                        else -> item.kitchenStatus
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    fontSize = 16.sp,
-                )
+                Text(buttonLabel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         } else {
-            Text(
-                stringResource(Res.string.served),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = stringResource(Res.string.served),
+                modifier = Modifier.size(28.dp),
+                tint = ColorServed,
             )
         }
     }

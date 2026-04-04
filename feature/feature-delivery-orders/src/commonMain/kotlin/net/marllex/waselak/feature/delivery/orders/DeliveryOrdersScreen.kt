@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import net.marllex.waselak.core.ui.components.WaselakTopAppBar
@@ -65,6 +66,7 @@ import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.model.PaymentStatus
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -273,24 +275,23 @@ private fun DeliveryOrderCard(
     onConfirmPayment: () -> Unit = {},
 ) {
     val platformActions = rememberPlatformActions()
-    // Dynamic color logic based on status
-    val containerColor = when (order.status) {
-        OrderStatus.ASSIGNED -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
-        OrderStatus.OUT_FOR_DELIVERY -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-        OrderStatus.DELIVERED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-        OrderStatus.DELIVERY_FAILED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-        OrderStatus.RETURNED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        else -> MaterialTheme.colorScheme.surface
+    // Status accent color for the top strip
+    val accentColor = when (order.status) {
+        OrderStatus.ASSIGNED -> Color(0xFF9C27B0)       // Purple
+        OrderStatus.OUT_FOR_DELIVERY -> Color(0xFF2196F3) // Blue
+        OrderStatus.DELIVERED -> Color(0xFF4CAF50)        // Green
+        OrderStatus.DELIVERY_FAILED -> Color(0xFFF44336)  // Red
+        OrderStatus.RETURNED -> Color(0xFF757575)         // Grey
+        else -> MaterialTheme.colorScheme.primary
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
     ) {
+        // Status color strip
+        Box(modifier = Modifier.fillMaxWidth().height(5.dp).background(accentColor))
         Column(modifier = Modifier.padding(16.dp)) {
             // Header: ID and Status
             Row(
@@ -484,60 +485,55 @@ private fun AvailableOrderCard(
     onPickup: () -> Unit,
     onViewReceipt: () -> Unit,
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-        ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
     ) {
+        // Orange accent for available orders
+        Box(modifier = Modifier.fillMaxWidth().height(5.dp).background(Color(0xFFFF9800)))
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("#${order.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.titleMedium)
+                Text("#${order.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 OrderStatusChip(status = order.status)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             order.clientName?.let {
-                Text(text = "${stringResource(Res.string.client_name)}: $it", style = MaterialTheme.typography.bodyMedium)
+                Text(text = it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             }
             order.clientAddress?.let {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                    Text(text = " $it", style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 4.dp)) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFF44336))
+                    Text(text = " $it", style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = CurrencyFormatter.format(order.total),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
             Text(
                 text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedButton(
-                onClick = onViewReceipt,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Receipt, contentDescription = null)
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(Res.string.view_receipt))
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             Button(
                 onClick = onPickup,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
             ) {
                 Text(stringResource(Res.string.pick_up_order))
             }

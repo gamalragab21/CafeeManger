@@ -47,7 +47,7 @@ fun main() {
     application {
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Waselak KDS",
+            title = if (net.marllex.waselak.config.BuildConfig.IS_DEBUG) "Waselak KDS Debug" else "Waselak KDS",
         ) {
             val currentLang by currentLanguageState
             val layoutDirection = if (currentLang == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr

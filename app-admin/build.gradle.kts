@@ -31,6 +31,39 @@ android {
 compose.desktop {
     application {
         mainClass = "net.marllex.waselak.admin.MainKt"
+
+        nativeDistributions {
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
+            )
+            val isDebugDesktop = (project.findProperty("BUILD_ENV") as? String)?.lowercase() == "debug"
+            packageName = if (isDebugDesktop) "Waselak Admin Debug" else "Waselak Admin"
+            packageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
+            vendor = "Marllex"
+            description = if (isDebugDesktop) "Waselak Admin Debug" else "Waselak Admin Panel"
+
+            macOS {
+                bundleID = "net.marllex.waselak.admin"
+                val icns = project.file("src/desktopMain/resources/icon.icns")
+                if (icns.exists()) iconFile.set(icns)
+                dockName = if (isDebugDesktop) "Waselak Admin Debug" else "Waselak Admin"
+            }
+            windows {
+                val ico = project.file("src/desktopMain/resources/icon.ico")
+                if (ico.exists()) iconFile.set(ico)
+                menuGroup = "Waselak"
+                shortcut = true
+                perUserInstall = true
+            }
+            linux {
+                val png = project.file("src/desktopMain/resources/icon.png")
+                if (png.exists()) iconFile.set(png)
+                packageName = "waselak-admin"
+                menuGroup = "Waselak"
+            }
+        }
     }
 }
 

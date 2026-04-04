@@ -1,35 +1,22 @@
 package net.marllex.waselak.feature.delivery.orders.history
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.*
 import net.marllex.waselak.core.ui.components.WaselakTopAppBar
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
@@ -58,73 +45,87 @@ fun DeliveryHistoryScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-        when {
-            uiState.isLoading && uiState.grouped.isEmpty() -> LoadingIndicator()
-            uiState.error != null && uiState.grouped.isEmpty() -> ErrorView(message = uiState.error ?: "Error", onRetry = viewModel::load)
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                uiState.grouped.forEach { (day, orders) ->
-                    item {
-                        Text(day, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when {
+                uiState.isLoading && uiState.grouped.isEmpty() -> LoadingIndicator()
+                uiState.error != null && uiState.grouped.isEmpty() -> ErrorView(
+                    message = uiState.error ?: "Error",
+                    onRetry = viewModel::load,
+                )
+                uiState.grouped.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                            Spacer(Modifier.height(12.dp))
+                            Text(stringResource(Res.string.no_deliveries_yet), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    items(orders, key = { it.id }) { order ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    uiState.grouped.forEach { (day, orders) ->
+                        item {
                             Row(
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                // Left Side: Order Details
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                HorizontalDivider(modifier = Modifier.weight(1f))
+                                Text(
+                                    day,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                HorizontalDivider(modifier = Modifier.weight(1f))
+                            }
+                        }
+                        items(orders, key = { it.id }) { order ->
+                            ElevatedCard(
+                                onClick = { onViewReceipt(order.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        text = "#${order.id.takeLast(6).uppercase()}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    // Success icon
+                                    Box(
+                                        modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF4CAF50).copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF4CAF50))
+                                    }
 
-                                    Text(
-                                        text = stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                    )
-                                }
+                                    Spacer(Modifier.width(14.dp))
 
-                                // Right Side: Action Button
-                                // We use a Surface or OutlinedIconButton to make it more "tappable"
-                                Surface(
-                                    onClick = { onViewReceipt(order.id) },
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = MaterialTheme.shapes.small,
-                                    modifier = Modifier.size(48.dp) // Standard touch target size
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Receipt,
-                                            contentDescription = "View receipt",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(24.dp)
+                                    // Order details
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "#${order.id.takeLast(6).uppercase()}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
                                         )
+                                        Text(
+                                            stringResource(Res.string.items_count_total, order.items.size, CurrencyFormatter.format(order.total)),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+
+                                    // Total amount
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            CurrencyFormatter.format(order.total),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Icon(Icons.Default.Receipt, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -132,7 +133,6 @@ fun DeliveryHistoryScreen(
                     }
                 }
             }
-        }
         }
     }
 }

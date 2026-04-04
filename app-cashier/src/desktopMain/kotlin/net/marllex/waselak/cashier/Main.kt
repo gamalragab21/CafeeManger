@@ -50,7 +50,7 @@ fun main() {
     application {
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Waslek Cashier",
+            title = if (net.marllex.waselak.config.BuildConfig.IS_DEBUG) "Waselak Cashier Debug" else "Waselak Cashier",
             icon = painterResource("icon.png"),
         ) {
             val currentLang by currentLanguageState
