@@ -1706,6 +1706,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                     { orderId -> navController.navigate("${CashierDrawerItem.SPLIT_PAYMENT.route}/$orderId") }
                 } else null,
                 businessType = vendor?.businessType,
+                enableReturns = vendor?.enableReturns == true,
             )
         }
         composable(CashierTab.TABLES.route) {

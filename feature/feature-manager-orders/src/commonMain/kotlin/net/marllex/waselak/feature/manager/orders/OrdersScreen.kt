@@ -133,6 +133,7 @@ fun OrdersScreen(
     onViewReceipt: ((String) -> Unit)? = null,
     onSplitPayment: ((String) -> Unit)? = null,
     businessType: String? = null,
+    enableReturns: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
@@ -270,8 +271,8 @@ fun OrdersScreen(
                                     onSplitPayment = if (onSplitPayment != null && order.paymentStatus == PaymentStatus.PENDING && order.status != OrderStatus.CANCELED) {
                                         { onSplitPayment(order.id) }
                                     } else null,
-                                    onReturn = if ((order.status == OrderStatus.COMPLETED || order.status == OrderStatus.REFUNDED) &&
-                                        businessType in listOf("PHARMACY", "RETAIL")) {
+                                    onReturn = if (enableReturns &&
+                                        (order.status == OrderStatus.COMPLETED || order.status == OrderStatus.REFUNDED)) {
                                         { viewModel.showReturnDialog(order) }
                                     } else null,
                                     onCopyOrderId = { platformActions.copyToClipboard(order.id) },

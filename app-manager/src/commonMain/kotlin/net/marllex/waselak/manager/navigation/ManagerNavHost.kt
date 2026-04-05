@@ -427,6 +427,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                                 navController.navigateToReceipt(orderId)
                             },
                             businessType = vendor?.businessType,
+                            enableReturns = vendor?.enableReturns == true,
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
@@ -507,6 +508,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                                 navController.navigateToReceipt(orderId)
                             },
                             businessType = vendor?.businessType,
+                            enableReturns = vendor?.enableReturns == true,
                         )
                     }
                     composable(ManagerTab.MENU.route) { MenuTabContent() }
