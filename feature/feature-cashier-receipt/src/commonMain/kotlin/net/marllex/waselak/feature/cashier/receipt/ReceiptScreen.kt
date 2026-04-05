@@ -83,13 +83,8 @@ import qrgenerator.qrkitpainter.rememberQrKitPainter
 import net.marllex.waselak.feature.cashier.receipt.generated.resources.*
 
 @Composable
-private fun localizedChannel(channel: OrderChannel, businessType: String? = null): String = when (channel) {
-    OrderChannel.DINE_IN -> if (businessType == "PHARMACY") stringResource(Res.string.channel_direct_dispense) else stringResource(Res.string.channel_dine_in)
-    OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
-    OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
-    OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
-    OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
-}
+private fun localizedChannel(channel: OrderChannel, businessType: String? = null): String =
+    net.marllex.waselak.core.ui.components.formatChannelLabel(channel, businessType)
 
 @Composable
 private fun localizedPayment(method: PaymentMethod): String = when (method) {

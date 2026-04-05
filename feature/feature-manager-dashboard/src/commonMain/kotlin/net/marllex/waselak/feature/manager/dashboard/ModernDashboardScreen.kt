@@ -154,6 +154,7 @@ fun ModernDashboardScreen(
                 TodaySnapshotSection(
                     state = uiState.executiveSummary,
                     onRetry = viewModel::loadDashboard,
+                    showDelivery = uiState.vendor?.enableDelivery != false,
                 )
             }
 
@@ -172,6 +173,7 @@ fun ModernDashboardScreen(
                     bestCashier = uiState.bestCashier,
                     bestDriver = uiState.bestDriver,
                     onRetry = viewModel::loadDashboard,
+                    showDelivery = uiState.vendor?.enableDelivery != false,
                 )
             }
 
@@ -236,6 +238,7 @@ fun ModernDashboardScreen(
 private fun TodaySnapshotSection(
     state: SectionState<net.marllex.waselak.core.model.ExecutiveSummary>,
     onRetry: () -> Unit,
+    showDelivery: Boolean = true,
 ) {
     SectionContainer(
         title = stringResource(Res.string.today_snapshot),
@@ -266,11 +269,13 @@ private fun TodaySnapshotSection(
                 changePercent = summary.aovChangePercent,
                 modifier = Modifier.weight(1f),
             )
-            KpiCard(
-                label = stringResource(Res.string.delivery_fees),
-                value = "${formatCurrency(summary.current.totalDeliveryFees)} EGP",
-                modifier = Modifier.weight(1f),
-            )
+            if (showDelivery) {
+                KpiCard(
+                    label = stringResource(Res.string.delivery_fees),
+                    value = "${formatCurrency(summary.current.totalDeliveryFees)} EGP",
+                    modifier = Modifier.weight(1f),
+                )
+            }
             KpiCard(
                 label = stringResource(Res.string.active_orders),
                 value = formatNumber(summary.activeOrders),
@@ -321,6 +326,7 @@ private fun TopPerformanceSection(
     bestCashier: SectionState<net.marllex.waselak.core.model.CashierPerformanceV2?>,
     bestDriver: SectionState<net.marllex.waselak.core.model.DeliveryPerformanceV2?>,
     onRetry: () -> Unit,
+    showDelivery: Boolean = true,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -426,8 +432,8 @@ private fun TopPerformanceSection(
                     }
                 }
 
-                // Best Driver
-                Column(modifier = Modifier.weight(1f)) {
+                // Best Driver (only if delivery is enabled)
+                if (showDelivery) Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(Res.string.best_driver),
                         style = MaterialTheme.typography.labelLarge,

@@ -62,6 +62,7 @@ fun ModernFilterSection(
     onDateRangeSelected: (Long?, Long?) -> Unit,
     onClearAll: () -> Unit,
     onShowDatePicker: () -> Unit,
+    enabledChannels: Set<String> = setOf("DINE_IN", "DELIVERY", "TAKEAWAY", "IN_STORE", "PICKUP_LATER"),
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -211,61 +212,73 @@ fun ModernFilterSection(
                     .padding(top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Channel Filter
-                FilterGroup(
-                    title = stringResource(Res.string.channel),
-                    icon = Icons.Default.Store
-                ) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                // Channel Filter — only show channels enabled for this vendor
+                if (enabledChannels.size > 1) {
+                    FilterGroup(
+                        title = stringResource(Res.string.channel),
+                        icon = Icons.Default.Store
                     ) {
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.all),
-                                selected = selectedChannel == null,
-                                onClick = { onChannelSelected(null) }
-                            )
-                        }
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.channel_dine_in),
-                                selected = selectedChannel == "DINE_IN",
-                                onClick = { onChannelSelected("DINE_IN") },
-                                icon = Icons.Default.Restaurant
-                            )
-                        }
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.channel_delivery),
-                                selected = selectedChannel == "DELIVERY",
-                                onClick = { onChannelSelected("DELIVERY") },
-                                icon = Icons.Default.DeliveryDining
-                            )
-                        }
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.channel_takeaway),
-                                selected = selectedChannel == "TAKEAWAY",
-                                onClick = { onChannelSelected("TAKEAWAY") },
-                                icon = Icons.Default.ShoppingBag
-                            )
-                        }
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.channel_in_store),
-                                selected = selectedChannel == "IN_STORE",
-                                onClick = { onChannelSelected("IN_STORE") },
-                                icon = Icons.Default.Store
-                            )
-                        }
-                        item {
-                            ModernFilterChip(
-                                label = stringResource(Res.string.channel_pickup_later),
-                                selected = selectedChannel == "PICKUP_LATER",
-                                onClick = { onChannelSelected("PICKUP_LATER") },
-                                icon = Icons.Default.Schedule
-                            )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            item {
+                                ModernFilterChip(
+                                    label = stringResource(Res.string.all),
+                                    selected = selectedChannel == null,
+                                    onClick = { onChannelSelected(null) }
+                                )
+                            }
+                            if ("DINE_IN" in enabledChannels) {
+                                item {
+                                    ModernFilterChip(
+                                        label = stringResource(Res.string.channel_dine_in),
+                                        selected = selectedChannel == "DINE_IN",
+                                        onClick = { onChannelSelected("DINE_IN") },
+                                        icon = Icons.Default.Restaurant
+                                    )
+                                }
+                            }
+                            if ("DELIVERY" in enabledChannels) {
+                                item {
+                                    ModernFilterChip(
+                                        label = stringResource(Res.string.channel_delivery),
+                                        selected = selectedChannel == "DELIVERY",
+                                        onClick = { onChannelSelected("DELIVERY") },
+                                        icon = Icons.Default.DeliveryDining
+                                    )
+                                }
+                            }
+                            if ("TAKEAWAY" in enabledChannels) {
+                                item {
+                                    ModernFilterChip(
+                                        label = stringResource(Res.string.channel_takeaway),
+                                        selected = selectedChannel == "TAKEAWAY",
+                                        onClick = { onChannelSelected("TAKEAWAY") },
+                                        icon = Icons.Default.ShoppingBag
+                                    )
+                                }
+                            }
+                            if ("IN_STORE" in enabledChannels) {
+                                item {
+                                    ModernFilterChip(
+                                        label = stringResource(Res.string.channel_in_store),
+                                        selected = selectedChannel == "IN_STORE",
+                                        onClick = { onChannelSelected("IN_STORE") },
+                                        icon = Icons.Default.Store
+                                    )
+                                }
+                            }
+                            if ("PICKUP_LATER" in enabledChannels) {
+                                item {
+                                    ModernFilterChip(
+                                        label = stringResource(Res.string.channel_pickup_later),
+                                        selected = selectedChannel == "PICKUP_LATER",
+                                        onClick = { onChannelSelected("PICKUP_LATER") },
+                                        icon = Icons.Default.Schedule
+                                    )
+                                }
+                            }
                         }
                     }
                 }

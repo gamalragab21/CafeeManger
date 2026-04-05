@@ -174,3 +174,20 @@ fun formatStatusLabel(status: OrderStatus): String {
         OrderStatus.REFUNDED -> stringResource(Res.string.status_refunded)
     }
 }
+
+/**
+ * Returns the localized channel label based on business type.
+ * Use this everywhere instead of hardcoding channel names.
+ */
+@Composable
+fun formatChannelLabel(channel: net.marllex.waselak.core.model.OrderChannel, businessType: String? = null): String =
+    when (channel) {
+        net.marllex.waselak.core.model.OrderChannel.DINE_IN -> when (businessType) {
+            "PHARMACY" -> stringResource(Res.string.channel_direct_dispense)
+            else -> stringResource(Res.string.channel_dine_in)
+        }
+        net.marllex.waselak.core.model.OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
+        net.marllex.waselak.core.model.OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
+        net.marllex.waselak.core.model.OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
+        net.marllex.waselak.core.model.OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
+    }

@@ -1642,18 +1642,28 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         vendor?.enableCustomerCredit,
         vendor?.enableReturns,
         vendor?.enableCashDrawer,
+        vendor?.enableDelivery,
+        vendor?.enableAttendance,
+        vendor?.enableOvertime,
+        vendor?.enableAnnouncements,
     ) {
         CashierDrawerItem.entries.filter { item ->
             when (item) {
+                CashierDrawerItem.DELIVERY -> vendor?.enableDelivery != false && domainFeatures.hasDelivery
+                CashierDrawerItem.ANNOUNCEMENTS -> vendor?.enableAnnouncements != false
+                CashierDrawerItem.ATTENDANCE -> vendor?.enableAttendance != false
+                CashierDrawerItem.OVERTIME -> vendor?.enableOvertime != false
                 CashierDrawerItem.KDS -> vendor?.enableKds != false && domainFeatures.hasKDS
                 CashierDrawerItem.SCHEDULED_ORDERS -> domainFeatures.hasPreOrders && vendor?.enableScheduledOrders != false
-                CashierDrawerItem.PRESCRIPTIONS -> false // Removed: doctor info is now part of orders
+                CashierDrawerItem.PRESCRIPTIONS -> false
                 CashierDrawerItem.SPLIT_PAYMENT -> domainFeatures.hasSplitPayments && vendor?.enableSplitPayment != false
                 CashierDrawerItem.CUSTOMER_CREDIT -> domainFeatures.hasCustomerCredit && vendor?.enableCustomerCredit != false
                 CashierDrawerItem.INSTALLMENTS -> domainFeatures.hasInstallments && vendor?.enableInstallments != false
                 CashierDrawerItem.RETURNS -> domainFeatures.hasReturns && vendor?.enableReturns != false
                 CashierDrawerItem.CASH_DRAWER -> vendor?.enableCashDrawer != false
-                else -> true
+                CashierDrawerItem.NOTIFICATIONS -> true
+                CashierDrawerItem.ABOUT -> true
+                CashierDrawerItem.PROFILE -> true
             }
         }
     }

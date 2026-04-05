@@ -196,6 +196,18 @@ fun OrdersScreen(
             )
 
             else -> Column(modifier = Modifier.fillMaxSize()) {
+                // Compute enabled channels based on business type
+                val enabledChannels = remember(businessType) {
+                    when (businessType?.uppercase()) {
+                        "PHARMACY" -> setOf("IN_STORE", "DELIVERY", "PICKUP_LATER")
+                        "RETAIL" -> setOf("IN_STORE", "PICKUP_LATER")
+                        "SUPERMARKET", "GROCERY" -> setOf("IN_STORE", "DELIVERY", "PICKUP_LATER")
+                        "BAKERY" -> setOf("IN_STORE", "DELIVERY", "TAKEAWAY", "PICKUP_LATER")
+                        "JUICE_BAR" -> setOf("DINE_IN", "DELIVERY", "TAKEAWAY")
+                        else -> setOf("DINE_IN", "DELIVERY", "TAKEAWAY") // RESTAURANT, CAFE
+                    }
+                }
+
                 // Modern Filter Section
                 ModernFilterSection(
                     selectedChannel = uiState.selectedChannel,
@@ -216,7 +228,8 @@ fun OrdersScreen(
                     onTableSelected = viewModel::filterByTable,
                     onDateRangeSelected = viewModel::filterByDateRange,
                     onClearAll = viewModel::clearAllFilters,
-                    onShowDatePicker = { showDatePicker = true }
+                    onShowDatePicker = { showDatePicker = true },
+                    enabledChannels = enabledChannels,
                 )
 
                 if (uiState.orders.isEmpty()) {

@@ -259,13 +259,7 @@ fun PosScreen(
                                 shape = SegmentedButtonDefaults.itemShape(index, availableChannels.size),
                             ) {
                                 Text(
-                                    when (channel) {
-                                        OrderChannel.DINE_IN -> if (uiState.businessType == "PHARMACY") stringResource(Res.string.channel_direct_dispense) else stringResource(Res.string.channel_dine_in)
-                                        OrderChannel.DELIVERY -> stringResource(Res.string.channel_delivery)
-                                        OrderChannel.TAKEAWAY -> stringResource(Res.string.channel_takeaway)
-                                        OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
-                                        OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
-                                    }
+                                    net.marllex.waselak.core.ui.components.formatChannelLabel(channel, uiState.businessType)
                                 )
                             }
                         }
@@ -1771,7 +1765,7 @@ private fun CartBottomSheet(
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
                     val selectableMethods = PaymentMethod.entries.filter {
-                        it != PaymentMethod.SPLIT && (it != PaymentMethod.CREDIT || uiState.businessType == "PHARMACY")
+                        it != PaymentMethod.SPLIT && (it != PaymentMethod.CREDIT || uiState.enableCustomerCredit)
                     }
                     Text(stringResource(Res.string.payment_method_label), style = MaterialTheme.typography.labelMedium)
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
