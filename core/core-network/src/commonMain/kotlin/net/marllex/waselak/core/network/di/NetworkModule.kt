@@ -93,6 +93,22 @@ val networkModule = module {
                     val queryString = response.call.request.url.encodedQuery
                     val fullPath = if (queryString.isNotBlank()) "$path?$queryString" else path
 
+                    // Skip body reading for binary/static paths (images, uploads)
+                    // Reading the body here via save() consumes the stream, breaking
+                    // Coil image loading which needs to read the bytes afterwards.
+                    val isBinaryPath = path.contains("/uploads") || path.contains("/upload")
+                    if (isBinaryPath) {
+                        CrashReporter.logNetwork(method, fullPath, status, 0L)
+                        if (!response.status.isSuccess()) {
+                            throw ApiException(
+                                statusCode = response.status.value,
+                                errorMessage = "HTTP ${response.status.value}: ${response.status.description}",
+                                errorType = null
+                            )
+                        }
+                        return@validateResponse
+                    }
+
                     // Log request details to Sentry
                     val reqBody = try {
                         when (val body = response.call.request.content) {
