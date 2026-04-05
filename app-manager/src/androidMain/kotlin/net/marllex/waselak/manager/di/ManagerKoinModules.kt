@@ -32,6 +32,7 @@ import net.marllex.waselak.feature.manager.offers.OffersViewModel
 import net.marllex.waselak.manager.customercredit.CustomerCreditViewModel
 import net.marllex.waselak.manager.doctorstats.DoctorStatsViewModel
 import net.marllex.waselak.manager.druginteractions.DrugInteractionsViewModel
+import net.marllex.waselak.manager.cashdrawer.ManagerCashDrawerViewModel
 import net.marllex.waselak.manager.notifications.NotificationsViewModel
 import net.marllex.waselak.manager.offline.OfflineSettingsViewModel
 import net.marllex.waselak.manager.installments.InstallmentsViewModel
@@ -92,4 +93,5 @@ private val managerAppModule = module {
     viewModelOf(::DrugInteractionsViewModel)
     viewModelOf(::CustomerCreditViewModel)
     viewModelOf(::DoctorStatsViewModel)
+    viewModelOf(::ManagerCashDrawerViewModel)
 }
