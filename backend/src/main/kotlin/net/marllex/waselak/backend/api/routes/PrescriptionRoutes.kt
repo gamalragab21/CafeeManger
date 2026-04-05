@@ -140,7 +140,7 @@ fun Route.prescriptionRoutes() {
                         val items = PrescriptionItemsTable.selectAll().where {
                             PrescriptionItemsTable.prescriptionId eq rxId
                         }.map { it.toPrescriptionItemDto() }
-                        row.toPrescriptionDto(items)
+                        row.toPrescriptionDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
                     }
             }
             trace.step("Prescriptions listed", mapOf("count" to prescriptions.size.toString()))
@@ -165,7 +165,7 @@ fun Route.prescriptionRoutes() {
                     PrescriptionItemsTable.prescriptionId eq row[PrescriptionsTable.id]
                 }.map { it.toPrescriptionItemDto() }
 
-                row.toPrescriptionDto(items)
+                row.toPrescriptionDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             call.respond(HttpStatusCode.OK, prescription)
         }
@@ -460,7 +460,7 @@ fun Route.prescriptionRoutes() {
                     PrescriptionItemsTable.prescriptionId eq rxUUID
                 }.map { it.toPrescriptionItemDto() }
 
-                updatedRow.toPrescriptionDto(items)
+                updatedRow.toPrescriptionDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             trace.step("Prescription dispensed", mapOf("id" to id, "status" to result.status))
             call.respond(HttpStatusCode.OK, result)
@@ -503,7 +503,7 @@ fun Route.prescriptionRoutes() {
 
 // ─── Mappers ────────────────────────────────────────────────────
 
-private fun ResultRow.toPrescriptionDto(items: List<PrescriptionItemDto> = emptyList()) = PrescriptionDto(
+private fun ResultRow.toPrescriptionDto(items: List<PrescriptionItemDto> = emptyList(), host: String = "localhost:8080", scheme: String = "http") = PrescriptionDto(
     id = this[PrescriptionsTable.id].toString(),
     vendor_id = this[PrescriptionsTable.vendorId].toString(),
     customer_id = this[PrescriptionsTable.customerId]?.toString(),
@@ -515,7 +515,7 @@ private fun ResultRow.toPrescriptionDto(items: List<PrescriptionItemDto> = empty
     patient_age = this[PrescriptionsTable.patientAge],
     diagnosis = this[PrescriptionsTable.diagnosis],
     notes = this[PrescriptionsTable.notes],
-    image_url = this[PrescriptionsTable.imageUrl],
+    image_url = rewriteUploadUrl(this[PrescriptionsTable.imageUrl], host, scheme),
     status = this[PrescriptionsTable.status],
     expires_at = this[PrescriptionsTable.expiresAt]?.toEpochMilliseconds(),
     dispensed_at = this[PrescriptionsTable.dispensedAt]?.toEpochMilliseconds(),

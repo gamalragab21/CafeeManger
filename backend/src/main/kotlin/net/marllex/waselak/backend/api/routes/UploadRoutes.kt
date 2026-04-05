@@ -17,6 +17,7 @@ import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
+import java.net.URLEncoder
 import java.util.UUID
 
 @Serializable
@@ -40,9 +41,9 @@ fun Route.uploadRoutes() {
                     .firstOrNull()?.get(VendorsTable.name)
             } ?: "unknown"
 
-            // Create sanitized folder name: vendorname-vendorid
-            val sanitizedVendorName = vendorName.replace(Regex("[^a-zA-Z0-9\\u0600-\\u06FF-_ ]"), "").trim().replace(" ", "-").take(50)
-            val vendorFolder = "${sanitizedVendorName}-${principal.vendorId}"
+            // Create sanitized folder name: vendorname-vendorid (ASCII-only for URL safety)
+            val sanitizedVendorName = vendorName.replace(Regex("[^a-zA-Z0-9-_ ]"), "").trim().replace(" ", "-").take(50)
+            val vendorFolder = if (sanitizedVendorName.isBlank()) principal.vendorId else "${sanitizedVendorName}-${principal.vendorId}"
             trace.step("Vendor folder resolved", mapOf("vendorFolder" to vendorFolder))
 
             // Build base URL from request headers (works with ngrok / reverse proxies)
@@ -110,7 +111,8 @@ fun Route.uploadRoutes() {
             }
 
             if (uploadedFileName != null) {
-                val fullUrl = "$baseUrl/uploads/$vendorFolder/$uploadedFileName"
+                val encodedFolder = URLEncoder.encode(vendorFolder, "UTF-8").replace("+", "%20")
+                val fullUrl = "$baseUrl/uploads/$encodedFolder/$uploadedFileName"
                 trace.step("File upload completed", mapOf("url" to fullUrl))
                 call.respond(HttpStatusCode.OK, UploadResponse(url = fullUrl))
             } else {
@@ -124,14 +126,21 @@ fun Route.uploadRoutes() {
 /**
  * Rewrites a stored upload URL to use the current host.
  * Handles stale ngrok/proxy URLs by extracting the filename and rebuilding with current host.
+ * URL-encodes path segments to handle non-ASCII (e.g. Arabic) folder names safely.
  * Returns null if the input URL is null or blank.
  */
 fun rewriteUploadUrl(storedUrl: String?, currentHost: String, currentScheme: String): String? {
     if (storedUrl.isNullOrBlank()) return null
     if (!storedUrl.contains("/uploads/")) return storedUrl
-    val fileName = storedUrl.substringAfterLast("/uploads/")
-    if (fileName.isBlank()) return storedUrl
-    return "$currentScheme://$currentHost/uploads/$fileName"
+    val relativePath = storedUrl.substringAfterLast("/uploads/")
+    if (relativePath.isBlank()) return storedUrl
+    // URL-encode each path segment to handle Arabic/non-ASCII folder names
+    val encodedPath = relativePath.split("/").joinToString("/") { segment ->
+        // Don't re-encode segments that are already encoded (contain %)
+        if (segment.contains("%")) segment
+        else URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+    }
+    return "$currentScheme://$currentHost/uploads/$encodedPath"
 }
 
 /**

@@ -140,7 +140,7 @@ fun Route.offerRoutes() {
                 offerRows.map { row ->
                     val offerId = row[OffersTable.id].value
                     val items = loadOfferItems(offerId)
-                    row.toOfferDto(items)
+                    row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
                 }
             }
             trace.step("Offers retrieved", mapOf("count" to offers.size.toString()))
@@ -164,7 +164,7 @@ fun Route.offerRoutes() {
                     }.firstOrNull() ?: throw NoSuchElementException("Offer not found")
 
                 val items = loadOfferItems(row[OffersTable.id].value)
-                row.toOfferDto(items)
+                row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             trace.step("Offer found", mapOf("offerId" to offer.id, "name" to offer.name))
             trace.step("Get offer by ID completed")
@@ -240,7 +240,7 @@ fun Route.offerRoutes() {
                     .where { OffersTable.id eq offerId }
                     .first()
                 val items = loadOfferItems(offerId.value)
-                row.toOfferDto(items)
+                row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             trace.step("Offer created", mapOf("offerId" to offer.id, "name" to offer.name, "itemsCount" to offer.items.size.toString()))
             trace.step("Create offer completed")
@@ -337,7 +337,7 @@ fun Route.offerRoutes() {
                     .where { OffersTable.id eq offerUuid }
                     .first()
                 val items = loadOfferItems(offerUuid)
-                val offerDto = row.toOfferDto(items)
+                val offerDto = row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
 
                 // Determine if old image needs cleanup (image changed)
                 val imageToDelete = if (request.image_url != null && oldImageUrl != null && oldImageUrl != request.image_url) {
@@ -429,7 +429,7 @@ fun Route.offerRoutes() {
                     ?: throw NoSuchElementException("Invalid or expired promo code")
 
                 val items = loadOfferItems(row[OffersTable.id].value)
-                row.toOfferDto(items)
+                row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             trace.step("Promo code applied", mapOf("offerId" to offer.id, "name" to offer.name))
             trace.step("Apply promo code completed")
@@ -468,7 +468,7 @@ fun Route.offerRoutes() {
                     .where { OffersTable.id eq offerUuid }
                     .first()
                 val items = loadOfferItems(offerUuid)
-                row.toOfferDto(items)
+                row.toOfferDto(items, call.request.header("Host") ?: "localhost:8080", call.request.header("X-Forwarded-Proto") ?: "http")
             }
             trace.step("Offer toggled", mapOf("offerId" to offer.id, "active" to offer.active.toString()))
             trace.step("Toggle offer completed")
@@ -497,12 +497,12 @@ private fun loadOfferItems(offerId: UUID): List<OfferItemDto> {
         }
 }
 
-private fun ResultRow.toOfferDto(items: List<OfferItemDto>) = OfferDto(
+private fun ResultRow.toOfferDto(items: List<OfferItemDto>, host: String = "localhost:8080", scheme: String = "http") = OfferDto(
     id = this[OffersTable.id].toString(),
     vendor_id = this[OffersTable.vendorId].toString(),
     name = this[OffersTable.name],
     description = this[OffersTable.description],
-    image_url = this[OffersTable.imageUrl],
+    image_url = rewriteUploadUrl(this[OffersTable.imageUrl], host, scheme),
     discount_type = this[OffersTable.discountType],
     discount_value = this[OffersTable.discountValue].toDouble(),
     active = this[OffersTable.active],
