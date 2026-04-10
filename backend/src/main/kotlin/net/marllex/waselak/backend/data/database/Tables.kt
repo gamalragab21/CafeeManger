@@ -948,3 +948,58 @@ object AppSettingsTable : UUIDTable("app_settings") {
     val whatsappNumber = varchar("whatsapp_number", 20).nullable()
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
+
+// ─── CRM: Sales Agents ─────────────────────────────────────────
+object SalesAgentsTable : UUIDTable("sales_agents") {
+    val name = varchar("name", 255)
+    val email = varchar("email", 255).uniqueIndex()
+    val passwordHash = varchar("password_hash", 255)
+    val role = varchar("role", 50) // مدير مبيعات, مندوب مبيعات, كول سنتر
+    val active = bool("active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── CRM: Clients ───────────────────────────────────────────────
+object CrmClientsTable : UUIDTable("crm_clients") {
+    val clientName = varchar("client_name", 255)
+    val phone = varchar("phone", 20)
+    val whatsapp = bool("whatsapp").default(false)
+    val businessName = varchar("business_name", 255).nullable()
+    val businessType = varchar("business_type", 100).nullable()
+    val city = varchar("city", 100).nullable()
+    val governorate = varchar("governorate", 100).nullable()
+    val status = varchar("status", 50).default("عميل جديد")
+    val plan = varchar("plan", 100).nullable()
+    val monthlyAmount = decimal("monthly_amount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val discountPercent = integer("discount_percent").default(0)
+    val paymentMethod = varchar("payment_method", 50).nullable()
+    val assignedTo = reference("assigned_to", SalesAgentsTable).nullable()
+    val leadSource = varchar("source", 50).nullable()
+    val notes = text("notes").nullable()
+    val firstContactAt = timestamp("first_contact_at").nullable()
+    val lastContactAt = timestamp("last_contact_at").nullable()
+    val nextActionDate = date("next_action_date").nullable()
+    val interactionCount = integer("interaction_count").default(0)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── CRM: Activities ────────────────────────────────────────────
+object CrmActivitiesTable : UUIDTable("crm_activities") {
+    val agentId = reference("agent_id", SalesAgentsTable)
+    val clientId = reference("client_id", CrmClientsTable)
+    val actionType = varchar("action_type", 50).nullable()
+    val channel = varchar("channel", 50).nullable()
+    val previousStatus = varchar("previous_status", 50).nullable()
+    val newStatus = varchar("new_status", 50).nullable()
+    val planOffered = varchar("plan_offered", 100).nullable()
+    val amount = decimal("amount", 10, 2).nullable()
+    val discountPercent = integer("discount_percent").nullable()
+    val callDuration = varchar("call_duration", 50).nullable()
+    val result = varchar("result", 100).nullable()
+    val nextStep = text("next_step").nullable()
+    val nextDate = date("next_date").nullable()
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}

@@ -99,6 +99,37 @@ fun Application.configureAuthentication() {
                 )
             }
         }
+        // CRM JWT (cookie-based, for sales CRM dashboard)
+        jwt("crm-jwt") {
+            verifier(
+                JWT.require(Algorithm.HMAC256(adminJwtConfig.secret))
+                    .withIssuer(adminJwtConfig.issuer)
+                    .withAudience(adminJwtConfig.audience)
+                    .build()
+            )
+            authHeader { call ->
+                val token = call.request.cookies["crm_token"]
+                token?.let {
+                    try {
+                        io.ktor.http.auth.parseAuthorizationHeader("Bearer $it")
+                    } catch (_: Exception) { null }
+                }
+            }
+            validate { credential ->
+                val agentId = credential.payload.subject
+                val email = credential.payload.getClaim("email").asString()
+                val role = credential.payload.getClaim("role").asString()
+                val name = credential.payload.getClaim("name").asString()
+                val type = credential.payload.getClaim("type").asString()
+
+                if (agentId != null && type == "crm") {
+                    CrmPrincipal(agentId = agentId, email = email ?: "", role = role ?: "", name = name ?: "")
+                } else null
+            }
+            challenge { _, _ ->
+                call.respondRedirect("/crm/login")
+            }
+        }
     }
 }
 
@@ -112,3 +143,12 @@ data class AdminPrincipal(
     val adminId: String,
     val email: String
 ) : Principal
+
+data class CrmPrincipal(
+    val agentId: String,
+    val email: String,
+    val role: String,
+    val name: String
+) : Principal {
+    val isManager: Boolean get() = role == "مدير مبيعات"
+}

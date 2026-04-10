@@ -41,6 +41,9 @@ fun Application.configureRouting() {
         // Admin dashboard (cookie-based JWT)
         adminDashboardRoutes()
 
+        // CRM Sales Dashboard
+        crmRoutes()
+
         // Protected routes
         authenticate("auth-jwt") {
             // Global interceptor: block ALL API calls if vendor is suspended

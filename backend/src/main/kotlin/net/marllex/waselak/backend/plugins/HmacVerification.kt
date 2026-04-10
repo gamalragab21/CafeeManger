@@ -44,7 +44,8 @@ fun Application.configureHmacVerification() {
             path.startsWith("/api/v1/cms") ||
             path.startsWith("/api/v1/upload") ||
             path.startsWith("/api/v1/logs/upload") ||
-            path.startsWith("/uploads/")
+            path.startsWith("/uploads/") ||
+            path.startsWith("/crm/")
         ) {
             return@intercept
         }

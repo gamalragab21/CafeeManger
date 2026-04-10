@@ -119,6 +119,7 @@ object DatabaseConfig {
                 ReservationsTable,
                 AppReleasesTable,
                 AppSettingsTable,
+                SalesAgentsTable, CrmClientsTable, CrmActivitiesTable,
             )
 
             // Add enable_offline_mode to vendors

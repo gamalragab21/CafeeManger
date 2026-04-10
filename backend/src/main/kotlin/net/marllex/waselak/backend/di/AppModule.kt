@@ -13,6 +13,7 @@ val appModule = module {
     single { AdminJwtConfig(get<ApplicationConfig>()) }
     single { AuthService(get()) }
     single { AdminAuthService(get()) }
+    single { CrmService(get()) }
     single { RequestLogService() }
     single { PlanService() }
     single { OrderService() }
