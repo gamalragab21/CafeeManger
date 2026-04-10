@@ -954,7 +954,8 @@ object SalesAgentsTable : UUIDTable("sales_agents") {
     val name = varchar("name", 255)
     val email = varchar("email", 255).uniqueIndex()
     val passwordHash = varchar("password_hash", 255)
-    val role = varchar("role", 50) // مدير مبيعات, مندوب مبيعات, كول سنتر
+    val role = varchar("role", 50) // owner, مدير مبيعات, مندوب مبيعات, كول سنتر
+    val photoUrl = text("photo_url").nullable()
     val active = bool("active").default(true)
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
@@ -1002,4 +1003,62 @@ object CrmActivitiesTable : UUIDTable("crm_activities") {
     val nextDate = date("next_date").nullable()
     val notes = text("notes").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── CRM: Invoices / Billing ────────────────────────────────────
+object CrmInvoicesTable : UUIDTable("crm_invoices") {
+    val clientId = reference("client_id", CrmClientsTable)
+    val invoiceNumber = varchar("invoice_number", 50) // INV-2026-001
+    val plan = varchar("plan", 100)
+    val period = varchar("period", 50) // أبريل 2026, مايو 2026
+    val amount = decimal("amount", 10, 2) // المبلغ الأصلي
+    val discountPercent = integer("discount_percent").default(0)
+    val finalAmount = decimal("final_amount", 10, 2) // المبلغ بعد الخصم
+    val paidAmount = decimal("paid_amount", 10, 2).default(java.math.BigDecimal.ZERO)
+    val status = varchar("status", 30).default("غير مدفوع") // غير مدفوع, مدفوع جزئي, مدفوع, متأخر, ملغي
+    val dueDate = date("due_date")
+    val paidDate = date("paid_date").nullable()
+    val paymentMethod = varchar("payment_method", 50).nullable()
+    val notes = text("notes").nullable()
+    val createdBy = reference("created_by", SalesAgentsTable).nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── CRM: Payment History ───────────────────────────────────────
+object CrmPaymentsTable : UUIDTable("crm_payments") {
+    val invoiceId = reference("invoice_id", CrmInvoicesTable)
+    val clientId = reference("client_id", CrmClientsTable)
+    val amount = decimal("amount", 10, 2)
+    val paymentMethod = varchar("payment_method", 50)
+    val notes = text("notes").nullable()
+    val receivedBy = reference("received_by", SalesAgentsTable).nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}
+
+// ─── CRM: Agent Targets (monthly goals) ─────────────────────────
+object CrmAgentTargetsTable : UUIDTable("crm_agent_targets") {
+    val agentId = reference("agent_id", SalesAgentsTable)
+    val month = varchar("month", 20) // "2026-04"
+    val targetClients = integer("target_clients").default(0)
+    val targetSubscriptions = integer("target_subscriptions").default(0)
+    val targetRevenue = decimal("target_revenue", 10, 2).default(java.math.BigDecimal.ZERO)
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(agentId, month)
+    }
+}
+
+// ─── CRM: Agent Reviews (monthly score + report) ────────────────
+object CrmAgentReviewsTable : UUIDTable("crm_agent_reviews") {
+    val agentId = reference("agent_id", SalesAgentsTable)
+    val month = varchar("month", 20) // "2026-04"
+    val score = integer("score") // 1-10
+    val review = text("review")
+    val pinned = bool("pinned").default(false)
+    val createdBy = reference("created_by", SalesAgentsTable)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }

@@ -150,5 +150,11 @@ data class CrmPrincipal(
     val role: String,
     val name: String
 ) : Principal {
-    val isManager: Boolean get() = role == "مدير مبيعات"
+    val isOwner: Boolean get() = role == "owner"
+    val isManager: Boolean get() = role == "owner" || role == "مدير مبيعات"
+    val isSales: Boolean get() = role == "مندوب مبيعات"
+    val isCallCenter: Boolean get() = role == "كول سنتر"
+    val canSeeAll: Boolean get() = isOwner || role == "مدير مبيعات"
+    val canSeeAnalytics: Boolean get() = isOwner
+    val canManageAgents: Boolean get() = isOwner
 }
