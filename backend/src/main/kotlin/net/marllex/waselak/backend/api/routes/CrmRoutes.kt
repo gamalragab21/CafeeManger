@@ -812,9 +812,12 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, isMan
     <div class="flex min-h-screen">
         <!-- Sidebar -->
         <aside class="sidebar w-64 min-h-screen text-white flex flex-col flex-shrink-0">
-            <div class="p-6 border-b border-white/10">
-                <h1 class="text-xl font-bold">وصلك CRM</h1>
-                <p class="text-sm text-white/60 mt-1">نظام إدارة المبيعات</p>
+            <div class="p-6 border-b border-white/10 flex items-center gap-3">
+                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-lg bg-white p-1">
+                <div>
+                    <h1 class="text-xl font-bold">وصلك CRM</h1>
+                    <p class="text-sm text-white/60">نظام إدارة المبيعات</p>
+                </div>
             </div>
             <nav class="flex-1 p-4 space-y-1">
                 ${navLink("dashboard", "لوحة التحكم", "📊", "/crm/dashboard")}
@@ -864,9 +867,7 @@ private fun crmLoginPageHtml(error: String?): String {
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div class="text-center mb-8">
-            <div class="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style="background:#1B3A5C">
-                <span class="text-white text-2xl font-bold">و</span>
-            </div>
+            <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-20 h-20 mx-auto mb-4 rounded-xl">
             <h1 class="text-2xl font-bold" style="color:#1B3A5C">وصلك CRM</h1>
             <p class="text-gray-500 mt-2">نظام إدارة المبيعات</p>
         </div>
