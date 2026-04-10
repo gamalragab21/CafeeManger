@@ -2,6 +2,7 @@ package net.marllex.waselak.backend.api.routes
 
 import io.ktor.http.*
 import io.ktor.server.auth.*
+import io.ktor.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -253,6 +254,32 @@ fun Route.crmRoutes() {
                 ${addActivityModalHtml(clientOptions)}
 
                 <script>
+                // Client data for auto-fill when selecting a client in activity form
+                const clientsData = {
+                    ${clients.joinToString(",\n") { c -> """
+                    '${c.id}': {
+                        name: '${c.clientName.replace("'", "\\'")}',
+                        phone: '${c.phone}',
+                        status: '${c.status}',
+                        plan: '${c.plan ?: ""}',
+                        amount: ${c.monthlyAmount},
+                        discount: ${c.discountPercent},
+                        businessName: '${(c.businessName ?: "").replace("'", "\\'")}'
+                    }""" }}
+                };
+
+                function onClientSelected(select) {
+                    const c = clientsData[select.value];
+                    if (!c) return;
+                    const form = select.closest('form');
+                    const setVal = (name, val) => { const el = form.querySelector('[name="'+name+'"]'); if(el) el.value = val; };
+                    setVal('previousStatus', c.status);
+                    setVal('newStatus', c.status);
+                    setVal('planOffered', c.plan);
+                    setVal('amount', c.amount);
+                    setVal('discountPercent', c.discount);
+                }
+
                 async function submitNewActivity(e) {
                     e.preventDefault();
                     const form = e.target;
@@ -754,6 +781,217 @@ fun Route.crmRoutes() {
             )
         }
 
+        // ─── Salaries Page (Owner Only) ────────────────────────
+        get("/crm/salaries") {
+            val principal = call.principal<CrmPrincipal>()!!
+            if (!principal.canSeeAnalytics) {
+                call.respondRedirect("/crm/dashboard")
+                return@get
+            }
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val currentMonth = call.request.queryParameters["month"] ?: "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
+            val agents = crmService.listAgents().filter { it.active }
+            val salaryRecords = crmService.listAllSalaryRecords(currentMonth)
+
+            // KPI summary
+            val totalBaseSalaries = salaryRecords.sumOf { it.baseSalary }
+            val totalCommissions = salaryRecords.sumOf { it.commissionTotal }
+            val totalBonuses = salaryRecords.sumOf { it.bonus }
+            val totalDeductions = salaryRecords.sumOf { it.deductions }
+
+            val salaryRows = buildString {
+                salaryRecords.forEach { r ->
+                    val rowBg = if (r.status == "مدفوع") "bg-green-50" else "bg-yellow-50"
+                    val statusBadge = if (r.status == "مدفوع")
+                        """<span class="px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">مدفوع</span>"""
+                    else
+                        """<span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800">معلق</span>"""
+                    val agentObj = agents.find { it.id == r.agentId }
+                    val photoHtml = agentPhotoHtml(agentObj?.photoUrl, r.agentName, 32)
+                    append("""<tr class="border-b hover:bg-gray-100 $rowBg">""")
+                    append("""<td class="p-3"><div class="flex items-center gap-2">$photoHtml<span class="font-medium">${r.agentName}</span></div></td>""")
+                    append("""<td class="p-3">${String.format("%,.1f", r.baseSalary)} ج.م</td>""")
+                    append("""<td class="p-3">${String.format("%,.1f", r.commissionTotal)} ج.م</td>""")
+                    append("""<td class="p-3">${String.format("%,.1f", r.bonus)} ج.م</td>""")
+                    append("""<td class="p-3">${String.format("%,.1f", r.deductions)} ج.م</td>""")
+                    append("""<td class="p-3 font-bold text-green-700">${String.format("%,.1f", r.finalSalary)} ج.م</td>""")
+                    append("""<td class="p-3">$statusBadge</td>""")
+                    append("""<td class="p-3">
+                        <div class="flex gap-1 flex-wrap">
+                            <button onclick="openCommissionDetails('${r.id}', '${r.agentName}')" class="text-blue-600 hover:underline text-xs px-2 py-1 bg-blue-50 rounded">تفاصيل</button>
+                            <button onclick="openBonusDeduction('${r.id}', '${r.agentName}', ${r.bonus}, '${r.bonusReason ?: ""}', ${r.deductions}, '${r.deductionReason ?: ""}')" class="text-purple-600 hover:underline text-xs px-2 py-1 bg-purple-50 rounded">بونص/خصم</button>
+                            ${if (r.status != "مدفوع") """<button onclick="confirmPay('${r.id}', '${r.agentName}')" class="text-green-700 hover:underline text-xs px-2 py-1 bg-green-50 rounded">تأكيد الصرف</button>""" else ""}
+                        </div>
+                    </td>""")
+                    append("</tr>")
+                }
+            }
+
+            val content = """
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <h2 class="text-xl font-bold">المرتبات</h2>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <select id="monthSelector" onchange="location.href='/crm/salaries?month='+this.value" class="px-3 py-2 border rounded-lg text-sm">
+                            ${monthOptions(currentMonth)}
+                        </select>
+                        <button onclick="calculateAll()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 text-sm">احسب مرتبات الشهر</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    ${kpiCard("إجمالي المرتبات", "${String.format("%,.1f", totalBaseSalaries)} ج.م", "💰", "#1B3A5C")}
+                    ${kpiCard("إجمالي العمولات", "${String.format("%,.1f", totalCommissions)} ج.م", "📊", "#2E7D32")}
+                    ${kpiCard("إجمالي البونص", "${String.format("%,.1f", totalBonuses)} ج.م", "🎁", "#E65100")}
+                    ${kpiCard("إجمالي الخصومات", "${String.format("%,.1f", totalDeductions)} ج.م", "📉", "#C62828")}
+                </div>
+
+                <div class="bg-white rounded-xl shadow overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-100 border-b">
+                                <th class="p-3 text-right">الاسم</th>
+                                <th class="p-3 text-right">المرتب الثابت</th>
+                                <th class="p-3 text-right">العمولة</th>
+                                <th class="p-3 text-right">البونص</th>
+                                <th class="p-3 text-right">الخصم</th>
+                                <th class="p-3 text-right">النهائي</th>
+                                <th class="p-3 text-right">الحالة</th>
+                                <th class="p-3 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>${salaryRows}</tbody>
+                    </table>
+                    ${if (salaryRecords.isEmpty()) """<p class="text-gray-400 text-center py-8">لا توجد مرتبات لهذا الشهر. اضغط "احسب مرتبات الشهر" لحساب المرتبات.</p>""" else ""}
+                </div>
+
+                <!-- Commission Details Modal -->
+                <dialog id="commissionModal" class="rounded-2xl w-full max-w-2xl">
+                    <div class="p-6 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold" id="commissionModalTitle">تفاصيل العمولة</h3>
+                            <button onclick="document.getElementById('commissionModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <div id="commissionDetailsContent" class="overflow-x-auto">
+                            <p class="text-center text-gray-400 py-4">جاري التحميل...</p>
+                        </div>
+                    </div>
+                </dialog>
+
+                <!-- Bonus/Deduction Modal -->
+                <dialog id="bonusModal" class="rounded-2xl w-full max-w-md">
+                    <div class="p-6 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold" id="bonusModalTitle">بونص / خصم</h3>
+                            <button onclick="document.getElementById('bonusModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <form onsubmit="submitBonusDeduction(event)" class="space-y-3">
+                            <input type="hidden" id="bonusRecordId" name="recordId">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">بونص (ج.م)</label>
+                                <input type="number" id="bonusAmount" name="bonus" min="0" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">سبب البونص</label>
+                                <textarea id="bonusReason" name="bonusReason" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">خصم (ج.م)</label>
+                                <input type="number" id="deductionAmount" name="deductions" min="0" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">سبب الخصم</label>
+                                <textarea id="deductionReason" name="deductionReason" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-3">
+                                <button type="button" onclick="document.getElementById('bonusModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90" style="background:#2E7D32">حفظ</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                <script>
+                async function calculateAll() {
+                    const month = document.getElementById('monthSelector').value;
+                    if (!confirm('هل تريد حساب مرتبات جميع الموظفين لشهر ' + month + '؟')) return;
+                    const res = await fetch('/crm/api/salaries/calculate-all', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({month:month})});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ في حساب المرتبات'); }
+                }
+
+                async function openCommissionDetails(recordId, agentName) {
+                    document.getElementById('commissionModalTitle').textContent = 'تفاصيل عمولة ' + agentName;
+                    document.getElementById('commissionDetailsContent').innerHTML = '<p class="text-center text-gray-400 py-4">جاري التحميل...</p>';
+                    document.getElementById('commissionModal').showModal();
+                    const month = document.getElementById('monthSelector').value;
+                    // Find agent id from salary records — use the record endpoint
+                    const res = await fetch('/crm/api/salaries?month=' + month);
+                    if (!res.ok) { document.getElementById('commissionDetailsContent').innerHTML = '<p class="text-center text-red-500">حدث خطأ</p>'; return; }
+                    const records = await res.json();
+                    const record = records.find(r => r.id === recordId);
+                    if (!record || !record.commissionDetails || record.commissionDetails.length === 0) {
+                        document.getElementById('commissionDetailsContent').innerHTML = '<p class="text-center text-gray-400 py-4">لا توجد تفاصيل عمولة</p>';
+                        return;
+                    }
+                    const commTypes = {'FIRST_ONLY':'مرة واحدة','FIXED_MONTHS':'عدد محدد','FOREVER':'دائم','NONE':'بدون'};
+                    let html = '<table class="w-full text-sm"><thead><tr class="bg-gray-100 border-b">';
+                    html += '<th class="p-2 text-right">العميل</th><th class="p-2 text-right">الباقة</th><th class="p-2 text-right">مبلغ العميل</th>';
+                    html += '<th class="p-2 text-right">نسبة العمولة</th><th class="p-2 text-right">مبلغ العمولة</th>';
+                    html += '<th class="p-2 text-right">نوع العمولة</th><th class="p-2 text-right">شهر رقم</th><th class="p-2 text-right">نشط</th>';
+                    html += '</tr></thead><tbody>';
+                    record.commissionDetails.forEach(d => {
+                        const activeDot = d.isActive ? '<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>' : '<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>';
+                        html += '<tr class="border-b hover:bg-gray-50">';
+                        html += '<td class="p-2">' + d.clientName + '</td>';
+                        html += '<td class="p-2">' + (d.plan || '-') + '</td>';
+                        html += '<td class="p-2">' + d.clientAmount.toLocaleString('ar-EG', {minimumFractionDigits:1}) + ' ج.م</td>';
+                        html += '<td class="p-2">' + d.commissionPercent + '%</td>';
+                        html += '<td class="p-2 font-bold">' + d.commissionAmount.toLocaleString('ar-EG', {minimumFractionDigits:1}) + ' ج.م</td>';
+                        html += '<td class="p-2">' + (commTypes[d.commissionType] || d.commissionType) + '</td>';
+                        html += '<td class="p-2">' + d.monthNumber + '</td>';
+                        html += '<td class="p-2">' + activeDot + '</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    document.getElementById('commissionDetailsContent').innerHTML = html;
+                }
+
+                function openBonusDeduction(recordId, agentName, bonus, bonusReason, deductions, deductionReason) {
+                    document.getElementById('bonusModalTitle').textContent = 'بونص / خصم - ' + agentName;
+                    document.getElementById('bonusRecordId').value = recordId;
+                    document.getElementById('bonusAmount').value = bonus || 0;
+                    document.getElementById('bonusReason').value = bonusReason || '';
+                    document.getElementById('deductionAmount').value = deductions || 0;
+                    document.getElementById('deductionReason').value = deductionReason || '';
+                    document.getElementById('bonusModal').showModal();
+                }
+
+                async function submitBonusDeduction(e) {
+                    e.preventDefault();
+                    const recordId = document.getElementById('bonusRecordId').value;
+                    const data = {
+                        bonus: parseFloat(document.getElementById('bonusAmount').value) || 0,
+                        bonusReason: document.getElementById('bonusReason').value || null,
+                        deductions: parseFloat(document.getElementById('deductionAmount').value) || 0,
+                        deductionReason: document.getElementById('deductionReason').value || null,
+                    };
+                    const res = await fetch('/crm/api/salary-records/' + recordId, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+
+                async function confirmPay(recordId, agentName) {
+                    if (!confirm('هل تريد تأكيد صرف مرتب ' + agentName + '؟')) return;
+                    const res = await fetch('/crm/api/salary-records/' + recordId + '/pay', {method:'POST'});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+                </script>
+            """.trimIndent()
+
+            call.respondText(
+                crmLayout("المرتبات", principal.name, principal.role, principal, "salaries", content),
+                ContentType.Text.Html
+            )
+        }
+
         // ─── Profile Redirect ───────────────────────────────────
         get("/crm/profile") {
             val principal = call.principal<CrmPrincipal>()!!
@@ -776,25 +1014,67 @@ fun Route.crmRoutes() {
                 return@get
             }
 
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             val agent = profile.agent
             val (roleBg, roleTxt) = roleBadgeColor(agent.role)
             val photoHtml = agentPhotoHtml(agent.photoUrl, agent.name, 96)
             val statusDot = if (agent.active) """<span class="inline-flex items-center gap-1 text-sm text-green-700"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>نشط</span>"""
                 else """<span class="inline-flex items-center gap-1 text-sm text-red-600"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>غير نشط</span>"""
 
+            val canEditPhoto = principal.isOwner || principal.agentId == agentId
+
             // Section 1: Agent Card
             val agentCard = """
                 <div class="bg-white rounded-2xl shadow p-6 md:p-8 mb-6">
                     <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
-                        $photoHtml
-                        <div class="text-center md:text-right">
+                        <div class="relative group">
+                            $photoHtml
+                            ${if (canEditPhoto) """
+                            <button onclick="document.getElementById('photoInput').click()" class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                                <span class="text-white text-sm">📷 تغيير</span>
+                            </button>
+                            <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="uploadPhoto(this)">
+                            """ else ""}
+                        </div>
+                        <div class="text-center md:text-right flex-1">
                             <h1 class="text-2xl font-bold mb-2">${agent.name}</h1>
                             <span class="inline-block px-3 py-1 rounded-full text-sm font-medium mb-2" style="background:$roleBg;color:$roleTxt">${roleDisplayName(agent.role)}</span>
                             <p class="text-gray-500 text-sm mb-1">${agent.email}</p>
                             <div class="mt-1">$statusDot</div>
                         </div>
+                        <div class="flex gap-2">
+                            <a href="/crm/logout" class="text-sm px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">تسجيل الخروج</a>
+                        </div>
                     </div>
                 </div>
+                <script>
+                async function uploadPhoto(input) {
+                    if (!input.files[0]) return;
+                    const formData = new FormData();
+                    formData.append('file', input.files[0]);
+                    try {
+                        const uploadRes = await fetch('/crm/api/upload', { method: 'POST', body: formData });
+                        if (!uploadRes.ok) {
+                            // Try simple base64 approach via agent update
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                                // Just update with a placeholder - we need the upload endpoint
+                                alert('حدث خطأ في رفع الصورة');
+                            };
+                            reader.readAsDataURL(input.files[0]);
+                            return;
+                        }
+                        const data = await uploadRes.json();
+                        const res = await fetch('/crm/api/agents/$agentId', {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ photoUrl: data.url })
+                        });
+                        if (res.ok) location.reload();
+                        else alert('حدث خطأ في تحديث الصورة');
+                    } catch(e) { alert('حدث خطأ: ' + e.message); }
+                }
+                </script>
             """.trimIndent()
 
             // Section 2: Monthly Target + Progress
@@ -810,6 +1090,12 @@ fun Route.crmRoutes() {
                     ${progressBar("عملاء جدد", p.actualClients.toString(), p.targetClients.toString(), p.clientsPercent)}
                     ${progressBar("اشتراكات", p.actualSubscriptions.toString(), p.targetSubscriptions.toString(), p.subscriptionsPercent)}
                     ${progressBar("الإيراد", "${String.format("%,.0f", p.actualRevenue)} ج.م", "${String.format("%,.0f", p.targetRevenue)} ج.م", p.revenuePercent)}
+                    ${if (!profile.target?.notes.isNullOrBlank()) """
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p class="text-sm font-bold text-blue-800 mb-1">📝 ملاحظات الهدف:</p>
+                        <p class="text-sm text-blue-700">${profile.target?.notes}</p>
+                    </div>
+                    """ else ""}
                 </div>
                 """.trimIndent()
             } else {
@@ -823,6 +1109,212 @@ fun Route.crmRoutes() {
                 </div>
                 """.trimIndent()
             }
+
+            // Section 2.5: Salary & Commission
+            val canViewSalary = principal.isOwner || principal.agentId == agentId
+            val salarySection = if (canViewSalary) {
+                val salaryConfig = crmService.getSalaryConfig(agentId)
+                val currentSalaryMonth = "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
+                val salaryRecord = crmService.getSalaryRecord(agentId, currentSalaryMonth)
+
+                // Previous 6 months salary history
+                val salaryHistory = (1..6).mapNotNull { i ->
+                    var hYear = now.year
+                    var hMonth = now.monthNumber - i
+                    if (hMonth <= 0) { hMonth += 12; hYear -= 1 }
+                    val mStr = "${hYear}-${hMonth.toString().padStart(2, '0')}"
+                    crmService.getSalaryRecord(agentId, mStr)
+                }
+
+                val configDisplay = """
+                    <div class="bg-white rounded-2xl shadow p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-bold">المرتب والعمولة</h2>
+                            ${if (principal.isOwner) """<button onclick="document.getElementById('salaryConfigModal').showModal()" class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">تعديل الإعدادات</button>""" else ""}
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-gray-50 rounded-xl p-4 text-center">
+                                <div class="text-sm text-gray-500 mb-1">المرتب الثابت</div>
+                                <div class="text-xl font-bold">${String.format("%,.1f", salaryConfig.baseSalary)} ج.م</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-4 text-center">
+                                <div class="text-sm text-gray-500 mb-1">نسبة العمولة</div>
+                                <div class="text-xl font-bold">${salaryConfig.commissionPercent}%</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-4 text-center">
+                                <div class="text-sm text-gray-500 mb-1">نوع العمولة</div>
+                                <div class="text-xl font-bold">${commissionTypeDisplayName(salaryConfig.commissionType)}</div>
+                            </div>
+                        </div>
+
+                        ${if (salaryRecord != null) """
+                        <h3 class="font-bold mb-3">${arabicMonth(currentSalaryMonth)} - تفاصيل المرتب</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                            <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                <div class="text-xs text-gray-500">المرتب الثابت</div>
+                                <div class="font-bold">${String.format("%,.1f", salaryRecord.baseSalary)} ج.م</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                <div class="text-xs text-gray-500">العمولة (${salaryRecord.commissionDetails.size} عملاء)</div>
+                                <div class="font-bold">${String.format("%,.1f", salaryRecord.commissionTotal)} ج.م</div>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-3 text-center">
+                                <div class="text-xs text-gray-500">البونص${if (!salaryRecord.bonusReason.isNullOrBlank()) " (${salaryRecord.bonusReason})" else ""}</div>
+                                <div class="font-bold">${String.format("%,.1f", salaryRecord.bonus)} ج.م</div>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-3 text-center">
+                                <div class="text-xs text-gray-500">الخصم${if (!salaryRecord.deductionReason.isNullOrBlank()) " (${salaryRecord.deductionReason})" else ""}</div>
+                                <div class="font-bold">${String.format("%,.1f", salaryRecord.deductions)} ج.م</div>
+                            </div>
+                            <div class="bg-green-100 rounded-lg p-3 text-center">
+                                <div class="text-xs text-gray-500">النهائي</div>
+                                <div class="text-xl font-bold text-green-700">${String.format("%,.1f", salaryRecord.finalSalary)} ج.م</div>
+                            </div>
+                        </div>
+
+                        ${if (salaryRecord.commissionDetails.isNotEmpty()) """
+                        <h4 class="font-medium text-sm mb-2">تفاصيل العمولة</h4>
+                        <div class="overflow-x-auto mb-4">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100 border-b">
+                                        <th class="p-2 text-right">العميل</th>
+                                        <th class="p-2 text-right">الباقة</th>
+                                        <th class="p-2 text-right">مبلغ العميل</th>
+                                        <th class="p-2 text-right">نسبة العمولة</th>
+                                        <th class="p-2 text-right">مبلغ العمولة</th>
+                                        <th class="p-2 text-right">نوع العمولة</th>
+                                        <th class="p-2 text-right">شهر رقم</th>
+                                        <th class="p-2 text-right">نشط</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${salaryRecord.commissionDetails.joinToString("") { d ->
+                                        val activeDot = if (d.isActive) """<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>""" else """<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>"""
+                                        """<tr class="border-b hover:bg-gray-50">
+                                            <td class="p-2">${d.clientName}</td>
+                                            <td class="p-2">${d.plan ?: "-"}</td>
+                                            <td class="p-2">${String.format("%,.1f", d.clientAmount)} ج.م</td>
+                                            <td class="p-2">${d.commissionPercent}%</td>
+                                            <td class="p-2 font-bold">${String.format("%,.1f", d.commissionAmount)} ج.م</td>
+                                            <td class="p-2">${commissionTypeDisplayName(d.commissionType)}</td>
+                                            <td class="p-2">${d.monthNumber}</td>
+                                            <td class="p-2">$activeDot</td>
+                                        </tr>"""
+                                    }}
+                                </tbody>
+                            </table>
+                        </div>
+                        """ else ""}
+                        """ else """<p class="text-gray-400 text-center py-4">لم يتم حساب مرتب ${arabicMonth(currentSalaryMonth)} بعد</p>"""}
+
+                        ${if (salaryHistory.isNotEmpty()) """
+                        <h3 class="font-bold mb-3 mt-4">سجل المرتبات السابقة</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100 border-b">
+                                        <th class="p-2 text-right">الشهر</th>
+                                        <th class="p-2 text-right">المرتب الثابت</th>
+                                        <th class="p-2 text-right">العمولة</th>
+                                        <th class="p-2 text-right">البونص</th>
+                                        <th class="p-2 text-right">الخصم</th>
+                                        <th class="p-2 text-right">النهائي</th>
+                                        <th class="p-2 text-right">الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${salaryHistory.joinToString("") { h ->
+                                        val hRowBg = if (h.status == "مدفوع") "bg-green-50" else "bg-yellow-50"
+                                        val hStatusBadge = if (h.status == "مدفوع")
+                                            """<span class="px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">مدفوع</span>"""
+                                        else
+                                            """<span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800">معلق</span>"""
+                                        """<tr class="border-b $hRowBg">
+                                            <td class="p-2 font-medium">${arabicMonth(h.month)}</td>
+                                            <td class="p-2">${String.format("%,.1f", h.baseSalary)} ج.م</td>
+                                            <td class="p-2">${String.format("%,.1f", h.commissionTotal)} ج.م</td>
+                                            <td class="p-2">${String.format("%,.1f", h.bonus)} ج.م</td>
+                                            <td class="p-2">${String.format("%,.1f", h.deductions)} ج.م</td>
+                                            <td class="p-2 font-bold">${String.format("%,.1f", h.finalSalary)} ج.م</td>
+                                            <td class="p-2">$hStatusBadge</td>
+                                        </tr>"""
+                                    }}
+                                </tbody>
+                            </table>
+                        </div>
+                        """ else ""}
+                    </div>
+                """.trimIndent()
+
+                val salaryConfigModal = if (principal.isOwner) """
+                    <!-- Salary Config Modal -->
+                    <dialog id="salaryConfigModal" class="rounded-2xl">
+                        <div class="p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold">إعدادات المرتب والعمولة</h3>
+                                <button onclick="document.getElementById('salaryConfigModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                            </div>
+                            <form onsubmit="submitSalaryConfig(event)" class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">المرتب الثابت (ج.م)</label>
+                                    <input type="number" name="baseSalary" value="${salaryConfig.baseSalary}" min="0" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">نسبة العمولة %</label>
+                                    <input type="number" name="commissionPercent" value="${salaryConfig.commissionPercent}" min="0" max="100" step="0.1" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع العمولة</label>
+                                    <select name="commissionType" id="salaryCommType" onchange="toggleCommMonths()" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        <option value="NONE" ${if (salaryConfig.commissionType == "NONE") "selected" else ""}>بدون عمولة</option>
+                                        <option value="FIRST_ONLY" ${if (salaryConfig.commissionType == "FIRST_ONLY") "selected" else ""}>مرة واحدة</option>
+                                        <option value="FIXED_MONTHS" ${if (salaryConfig.commissionType == "FIXED_MONTHS") "selected" else ""}>عدد شهور محدد</option>
+                                        <option value="FOREVER" ${if (salaryConfig.commissionType == "FOREVER") "selected" else ""}>دائم</option>
+                                    </select>
+                                </div>
+                                <div id="commMonthsDiv" style="${if (salaryConfig.commissionType == "FIXED_MONTHS") "" else "display:none"}">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">عدد الشهور</label>
+                                    <input type="number" name="commissionMonths" value="${salaryConfig.commissionMonths}" min="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">أساس الحساب</label>
+                                    <select name="commissionBase" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        <option value="FINAL" ${if (salaryConfig.commissionBase == "FINAL") "selected" else ""}>المبلغ النهائي</option>
+                                        <option value="ORIGINAL" ${if (salaryConfig.commissionBase == "ORIGINAL") "selected" else ""}>المبلغ الأصلي</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                                    <textarea name="notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm">${salaryConfig.notes ?: ""}</textarea>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-3">
+                                    <button type="button" onclick="document.getElementById('salaryConfigModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                                    <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90" style="background:#2E7D32">حفظ</button>
+                                </div>
+                            </form>
+                        </div>
+                    </dialog>
+
+                    <script>
+                    function toggleCommMonths() {
+                        document.getElementById('commMonthsDiv').style.display = document.getElementById('salaryCommType').value === 'FIXED_MONTHS' ? '' : 'none';
+                    }
+                    async function submitSalaryConfig(e) {
+                        e.preventDefault();
+                        const form = e.target;
+                        const data = Object.fromEntries(new FormData(form));
+                        data.baseSalary = parseFloat(data.baseSalary) || 0;
+                        data.commissionPercent = parseFloat(data.commissionPercent) || 0;
+                        data.commissionMonths = parseInt(data.commissionMonths) || 0;
+                        const res = await fetch('/crm/api/agents/$agentId/salary-config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+                        if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                    }
+                    </script>
+                """.trimIndent() else ""
+
+                "$configDisplay\n$salaryConfigModal"
+            } else ""
 
             // Section 3: All-time Stats
             val statsSection = """
@@ -840,10 +1332,12 @@ fun Route.crmRoutes() {
                     """
                     <div class="border-2 border-yellow-400 rounded-xl p-4 bg-yellow-50">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-600">${arabicMonth(r.month)}</span>
-                            <span class="text-sm">${starsHtml(r.score)}</span>
+                            <span class="text-sm font-bold text-gray-700">📌 ${arabicMonth(r.month)}</span>
+                            <span class="text-sm">${starsHtml(r.score)} <span class="text-gray-500 font-bold">(${r.score}/10)</span></span>
                         </div>
-                        <p class="text-sm text-gray-700">${r.review}</p>
+                        <div class="bg-white/70 rounded-lg p-3 mt-2">
+                            <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">${r.review}</p>
+                        </div>
                     </div>
                     """
                 }
@@ -866,9 +1360,11 @@ fun Route.crmRoutes() {
                 val editAction = if (principal.isOwner) """<button onclick="openEditReview('${r.id}', ${r.score}, '${r.review.replace("'", "\\'")}')" class="text-blue-600 hover:underline text-xs">تعديل</button>""" else ""
                 """
                 <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2">${arabicMonth(r.month)}</td>
-                    <td class="p-2">${starsHtml(r.score)}</td>
-                    <td class="p-2 text-sm">${r.review}</td>
+                    <td class="p-2 font-medium">${arabicMonth(r.month)}</td>
+                    <td class="p-2">${starsHtml(r.score)} <span class="text-gray-500 text-xs">(${r.score}/10)</span></td>
+                    <td class="p-2">
+                        <div class="bg-gray-50 rounded p-2 text-sm leading-relaxed whitespace-pre-line max-w-md">${r.review}</div>
+                    </td>
                     <td class="p-2 text-center">$pinnedIcon</td>
                     <td class="p-2">$pinAction $editAction</td>
                 </tr>
@@ -1077,6 +1573,7 @@ fun Route.crmRoutes() {
             val content = """
                 $agentCard
                 $targetSection
+                $salarySection
                 $statsSection
                 $pinnedSection
                 $reviewsSection
@@ -1092,6 +1589,32 @@ fun Route.crmRoutes() {
 
         // ─── JSON API Endpoints ─────────────────────────────────
         route("/crm/api") {
+
+            // Photo upload for CRM agents
+            post("/upload") {
+                val principal = call.principal<CrmPrincipal>()!!
+                val multipart = call.receiveMultipart()
+                var uploadedUrl: String? = null
+                multipart.forEachPart { part ->
+                    if (part is PartData.FileItem) {
+                        val ext = (part.originalFileName ?: "image.jpg").substringAfterLast('.', "jpg").lowercase().takeIf { it in listOf("jpg","jpeg","png","webp","gif") } ?: "jpg"
+                        val dir = java.io.File("uploads/crm-photos")
+                        if (!dir.exists()) dir.mkdirs()
+                        val fileName = "${java.util.UUID.randomUUID()}.$ext"
+                        val file = java.io.File(dir, fileName)
+                        part.streamProvider().use { input -> file.outputStream().buffered().use { output -> input.copyTo(output) } }
+                        val host = call.request.header("Host") ?: "localhost:8080"
+                        val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
+                        uploadedUrl = "$scheme://$host/uploads/crm-photos/$fileName"
+                    }
+                    part.dispose()
+                }
+                if (uploadedUrl != null) {
+                    call.respondText("""{"url":"$uploadedUrl"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"no file"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+            }
 
             // GET /crm/api/clients
             get("/clients") {
@@ -1300,24 +1823,44 @@ fun Route.crmRoutes() {
             // PUT /crm/api/agents/{id} (owner only)
             put("/agents/{id}") {
                 val principal = call.principal<CrmPrincipal>()!!
-                if (!principal.canManageAgents) {
+                val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val isSelf = principal.agentId == id
+                // Non-owner can only update their own photo
+                if (!principal.canManageAgents && !isSelf) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@put
                 }
-                val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val role = obj["role"]?.jsonPrimitive?.contentOrNull
                 val safeRole = if (role == "owner") null else role
                 val ok = crmService.updateAgent(
                     id = id,
-                    name = obj["name"]?.jsonPrimitive?.contentOrNull,
-                    role = safeRole,
-                    active = obj["active"]?.jsonPrimitive?.booleanOrNull,
-                    password = obj["password"]?.jsonPrimitive?.contentOrNull,
+                    name = if (principal.canManageAgents) obj["name"]?.jsonPrimitive?.contentOrNull else null,
+                    role = if (principal.canManageAgents) safeRole else null,
+                    active = if (principal.canManageAgents) obj["active"]?.jsonPrimitive?.booleanOrNull else null,
+                    password = if (principal.canManageAgents || isSelf) obj["password"]?.jsonPrimitive?.contentOrNull else null,
                     photoUrl = obj["photoUrl"]?.jsonPrimitive?.contentOrNull,
                 )
                 if (ok) {
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+            }
+
+            delete("/agents/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.canManageAgents) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                val id = call.parameters["id"] ?: return@delete
+                if (id == principal.agentId) {
+                    call.respondText("""{"error":"لا يمكنك حذف حسابك"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                    return@delete
+                }
+                if (crmService.deleteAgent(id)) {
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -1623,6 +2166,158 @@ fun Route.crmRoutes() {
                 }
                 call.respondText(json.toString(), ContentType.Application.Json)
             }
+
+            // ─── Salary API Endpoints ───────────────────────────────
+
+            get("/agents/{id}/salary-config") {
+                val principal = call.principal<CrmPrincipal>()!!
+                val id = call.parameters["id"] ?: return@get call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                if (!principal.canSeeAll && principal.agentId != id) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@get
+                }
+                val config = crmService.getSalaryConfig(id)
+                val json = buildJsonObject {
+                    put("id", config.id?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("agentId", config.agentId)
+                    put("baseSalary", config.baseSalary)
+                    put("commissionPercent", config.commissionPercent)
+                    put("commissionType", config.commissionType)
+                    put("commissionMonths", config.commissionMonths)
+                    put("commissionBase", config.commissionBase)
+                    put("notes", config.notes?.let { JsonPrimitive(it) } ?: JsonNull)
+                }
+                call.respondText(json.toString(), ContentType.Application.Json)
+            }
+
+            post("/agents/{id}/salary-config") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val id = call.parameters["id"] ?: return@post call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val config = crmService.setSalaryConfig(
+                    agentId = id,
+                    baseSalary = obj["baseSalary"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                    commissionPercent = obj["commissionPercent"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                    commissionType = obj["commissionType"]?.jsonPrimitive?.contentOrNull ?: "NONE",
+                    commissionMonths = obj["commissionMonths"]?.jsonPrimitive?.intOrNull ?: 0,
+                    commissionBase = obj["commissionBase"]?.jsonPrimitive?.contentOrNull ?: "FINAL",
+                    notes = obj["notes"]?.jsonPrimitive?.contentOrNull,
+                )
+                val json = buildJsonObject {
+                    put("id", config.id?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("status", "ok")
+                }
+                call.respondText(json.toString(), ContentType.Application.Json)
+            }
+
+            get("/agents/{id}/salary") {
+                val principal = call.principal<CrmPrincipal>()!!
+                val id = call.parameters["id"] ?: return@get call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                if (!principal.canSeeAll && principal.agentId != id) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@get
+                }
+                val month = call.request.queryParameters["month"] ?: run {
+                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
+                }
+                val record = crmService.getSalaryRecord(id, month)
+                if (record == null) {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                    return@get
+                }
+                call.respondText(salaryRecordToJson(record).toString(), ContentType.Application.Json)
+            }
+
+            post("/agents/{id}/salary") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val id = call.parameters["id"] ?: return@post call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val month = obj["month"]?.jsonPrimitive?.content ?: return@post call.respondText("""{"error":"missing month"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val record = crmService.calculateMonthlySalary(id, month, principal.agentId)
+                call.respondText(salaryRecordToJson(record).toString(), ContentType.Application.Json)
+            }
+
+            put("/salary-records/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@put
+                }
+                val recordId = call.parameters["id"] ?: return@put call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                crmService.updateSalaryBonusDeduction(
+                    recordId = recordId,
+                    bonus = obj["bonus"]?.jsonPrimitive?.doubleOrNull,
+                    bonusReason = obj["bonusReason"]?.jsonPrimitive?.contentOrNull,
+                    deductions = obj["deductions"]?.jsonPrimitive?.doubleOrNull,
+                    deductionReason = obj["deductionReason"]?.jsonPrimitive?.contentOrNull,
+                    notes = obj["notes"]?.jsonPrimitive?.contentOrNull,
+                )
+                call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+            }
+
+            post("/salary-records/{id}/pay") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val recordId = call.parameters["id"] ?: return@post call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val ok = crmService.markSalaryPaid(recordId)
+                if (ok) {
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+            }
+
+            post("/salaries/calculate-all") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val month = obj["month"]?.jsonPrimitive?.content ?: return@post call.respondText("""{"error":"missing month"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val agents = crmService.listAgents().filter { it.active }
+                val results = agents.map { agent ->
+                    crmService.calculateMonthlySalary(agent.id, month, principal.agentId)
+                }
+                val json = buildJsonArray {
+                    results.forEach { add(salaryRecordToJson(it)) }
+                }
+                call.respondText(json.toString(), ContentType.Application.Json)
+            }
+
+            get("/salaries") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isOwner) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@get
+                }
+                val month = call.request.queryParameters["month"] ?: run {
+                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
+                }
+                val records = crmService.listAllSalaryRecords(month)
+                val json = buildJsonArray {
+                    records.forEach { add(salaryRecordToJson(it)) }
+                }
+                call.respondText(json.toString(), ContentType.Application.Json)
+            }
         }
     }
 }
@@ -1634,6 +2329,54 @@ fun Route.crmRoutes() {
 private fun roleDisplayName(role: String) = when (role) {
     "owner" -> "المالك"
     else -> role
+}
+
+// ════════════════════════════════════════════════════════════════
+// Commission Type Display Name Helper
+// ════════════════════════════════════════════════════════════════
+
+private fun commissionTypeDisplayName(type: String) = when (type) {
+    "FIRST_ONLY" -> "مرة واحدة"
+    "FIXED_MONTHS" -> "عدد شهور محدد"
+    "FOREVER" -> "دائم"
+    "NONE" -> "بدون عمولة"
+    else -> type
+}
+
+// ════════════════════════════════════════════════════════════════
+// Salary Record JSON Helper
+// ════════════════════════════════════════════════════════════════
+
+private fun salaryRecordToJson(r: CrmService.SalaryRecordDto): JsonObject = buildJsonObject {
+    put("id", r.id)
+    put("agentId", r.agentId)
+    put("agentName", r.agentName)
+    put("month", r.month)
+    put("baseSalary", r.baseSalary)
+    put("commissionTotal", r.commissionTotal)
+    put("bonus", r.bonus)
+    put("deductions", r.deductions)
+    put("deductionReason", r.deductionReason?.let { JsonPrimitive(it) } ?: JsonNull)
+    put("bonusReason", r.bonusReason?.let { JsonPrimitive(it) } ?: JsonNull)
+    put("finalSalary", r.finalSalary)
+    put("status", r.status)
+    put("paidDate", r.paidDate?.let { JsonPrimitive(it) } ?: JsonNull)
+    put("notes", r.notes?.let { JsonPrimitive(it) } ?: JsonNull)
+    put("commissionDetails", buildJsonArray {
+        r.commissionDetails.forEach { d ->
+            add(buildJsonObject {
+                put("clientId", d.clientId)
+                put("clientName", d.clientName)
+                put("plan", d.plan?.let { JsonPrimitive(it) } ?: JsonNull)
+                put("clientAmount", d.clientAmount)
+                put("commissionPercent", d.commissionPercent)
+                put("commissionAmount", d.commissionAmount)
+                put("commissionType", d.commissionType)
+                put("monthNumber", d.monthNumber)
+                put("isActive", d.isActive)
+            })
+        }
+    })
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1882,6 +2625,10 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         if (principal.canSeeAnalytics) {
             append(navLink("billing", "الفوترة", "\uD83E\uDDFE", "/crm/billing"))
         }
+        // Salaries - owner only
+        if (principal.canSeeAnalytics) {
+            append(navLink("salaries", "المرتبات", "💰", "/crm/salaries"))
+        }
         // Team - owner + manager
         if (principal.canSeeAll) {
             append(navLink("team", "الفريق", "👤", "/crm/team"))
@@ -1890,10 +2637,8 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         if (principal.canManageAgents) {
             append(navLink("settings", "الإعدادات", "⚙️", "/crm/settings"))
         }
-        // Profile - agents see "ملفي", owner/manager see profiles from team page
-        if (!principal.canSeeAll) {
-            append(navLink("profile", "ملفي", "👤", "/crm/profile"))
-        }
+        // Profile - everyone can see their own profile
+        append(navLink("profile", "ملفي", "👤", "/crm/profile"))
     }
 
     return """<!DOCTYPE html>
@@ -1941,14 +2686,14 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
                 $navLinks
             </nav>
             <div class="p-4 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-3">
+                <a href="/crm/profile" class="flex items-center gap-3 mb-3 hover:bg-white/5 rounded-lg p-2 -m-2 transition cursor-pointer">
                     $sidebarPhotoHtml
                     <div class="text-sm">
                         <p class="font-medium">$agentName</p>
                         <p class="text-white/60">$displayRole</p>
                     </div>
-                </div>
-                <a href="/crm/logout" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition">
+                </a>
+                <a href="/crm/logout" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition mt-2">
                     <span>🚪</span><span>تسجيل الخروج</span>
                 </a>
             </div>
@@ -1969,14 +2714,14 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
                 $navLinks
             </nav>
             <div class="p-4 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-3">
+                <a href="/crm/profile" class="flex items-center gap-3 mb-3 hover:bg-white/5 rounded-lg p-2 -m-2 transition cursor-pointer">
                     $sidebarPhotoHtml
                     <div class="text-sm">
                         <p class="font-medium">$agentName</p>
                         <p class="text-white/60">$displayRole</p>
                     </div>
-                </div>
-                <a href="/crm/logout" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition">
+                </a>
+                <a href="/crm/logout" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition mt-2">
                     <span>🚪</span><span>تسجيل الخروج</span>
                 </a>
             </div>
@@ -2055,16 +2800,16 @@ private fun addClientModalHtml(agentOptions: String, canSeeAll: Boolean): String
                 <button onclick="document.getElementById('addClientModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <form onsubmit="submitNewClient(event)" class="space-y-3 max-h-[70vh] overflow-y-auto">
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">اسم العميل *</label>
                         <input type="text" name="clientName" required class="w-full px-3 py-2 border rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف *</label>
-                        <input type="text" name="phone" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
+                        <input type="text" name="phone" class="w-full px-3 py-2 border rounded-lg text-sm">
                     </div>
-                    <div class="flex items-center gap-2 col-span-2">
+                    <div class="flex items-center gap-2 col-span-1 md:col-span-2">
                         <input type="checkbox" name="whatsapp" id="add_whatsapp" class="w-4 h-4">
                         <label for="add_whatsapp" class="text-sm">لديه واتساب</label>
                     </div>
@@ -2097,28 +2842,6 @@ private fun addClientModalHtml(agentOptions: String, canSeeAll: Boolean): String
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">الباقة</label>
-                        <select name="plan" class="w-full px-3 py-2 border rounded-lg text-sm">
-                            <option value="">-- اختر --</option>
-                            ${planOptions()}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">المبلغ الشهري</label>
-                        <input type="number" name="monthlyAmount" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">نسبة الخصم %</label>
-                        <input type="number" name="discountPercent" value="0" min="0" max="100" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
-                        <select name="paymentMethod" class="w-full px-3 py-2 border rounded-lg text-sm">
-                            <option value="">-- اختر --</option>
-                            ${paymentMethodOptions()}
-                        </select>
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">المصدر</label>
                         <select name="source" class="w-full px-3 py-2 border rounded-lg text-sm">
                             <option value="">-- اختر --</option>
@@ -2126,11 +2849,7 @@ private fun addClientModalHtml(agentOptions: String, canSeeAll: Boolean): String
                         </select>
                     </div>
                     $assignedField
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الإجراء القادم</label>
-                        <input type="date" name="nextActionDate" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    </div>
-                    <div class="col-span-2">
+                    <div class="col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
                         <textarea name="notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
                     </div>
@@ -2236,10 +2955,6 @@ private fun editClientModalHtml(agentOptions: String, canSeeAll: Boolean): Strin
                         </select>
                     </div>
                     $assignedField
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الإجراء القادم</label>
-                        <input type="date" name="nextActionDate" id="edit_nextActionDate" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    </div>
                     <div class="col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
                         <textarea name="notes" id="edit_notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
@@ -2266,7 +2981,7 @@ private fun addActivityModalHtml(clientOptions: String): String = """
                 <div class="grid grid-cols-2 gap-3">
                     <div class="col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">العميل *</label>
-                        <select name="clientId" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <select name="clientId" required onchange="onClientSelected(this)" class="w-full px-3 py-2 border rounded-lg text-sm">
                             <option value="">-- اختر العميل --</option>
                             $clientOptions
                         </select>
@@ -2330,9 +3045,6 @@ private fun addActivityModalHtml(clientOptions: String): String = """
                         <input type="text" name="nextStep" class="w-full px-3 py-2 border rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الإجراء القادم</label>
-                        <input type="date" name="nextDate" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    </div>
                     <div class="col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
                         <textarea name="notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
@@ -2463,7 +3175,9 @@ private fun roleBadgeColor(role: String): Pair<String, String> = when (role) {
     else -> "#9E9E9E" to "#FFFFFF"
 }
 
-private fun monthOptions(): String {
+private fun monthOptions(): String = monthOptions(null)
+
+private fun monthOptions(selected: String?): String {
     val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
     val months = mutableListOf<String>()
     for (i in 0..11) {
@@ -2472,5 +3186,8 @@ private fun monthOptions(): String {
         if (m <= 0) { m += 12; y -= 1 }
         months.add("${y}-${m.toString().padStart(2, '0')}")
     }
-    return months.joinToString("") { """<option value="$it">${arabicMonth(it)}</option>""" }
+    return months.joinToString("") {
+        val sel = if (it == selected) " selected" else ""
+        """<option value="$it"$sel>${arabicMonth(it)}</option>"""
+    }
 }

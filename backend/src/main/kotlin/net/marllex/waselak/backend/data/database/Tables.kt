@@ -1062,3 +1062,55 @@ object CrmAgentReviewsTable : UUIDTable("crm_agent_reviews") {
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
+
+// ─── CRM: Salary Config (per agent) ────────────────────────────
+object CrmSalaryConfigsTable : UUIDTable("crm_salary_configs") {
+    val agentId = reference("agent_id", SalesAgentsTable).uniqueIndex()
+    val baseSalary = decimal("base_salary", 10, 2).default(java.math.BigDecimal.ZERO)
+    val commissionPercent = decimal("commission_percent", 5, 2).default(java.math.BigDecimal.ZERO)
+    val commissionType = varchar("commission_type", 30).default("NONE") // NONE, FIRST_ONLY, FIXED_MONTHS, FOREVER
+    val commissionMonths = integer("commission_months").default(0)
+    val commissionBase = varchar("commission_base", 20).default("FINAL") // FINAL, ORIGINAL
+    val notes = text("notes").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
+// ─── CRM: Salary Records (monthly) ─────────────────────────────
+object CrmSalaryRecordsTable : UUIDTable("crm_salary_records") {
+    val agentId = reference("agent_id", SalesAgentsTable)
+    val month = varchar("month", 20) // "2026-04"
+    val baseSalary = decimal("base_salary", 10, 2)
+    val commissionTotal = decimal("commission_total", 10, 2).default(java.math.BigDecimal.ZERO)
+    val bonus = decimal("bonus", 10, 2).default(java.math.BigDecimal.ZERO)
+    val deductions = decimal("deductions", 10, 2).default(java.math.BigDecimal.ZERO)
+    val deductionReason = text("deduction_reason").nullable()
+    val bonusReason = text("bonus_reason").nullable()
+    val finalSalary = decimal("final_salary", 10, 2)
+    val status = varchar("status", 20).default("معلق") // معلق, مدفوع
+    val paidDate = date("paid_date").nullable()
+    val notes = text("notes").nullable()
+    val createdBy = reference("created_by", SalesAgentsTable).nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+
+    init {
+        uniqueIndex(agentId, month)
+    }
+}
+
+// ─── CRM: Commission Details (per client per month) ─────────────
+object CrmCommissionDetailsTable : UUIDTable("crm_commission_details") {
+    val salaryRecordId = reference("salary_record_id", CrmSalaryRecordsTable)
+    val agentId = reference("agent_id", SalesAgentsTable)
+    val clientId = reference("client_id", CrmClientsTable)
+    val clientName = varchar("client_name", 255)
+    val plan = varchar("plan", 100).nullable()
+    val clientAmount = decimal("client_amount", 10, 2)
+    val commissionPercent = decimal("commission_percent", 5, 2)
+    val commissionAmount = decimal("commission_amount", 10, 2)
+    val commissionType = varchar("commission_type", 30)
+    val monthNumber = integer("month_number") // الشهر رقم كام من الاشتراك
+    val isActive = bool("is_active").default(true)
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+}

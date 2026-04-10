@@ -76,6 +76,19 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         } > 0
     }
 
+    fun deleteAgent(id: String): Boolean = transaction {
+        val aid = UUID.fromString(id)
+        // Unassign clients
+        CrmClientsTable.update({ CrmClientsTable.assignedTo eq aid }) {
+            it[assignedTo] = null
+        }
+        // Delete activities, targets, reviews
+        CrmActivitiesTable.deleteWhere { agentId eq aid }
+        CrmAgentTargetsTable.deleteWhere { agentId eq aid }
+        CrmAgentReviewsTable.deleteWhere { agentId eq aid }
+        SalesAgentsTable.deleteWhere { SalesAgentsTable.id eq aid } > 0
+    }
+
     // ── Clients CRUD ──────────────────────────────────────────────
 
     data class ClientDto(
@@ -716,5 +729,295 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             totalRevenue = totalRevenue, totalActivities = totalActivities,
             recentActivities = recentActivities,
         )
+    }
+
+    // ── Salary Config ─────────────────────────────────────────────
+
+    data class SalaryConfigDto(
+        val id: String?, val agentId: String, val baseSalary: Double,
+        val commissionPercent: Double, val commissionType: String,
+        val commissionMonths: Int, val commissionBase: String, val notes: String?,
+    )
+
+    fun getSalaryConfig(agentId: String): SalaryConfigDto = transaction {
+        val row = CrmSalaryConfigsTable.selectAll()
+            .where { CrmSalaryConfigsTable.agentId eq UUID.fromString(agentId) }
+            .firstOrNull()
+        if (row != null) {
+            SalaryConfigDto(
+                row[CrmSalaryConfigsTable.id].value.toString(), agentId,
+                row[CrmSalaryConfigsTable.baseSalary].toDouble(),
+                row[CrmSalaryConfigsTable.commissionPercent].toDouble(),
+                row[CrmSalaryConfigsTable.commissionType],
+                row[CrmSalaryConfigsTable.commissionMonths],
+                row[CrmSalaryConfigsTable.commissionBase],
+                row[CrmSalaryConfigsTable.notes],
+            )
+        } else {
+            SalaryConfigDto(null, agentId, 0.0, 0.0, "NONE", 0, "FINAL", null)
+        }
+    }
+
+    fun setSalaryConfig(
+        agentId: String, baseSalary: Double, commissionPercent: Double,
+        commissionType: String, commissionMonths: Int, commissionBase: String, notes: String?,
+    ): SalaryConfigDto = transaction {
+        val aid = UUID.fromString(agentId)
+        val existing = CrmSalaryConfigsTable.selectAll()
+            .where { CrmSalaryConfigsTable.agentId eq aid }.firstOrNull()
+
+        if (existing != null) {
+            CrmSalaryConfigsTable.update({ CrmSalaryConfigsTable.agentId eq aid }) {
+                it[CrmSalaryConfigsTable.baseSalary] = java.math.BigDecimal.valueOf(baseSalary)
+                it[CrmSalaryConfigsTable.commissionPercent] = java.math.BigDecimal.valueOf(commissionPercent)
+                it[CrmSalaryConfigsTable.commissionType] = commissionType
+                it[CrmSalaryConfigsTable.commissionMonths] = commissionMonths
+                it[CrmSalaryConfigsTable.commissionBase] = commissionBase
+                it[CrmSalaryConfigsTable.notes] = notes
+                it[updatedAt] = Clock.System.now()
+            }
+        } else {
+            CrmSalaryConfigsTable.insert {
+                it[CrmSalaryConfigsTable.agentId] = aid
+                it[CrmSalaryConfigsTable.baseSalary] = java.math.BigDecimal.valueOf(baseSalary)
+                it[CrmSalaryConfigsTable.commissionPercent] = java.math.BigDecimal.valueOf(commissionPercent)
+                it[CrmSalaryConfigsTable.commissionType] = commissionType
+                it[CrmSalaryConfigsTable.commissionMonths] = commissionMonths
+                it[CrmSalaryConfigsTable.commissionBase] = commissionBase
+                it[CrmSalaryConfigsTable.notes] = notes
+            }
+        }
+        getSalaryConfig(agentId)
+    }
+
+    // ── Salary Calculation ────────────────────────────────────────
+
+    data class CommissionDetailDto(
+        val clientId: String, val clientName: String, val plan: String?,
+        val clientAmount: Double, val commissionPercent: Double,
+        val commissionAmount: Double, val commissionType: String,
+        val monthNumber: Int, val isActive: Boolean,
+    )
+
+    data class SalaryRecordDto(
+        val id: String, val agentId: String, val agentName: String, val month: String,
+        val baseSalary: Double, val commissionTotal: Double,
+        val bonus: Double, val deductions: Double,
+        val deductionReason: String?, val bonusReason: String?,
+        val finalSalary: Double, val status: String, val paidDate: String?,
+        val notes: String?, val commissionDetails: List<CommissionDetailDto>,
+    )
+
+    fun calculateMonthlySalary(agentId: String, month: String, createdBy: String): SalaryRecordDto = transaction {
+        val aid = UUID.fromString(agentId)
+        val config = getSalaryConfig(agentId)
+
+        // Parse month
+        val parts = month.split("-")
+        val year = parts[0].toInt()
+        val mon = parts[1].toInt()
+
+        // Get active subscribed clients assigned to this agent
+        val subscribedClients = CrmClientsTable.selectAll().where {
+            (CrmClientsTable.assignedTo eq aid) and
+            (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
+        }.toList()
+
+        // Calculate commission for each client
+        val commissionDetails = mutableListOf<CommissionDetailDto>()
+        var commissionTotal = 0.0
+
+        for (client in subscribedClients) {
+            val clientId = client[CrmClientsTable.id].value
+            val clientName = client[CrmClientsTable.clientName]
+            val plan = client[CrmClientsTable.plan]
+            val amount = if (config.commissionBase == "ORIGINAL")
+                client[CrmClientsTable.monthlyAmount].toDouble()
+            else
+                client[CrmClientsTable.monthlyAmount].toDouble() * (1 - client[CrmClientsTable.discountPercent] / 100.0)
+
+            // Find when client first subscribed (first activity with newStatus = مشترك)
+            val firstSubscription = CrmActivitiesTable.selectAll().where {
+                (CrmActivitiesTable.clientId eq clientId) and
+                (CrmActivitiesTable.newStatus inList listOf("مشترك", "مدفوع"))
+            }.orderBy(CrmActivitiesTable.createdAt, SortOrder.ASC).firstOrNull()
+
+            val subscriptionDate = firstSubscription?.let {
+                it[CrmActivitiesTable.createdAt].toLocalDateTime(TimeZone.currentSystemDefault())
+            }
+
+            // Calculate month number since subscription
+            val monthNumber = if (subscriptionDate != null) {
+                val subYear = subscriptionDate.year
+                val subMonth = subscriptionDate.monthNumber
+                (year - subYear) * 12 + (mon - subMonth) + 1
+            } else 1
+
+            // Check if commission applies
+            val commissionAmount = when (config.commissionType) {
+                "FIRST_ONLY" -> if (monthNumber == 1) amount * config.commissionPercent / 100.0 else 0.0
+                "FIXED_MONTHS" -> if (monthNumber <= config.commissionMonths) amount * config.commissionPercent / 100.0 else 0.0
+                "FOREVER" -> amount * config.commissionPercent / 100.0
+                else -> 0.0
+            }
+
+            commissionDetails.add(CommissionDetailDto(
+                clientId.toString(), clientName, plan, amount,
+                config.commissionPercent, commissionAmount, config.commissionType,
+                monthNumber, true,
+            ))
+
+            commissionTotal += commissionAmount
+        }
+
+        // Check for existing record
+        val existing = CrmSalaryRecordsTable.selectAll().where {
+            (CrmSalaryRecordsTable.agentId eq aid) and (CrmSalaryRecordsTable.month eq month)
+        }.firstOrNull()
+
+        val existingBonus = existing?.get(CrmSalaryRecordsTable.bonus)?.toDouble() ?: 0.0
+        val existingDeductions = existing?.get(CrmSalaryRecordsTable.deductions)?.toDouble() ?: 0.0
+        val existingBonusReason = existing?.get(CrmSalaryRecordsTable.bonusReason)
+        val existingDeductionReason = existing?.get(CrmSalaryRecordsTable.deductionReason)
+        val finalSalary = config.baseSalary + commissionTotal + existingBonus - existingDeductions
+
+        val recordId = if (existing != null) {
+            // Update existing
+            CrmSalaryRecordsTable.update({
+                (CrmSalaryRecordsTable.agentId eq aid) and (CrmSalaryRecordsTable.month eq month)
+            }) {
+                it[baseSalary] = java.math.BigDecimal.valueOf(config.baseSalary)
+                it[CrmSalaryRecordsTable.commissionTotal] = java.math.BigDecimal.valueOf(commissionTotal)
+                it[CrmSalaryRecordsTable.finalSalary] = java.math.BigDecimal.valueOf(finalSalary)
+                it[updatedAt] = Clock.System.now()
+            }
+            // Delete old commission details
+            CrmCommissionDetailsTable.deleteWhere {
+                (CrmCommissionDetailsTable.agentId eq aid) and
+                (salaryRecordId eq existing[CrmSalaryRecordsTable.id])
+            }
+            existing[CrmSalaryRecordsTable.id].value
+        } else {
+            CrmSalaryRecordsTable.insertAndGetId {
+                it[CrmSalaryRecordsTable.agentId] = aid
+                it[CrmSalaryRecordsTable.month] = month
+                it[baseSalary] = java.math.BigDecimal.valueOf(config.baseSalary)
+                it[CrmSalaryRecordsTable.commissionTotal] = java.math.BigDecimal.valueOf(commissionTotal)
+                it[CrmSalaryRecordsTable.finalSalary] = java.math.BigDecimal.valueOf(finalSalary)
+                it[CrmSalaryRecordsTable.createdBy] = UUID.fromString(createdBy)
+            }.value
+        }
+
+        // Insert commission details
+        for (detail in commissionDetails) {
+            CrmCommissionDetailsTable.insert {
+                it[salaryRecordId] = recordId
+                it[CrmCommissionDetailsTable.agentId] = aid
+                it[clientId] = UUID.fromString(detail.clientId)
+                it[clientName] = detail.clientName
+                it[CrmCommissionDetailsTable.plan] = detail.plan
+                it[clientAmount] = java.math.BigDecimal.valueOf(detail.clientAmount)
+                it[commissionPercent] = java.math.BigDecimal.valueOf(detail.commissionPercent)
+                it[commissionAmount] = java.math.BigDecimal.valueOf(detail.commissionAmount)
+                it[commissionType] = detail.commissionType
+                it[monthNumber] = detail.monthNumber
+                it[isActive] = detail.isActive
+            }
+        }
+
+        val agentName = SalesAgentsTable.selectAll().where { SalesAgentsTable.id eq aid }
+            .firstOrNull()?.get(SalesAgentsTable.name) ?: ""
+
+        SalaryRecordDto(
+            recordId.toString(), agentId, agentName, month,
+            config.baseSalary, commissionTotal, existingBonus, existingDeductions,
+            existingDeductionReason, existingBonusReason, finalSalary,
+            existing?.get(CrmSalaryRecordsTable.status) ?: "معلق",
+            existing?.get(CrmSalaryRecordsTable.paidDate)?.toString(),
+            existing?.get(CrmSalaryRecordsTable.notes),
+            commissionDetails,
+        )
+    }
+
+    fun getSalaryRecord(agentId: String, month: String): SalaryRecordDto? = transaction {
+        val aid = UUID.fromString(agentId)
+        val record = CrmSalaryRecordsTable.selectAll().where {
+            (CrmSalaryRecordsTable.agentId eq aid) and (CrmSalaryRecordsTable.month eq month)
+        }.firstOrNull() ?: return@transaction null
+
+        val agentName = SalesAgentsTable.selectAll().where { SalesAgentsTable.id eq aid }
+            .firstOrNull()?.get(SalesAgentsTable.name) ?: ""
+
+        val details = CrmCommissionDetailsTable.selectAll().where {
+            CrmCommissionDetailsTable.salaryRecordId eq record[CrmSalaryRecordsTable.id]
+        }.map {
+            CommissionDetailDto(
+                it[CrmCommissionDetailsTable.clientId].value.toString(),
+                it[CrmCommissionDetailsTable.clientName],
+                it[CrmCommissionDetailsTable.plan],
+                it[CrmCommissionDetailsTable.clientAmount].toDouble(),
+                it[CrmCommissionDetailsTable.commissionPercent].toDouble(),
+                it[CrmCommissionDetailsTable.commissionAmount].toDouble(),
+                it[CrmCommissionDetailsTable.commissionType],
+                it[CrmCommissionDetailsTable.monthNumber],
+                it[CrmCommissionDetailsTable.isActive],
+            )
+        }
+
+        SalaryRecordDto(
+            record[CrmSalaryRecordsTable.id].value.toString(), agentId, agentName, month,
+            record[CrmSalaryRecordsTable.baseSalary].toDouble(),
+            record[CrmSalaryRecordsTable.commissionTotal].toDouble(),
+            record[CrmSalaryRecordsTable.bonus].toDouble(),
+            record[CrmSalaryRecordsTable.deductions].toDouble(),
+            record[CrmSalaryRecordsTable.deductionReason],
+            record[CrmSalaryRecordsTable.bonusReason],
+            record[CrmSalaryRecordsTable.finalSalary].toDouble(),
+            record[CrmSalaryRecordsTable.status],
+            record[CrmSalaryRecordsTable.paidDate]?.toString(),
+            record[CrmSalaryRecordsTable.notes],
+            details,
+        )
+    }
+
+    fun listAllSalaryRecords(month: String): List<SalaryRecordDto> = transaction {
+        val agents = SalesAgentsTable.selectAll().where { SalesAgentsTable.active eq true }
+        agents.mapNotNull { agent ->
+            getSalaryRecord(agent[SalesAgentsTable.id].value.toString(), month)
+        }
+    }
+
+    fun updateSalaryBonusDeduction(
+        recordId: String, bonus: Double?, bonusReason: String?,
+        deductions: Double?, deductionReason: String?, notes: String?,
+    ): Boolean = transaction {
+        val record = CrmSalaryRecordsTable.selectAll()
+            .where { CrmSalaryRecordsTable.id eq UUID.fromString(recordId) }
+            .firstOrNull() ?: return@transaction false
+
+        val newBonus = bonus ?: record[CrmSalaryRecordsTable.bonus].toDouble()
+        val newDeductions = deductions ?: record[CrmSalaryRecordsTable.deductions].toDouble()
+        val base = record[CrmSalaryRecordsTable.baseSalary].toDouble()
+        val commission = record[CrmSalaryRecordsTable.commissionTotal].toDouble()
+        val finalSalary = base + commission + newBonus - newDeductions
+
+        CrmSalaryRecordsTable.update({ CrmSalaryRecordsTable.id eq UUID.fromString(recordId) }) {
+            if (bonus != null) it[CrmSalaryRecordsTable.bonus] = java.math.BigDecimal.valueOf(bonus)
+            if (bonusReason != null) it[CrmSalaryRecordsTable.bonusReason] = bonusReason
+            if (deductions != null) it[CrmSalaryRecordsTable.deductions] = java.math.BigDecimal.valueOf(deductions)
+            if (deductionReason != null) it[CrmSalaryRecordsTable.deductionReason] = deductionReason
+            if (notes != null) it[CrmSalaryRecordsTable.notes] = notes
+            it[CrmSalaryRecordsTable.finalSalary] = java.math.BigDecimal.valueOf(finalSalary)
+            it[updatedAt] = Clock.System.now()
+        } > 0
+    }
+
+    fun markSalaryPaid(recordId: String): Boolean = transaction {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        CrmSalaryRecordsTable.update({ CrmSalaryRecordsTable.id eq UUID.fromString(recordId) }) {
+            it[status] = "مدفوع"
+            it[paidDate] = today
+            it[updatedAt] = Clock.System.now()
+        } > 0
     }
 }

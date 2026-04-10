@@ -122,6 +122,7 @@ object DatabaseConfig {
                 SalesAgentsTable, CrmClientsTable, CrmActivitiesTable,
                 CrmInvoicesTable, CrmPaymentsTable,
                 CrmAgentTargetsTable, CrmAgentReviewsTable,
+                CrmSalaryConfigsTable, CrmSalaryRecordsTable, CrmCommissionDetailsTable,
             )
 
             // Add enable_offline_mode to vendors
