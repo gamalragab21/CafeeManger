@@ -101,11 +101,24 @@ fun ManagerCashDrawerScreen(
                     uiState.isLoading -> LoadingIndicator()
                     uiState.error != null -> ErrorView(message = uiState.error!!, onRetry = viewModel::load)
                     uiState.selectedTab == 0 -> {
-                        val session = uiState.currentSession
-                        if (session == null || session.isClosed) {
-                            EmptyView(stringResource(Res.string.no_open_drawer))
+                        if (uiState.selectedCashierId == null && uiState.allOpenSessions.isNotEmpty()) {
+                            // "All" selected — show all open sessions from all cashiers
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                            ) {
+                                items(uiState.allOpenSessions, key = { it.id }) { session ->
+                                    SessionCard(session)
+                                }
+                            }
                         } else {
-                            CurrentSessionContent(session, uiState.summary, uiState.movements)
+                            val session = uiState.currentSession
+                            if (session == null || session.isClosed) {
+                                EmptyView(stringResource(Res.string.no_open_drawer))
+                            } else {
+                                CurrentSessionContent(session, uiState.summary, uiState.movements)
+                            }
                         }
                     }
                     else -> {

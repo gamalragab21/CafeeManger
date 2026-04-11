@@ -16,6 +16,9 @@ class OrderDao(private val db: WaselakDatabase) {
     fun getOrders(vendorId: String): Flow<List<Orders>> =
         orderQueries.getOrders(vendorId).asFlow().mapToList(Dispatchers.Default)
 
+    suspend fun getAllOrdersList(): List<Orders> =
+        orderQueries.getAllOrdersCached().executeAsList()
+
     fun getOrdersByStatus(vendorId: String, status: String): Flow<List<Orders>> =
         orderQueries.getOrdersByStatus(vendorId, status).asFlow().mapToList(Dispatchers.Default)
 

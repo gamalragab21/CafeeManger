@@ -16,6 +16,7 @@ import net.marllex.waselak.core.model.AttendanceSummary
 import net.marllex.waselak.core.model.Worker
 import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AttendanceViewModel constructor(
@@ -264,7 +265,7 @@ class AttendanceViewModel constructor(
                     _uiState.update {
                         it.copy(
                             showPinErrorDialog = true,
-                            pinErrorMessage = e.message ?: "Unknown error occurred",
+                            pinErrorMessage = e.userFriendlyMessage(),
                             selectedWorker = currentWorker,
                             authAction = AuthAction.CheckIn,
                             isLoading = false
@@ -300,7 +301,7 @@ class AttendanceViewModel constructor(
                     _uiState.update {
                         it.copy(
                             showPinErrorDialog = true,
-                            pinErrorMessage = e.message ?: "Unknown error occurred",
+                            pinErrorMessage = e.userFriendlyMessage(),
                             selectedWorker = currentWorker,
                             selectedAttendanceId = currentAttendanceId,
                             authAction = AuthAction.CheckOut,
@@ -333,7 +334,7 @@ class AttendanceViewModel constructor(
                     _uiState.update {
                         it.copy(
                             showQrErrorDialog = true,
-                            qrErrorMessage = e.message ?: "Unknown error occurred",
+                            qrErrorMessage = e.userFriendlyMessage(),
                             authAction = null,
                             isLoading = false
                         )
@@ -364,7 +365,7 @@ class AttendanceViewModel constructor(
                     _uiState.update {
                         it.copy(
                             showQrErrorDialog = true,
-                            qrErrorMessage = e.message ?: "Unknown error occurred",
+                            qrErrorMessage = e.userFriendlyMessage(),
                             authAction = null,
                             isLoading = false
                         )

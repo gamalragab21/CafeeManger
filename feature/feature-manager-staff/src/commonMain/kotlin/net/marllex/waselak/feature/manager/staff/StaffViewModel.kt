@@ -11,6 +11,7 @@ import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
 import net.marllex.waselak.core.network.isPlanLimitExceeded
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.ui.components.ShiftSummaryUiModel
 import net.marllex.waselak.core.common.crash.CrashReporter
 

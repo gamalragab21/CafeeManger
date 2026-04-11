@@ -94,8 +94,9 @@ class OrderRepositoryImpl constructor(
         to: Long?,
         limit: Int,
         offset: Int,
-    ): Result<PaginatedResult<Order>> =
-        runCatching {
+    ): Result<PaginatedResult<Order>> {
+        // Try API first
+        val apiResult = runCatching {
             AppLogger.d("OrderRepo", "Refreshing orders: status=$status, channel=$channel, limit=$limit, offset=$offset")
             val response = api.getOrders(
                 status = status,
@@ -110,19 +111,35 @@ class OrderRepositoryImpl constructor(
             )
             val orders = response.orders.map { it.toDomain() }
             AppLogger.i("OrderRepo", "Fetched ${orders.size} orders (total: ${response.total}, hasMore: ${response.hasMore})")
-            orders.forEach { o -> AppLogger.d("OrderRepo", "  order: id=${o.id}, status=${o.status}, channel=${o.channel}, total=${o.total}") }
-            AppLogger.d("OrderRepo", "DB: inserting ${orders.size} orders")
             orderDao.insertOrders(orders.map { it.toDbEntity() })
             orders.forEach { order ->
                 orderDao.deleteOrderItems(order.id)
                 orderDao.insertOrderItems(order.items.map { it.toDbEntity() })
             }
             PaginatedResult(orders, response.total, response.hasMore)
-        }.also { result ->
-            result.onFailure { e ->
-                AppLogger.e("OrderRepo", "refreshOrders FAILED: ${e::class.simpleName}: ${e.message}", e)
-            }
         }
+
+        if (apiResult.isSuccess) return apiResult
+
+        // API failed — fall back to local cached orders
+        val error = apiResult.exceptionOrNull()
+        AppLogger.w("OrderRepo", "API failed, falling back to local cache: ${error?.message}")
+        return runCatching {
+            val cachedOrders = orderDao.getAllOrdersList()
+                .map { orderEntity ->
+                    val items = orderDao.getOrderItemsList(orderEntity.id).map { it.toDomain() }
+                    orderEntity.toDomain(items)
+                }
+                .let { orders ->
+                    var filtered = orders
+                    if (status != null) filtered = filtered.filter { it.status.name == status }
+                    if (channel != null) filtered = filtered.filter { it.channel.name == channel }
+                    filtered.sortedByDescending { it.createdAt }
+                }
+            AppLogger.i("OrderRepo", "Loaded ${cachedOrders.size} orders from local cache (offline)")
+            PaginatedResult(cachedOrders.take(limit), cachedOrders.size, cachedOrders.size > limit)
+        }
+    }
 
     override suspend fun refreshMyDeliveryOrders(status: String?, limit: Int, offset: Int): Result<PaginatedResult<Order>> =
         runCatching {

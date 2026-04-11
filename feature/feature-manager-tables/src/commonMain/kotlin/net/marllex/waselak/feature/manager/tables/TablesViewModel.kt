@@ -22,6 +22,7 @@ import net.marllex.waselak.core.model.TableStatus
 import net.marllex.waselak.core.common.extensions.currentTimeString
 import net.marllex.waselak.core.common.extensions.todayDateString
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.crash.CrashReporter
 

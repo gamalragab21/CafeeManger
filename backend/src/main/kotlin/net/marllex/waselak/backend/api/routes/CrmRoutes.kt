@@ -2894,11 +2894,17 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$title - وصلك CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = { darkMode: 'class' };
+    // Dark mode: restore from localStorage
+    if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
+    </script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
         dialog::backdrop { background: rgba(0,0,0,0.5); }
         dialog { border: none; border-radius: 1rem; padding: 0; max-width: 600px; width: 90%; }
         .sidebar { background: #1B3A5C; }
+        .dark .sidebar { background: #0f1f2e; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
@@ -2906,9 +2912,27 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         @media (max-width: 767px) {
             dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; }
         }
+        /* Dark mode overrides */
+        .dark body, .dark main { background: #111827 !important; color: #e5e7eb; }
+        .dark .bg-white { background: #1f2937 !important; }
+        .dark .bg-gray-100 { background: #111827 !important; }
+        .dark .bg-gray-50 { background: #1a2332 !important; }
+        .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-600 { color: #d1d5db !important; }
+        .dark .text-gray-500 { color: #9ca3af !important; }
+        .dark .border { border-color: #374151 !important; }
+        .dark .border-b { border-color: #374151 !important; }
+        .dark .shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
+        .dark table th { background: #1e293b !important; }
+        .dark table tr:hover { background: #1e293b !important; }
+        .dark input, .dark select, .dark textarea { background: #374151 !important; color: #e5e7eb !important; border-color: #4b5563 !important; }
+        .dark dialog { background: #1f2937 !important; color: #e5e7eb !important; }
+        .dark .bg-blue-50 { background: #1e3a5f !important; }
+        .dark .bg-green-50 { background: #14532d !important; }
+        .dark .bg-yellow-50 { background: #422006 !important; }
+        .dark .bg-red-50 { background: #450a0a !important; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
     <!-- Mobile header -->
     <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">
@@ -2974,20 +2998,69 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
                         <p class="text-white/60">$displayRole</p>
                     </div>
                 </a>
-                <a href="/crm/logout" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition mt-2">
-                    <span>🚪</span><span>تسجيل الخروج</span>
-                </a>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="toggleDarkMode()" class="flex items-center gap-1 text-xs text-white/60 hover:text-white transition px-2 py-1 rounded bg-white/10" title="Dark Mode">
+                        <span id="darkIcon">🌙</span>
+                    </button>
+                    <button onclick="toggleLang()" class="flex items-center gap-1 text-xs text-white/60 hover:text-white transition px-2 py-1 rounded bg-white/10" title="Language">
+                        <span id="langIcon">EN</span>
+                    </button>
+                    <a href="/crm/logout" class="flex items-center gap-1 text-xs text-white/60 hover:text-white transition px-2 py-1 rounded bg-white/10">
+                        🚪
+                    </a>
+                </div>
             </div>
         </aside>
 
         <!-- Main Content -->
         <main class="flex-1 p-4 md:p-8 pt-16 md:pt-8 overflow-auto">
-            <div class="mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">$title</h2>
+            <div class="mb-6 flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">$title</h2>
             </div>
             $content
         </main>
     </div>
+    <script>
+    function toggleDarkMode() {
+        const html = document.documentElement;
+        html.classList.toggle('dark');
+        const isDark = html.classList.contains('dark');
+        localStorage.setItem('darkMode', isDark);
+        document.getElementById('darkIcon').textContent = isDark ? '☀️' : '🌙';
+    }
+    // Set icon on load
+    if (localStorage.getItem('darkMode') === 'true') {
+        const di = document.getElementById('darkIcon');
+        if (di) di.textContent = '☀️';
+    }
+
+    // Language toggle
+    const translations = {
+        'لوحة التحكم': 'Dashboard', 'العملاء': 'Clients', 'الأنشطة': 'Activities',
+        'التقارير': 'Reports', 'الفواتير': 'Invoices', 'المرتبات': 'Salaries',
+        'الفريق': 'Team', 'الإعدادات': 'Settings', 'ملفي': 'My Profile',
+        'دليل النظام': 'System Guide', 'تسجيل الخروج': 'Logout',
+        'نظام إدارة المبيعات': 'Sales Management System',
+        'إضافة عميل': 'Add Client', 'إضافة نشاط': 'Add Activity',
+        'بحث': 'Search', 'الحالة': 'Status', 'الاسم': 'Name',
+        'الهاتف': 'Phone', 'الباقة': 'Plan', 'المبلغ': 'Amount',
+        'نوع النشاط': 'Business Type', 'المدينة': 'City', 'المحافظة': 'Governorate',
+        'الموظف المسؤول': 'Assigned To', 'المصدر': 'Source', 'ملاحظات': 'Notes',
+        'حفظ': 'Save', 'إلغاء': 'Cancel', 'تعديل': 'Edit', 'حذف': 'Delete',
+    };
+    let isArabic = true;
+    function toggleLang() {
+        isArabic = !isArabic;
+        document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+        document.documentElement.lang = isArabic ? 'ar' : 'en';
+        const btn = document.getElementById('langIcon');
+        if (btn) btn.textContent = isArabic ? 'EN' : 'عربي';
+        localStorage.setItem('lang', isArabic ? 'ar' : 'en');
+    }
+    if (localStorage.getItem('lang') === 'en') {
+        toggleLang();
+    }
+    </script>
 </body>
 </html>"""
 }

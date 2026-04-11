@@ -216,12 +216,15 @@ fun Route.cashDrawerRoutes() {
                     .filter { it[CashMovementsTable.type] == "CASH_OUT" }
                     .sumOf { it[CashMovementsTable.amount] }
 
-                // Get actual CASH sales from completed orders for this cashier
+                // Get actual CASH sales from completed orders for this cashier during session
+                // Match same query as /summary: createdAt OR updatedAt OR paymentConfirmedAt
                 val paidOrders = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
                     (OrdersTable.cashierId eq userUUID) and
-                    (OrdersTable.createdAt greaterEq sessionOpenedAt) and
-                    (OrdersTable.status inList listOf("COMPLETED", "PAID"))
+                    (OrdersTable.status inList listOf("COMPLETED", "PAID")) and
+                    ((OrdersTable.createdAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.updatedAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.paymentConfirmedAt greaterEq sessionOpenedAt))
                 }.toList()
 
                 // Cash from non-split orders
@@ -238,16 +241,23 @@ fun Route.cashDrawerRoutes() {
                     }.sumOf { it[OrderPaymentsTable.amount] }
                 } else BigDecimal.ZERO
 
+                // Installment payments collected during session
+                val installmentTotal = movements
+                    .filter { it[CashMovementsTable.type] == "INSTALLMENT_PAYMENT" }
+                    .sumOf { it[CashMovementsTable.amount] }
+
                 // Refunded orders
                 val refundedTotal = OrdersTable.selectAll().where {
                     (OrdersTable.vendorId eq vendorUUID) and
                     (OrdersTable.cashierId eq userUUID) and
-                    (OrdersTable.createdAt greaterEq sessionOpenedAt) and
-                    (OrdersTable.status eq "REFUNDED")
+                    (OrdersTable.status eq "REFUNDED") and
+                    ((OrdersTable.createdAt greaterEq sessionOpenedAt) or
+                     (OrdersTable.updatedAt greaterEq sessionOpenedAt))
                 }.sumOf { it[OrdersTable.total] }
 
-                // Expected CASH in drawer = opening + manual deposits + cash sales - manual withdrawals - refunds
-                val expectedBalance = openingBalance + (manualCashIn - openingBalance) + cashFromOrders + cashFromSplits - manualCashOut - refundedTotal
+                // Expected CASH in drawer = opening + additional deposits + cash sales + installments - withdrawals - refunds
+                val additionalCashIn = (manualCashIn - openingBalance).coerceAtLeast(BigDecimal.ZERO)
+                val expectedBalance = openingBalance + additionalCashIn + cashFromOrders + cashFromSplits + installmentTotal - manualCashOut - refundedTotal
                 val closingBalanceBD = BigDecimal(request.closing_balance)
                 val differenceBD = closingBalanceBD - expectedBalance
 
@@ -286,13 +296,21 @@ fun Route.cashDrawerRoutes() {
             call.respond(HttpStatusCode.OK, session)
         }
 
-        // GET current open session for this cashier
+        // GET current open session — for managers: optional ?cashier_id= to see any cashier's session
         get("/current") {
             val trace = call.routeTrace()
             val principal = currentUser()
             planService.checkFeature(UUID.fromString(principal.vendorId), "CASH_DRAWER")
             val vendorUUID = UUID.fromString(principal.vendorId)
-            val userUUID = UUID.fromString(principal.userId)
+
+            // Manager can view any cashier's current session via ?cashier_id=
+            val requestedCashierId = call.parameters["cashier_id"]
+            val targetUserId = if (principal.role == "MANAGER" && requestedCashierId != null) {
+                UUID.fromString(requestedCashierId)
+            } else {
+                UUID.fromString(principal.userId)
+            }
+            val userUUID = targetUserId
 
             val session = transaction {
                 val sessionRow = CashDrawerSessionsTable.selectAll().where {
@@ -332,6 +350,44 @@ fun Route.cashDrawerRoutes() {
             } else {
                 call.respond(HttpStatusCode.OK, session)
             }
+        }
+
+        // GET all open sessions (MANAGER only) — for "All" view
+        get("/current-all") {
+            val trace = call.routeTrace()
+            val principal = requireRole("MANAGER")
+            planService.checkFeature(UUID.fromString(principal.vendorId), "CASH_DRAWER")
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val sessions = transaction {
+                CashDrawerSessionsTable.selectAll().where {
+                    (CashDrawerSessionsTable.vendorId eq vendorUUID) and
+                    (CashDrawerSessionsTable.status eq "OPEN")
+                }.map { sessionRow ->
+                    val sessionId = sessionRow[CashDrawerSessionsTable.id]
+                    val cashierId = sessionRow[CashDrawerSessionsTable.cashierId]
+                    val movements = CashMovementsTable.selectAll().where {
+                        CashMovementsTable.sessionId eq sessionId
+                    }.orderBy(CashMovementsTable.createdAt, SortOrder.DESC).map { it.toCashMovementDto() }
+
+                    val cashierName = UsersTable.selectAll().where { UsersTable.id eq cashierId }
+                        .firstOrNull()?.get(UsersTable.name)
+
+                    CashDrawerSessionDto(
+                        id = sessionId.toString(),
+                        vendor_id = vendorUUID.toString(),
+                        cashier_id = cashierId.value.toString(),
+                        cashier_name = cashierName,
+                        opened_at = sessionRow[CashDrawerSessionsTable.openedAt].toEpochMilliseconds(),
+                        opening_balance = sessionRow[CashDrawerSessionsTable.openingBalance].toDouble(),
+                        status = "OPEN",
+                        notes = sessionRow[CashDrawerSessionsTable.notes],
+                        movements = movements,
+                        created_at = sessionRow[CashDrawerSessionsTable.createdAt].toEpochMilliseconds(),
+                    )
+                }
+            }
+            call.respond(HttpStatusCode.OK, sessions)
         }
 
         // POST add a cash movement (cash in/out)
@@ -463,13 +519,20 @@ fun Route.cashDrawerRoutes() {
             call.respond(HttpStatusCode.OK, sessions)
         }
 
-        // GET drawer summary for current open session
+        // GET drawer summary — for managers: optional ?cashier_id= to see any cashier's summary
         get("/summary") {
             val trace = call.routeTrace()
             val principal = currentUser()
             planService.checkFeature(UUID.fromString(principal.vendorId), "CASH_DRAWER")
             val vendorUUID = UUID.fromString(principal.vendorId)
-            val userUUID = UUID.fromString(principal.userId)
+
+            val requestedCashierId = call.parameters["cashier_id"]
+            val targetUserId = if (principal.role == "MANAGER" && requestedCashierId != null) {
+                UUID.fromString(requestedCashierId)
+            } else {
+                UUID.fromString(principal.userId)
+            }
+            val userUUID = targetUserId
 
             val summary = transaction {
                 val sessionRow = CashDrawerSessionsTable.selectAll().where {

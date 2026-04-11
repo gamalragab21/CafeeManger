@@ -13,9 +13,11 @@ import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.RequestLogService
 import net.marllex.waselak.backend.plugins.AdminPrincipal
 import net.marllex.waselak.backend.plugins.routeTrace
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
+import org.mindrot.jbcrypt.BCrypt
 import java.util.UUID
 
 fun Route.adminDashboardRoutes() {
@@ -604,6 +606,215 @@ fun Route.adminDashboardRoutes() {
                 }
                 trace.step("Dashboard view log file completed")
             }
+
+            // ─── Vendor CRUD (cookie auth) ─────────────────────────
+            post("/vendors") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val vendorName = obj["vendor_name"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "vendor_name required"))
+                val managerName = obj["manager_name"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "manager_name required"))
+                val managerPhone = obj["manager_phone"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "manager_phone required"))
+                val managerPassword = obj["manager_password"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "manager_password required"))
+                val businessType = obj["business_type"]?.jsonPrimitive?.content ?: "RESTAURANT"
+                val plan = obj["plan"]?.jsonPrimitive?.content ?: "STARTER"
+
+                val result = transaction {
+                    val vendorId = VendorsTable.insertAndGetId {
+                        it[name] = vendorName
+                        it[address] = obj["vendor_address"]?.jsonPrimitive?.content ?: ""
+                        it[contactPhone] = obj["vendor_phone"]?.jsonPrimitive?.content ?: ""
+                        it[VendorsTable.businessType] = businessType
+                    }
+                    val passwordHash = BCrypt.hashpw(managerPassword, BCrypt.gensalt())
+                    UsersTable.insertAndGetId {
+                        it[UsersTable.vendorId] = vendorId.value
+                        it[role] = "MANAGER"
+                        it[UsersTable.name] = managerName
+                        it[phone] = managerPhone
+                        it[UsersTable.passwordHash] = passwordHash
+                    }
+                    // Create subscription
+                    val planRow = SubscriptionPlansTable.selectAll().where { SubscriptionPlansTable.name eq plan }.firstOrNull()
+                    if (planRow != null) {
+                        VendorSubscriptionsTable.insert {
+                            it[VendorSubscriptionsTable.vendorId] = vendorId.value
+                            it[planId] = planRow[SubscriptionPlansTable.id]
+                            it[status] = "ACTIVE"
+                        }
+                    }
+                    vendorId.value.toString()
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "created", "vendor_id" to result))
+            }
+
+            post("/vendors/{id}/suspend") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val id = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                transaction {
+                    val vendor = VendorsTable.selectAll().where { VendorsTable.id eq UUID.fromString(id) }.firstOrNull()
+                    val currentSuspended = vendor?.get(VendorsTable.isSuspended) ?: false
+                    VendorsTable.update({ VendorsTable.id eq UUID.fromString(id) }) {
+                        it[isSuspended] = !currentSuspended
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "toggled"))
+            }
+
+            delete("/vendors/{id}") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                val vendorUUID = UUID.fromString(id)
+                transaction {
+                    // Cascade delete — delete order items first via order IDs
+                    val orderIds = OrdersTable.selectAll().where { OrdersTable.vendorId eq vendorUUID }.map { it[OrdersTable.id].value }
+                    orderIds.forEach { oid -> OrderItemsTable.deleteWhere { OrderItemsTable.orderId eq oid } }
+                    OrdersTable.deleteWhere { OrdersTable.vendorId eq vendorUUID }
+                    UsersTable.deleteWhere { UsersTable.vendorId eq vendorUUID }
+                    WorkersTable.deleteWhere { WorkersTable.vendorId eq vendorUUID }
+                    CategoriesTable.deleteWhere { CategoriesTable.vendorId eq vendorUUID }
+                    ItemsTable.deleteWhere { ItemsTable.vendorId eq vendorUUID }
+                    VendorSubscriptionsTable.deleteWhere { VendorSubscriptionsTable.vendorId eq vendorUUID }
+                    VendorsTable.deleteWhere { VendorsTable.id eq vendorUUID }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+            }
+
+            // ─── Vendor User CRUD (cookie auth) ────────────────────
+            get("/vendors/{id}/users") {
+                val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                val users = transaction {
+                    UsersTable.selectAll().where { UsersTable.vendorId eq UUID.fromString(id) }
+                        .map { buildJsonObject {
+                            put("id", it[UsersTable.id].value.toString())
+                            put("name", it[UsersTable.name])
+                            put("phone", it[UsersTable.phone])
+                            put("email", it[UsersTable.email] ?: "")
+                            put("role", it[UsersTable.role])
+                            put("active", it[UsersTable.active])
+                        } }
+                }
+                call.respondText(buildJsonArray { users.forEach { add(it) } }.toString(), ContentType.Application.Json)
+            }
+
+            post("/vendors/{id}/users") {
+                val vendorId = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val userName = obj["name"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                val userPhone = obj["phone"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "phone required"))
+                val userPassword = obj["password"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "password required"))
+                val userRole = obj["role"]?.jsonPrimitive?.content ?: "CASHIER"
+                val vendorUUID = UUID.fromString(vendorId)
+                // Check phone uniqueness
+                val existing = transaction { UsersTable.selectAll().where { (UsersTable.vendorId eq vendorUUID) and (UsersTable.phone eq userPhone) }.firstOrNull() }
+                if (existing != null) return@post call.respond(HttpStatusCode.Conflict, mapOf("error" to "Phone already exists"))
+                val passwordHash = BCrypt.hashpw(userPassword, BCrypt.gensalt())
+                val now = kotlinx.datetime.Clock.System.now()
+                transaction {
+                    val userId = UsersTable.insertAndGetId {
+                        it[UsersTable.vendorId] = vendorUUID
+                        it[role] = userRole; it[name] = userName; it[phone] = userPhone
+                        it[UsersTable.passwordHash] = passwordHash; it[active] = true
+                        it[createdAt] = now; it[updatedAt] = now
+                    }
+                    val workerCount = WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUUID }.count()
+                    WorkersTable.insert {
+                        it[WorkersTable.vendorId] = vendorUUID; it[WorkersTable.userId] = userId
+                        it[workerId] = "WRK-${(workerCount + 1).toString().padStart(3, '0')}"
+                        it[fullName] = userName; it[WorkersTable.phone] = userPhone
+                        it[WorkersTable.role] = userRole; it[salaryType] = "MONTHLY"
+                        it[WorkersTable.active] = true; it[WorkersTable.createdAt] = now; it[WorkersTable.updatedAt] = now
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "created"))
+            }
+
+            delete("/vendors/{vendorId}/users/{userId}") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val userId = call.parameters["userId"] ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "userId required"))
+                transaction {
+                    UsersTable.update({ UsersTable.id eq UUID.fromString(userId) }) {
+                        it[active] = false; it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deactivated"))
+            }
+
+            // ─── Team CRUD (cookie auth) ───────────────────────────
+            get("/team") {
+                val team = transaction {
+                    AdminUsersTable.selectAll().orderBy(AdminUsersTable.createdAt, SortOrder.ASC).map {
+                        buildJsonObject {
+                            put("id", it[AdminUsersTable.id].value.toString())
+                            put("name", it[AdminUsersTable.name])
+                            put("email", it[AdminUsersTable.email])
+                            put("role", it[AdminUsersTable.role])
+                            put("active", it[AdminUsersTable.active])
+                            put("last_login_at", it[AdminUsersTable.lastLoginAt]?.toEpochMilliseconds())
+                            put("created_at", it[AdminUsersTable.createdAt].toEpochMilliseconds())
+                        }
+                    }
+                }
+                call.respondText(buildJsonArray { team.forEach { add(it) } }.toString(), ContentType.Application.Json)
+            }
+
+            post("/team") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val tName = obj["name"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                val tEmail = obj["email"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "email required"))
+                val tPassword = obj["password"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "password required"))
+                val tRole = obj["role"]?.jsonPrimitive?.content ?: "support"
+                // Check email uniqueness
+                val existing = transaction { AdminUsersTable.selectAll().where { AdminUsersTable.email eq tEmail }.firstOrNull() }
+                if (existing != null) return@post call.respond(HttpStatusCode.Conflict, mapOf("error" to "Email already exists"))
+                val passwordHash = BCrypt.hashpw(tPassword, BCrypt.gensalt())
+                transaction {
+                    AdminUsersTable.insert {
+                        it[name] = tName; it[email] = tEmail
+                        it[AdminUsersTable.passwordHash] = passwordHash
+                        it[role] = if (tRole in listOf("super_admin", "support")) tRole else "support"
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "created"))
+            }
+
+            put("/team/{id}") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@put call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val id = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                transaction {
+                    AdminUsersTable.update({ AdminUsersTable.id eq UUID.fromString(id) }) {
+                        obj["name"]?.jsonPrimitive?.contentOrNull?.let { n -> it[name] = n }
+                        obj["role"]?.jsonPrimitive?.contentOrNull?.let { r -> if (r in listOf("super_admin", "support")) it[role] = r }
+                        obj["active"]?.jsonPrimitive?.booleanOrNull?.let { a -> it[active] = a }
+                        obj["password"]?.jsonPrimitive?.contentOrNull?.let { p -> it[passwordHash] = BCrypt.hashpw(p, BCrypt.gensalt()) }
+                        it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "updated"))
+            }
+
+            delete("/team/{id}") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID required"))
+                if (id == admin.adminId) return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Cannot delete yourself"))
+                transaction {
+                    AdminRefreshTokensTable.deleteWhere { AdminRefreshTokensTable.adminId eq UUID.fromString(id) }
+                    AdminUsersTable.deleteWhere { AdminUsersTable.id eq UUID.fromString(id) }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+            }
         }
     }
 }
@@ -647,11 +858,16 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$title - وصلك Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = { darkMode: 'class' };
+    if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
+    </script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
         dialog::backdrop { background: rgba(0,0,0,0.5); }
         dialog { border: none; border-radius: 1rem; padding: 0; max-width: 600px; width: 90%; }
         .sidebar { background: #1B3A5C; }
+        .dark .sidebar { background: #0f1f2e; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -665,9 +881,22 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
         .badge-suspended { background: #fee2e2; color: #991b1b; }
         .badge-super_admin { background: #dbeafe; color: #1e40af; }
         .badge-support { background: #f3e8ff; color: #6b21a8; }
+        /* Dark mode */
+        .dark body, .dark main { background: #111827 !important; color: #e5e7eb; }
+        .dark .bg-white { background: #1f2937 !important; }
+        .dark .bg-gray-100 { background: #111827 !important; }
+        .dark .bg-gray-50 { background: #1a2332 !important; }
+        .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-600 { color: #d1d5db !important; }
+        .dark .text-gray-500 { color: #9ca3af !important; }
+        .dark .border { border-color: #374151 !important; }
+        .dark .shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
+        .dark table th { background: #1e293b !important; }
+        .dark table tr:hover { background: #1e293b !important; }
+        .dark input, .dark select, .dark textarea { background: #374151 !important; color: #e5e7eb !important; border-color: #4b5563 !important; }
+        .dark dialog { background: #1f2937 !important; color: #e5e7eb !important; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
     <!-- Mobile header -->
     <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">
@@ -700,11 +929,13 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
                         <p class="text-white/60">$roleDisplay</p>
                     </div>
                 </div>
-                <form method="POST" action="/admin/logout">
-                    <button type="submit" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition">
-                        <span>🚪</span><span>تسجيل الخروج</span>
-                    </button>
-                </form>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="toggleDarkMode()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="darkBtn">🌙</button>
+                    <button onclick="toggleLang()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="langBtn">EN</button>
+                    <form method="POST" action="/admin/logout" class="inline">
+                        <button type="submit" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10">🚪</button>
+                    </form>
+                </div>
             </div>
         </aside>
     </div>
@@ -728,29 +959,47 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
                         <p class="text-white/60">$roleDisplay</p>
                     </div>
                 </div>
-                <form method="POST" action="/admin/logout">
-                    <button type="submit" class="flex items-center gap-2 text-sm text-white/60 hover:text-white transition">
-                        <span>🚪</span><span>تسجيل الخروج</span>
-                    </button>
-                </form>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="toggleDarkMode()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="darkBtn">🌙</button>
+                    <button onclick="toggleLang()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="langBtn">EN</button>
+                    <form method="POST" action="/admin/logout" class="inline">
+                        <button type="submit" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10">🚪</button>
+                    </form>
+                </div>
             </div>
         </aside>
 
         <!-- Main Content -->
         <main class="flex-1 p-4 md:p-8 pt-16 md:pt-8 overflow-auto">
             <div class="mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">$title</h2>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">$title</h2>
             </div>
             $content
         </main>
     </div>
 
     <script>
-    // ─── Global Helpers ─────────────────────────────────────
-    function getToken() {
-        const match = document.cookie.match(/admin_token=([^;]+)/);
-        return match ? match[1] : '';
+    // ─── Dark Mode & Language ───────────────────────────────
+    function toggleDarkMode() {
+        document.documentElement.classList.toggle('dark');
+        const isDark = document.documentElement.classList.contains('dark');
+        localStorage.setItem('darkMode', isDark);
+        document.querySelectorAll('#darkBtn').forEach(b => b.textContent = isDark ? '☀️' : '🌙');
     }
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.querySelectorAll('#darkBtn').forEach(b => b.textContent = '☀️');
+    }
+    let isArabic = localStorage.getItem('lang') !== 'en';
+    function toggleLang() {
+        isArabic = !isArabic;
+        document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+        document.documentElement.lang = isArabic ? 'ar' : 'en';
+        document.querySelectorAll('#langBtn').forEach(b => b.textContent = isArabic ? 'EN' : 'عربي');
+        localStorage.setItem('lang', isArabic ? 'ar' : 'en');
+    }
+    if (!isArabic) toggleLang();
+
+    // ─── Global Helpers ─────────────────────────────────────
     async function apiFetch(url, options = {}) {
         const defaults = { headers: { 'Content-Type': 'application/json' } };
         const res = await fetch(url, { ...defaults, ...options });
@@ -853,9 +1102,9 @@ private fun dashboardContent(): String = """
             <p class="text-gray-500 text-sm">إجمالي المستخدمين</p>
             <p class="text-3xl font-bold text-gray-800 mt-1" id="kpiTotalUsers">0</p>
         </div>
-        <div class="kpi-card bg-white rounded-xl shadow p-5 border-r-4 border-purple-600">
-            <p class="text-gray-500 text-sm">طلبات اليوم (API)</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="kpiTodayRequests">0</p>
+        <div class="kpi-card bg-white rounded-xl shadow p-5 border-r-4 border-red-500">
+            <p class="text-gray-500 text-sm">عملاء موقوفين</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="kpiSuspendedVendors">0</p>
         </div>
     </div>
 
@@ -905,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('kpiTotalVendors').textContent = vendors.length;
         document.getElementById('kpiActiveVendors').textContent = vendors.filter(v => !v.isSuspended).length;
         document.getElementById('kpiTotalUsers').textContent = vendors.reduce((s, v) => s + (v.usersCount || 0), 0);
-        document.getElementById('kpiTodayRequests').textContent = (stats.totalRequests || 0).toLocaleString('ar-EG');
+        document.getElementById('kpiSuspendedVendors').textContent = vendors.filter(v => v.isSuspended).length;
 
         // Recent vendors (last 10 by createdAt)
         const sorted = [...vendors].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
@@ -1165,7 +1414,7 @@ function renderVendors(vendors) {
 async function toggleSuspend(id, currentlySuspended) {
     const action = currentlySuspended ? 'تفعيل' : 'إيقاف';
     if (!confirm('هل تريد ' + action + ' هذا العميل؟')) return;
-    const res = await cmsApiFetch('/api/v1/cms/vendors/' + id + '/suspend', { method: 'PUT' });
+    const res = await fetch('/admin/api/vendors/' + id + '/suspend', { method: 'POST', headers: {'Content-Type': 'application/json'} });
     if (res && res.ok) { showToast('تم ' + action + ' العميل', 'success'); loadVendorsList(); }
     else { showToast('حدث خطأ', 'error'); }
 }
@@ -1173,7 +1422,7 @@ async function toggleSuspend(id, currentlySuspended) {
 async function deleteVendor(id, name) {
     if (!confirm('هل أنت متأكد من حذف "' + name + '"؟ لا يمكن التراجع.')) return;
     if (!confirm('تأكيد نهائي: سيتم حذف جميع بيانات العميل. متابعة؟')) return;
-    const res = await cmsApiFetch('/api/v1/cms/vendors/' + id, { method: 'DELETE' });
+    const res = await fetch('/admin/api/vendors/' + id, { method: 'DELETE' });
     if (res && res.ok) { showToast('تم حذف العميل', 'success'); loadVendorsList(); }
     else { showToast('حدث خطأ في الحذف', 'error'); }
 }
@@ -1182,7 +1431,7 @@ async function createVendor(e) {
     e.preventDefault();
     const form = e.target;
     const data = Object.fromEntries(new FormData(form));
-    const res = await cmsApiFetch('/api/v1/cms/vendors', {
+    const res = await fetch('/admin/api/vendors', {
         method: 'POST',
         body: JSON.stringify(data)
     });
@@ -1312,23 +1561,22 @@ document.addEventListener('DOMContentLoaded', loadVendorDetail);
 
 async function loadVendorDetail() {
     try {
-        const [detailRes, usersRes] = await Promise.all([
-            cmsApiFetch('/api/v1/cms/vendors/' + VENDOR_ID + '/detail'),
-            cmsApiFetch('/api/v1/cms/vendors/' + VENDOR_ID + '/users')
+        const [v, usersRes] = await Promise.all([
+            fetch('/admin/api/vendors/full').then(r => r.json()).then(all => all.find(x => x.id === VENDOR_ID) || null),
+            fetch('/admin/api/vendors/' + VENDOR_ID + '/users')
         ]);
 
-        if (detailRes && detailRes.ok) {
-            const v = await detailRes.json();
-            document.getElementById('vdName').textContent = v.name || v.vendor_name || '-';
-            document.getElementById('vdMeta').textContent = (v.businessType || v.business_type || '') + ' - ID: ' + VENDOR_ID.substring(0, 8) + '...';
-            document.getElementById('vdPhone').textContent = v.phone || v.contact_phone || '-';
+        if (v) {
+            document.getElementById('vdName').textContent = v.name || '-';
+            document.getElementById('vdMeta').textContent = (v.businessType || '') + ' - ID: ' + VENDOR_ID.substring(0, 8) + '...';
+            document.getElementById('vdPhone').textContent = v.phone || '-';
             document.getElementById('vdAddress').textContent = v.address || '-';
-            document.getElementById('vdType').textContent = v.businessType || v.business_type || '-';
-            document.getElementById('vdPlan').textContent = v.plan_display_name || v.planDisplayName || '-';
-            document.getElementById('vdCreated').textContent = formatDate(v.createdAt || v.created_at);
-            document.getElementById('vdItems').textContent = (v.menuItems || v.menu_items || 0);
-            document.getElementById('vdOrders').textContent = (v.monthlyOrders || v.monthly_orders || 0);
-            const suspended = v.isSuspended || v.is_suspended || false;
+            document.getElementById('vdType').textContent = v.businessType || '-';
+            document.getElementById('vdPlan').textContent = v.planDisplayName || v.plan || '-';
+            document.getElementById('vdCreated').textContent = v.createdAt ? formatDate(v.createdAt) : '-';
+            document.getElementById('vdItems').textContent = v.menuItems || 0;
+            document.getElementById('vdOrders').textContent = v.monthlyOrders || 0;
+            const suspended = v.isSuspended || false;
             document.getElementById('vdStatusBadge').innerHTML = suspended
                 ? '<span class="badge-suspended px-3 py-1 rounded-full text-sm font-medium">موقوف</span>'
                 : '<span class="badge-active px-3 py-1 rounded-full text-sm font-medium">نشط</span>';
@@ -1380,7 +1628,7 @@ async function addVendorUser(e) {
     const form = e.target;
     const data = Object.fromEntries(new FormData(form));
     data.salary_amount = parseFloat(data.salary_amount) || 0;
-    const res = await cmsApiFetch('/api/v1/cms/vendors/' + VENDOR_ID + '/users', {
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/users', {
         method: 'POST',
         body: JSON.stringify(data)
     });
@@ -1397,7 +1645,7 @@ async function addVendorUser(e) {
 
 async function deactivateUser(userId) {
     if (!confirm('هل تريد تعطيل هذا المستخدم؟')) return;
-    const res = await cmsApiFetch('/api/v1/cms/vendors/' + VENDOR_ID + '/users/' + userId, { method: 'DELETE' });
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/users/' + userId, { method: 'DELETE' });
     if (res && res.ok) {
         showToast('تم تعطيل المستخدم', 'success');
         loadVendorDetail();
@@ -1514,7 +1762,7 @@ const MY_ADMIN_ID = '${admin.adminId}';
 document.addEventListener('DOMContentLoaded', loadTeam);
 
 async function loadTeam() {
-    const res = await cmsApiFetch('/api/v1/cms/team');
+    const res = await fetch('/admin/api/team');
     if (!res) return;
     const team = await res.json();
     const list = Array.isArray(team) ? team : (team.members || team.data || []);
@@ -1554,7 +1802,7 @@ async function createTeamMember(e) {
     e.preventDefault();
     const form = e.target;
     const data = Object.fromEntries(new FormData(form));
-    const res = await cmsApiFetch('/api/v1/cms/team', {
+    const res = await fetch('/admin/api/team', {
         method: 'POST',
         body: JSON.stringify(data)
     });
@@ -1582,7 +1830,7 @@ async function updateTeamMember(e) {
     const data = Object.fromEntries(new FormData(form));
     const id = data.id; delete data.id;
     if (!data.password) delete data.password;
-    const res = await cmsApiFetch('/api/v1/cms/team/' + id, {
+    const res = await fetch('/admin/api/team/' + id, {
         method: 'PUT',
         body: JSON.stringify(data)
     });
@@ -1598,7 +1846,7 @@ async function updateTeamMember(e) {
 
 async function deleteTeamMember(id, name) {
     if (!confirm('هل أنت متأكد من حذف "' + name + '"؟')) return;
-    const res = await cmsApiFetch('/api/v1/cms/team/' + id, { method: 'DELETE' });
+    const res = await fetch('/admin/api/team/' + id, { method: 'DELETE' });
     if (res && res.ok) {
         showToast('تم حذف العضو', 'success');
         loadTeam();

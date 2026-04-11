@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS orders (
 getOrders:
 SELECT * FROM orders WHERE vendor_id = ? ORDER BY created_at DESC;
 
+getAllOrdersCached:
+SELECT * FROM orders ORDER BY created_at DESC LIMIT 200;
+
 getOrdersByStatus:
 SELECT * FROM orders WHERE vendor_id = ? AND status = ? ORDER BY created_at DESC;
 

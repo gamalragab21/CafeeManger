@@ -13,6 +13,7 @@ import net.marllex.waselak.core.model.DeliveryPersonStatus
 import net.marllex.waselak.core.model.OrderStatus
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.crash.CrashReporter
 

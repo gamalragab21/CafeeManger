@@ -17,7 +17,7 @@ class CashDrawerRepositoryImpl(
 
     companion object {
         private const val TAG = "CashDrawer"
-        private const val OFFLINE_MSG = "Cash drawer requires network connection. Please check your internet and try again."
+        private const val OFFLINE_MSG = "درج الكاش يحتاج اتصال بالإنترنت. يرجى التحقق من الشبكة والمحاولة مرة أخرى."
     }
 
     override suspend fun openDrawer(openingBalance: Double, notes: String?): Result<CashDrawerSession> = runCatching {
@@ -38,12 +38,12 @@ class CashDrawerRepositoryImpl(
         }
     }
 
-    override suspend fun getCurrentSession(): Result<CashDrawerSession?> = runCatching {
+    override suspend fun getCurrentSession(cashierId: String?): Result<CashDrawerSession?> = runCatching {
         try {
-            api.getCurrentDrawerSession()?.toDomain()
+            api.getCurrentDrawerSession(cashierId)?.toDomain()
         } catch (e: Exception) {
             AppLogger.e(TAG, "getCurrentSession failed (possibly offline)", e)
-            null // Return null instead of crashing — UI will show "no session"
+            null
         }
     }
 
@@ -74,9 +74,18 @@ class CashDrawerRepositoryImpl(
         }
     }
 
-    override suspend fun getSummary(): Result<DrawerSummary> = runCatching {
+    override suspend fun getAllOpenSessions(): Result<List<CashDrawerSession>> = runCatching {
         try {
-            api.getCashDrawerSummary().toDomain()
+            api.getAllOpenDrawerSessions().map { it.toDomain() }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "getAllOpenSessions failed", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getSummary(cashierId: String?): Result<DrawerSummary> = runCatching {
+        try {
+            api.getCashDrawerSummary(cashierId).toDomain()
         } catch (e: Exception) {
             AppLogger.e(TAG, "getSummary failed (possibly offline)", e)
             throw IllegalStateException(OFFLINE_MSG, e)

@@ -27,6 +27,7 @@ class ManagerCashDrawerViewModel(
 
     data class UiState(
         val currentSession: CashDrawerSession? = null,
+        val allOpenSessions: List<CashDrawerSession> = emptyList(), // All cashiers' open sessions (for "All" view)
         val summary: DrawerSummary? = null,
         val movements: List<CashMovement> = emptyList(),
         val sessions: List<CashDrawerSession> = emptyList(),
@@ -85,23 +86,56 @@ class ManagerCashDrawerViewModel(
     fun load() {
         CrashReporter.addBreadcrumb("load() called", "ManagerCashDrawerViewModel")
         AppLogger.d(TAG, "load called")
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            cashDrawerRepository.getCurrentSession()
-                .onSuccess { session ->
-                    AppLogger.i(TAG, "Data loaded successfully")
-                    _uiState.update { it.copy(currentSession = session, movements = session?.movements ?: emptyList(), isLoading = false) }
-                }
-                .onFailure { _uiState.update { it.copy(currentSession = null, isLoading = false) } }
-        }
-        viewModelScope.launch {
-            cashDrawerRepository.getSummary()
-                .onSuccess { s -> _uiState.update { it.copy(summary = s) } }
-        }
-        viewModelScope.launch {
-            val cashierId = _uiState.value.selectedCashierId
-            cashDrawerRepository.getSessions(cashierId = cashierId)
-                .onSuccess { list -> _uiState.update { it.copy(sessions = list) } }
+        val cashierId = _uiState.value.selectedCashierId
+        if (cashierId == null) {
+            // "All" selected — load all open sessions from all cashiers
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                cashDrawerRepository.getAllOpenSessions()
+                    .onSuccess { sessions ->
+                        AppLogger.i(TAG, "Loaded ${sessions.size} open sessions (all cashiers)")
+                        val allMovements = sessions.flatMap { it.movements }
+                        _uiState.update { it.copy(
+                            currentSession = null,
+                            allOpenSessions = sessions,
+                            movements = allMovements,
+                            isLoading = false,
+                        ) }
+                    }
+                    .onFailure { e ->
+                        AppLogger.e(TAG, "Failed to load all sessions", e)
+                        _uiState.update { it.copy(allOpenSessions = emptyList(), currentSession = null, isLoading = false) }
+                    }
+            }
+            viewModelScope.launch {
+                cashDrawerRepository.getSessions(cashierId = null)
+                    .onSuccess { list -> _uiState.update { it.copy(sessions = list) } }
+            }
+        } else {
+            // Specific cashier selected
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                cashDrawerRepository.getCurrentSession(cashierId = cashierId)
+                    .onSuccess { session ->
+                        AppLogger.i(TAG, "Data loaded for cashier=$cashierId")
+                        _uiState.update { it.copy(
+                            currentSession = session,
+                            allOpenSessions = emptyList(),
+                            movements = session?.movements ?: emptyList(),
+                            isLoading = false,
+                        ) }
+                    }
+                    .onFailure { _uiState.update { it.copy(currentSession = null, allOpenSessions = emptyList(), isLoading = false) } }
+            }
+            viewModelScope.launch {
+                cashDrawerRepository.getSummary(cashierId = cashierId)
+                    .onSuccess { s -> _uiState.update { it.copy(summary = s) } }
+                    .onFailure { /* no summary */ }
+            }
+            viewModelScope.launch {
+                cashDrawerRepository.getSessions(cashierId = cashierId)
+                    .onSuccess { list -> _uiState.update { it.copy(sessions = list) } }
+            }
         }
     }
 

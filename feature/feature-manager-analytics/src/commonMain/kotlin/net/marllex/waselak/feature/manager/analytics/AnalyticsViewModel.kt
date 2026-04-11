@@ -13,6 +13,7 @@ import net.marllex.waselak.core.domain.repository.AnalyticsRepository
 import net.marllex.waselak.core.domain.repository.InstallmentRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.crash.CrashReporter
 
 class AnalyticsViewModel(
@@ -249,116 +250,116 @@ class AnalyticsViewModel(
             .onSuccess { data -> _uiState.update { it.copy(executiveSummary = SectionState.Success(data)) } }
             .onFailure { e ->
                     CrashReporter.captureException(e)
-                _uiState.update { it.copy(executiveSummary = SectionState.Error(e.message ?: "Failed")) }
+                _uiState.update { it.copy(executiveSummary = SectionState.Error(e.userFriendlyMessage())) }
             }
     }
 
     private suspend fun loadRevenueProfit(from: Long, to: Long) {
         analyticsRepository.getRevenueProfit(from, to)
             .onSuccess { data -> _uiState.update { it.copy(revenueProfit = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(revenueProfit = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(revenueProfit = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadOrdersIntelligence(from: Long, to: Long) {
         analyticsRepository.getOrdersIntelligence(from, to)
             .onSuccess { data -> _uiState.update { it.copy(ordersIntelligence = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(ordersIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(ordersIntelligence = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadPeakTimeAnalysis(from: Long, to: Long) {
         analyticsRepository.getPeakTimeAnalysis(from, to)
             .onSuccess { data -> _uiState.update { it.copy(peakTimeAnalysis = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(peakTimeAnalysis = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(peakTimeAnalysis = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadCashierPerformance(from: Long, to: Long) {
         analyticsRepository.getCashierPerformanceV2(from, to)
             .onSuccess { data -> _uiState.update { it.copy(cashierPerformance = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(cashierPerformance = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(cashierPerformance = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadDeliveryPerformance(from: Long, to: Long) {
         analyticsRepository.getDeliveryPerformanceV2(from, to)
             .onSuccess { data -> _uiState.update { it.copy(deliveryPerformance = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(deliveryPerformance = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(deliveryPerformance = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadProductIntelligence(from: Long, to: Long) {
         analyticsRepository.getProductIntelligence(from, to)
             .onSuccess { data -> _uiState.update { it.copy(productIntelligence = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(productIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(productIntelligence = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadCustomerIntelligence(from: Long, to: Long) {
         analyticsRepository.getCustomerIntelligence(from, to)
             .onSuccess { data -> _uiState.update { it.copy(customerIntelligence = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(customerIntelligence = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(customerIntelligence = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadAlerts(from: Long, to: Long) {
         analyticsRepository.getAnalyticsAlerts(from, to)
             .onSuccess { data -> _uiState.update { it.copy(alerts = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(alerts = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(alerts = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadStockOverview() {
         analyticsRepository.getStockOverview()
             .onSuccess { data -> _uiState.update { it.copy(stockOverview = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(stockOverview = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(stockOverview = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadOffersAnalytics(from: Long, to: Long) {
         analyticsRepository.getOffersAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(offersAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(offersAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(offersAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadDiscountAnalytics(from: Long, to: Long) {
         analyticsRepository.getDiscountAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(discountAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(discountAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(discountAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadLoyaltyAnalytics(from: Long, to: Long) {
         analyticsRepository.getLoyaltyAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(loyaltyAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadStaffCosts(from: Long, to: Long) {
         analyticsRepository.getStaffCostsAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(staffCosts = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(staffCosts = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(staffCosts = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadSupplierAnalytics(from: Long, to: Long) {
         analyticsRepository.getSupplierAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(supplierAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(supplierAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(supplierAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadCreditAnalytics(from: Long, to: Long) {
         analyticsRepository.getCreditAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(creditAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(creditAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(creditAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadDoctorStats(from: Long, to: Long) {
         analyticsRepository.getDoctorStats(from, to)
             .onSuccess { data -> _uiState.update { it.copy(doctorStats = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(doctorStats = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(doctorStats = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadReturnsAnalytics(from: Long, to: Long) {
         analyticsRepository.getReturnsAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(returnsAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(returnsAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(returnsAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     private suspend fun loadInstallmentAnalytics(from: Long, to: Long) {
         installmentRepository.getAnalytics(from, to)
             .onSuccess { data -> _uiState.update { it.copy(installmentAnalytics = SectionState.Success(data)) } }
-            .onFailure { e -> _uiState.update { it.copy(installmentAnalytics = SectionState.Error(e.message ?: "Failed")) } }
+            .onFailure { e -> _uiState.update { it.copy(installmentAnalytics = SectionState.Error(e.userFriendlyMessage())) } }
     }
 
     // ── Date range calculation ───────────────────────────────────────

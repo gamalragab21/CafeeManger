@@ -25,6 +25,7 @@ import net.marllex.waselak.core.network.dto.CreateOrderItemRequest
 import net.marllex.waselak.core.network.dto.CreateReturnRequest
 import net.marllex.waselak.core.network.dto.CreateReturnItemRequest
 import net.marllex.waselak.core.common.crash.CrashReporter
+import net.marllex.waselak.core.network.userFriendlyMessage
 
 data class ReturnItemSelection(
     val orderItemId: String,
@@ -165,9 +166,9 @@ class OrdersViewModel constructor(
                     )
                 }
             }.onFailure { e ->
-                    CrashReporter.captureException(e)
+                CrashReporter.captureException(e)
                 AppLogger.e("Orders", "loadOrders failed: ${e::class.simpleName}: ${e.message}", e)
-                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error loading orders") }
+                _uiState.update { it.copy(isLoading = false, error = e.userFriendlyMessage()) }
             }
         }
     }

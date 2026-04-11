@@ -1064,8 +1064,13 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
-    suspend fun getCurrentDrawerSession(): CashDrawerSessionResponse? {
-        val response = client.get("api/v1/cash-drawer/current")
+    suspend fun getAllOpenDrawerSessions(): List<CashDrawerSessionResponse> =
+        client.get("api/v1/cash-drawer/current-all").body()
+
+    suspend fun getCurrentDrawerSession(cashierId: String? = null): CashDrawerSessionResponse? {
+        val response = client.get("api/v1/cash-drawer/current") {
+            cashierId?.let { parameter("cashier_id", it) }
+        }
         return if (response.status.value == 204) null else response.body()
     }
 
@@ -1094,8 +1099,10 @@ class WaselakApiClient(private val client: HttpClient) {
             cashierId?.let { parameter("cashier_id", it) }
         }.body()
 
-    suspend fun getCashDrawerSummary(): DrawerSummaryResponse =
-        client.get("api/v1/cash-drawer/summary").body()
+    suspend fun getCashDrawerSummary(cashierId: String? = null): DrawerSummaryResponse =
+        client.get("api/v1/cash-drawer/summary") {
+            cashierId?.let { parameter("cashier_id", it) }
+        }.body()
 
     // ─── Split Payments ─────────────────────────────────────────
 

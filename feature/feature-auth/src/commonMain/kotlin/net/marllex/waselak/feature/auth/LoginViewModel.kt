@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import net.marllex.waselak.core.domain.repository.AuthRepository
 import net.marllex.waselak.core.model.UserRole
 import net.marllex.waselak.core.common.logging.AppLogger
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.crash.CrashReporter
 
 class LoginViewModel constructor(

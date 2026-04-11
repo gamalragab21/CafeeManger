@@ -19,6 +19,7 @@ import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.StockSummary
 import net.marllex.waselak.core.model.StockTransaction
 import net.marllex.waselak.core.network.isFeatureNotAvailableOrOffline
+import net.marllex.waselak.core.network.userFriendlyMessage
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.crash.CrashReporter
 

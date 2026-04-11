@@ -17,6 +17,7 @@ import net.marllex.waselak.feature.manager.chatbot.model.SuggestionCategory
 import net.marllex.waselak.feature.manager.chatbot.model.VisualFormat
 import net.marllex.waselak.core.common.logging.AppLogger
 import net.marllex.waselak.core.common.crash.CrashReporter
+import net.marllex.waselak.core.network.userFriendlyMessage
 
 class ChatbotViewModel(
     private val repository: ChatbotRepository
@@ -137,7 +138,7 @@ class ChatbotViewModel(
                 // Add error message
                 addMessage(
                     ChatMessage.Error(
-                        message = e.message ?: "Unknown error occurred"
+                        message = e.userFriendlyMessage()
                     )
                 )
 
