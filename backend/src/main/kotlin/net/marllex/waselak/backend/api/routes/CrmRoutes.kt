@@ -137,7 +137,7 @@ fun Route.crmRoutes() {
                 ${filterBarHtml(listOf(
                     Triple("الحالات", 5, allStatuses),
                     Triple("أنواع النشاط", 3, businessTypes),
-                    Triple("المندوبين", 9, agentNames),
+                    Triple("الموظفين", 9, agentNames),
                     Triple("المصادر", -1, sourceList)
                 ), "بحث بالاسم أو الرقم...")}
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
@@ -153,7 +153,7 @@ fun Route.crmRoutes() {
                                 <th class="p-2 text-right">التصنيف</th>
                                 <th class="p-2 text-right">الباقة</th>
                                 <th class="p-2 text-right">المبلغ</th>
-                                <th class="p-2 text-right">المندوب</th>
+                                <th class="p-2 text-right">الموظف</th>
                                 <th class="p-2 text-right">آخر تواصل</th>
                                 <th class="p-2 text-right"></th>
                             </tr>
@@ -276,7 +276,7 @@ fun Route.crmRoutes() {
                     <table id="dataTable" class="w-full text-sm">
                         <thead>
                             <tr class="bg-gray-100 border-b">
-                                <th class="p-2 text-right">المندوب</th>
+                                <th class="p-2 text-right">الموظف</th>
                                 <th class="p-2 text-right">العميل</th>
                                 <th class="p-2 text-right">الإجراء</th>
                                 <th class="p-2 text-right">القناة</th>
@@ -378,12 +378,12 @@ fun Route.crmRoutes() {
                 </div>
 
                 <div class="bg-white rounded-xl shadow p-6 mb-8">
-                    <h3 class="text-lg font-bold mb-4">أداء المندوبين</h3>
+                    <h3 class="text-lg font-bold mb-4">أداء الموظفين</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-gray-100 border-b">
-                                    <th class="p-2 text-right">المندوب</th>
+                                    <th class="p-2 text-right">الموظف</th>
                                     <th class="p-2 text-right">الدور</th>
                                     <th class="p-2 text-right">العملاء</th>
                                     <th class="p-2 text-right">الأنشطة</th>
@@ -501,9 +501,13 @@ fun Route.crmRoutes() {
                     append("<td class='p-2'>${a.email}</td>")
                     append("<td class='p-2'>${roleDisplayName(a.role)}</td>")
                     append("<td class='p-2'>$statusBadge</td>")
-                    append("""<td class='p-2 flex gap-1'>
+                    append("""<td class='p-2'>
+                        <div class='flex flex-wrap gap-1'>
+                        ${if (a.role != "owner") """<button onclick="openEditAgent('${a.id}', '${a.name.replace("'","\\'")}', '${a.email}', '${a.role}')" class="text-sm px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200">تعديل</button>""" else ""}
+                        <button onclick="openResetPassword('${a.id}', '${a.name.replace("'","\\'")}') " class="text-sm px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200">كلمة السر</button>
                         <button onclick="toggleAgent('${a.id}', ${!a.active})" class="text-sm px-2 py-1 rounded ${if (a.active) "bg-red-100 text-red-700 hover:bg-red-200" else "bg-green-100 text-green-700 hover:bg-green-200"}">${if (a.active) "تعطيل" else "تفعيل"}</button>
-                        ${if (a.role != "owner") """<button onclick="deleteAgent('${a.id}', '${a.name}')" class="text-sm px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">حذف</button>""" else ""}
+                        ${if (a.role != "owner") """<button onclick="deleteAgent('${a.id}', '${a.name.replace("'","\\'")}') " class="text-sm px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">حذف</button>""" else ""}
+                        </div>
                     </td>""")
                     append("</tr>")
                 }
@@ -511,8 +515,8 @@ fun Route.crmRoutes() {
 
             val content = """
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">الإعدادات - إدارة المندوبين</h2>
-                    <button onclick="document.getElementById('addAgentModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة مندوب</button>
+                    <h2 class="text-xl font-bold">الإعدادات - إدارة الموظفين</h2>
+                    <button onclick="document.getElementById('addAgentModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة موظف</button>
                 </div>
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
                     <table class="w-full text-sm">
@@ -531,6 +535,61 @@ fun Route.crmRoutes() {
 
                 ${addAgentModalHtml()}
 
+                <!-- Edit Agent Modal -->
+                <dialog id="editAgentModal" class="rounded-2xl">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">تعديل بيانات الموظف</h3>
+                            <button onclick="document.getElementById('editAgentModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <form onsubmit="submitEditAgent(event)" class="space-y-3">
+                            <input type="hidden" name="editAgentId" id="editAgentId">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
+                                <input type="text" name="name" id="editAgentName" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">الدور</label>
+                                <select name="role" id="editAgentRole" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                    <option value="مدير مبيعات">مدير مبيعات</option>
+                                    <option value="مندوب مبيعات">مندوب مبيعات</option>
+                                    <option value="كول سنتر">كول سنتر</option>
+                                </select>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-2">
+                                <button type="button" onclick="document.getElementById('editAgentModal').close()" class="px-4 py-2 text-sm border rounded-lg">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#1B3A5C">حفظ التعديلات</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                <!-- Reset Password Modal -->
+                <dialog id="resetPasswordModal" class="rounded-2xl">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">تغيير كلمة السر</h3>
+                            <button onclick="document.getElementById('resetPasswordModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3" id="resetPasswordAgentName"></p>
+                        <form onsubmit="submitResetPassword(event)" class="space-y-3">
+                            <input type="hidden" name="resetAgentId" id="resetAgentId">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">كلمة السر الجديدة</label>
+                                <input type="password" name="password" id="resetNewPassword" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">تأكيد كلمة السر</label>
+                                <input type="password" name="confirmPassword" id="resetConfirmPassword" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div class="flex justify-end gap-2 pt-2">
+                                <button type="button" onclick="document.getElementById('resetPasswordModal').close()" class="px-4 py-2 text-sm border rounded-lg">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-yellow-600 hover:bg-yellow-700">تغيير كلمة السر</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
                 <script>
                 async function submitNewAgent(e) {
                     e.preventDefault();
@@ -538,6 +597,41 @@ fun Route.crmRoutes() {
                     const data = Object.fromEntries(new FormData(form));
                     const res = await fetch('/crm/api/agents', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
                     if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+
+                function openEditAgent(id, name, email, role) {
+                    document.getElementById('editAgentId').value = id;
+                    document.getElementById('editAgentName').value = name;
+                    document.getElementById('editAgentRole').value = role;
+                    document.getElementById('editAgentModal').showModal();
+                }
+
+                async function submitEditAgent(e) {
+                    e.preventDefault();
+                    const id = document.getElementById('editAgentId').value;
+                    const name = document.getElementById('editAgentName').value;
+                    const role = document.getElementById('editAgentRole').value;
+                    const res = await fetch('/crm/api/agents/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, role})});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+
+                function openResetPassword(id, name) {
+                    document.getElementById('resetAgentId').value = id;
+                    document.getElementById('resetPasswordAgentName').textContent = 'تغيير كلمة سر: ' + name;
+                    document.getElementById('resetNewPassword').value = '';
+                    document.getElementById('resetConfirmPassword').value = '';
+                    document.getElementById('resetPasswordModal').showModal();
+                }
+
+                async function submitResetPassword(e) {
+                    e.preventDefault();
+                    const id = document.getElementById('resetAgentId').value;
+                    const password = document.getElementById('resetNewPassword').value;
+                    const confirm = document.getElementById('resetConfirmPassword').value;
+                    if (password !== confirm) { alert('كلمة السر غير متطابقة'); return; }
+                    if (password.length < 6) { alert('كلمة السر يجب أن تكون 6 أحرف على الأقل'); return; }
+                    const res = await fetch('/crm/api/agents/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password})});
+                    if (res.ok) { document.getElementById('resetPasswordModal').close(); alert('تم تغيير كلمة السر بنجاح'); } else { alert('حدث خطأ'); }
                 }
 
                 async function toggleAgent(id, active) {
@@ -1137,9 +1231,39 @@ fun Route.crmRoutes() {
                             <p class="text-gray-500 text-sm mb-1">${agent.email}</p>
                             <div class="mt-1">$statusDot</div>
                         </div>
-                        ${if (principal.agentId == agentId) """<div class="flex gap-2">
+                        ${if (principal.agentId == agentId) """<div class="flex gap-2 flex-wrap">
+                            <button onclick="document.getElementById('changeMyPasswordModal').showModal()" class="text-sm px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition">تغيير كلمة السر</button>
                             <a href="/crm/logout" class="text-sm px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">تسجيل الخروج</a>
-                        </div>""" else ""}
+                        </div>
+                        <dialog id="changeMyPasswordModal" class="rounded-2xl">
+                            <div class="p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-bold">تغيير كلمة السر</h3>
+                                    <button onclick="document.getElementById('changeMyPasswordModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                                </div>
+                                <form onsubmit="changeMyPassword(event)" class="space-y-3">
+                                    <div><label class="block text-sm font-medium text-gray-700 mb-1">كلمة السر الجديدة</label>
+                                    <input type="password" id="myNewPass" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                                    <div><label class="block text-sm font-medium text-gray-700 mb-1">تأكيد كلمة السر</label>
+                                    <input type="password" id="myConfirmPass" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                                    <div class="flex justify-end gap-2 pt-2">
+                                        <button type="button" onclick="document.getElementById('changeMyPasswordModal').close()" class="px-4 py-2 text-sm border rounded-lg">إلغاء</button>
+                                        <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-yellow-600">تغيير</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </dialog>
+                        <script>
+                        async function changeMyPassword(e) {
+                            e.preventDefault();
+                            const p = document.getElementById('myNewPass').value;
+                            const c = document.getElementById('myConfirmPass').value;
+                            if (p !== c) { alert('كلمة السر غير متطابقة'); return; }
+                            if (p.length < 6) { alert('يجب أن تكون 6 أحرف على الأقل'); return; }
+                            const res = await fetch('/crm/api/agents/$agentId', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:p})});
+                            if (res.ok) { document.getElementById('changeMyPasswordModal').close(); alert('تم تغيير كلمة السر بنجاح'); } else { alert('حدث خطأ'); }
+                        }
+                        </script>""" else ""}
                     </div>
                 </div>
                 <script>
@@ -2588,7 +2712,7 @@ private fun buildOwnerDashboard(stats: CrmService.CrmStats, recentActivities: Li
         append("<div class='bg-white rounded-xl shadow p-6 mb-8'>")
         append("<h3 class='text-lg font-bold mb-4'>ملخص أداء الفريق</h3>")
         append("<div class='overflow-x-auto'><table class='w-full text-sm'><thead><tr class='border-b bg-gray-50'>")
-        append("<th class='p-2 text-right'>المندوب</th><th class='p-2 text-right'>الأنشطة</th><th class='p-2 text-right'>العملاء</th><th class='p-2 text-right'>الاشتراكات</th><th class='p-2 text-right'>الإيراد</th>")
+        append("<th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>الأنشطة</th><th class='p-2 text-right'>العملاء</th><th class='p-2 text-right'>الاشتراكات</th><th class='p-2 text-right'>الإيراد</th>")
         append("</tr></thead><tbody>")
         stats.agentStats.forEach { a ->
             val photoHtml = agentPhotoHtml(a.photoUrl, a.agentName, 28)
@@ -2608,7 +2732,7 @@ private fun buildOwnerDashboard(stats: CrmService.CrmStats, recentActivities: Li
         append("<div class='bg-white rounded-xl shadow p-6'>")
         append("<h3 class='text-lg font-bold mb-4'>آخر الأنشطة</h3>")
         append("<div class='overflow-x-auto'><table class='w-full text-sm'><thead><tr class='border-b'>")
-        append("<th class='p-2 text-right'>المندوب</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
+        append("<th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
         append("</tr></thead><tbody>")
         recentActivities.forEach { act ->
             append("<tr class='border-b hover:bg-gray-50'>")
@@ -2655,7 +2779,7 @@ private fun buildBasicDashboard(stats: CrmService.CrmStats, recentActivities: Li
         append("<div class='bg-white rounded-xl shadow p-6'>")
         append("<h3 class='text-lg font-bold mb-4'>آخر الأنشطة</h3>")
         append("<div class='overflow-x-auto'><table class='w-full text-sm'><thead><tr class='border-b'>")
-        append("<th class='p-2 text-right'>المندوب</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
+        append("<th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
         append("</tr></thead><tbody>")
         recentActivities.forEach { act ->
             append("<tr class='border-b hover:bg-gray-50'>")
@@ -2913,7 +3037,7 @@ private fun crmLoginPageHtml(error: String?): String {
 private fun addClientModalHtml(agentOptions: String, canSeeAll: Boolean): String {
     val assignedField = if (canSeeAll) """
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">المندوب المسؤول</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">الموظف المسؤول</label>
             <select name="assignedTo" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">-- اختر --</option>
                 $agentOptions
@@ -2996,7 +3120,7 @@ private fun addClientModalHtml(agentOptions: String, canSeeAll: Boolean): String
 private fun editClientModalHtml(agentOptions: String, canSeeAll: Boolean): String {
     val assignedField = if (canSeeAll) """
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">المندوب المسؤول</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">الموظف المسؤول</label>
             <select name="assignedTo" id="edit_assignedTo" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <option value="">-- اختر --</option>
                 $agentOptions
@@ -3192,7 +3316,7 @@ private fun addAgentModalHtml(): String = """
     <dialog id="addAgentModal" class="rounded-2xl">
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold">إضافة مندوب جديد</h3>
+                <h3 class="text-lg font-bold">إضافة موظف جديد</h3>
                 <button onclick="document.getElementById('addAgentModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <form onsubmit="submitNewAgent(event)" class="space-y-3">
