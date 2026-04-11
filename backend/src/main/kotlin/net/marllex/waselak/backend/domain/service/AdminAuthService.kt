@@ -21,6 +21,7 @@ class AdminAuthService(private val adminJwtConfig: AdminJwtConfig) {
         val id: String,
         val name: String,
         val email: String,
+        val role: String,
         val token: String,
         val refreshToken: String,
     )
@@ -48,7 +49,8 @@ class AdminAuthService(private val adminJwtConfig: AdminJwtConfig) {
                 it[lastLoginAt] = Clock.System.now()
             }
 
-            val token = adminJwtConfig.generateToken(adminId, email)
+            val adminRole = admin[AdminUsersTable.role]
+            val token = adminJwtConfig.generateToken(adminId, email, adminRole)
             val refreshToken = adminJwtConfig.generateRefreshToken(adminId)
 
             // Store refresh token hash in DB
@@ -63,6 +65,7 @@ class AdminAuthService(private val adminJwtConfig: AdminJwtConfig) {
                 id = adminId,
                 name = admin[AdminUsersTable.name],
                 email = email,
+                role = adminRole,
                 token = token,
                 refreshToken = refreshToken,
             )
@@ -98,7 +101,8 @@ class AdminAuthService(private val adminJwtConfig: AdminJwtConfig) {
 
             // Generate new tokens
             val email = admin[AdminUsersTable.email]
-            val newAccessToken = adminJwtConfig.generateToken(adminId, email)
+            val adminRole = admin[AdminUsersTable.role]
+            val newAccessToken = adminJwtConfig.generateToken(adminId, email, adminRole)
             val newRefreshToken = adminJwtConfig.generateRefreshToken(adminId)
 
             // Store new refresh token

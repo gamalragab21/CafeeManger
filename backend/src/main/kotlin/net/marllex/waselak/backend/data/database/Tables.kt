@@ -526,6 +526,7 @@ object AdminUsersTable : UUIDTable("admin_users") {
     val name = varchar("name", 255)
     val email = varchar("email", 255).uniqueIndex()
     val passwordHash = varchar("password_hash", 255)
+    val role = varchar("role", 30).default("super_admin") // super_admin, support
     val active = bool("active").default(true)
     val lastLoginAt = timestamp("last_login_at").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())

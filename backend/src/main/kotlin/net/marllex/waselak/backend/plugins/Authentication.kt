@@ -67,7 +67,8 @@ fun Application.configureAuthentication() {
                 val type = credential.payload.getClaim("type").asString()
 
                 if (adminId != null && email != null && type == "admin") {
-                    AdminPrincipal(adminId = adminId, email = email)
+                    val role = credential.payload.getClaim("role").asString() ?: "super_admin"
+                    AdminPrincipal(adminId = adminId, email = email, role = role)
                 } else null
             }
             challenge { _, _ ->
@@ -89,7 +90,8 @@ fun Application.configureAuthentication() {
                 val type = credential.payload.getClaim("type").asString()
 
                 if (adminId != null && email != null && type == "admin") {
-                    AdminPrincipal(adminId = adminId, email = email)
+                    val role = credential.payload.getClaim("role").asString() ?: "super_admin"
+                    AdminPrincipal(adminId = adminId, email = email, role = role)
                 } else null
             }
             challenge { _, _ ->
@@ -141,8 +143,11 @@ data class UserPrincipal(
 
 data class AdminPrincipal(
     val adminId: String,
-    val email: String
-) : Principal
+    val email: String,
+    val role: String = "super_admin"
+) : Principal {
+    val isSuperAdmin: Boolean get() = role == "super_admin"
+}
 
 data class CrmPrincipal(
     val agentId: String,

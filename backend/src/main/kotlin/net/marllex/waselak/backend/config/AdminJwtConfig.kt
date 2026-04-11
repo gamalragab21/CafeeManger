@@ -15,13 +15,14 @@ class AdminJwtConfig(config: ApplicationConfig) {
     val expireMs: Long = jwtConfig.propertyOrNull("expireMs")?.getString()?.toLong() ?: 3_600_000L // 1 hour default
     val refreshExpireDays: Long = jwtConfig.propertyOrNull("refreshExpireDays")?.getString()?.toLong() ?: 30L
 
-    fun generateToken(adminId: String, email: String): String {
+    fun generateToken(adminId: String, email: String, role: String = "super_admin"): String {
         return JWT.create()
             .withSubject(adminId)
             .withIssuer(issuer)
             .withAudience(audience)
             .withClaim("email", email)
             .withClaim("type", "admin")
+            .withClaim("role", role)
             .withIssuedAt(Date())
             .withExpiresAt(Date(System.currentTimeMillis() + expireMs))
             .sign(Algorithm.HMAC256(secret))

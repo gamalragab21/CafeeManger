@@ -1915,6 +1915,250 @@ fun Route.adminApiRoutes() {
                 call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
             }
         }
+
+        // ─── Vendor User Management (Admin creates users for any vendor) ──
+
+        route("/vendors/{vendorId}/users") {
+
+            // List users for a vendor
+            get {
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+                val users = transaction {
+                    UsersTable.selectAll().where { UsersTable.vendorId eq vendorUUID }
+                        .orderBy(UsersTable.createdAt, SortOrder.DESC)
+                        .map {
+                            mapOf(
+                                "id" to it[UsersTable.id].value.toString(),
+                                "name" to it[UsersTable.name],
+                                "phone" to it[UsersTable.phone],
+                                "email" to (it[UsersTable.email] ?: ""),
+                                "role" to it[UsersTable.role],
+                                "active" to it[UsersTable.active].toString(),
+                                "created_at" to it[UsersTable.createdAt].toEpochMilliseconds().toString(),
+                            )
+                        }
+                }
+                call.respond(HttpStatusCode.OK, users)
+            }
+
+            // Create user + worker for a vendor
+            post {
+                val principal = call.principal<AdminPrincipal>()!!
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+
+                @Serializable
+                data class AdminCreateUserRequest(
+                    val name: String,
+                    val phone: String,
+                    val password: String,
+                    val role: String = "CASHIER", // CASHIER, DELIVERY, KITCHEN, MANAGER
+                    val email: String? = null,
+                    val salary_type: String = "MONTHLY",
+                    val salary_amount: Double = 0.0,
+                )
+                val request = call.receive<AdminCreateUserRequest>()
+
+                require(request.role in listOf("MANAGER", "CASHIER", "DELIVERY", "KITCHEN")) {
+                    "Role must be MANAGER, CASHIER, DELIVERY, or KITCHEN"
+                }
+                require(request.password.length >= 6) { "Password must be at least 6 characters" }
+
+                // Verify vendor exists
+                val vendor = transaction {
+                    VendorsTable.selectAll().where { VendorsTable.id eq vendorUUID }.firstOrNull()
+                } ?: throw NoSuchElementException("Vendor not found")
+
+                // Check phone uniqueness within vendor
+                val existingUser = transaction {
+                    UsersTable.selectAll().where {
+                        (UsersTable.vendorId eq vendorUUID) and (UsersTable.phone eq request.phone)
+                    }.firstOrNull()
+                }
+                if (existingUser != null) {
+                    call.respond(HttpStatusCode.Conflict, mapOf("error" to "Phone already exists for this vendor"))
+                    return@post
+                }
+
+                val passwordHash = org.mindrot.jbcrypt.BCrypt.hashpw(request.password, org.mindrot.jbcrypt.BCrypt.gensalt())
+                val now = kotlinx.datetime.Clock.System.now()
+
+                val result = transaction {
+                    // Create User
+                    val userId = UsersTable.insertAndGetId {
+                        it[UsersTable.vendorId] = vendorUUID
+                        it[role] = request.role
+                        it[name] = request.name
+                        it[phone] = request.phone
+                        it[email] = request.email
+                        it[UsersTable.passwordHash] = passwordHash
+                        it[active] = true
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+
+                    // Also create Worker so it appears in vendor's worker screen
+                    // Generate worker ID
+                    val workerCount = WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUUID }.count()
+                    val workerIdStr = "WRK-${(workerCount + 1).toString().padStart(3, '0')}"
+                    val workerId = WorkersTable.insertAndGetId {
+                        it[WorkersTable.vendorId] = vendorUUID
+                        it[WorkersTable.userId] = userId
+                        it[WorkersTable.workerId] = workerIdStr
+                        it[fullName] = request.name
+                        it[WorkersTable.phone] = request.phone
+                        it[WorkersTable.role] = request.role
+                        it[salaryType] = request.salary_type
+                        it[salaryAmount] = java.math.BigDecimal.valueOf(request.salary_amount)
+                        it[WorkersTable.active] = true
+                        it[WorkersTable.createdAt] = now
+                        it[WorkersTable.updatedAt] = now
+                    }
+
+                    mapOf(
+                        "user_id" to userId.value.toString(),
+                        "worker_id" to workerId.value.toString(),
+                        "name" to request.name,
+                        "phone" to request.phone,
+                        "role" to request.role,
+                        "vendor_id" to vendorId,
+                    )
+                }
+                call.respond(HttpStatusCode.Created, result)
+            }
+
+            // Delete/deactivate user from vendor
+            delete("/{userId}") {
+                val principal = call.principal<AdminPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                    return@delete
+                }
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val userId = call.parameters["userId"] ?: throw IllegalArgumentException("User ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+                val userUUID = UUID.fromString(userId)
+
+                transaction {
+                    UsersTable.update({
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }) {
+                        it[active] = false
+                        it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deactivated"))
+            }
+        }
+
+        // ─── Admin Team Management ──────────────────────────────────
+
+        route("/team") {
+
+            // List admin team members
+            get {
+                val team = transaction {
+                    AdminUsersTable.selectAll()
+                        .orderBy(AdminUsersTable.createdAt, SortOrder.ASC)
+                        .map {
+                            mapOf(
+                                "id" to it[AdminUsersTable.id].value.toString(),
+                                "name" to it[AdminUsersTable.name],
+                                "email" to it[AdminUsersTable.email],
+                                "role" to it[AdminUsersTable.role],
+                                "active" to it[AdminUsersTable.active].toString(),
+                                "last_login_at" to (it[AdminUsersTable.lastLoginAt]?.toEpochMilliseconds()?.toString() ?: ""),
+                                "created_at" to it[AdminUsersTable.createdAt].toEpochMilliseconds().toString(),
+                            )
+                        }
+                }
+                call.respond(HttpStatusCode.OK, team)
+            }
+
+            // Create new admin member (super_admin only)
+            post {
+                val principal = call.principal<AdminPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                    return@post
+                }
+
+                @Serializable
+                data class CreateAdminRequest(val name: String, val email: String, val password: String, val role: String = "support")
+                val request = call.receive<CreateAdminRequest>()
+
+                require(request.role in listOf("super_admin", "support")) { "Role must be super_admin or support" }
+                require(request.password.length >= 6) { "Password must be at least 6 characters" }
+
+                // Check email uniqueness
+                val existing = transaction {
+                    AdminUsersTable.selectAll().where { AdminUsersTable.email eq request.email }.firstOrNull()
+                }
+                if (existing != null) {
+                    call.respond(HttpStatusCode.Conflict, mapOf("error" to "Email already exists"))
+                    return@post
+                }
+
+                val passwordHash = org.mindrot.jbcrypt.BCrypt.hashpw(request.password, org.mindrot.jbcrypt.BCrypt.gensalt())
+                val result = transaction {
+                    val id = AdminUsersTable.insertAndGetId {
+                        it[name] = request.name
+                        it[email] = request.email
+                        it[AdminUsersTable.passwordHash] = passwordHash
+                        it[role] = request.role
+                    }
+                    mapOf("id" to id.value.toString(), "name" to request.name, "email" to request.email, "role" to request.role)
+                }
+                call.respond(HttpStatusCode.Created, result)
+            }
+
+            // Update admin member
+            put("/{id}") {
+                val principal = call.principal<AdminPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                    return@put
+                }
+                val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+
+                @Serializable
+                data class UpdateAdminRequest(val name: String? = null, val role: String? = null, val active: Boolean? = null, val password: String? = null)
+                val request = call.receive<UpdateAdminRequest>()
+
+                transaction {
+                    AdminUsersTable.update({ AdminUsersTable.id eq UUID.fromString(id) }) {
+                        request.name?.let { n -> it[name] = n }
+                        request.role?.let { r -> if (r in listOf("super_admin", "support")) it[role] = r }
+                        request.active?.let { a -> it[active] = a }
+                        request.password?.let { p ->
+                            it[passwordHash] = org.mindrot.jbcrypt.BCrypt.hashpw(p, org.mindrot.jbcrypt.BCrypt.gensalt())
+                        }
+                        it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "updated"))
+            }
+
+            // Delete admin member (can't delete yourself)
+            delete("/{id}") {
+                val principal = call.principal<AdminPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                    return@delete
+                }
+                val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+                if (id == principal.adminId) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Cannot delete yourself"))
+                    return@delete
+                }
+                transaction {
+                    AdminRefreshTokensTable.deleteWhere { AdminRefreshTokensTable.adminId eq UUID.fromString(id) }
+                    AdminUsersTable.deleteWhere { AdminUsersTable.id eq UUID.fromString(id) }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+            }
+        }
     }
 }
 
