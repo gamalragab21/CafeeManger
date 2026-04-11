@@ -53,6 +53,7 @@ interface OrderRepository {
         discountReason: String? = null,
         doctorName: String? = null,
         diagnosis: String? = null,
+        deliveryUserId: String? = null,
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrder(

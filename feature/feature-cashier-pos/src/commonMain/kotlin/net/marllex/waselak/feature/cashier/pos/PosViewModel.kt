@@ -92,6 +92,7 @@ class PosViewModel constructor(
         val vendorLogoUrl: String? = null,
         val businessType: String = "RESTAURANT",
         val selectedTableId: String? = null,
+        val selectedDeliveryUserId: String? = null,
         val reservationId: String? = null,
         val selectedTaxPlaceId: String? = null,
         val clientName: String = "",
@@ -887,6 +888,7 @@ class PosViewModel constructor(
                     discountReason = discountReason,
                     doctorName = s.doctorName.ifBlank { null },
                     diagnosis = s.diagnosis.ifBlank { null },
+                    deliveryUserId = s.selectedDeliveryUserId,
                 ).onSuccess { order ->
                     AppLogger.i("POS", "Order submitted: id=${order.id}")
                     onSuccess(order)

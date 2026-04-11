@@ -93,6 +93,7 @@ data class CreateOrderDto(
     val discount_reason: String? = null,
     val doctor_name: String? = null,
     val diagnosis: String? = null,
+    val delivery_user_id: String? = null,
 )
 
 @Serializable
@@ -918,13 +919,17 @@ fun Route.orderRoutes() {
                     "total" to total.toPlainString()
                 ))
 
+                // If cashier assigned a delivery person, set status to ASSIGNED directly
+                val hasDeliveryUser = request.delivery_user_id != null
+                val initialStatus = if (hasDeliveryUser) "ASSIGNED" else "CREATED"
+
                 val orderId = OrdersTable.insertAndGetId { stmt ->
                     stmt[OrdersTable.vendorId] = vendorUUID
                     stmt[channel] = request.channel
-                    stmt[status] = "CREATED"
+                    stmt[status] = initialStatus
                     resolvedTableId?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
                     stmt[cashierId] = UUID.fromString(principal.userId)
-                    stmt[OrdersTable.deliveryUserId] = null
+                    stmt[OrdersTable.deliveryUserId] = request.delivery_user_id?.let { UUID.fromString(it) }
                     request.customer_id?.let { cid -> stmt[OrdersTable.customerId] = UUID.fromString(cid) }
                     taxPlaceIdUuid?.let { uuid -> stmt[OrdersTable.taxPlaceId] = uuid }
                     stmt[clientName] = request.client_name
@@ -1964,8 +1969,8 @@ fun Route.orderRoutes() {
                 }.firstOrNull() ?: throw NoSuchElementException("Order not found")
 
                 val currentStatus = currentOrder[OrdersTable.status]
-                if (currentStatus != "READY" && currentStatus != "ASSIGNED") {
-                    throw IllegalStateException("Order must be READY to assign delivery")
+                if (currentStatus !in listOf("CREATED", "PENDING", "PREPARING", "READY", "ASSIGNED")) {
+                    throw IllegalStateException("Order cannot be assigned in status: $currentStatus")
                 }
 
                 OrdersTable.update({

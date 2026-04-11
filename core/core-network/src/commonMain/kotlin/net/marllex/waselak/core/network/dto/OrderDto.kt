@@ -93,6 +93,7 @@ data class CreateOrderRequest(
     @SerialName("discount_reason") val discountReason: String? = null,
     @SerialName("doctor_name") val doctorName: String? = null,
     val diagnosis: String? = null,
+    @SerialName("delivery_user_id") val deliveryUserId: String? = null,
 )
 
 @Serializable
