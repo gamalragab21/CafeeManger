@@ -961,7 +961,7 @@ fun Route.crmRoutes() {
             """.trimIndent()
 
             call.respondText(
-                crmLayout("الفوترة", principal.name, principal.role, principal, "billing", content),
+                crmLayout("الفواتير", principal.name, principal.role, principal, "billing", content),
                 ContentType.Text.Html
             )
         }
@@ -2867,7 +2867,7 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         }
         // Billing - owner only
         if (principal.canSeeAnalytics) {
-            append(navLink("billing", "الفوترة", "\uD83E\uDDFE", "/crm/billing"))
+            append(navLink("billing", "الفواتير", "\uD83E\uDDFE", "/crm/billing"))
         }
         // Salaries - owner only
         if (principal.canSeeAnalytics) {
