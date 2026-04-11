@@ -76,16 +76,26 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         } > 0
     }
 
+    fun getAgentPhotoUrl(agentId: String): String? = transaction {
+        SalesAgentsTable.selectAll()
+            .where { SalesAgentsTable.id eq UUID.fromString(agentId) }
+            .firstOrNull()?.get(SalesAgentsTable.photoUrl)
+    }
+
     fun deleteAgent(id: String): Boolean = transaction {
         val aid = UUID.fromString(id)
-        // Unassign clients
-        CrmClientsTable.update({ CrmClientsTable.assignedTo eq aid }) {
-            it[assignedTo] = null
-        }
-        // Delete activities, targets, reviews
+        // Clean up all FK references
+        CrmClientsTable.update({ CrmClientsTable.assignedTo eq aid }) { it[assignedTo] = null }
+        // Delete commission details first (FK to salary records)
+        CrmCommissionDetailsTable.deleteWhere { agentId eq aid }
+        CrmSalaryRecordsTable.deleteWhere { agentId eq aid }
+        CrmSalaryConfigsTable.deleteWhere { agentId eq aid }
         CrmActivitiesTable.deleteWhere { agentId eq aid }
         CrmAgentTargetsTable.deleteWhere { agentId eq aid }
         CrmAgentReviewsTable.deleteWhere { agentId eq aid }
+        // Nullify invoice/payment references
+        CrmInvoicesTable.update({ CrmInvoicesTable.createdBy eq aid }) { it[createdBy] = null }
+        CrmPaymentsTable.update({ CrmPaymentsTable.receivedBy eq aid }) { it[receivedBy] = null }
         SalesAgentsTable.deleteWhere { SalesAgentsTable.id eq aid } > 0
     }
 
@@ -174,6 +184,15 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             if (nextActionDate != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDate)
             it[updatedAt] = Clock.System.now()
         } > 0
+    }
+
+    fun deleteClient(id: String): Boolean = transaction {
+        val cid = UUID.fromString(id)
+        CrmCommissionDetailsTable.deleteWhere { clientId eq cid }
+        CrmActivitiesTable.deleteWhere { clientId eq cid }
+        CrmPaymentsTable.deleteWhere { clientId eq cid }
+        CrmInvoicesTable.deleteWhere { CrmInvoicesTable.clientId eq cid }
+        CrmClientsTable.deleteWhere { CrmClientsTable.id eq cid } > 0
     }
 
     // ── Activities CRUD ───────────────────────────────────────────

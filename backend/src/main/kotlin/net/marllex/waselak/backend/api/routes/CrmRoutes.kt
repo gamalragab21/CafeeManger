@@ -105,7 +105,10 @@ fun Route.crmRoutes() {
                     append("<td class='p-2'>${String.format("%,.0f", c.finalAmount)} ج.م</td>")
                     append("<td class='p-2'>${c.assignedName ?: "-"}</td>")
                     append("<td class='p-2'>${c.daysSinceLastContact?.let { "${it} يوم" } ?: "-"}</td>")
-                    append("""<td class='p-2'><button onclick="openEditClient('${c.id}')" class="text-blue-600 hover:underline text-xs">تعديل</button></td>""")
+                    append("""<td class='p-2 flex gap-1'>
+                        <button onclick="openEditClient('${c.id}')" class="text-blue-600 hover:underline text-xs">تعديل</button>
+                        ${if (principal.canSeeAll) """<button onclick="deleteClient('${c.id}', '${c.clientName.replace("'", "\\'")}')" class="text-red-600 hover:underline text-xs">حذف</button>""" else ""}
+                    </td>""")
                     append("</tr>")
                 }
             }
@@ -209,6 +212,11 @@ fun Route.crmRoutes() {
                     data.discountPercent = parseInt(data.discountPercent) || 0;
                     const res = await fetch('/crm/api/clients/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
                     if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+                async function deleteClient(id, name) {
+                    if (!confirm('هل أنت متأكد من حذف العميل ' + name + '؟\nسيتم حذف كل بياناته وفواتيره.')) return;
+                    const res = await fetch('/crm/api/clients/' + id, {method:'DELETE'});
+                    if (res.ok) { location.reload(); } else { const d = await res.json(); alert(d.error || 'حدث خطأ'); }
                 }
                 </script>
             """.trimIndent()
@@ -1674,6 +1682,16 @@ fun Route.crmRoutes() {
             )
         }
 
+        // ─── System Docs Page ────────────────────────────────────
+        get("/crm/docs") {
+            val principal = call.principal<CrmPrincipal>()!!
+            val content = systemDocsHtml()
+            call.respondText(
+                crmLayout("دليل النظام", principal.name, principal.role, principal, "docs", content),
+                ContentType.Text.Html
+            )
+        }
+
         // ─── JSON API Endpoints ─────────────────────────────────
         route("/crm/api") {
 
@@ -1789,6 +1807,20 @@ fun Route.crmRoutes() {
                     nextActionDate = obj["nextActionDate"]?.jsonPrimitive?.contentOrNull,
                 )
                 if (ok) {
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+            }
+
+            delete("/clients/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.canSeeAll) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                val id = call.parameters["id"] ?: return@delete
+                if (crmService.deleteClient(id)) {
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -2686,9 +2718,10 @@ private fun kpiCard(label: String, value: String, icon: String, color: String): 
 private fun crmLayout(title: String, agentName: String, agentRole: String, principal: CrmPrincipal, activeTab: String, content: String): String {
     val displayRole = roleDisplayName(agentRole)
 
-    // Fetch agent photo URL from principal — we use a placeholder approach
-    // since CrmPrincipal doesn't carry photoUrl, we show initials
-    val sidebarPhotoHtml = agentPhotoHtml(null, agentName, 36)
+    // Fetch current user's photo from DB
+    val crmService by KoinJavaComponent.inject<CrmService>(clazz = CrmService::class.java)
+    val myPhotoUrl = crmService.getAgentPhotoUrl(principal.agentId)
+    val sidebarPhotoHtml = agentPhotoHtml(myPhotoUrl, agentName, 36)
 
     fun navLink(tab: String, label: String, icon: String, href: String): String {
         val active = if (tab == activeTab) "bg-white/10 font-bold" else "hover:bg-white/5"
@@ -2726,6 +2759,8 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         }
         // Profile - everyone can see their own profile
         append(navLink("profile", "ملفي", "👤", "/crm/profile"))
+        // System docs - everyone
+        append(navLink("docs", "دليل النظام", "📖", "/crm/docs"))
     }
 
     return """<!DOCTYPE html>
@@ -2751,11 +2786,18 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Mobile header -->
-    <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-4">
+    <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">
-            <img src="/landing/waslek_logo_sm.png" class="w-8 h-8 rounded-lg bg-white p-0.5">
-            <span class="text-white font-bold">وصلك CRM</span>
+            <img src="/landing/waslek_logo_sm.png" class="w-7 h-7 rounded-lg bg-white p-0.5">
+            <span class="text-white font-bold text-sm">وصلك</span>
         </div>
+        <a href="/crm/profile" class="flex items-center gap-2">
+            $sidebarPhotoHtml
+            <div class="text-white text-xs">
+                <div class="font-medium leading-tight">$agentName</div>
+                <div class="text-white/60 leading-tight">$displayRole</div>
+            </div>
+        </a>
         <button onclick="document.getElementById('mobileSidebar').classList.toggle('hidden')" class="text-white text-2xl">☰</button>
     </div>
     <!-- Mobile sidebar overlay -->
@@ -3384,3 +3426,203 @@ private fun monthOptions(selected: String?): String {
         """<option value="$it"$sel>${arabicMonth(it)}</option>"""
     }
 }
+
+private fun systemDocsHtml(): String = """
+<div class="space-y-6 max-w-4xl mx-auto">
+
+<!-- Section 1 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3" style="color:#1B3A5C">١. إيه هو نظام وصلك؟</h2>
+    <p class="text-gray-700 mb-3 leading-relaxed">وصلك هو نظام نقاط بيع (POS) متكامل بيخدم كل أنواع الأنشطة التجارية: مطاعم، كافيهات، صيدليات، محلات تجزئة، سوبر ماركت، مخابز، وغيرهم.</p>
+    <p class="font-bold text-gray-800 mb-2">النظام بيوفرلك:</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>نقطة بيع (POS) - شاشة الكاشير</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>إدارة الطلبات والمتابعة</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>إدارة المنيو/المنتجات</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>إدارة المخزون وتنبيهات النقص</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>تحليلات وتقارير شاملة</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>إدارة الموظفين والمرتبات</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>إدارة العملاء ونقاط الولاء</span></div>
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-2"><span class="text-green-600">✅</span><span>عروض وخصومات مخصصة</span></div>
+    </div>
+</div>
+
+<!-- Section 2 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٢. التطبيقات المتاحة</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="border-r-4 rounded-lg p-4 bg-gray-50" style="border-color:#2E7D32">
+            <h3 class="font-bold text-lg mb-1">تطبيق المدير</h3>
+            <p class="text-green-700 font-medium text-sm mb-1">لمين: صاحب المحل أو المدير</p>
+            <p class="text-gray-500 text-sm mb-1">بيشتغل على: Android + Desktop</p>
+            <p class="text-gray-700 text-sm">إدارة كل حاجة - المنتجات، الطلبات، الموظفين، المخزون، التحليلات</p>
+        </div>
+        <div class="border-r-4 rounded-lg p-4 bg-gray-50" style="border-color:#2E7D32">
+            <h3 class="font-bold text-lg mb-1">تطبيق الكاشير</h3>
+            <p class="text-green-700 font-medium text-sm mb-1">لمين: الكاشير / البائع</p>
+            <p class="text-gray-500 text-sm mb-1">بيشتغل على: Android + Desktop</p>
+            <p class="text-gray-700 text-sm">عمل طلبات، استلام فلوس، طباعة فواتير، فتح/قفل درج الكاش</p>
+        </div>
+        <div class="border-r-4 rounded-lg p-4 bg-gray-50" style="border-color:#2E7D32">
+            <h3 class="font-bold text-lg mb-1">تطبيق التوصيل</h3>
+            <p class="text-green-700 font-medium text-sm mb-1">لمين: عامل التوصيل</p>
+            <p class="text-gray-500 text-sm mb-1">بيشتغل على: Android</p>
+            <p class="text-gray-700 text-sm">استلام طلبات التوصيل، تتبع الحالة، إيصال التوصيل</p>
+        </div>
+        <div class="border-r-4 rounded-lg p-4 bg-gray-50" style="border-color:#2E7D32">
+            <h3 class="font-bold text-lg mb-1">شاشة المطبخ (KDS)</h3>
+            <p class="text-green-700 font-medium text-sm mb-1">لمين: المطبخ</p>
+            <p class="text-gray-500 text-sm mb-1">بيشتغل على: Android + Desktop</p>
+            <p class="text-gray-700 text-sm">عرض الطلبات الجديدة تلقائياً، تحديث حالة التحضير</p>
+        </div>
+    </div>
+</div>
+
+<!-- Section 3 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٣. الفرق بين المستخدمين والعمال</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="bg-blue-50 rounded-xl p-4">
+            <h3 class="font-bold text-lg mb-2 text-blue-800">المستخدمين (Users)</h3>
+            <ul class="space-y-1 text-sm text-gray-700">
+                <li>• دول اللي بيدخلوا على التطبيقات</li>
+                <li>• كل مستخدم ليه رقم موبايل وباسورد</li>
+                <li>• <b>مدير</b> - بيدخل تطبيق المدير</li>
+                <li>• <b>كاشير</b> - بيدخل تطبيق الكاشير</li>
+                <li>• <b>توصيل</b> - بيدخل تطبيق التوصيل</li>
+                <li>• <b>مطبخ</b> - بيدخل شاشة المطبخ</li>
+            </ul>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4">
+            <h3 class="font-bold text-lg mb-2 text-green-800">العمال (Workers)</h3>
+            <ul class="space-y-1 text-sm text-gray-700">
+                <li>• موظفين بيتسجلوا في النظام للإدارة</li>
+                <li>• ممكن يكون عامل من غير تسجيل دخول</li>
+                <li>• ممكن تفعله كمستخدم كاشير أو توصيل</li>
+                <li>• ليهم: مرتب، حضور وانصراف، بصمة PIN</li>
+            </ul>
+        </div>
+    </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+        <p class="font-bold text-yellow-800">💡 الفرق ببساطة: كل مستخدم ممكن يكون عامل، بس مش كل عامل لازم يكون مستخدم.</p>
+    </div>
+</div>
+
+<!-- Section 4 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٤. أنواع الأنشطة التجارية</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b" style="background:#1B3A5C;color:white">
+                <th class="p-2 text-right">الميزة</th><th class="p-2 text-center">مطعم/كافيه</th><th class="p-2 text-center">صيدلية</th><th class="p-2 text-center">تجزئة</th><th class="p-2 text-center">سوبر ماركت</th><th class="p-2 text-center">مخبز</th>
+            </tr></thead>
+            <tbody>
+                <tr class="border-b bg-blue-50"><td class="p-2 font-bold" colspan="6">قنوات البيع</td></tr>
+                <tr class="border-b"><td class="p-2 font-medium">داخل المحل</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b bg-gray-50"><td class="p-2 font-medium">توصيل</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b"><td class="p-2 font-medium">تيك أواي</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b bg-gray-50"><td class="p-2 font-medium">في المحل</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b bg-blue-50"><td class="p-2 font-bold" colspan="6">المميزات الرئيسية</td></tr>
+                <tr class="border-b"><td class="p-2 font-medium">الطاولات</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td></tr>
+                <tr class="border-b bg-gray-50"><td class="p-2 font-medium">شاشة المطبخ</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b"><td class="p-2 font-medium">المخزون</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b bg-gray-50"><td class="p-2 font-medium">الروشتات</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td><td class="p-2 text-center text-red-500">❌</td></tr>
+                <tr class="border-b"><td class="p-2 font-medium">درج الكاش</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td></tr>
+                <tr class="border-b bg-gray-50"><td class="p-2 font-medium">المرتجعات</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-green-600 font-bold">✅</td><td class="p-2 text-center text-red-500">❌</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Section 5 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٥. شرح المميزات</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">نقطة البيع (POS)</h3><p class="text-sm text-gray-600">الشاشة الرئيسية للكاشير - اختيار المنتجات، تحديد الكمية، اختيار طريقة الدفع</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">إدارة الطلبات</h3><p class="text-sm text-gray-600">متابعة كل الطلبات: جديد ← قيد التحضير ← جاهز ← تم التسليم ← مكتمل</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">إدارة المنتجات</h3><p class="text-sm text-gray-600">أقسام وأصناف - صورة، سعر، سعر تكلفة، باركود، متغيرات (حجم/إضافات)</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">إدارة المخزون</h3><p class="text-sm text-gray-600">تتبع الكميات - بدون تتبع، خصم مباشر، وصفة. تنبيهات النقص</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">الطاولات</h3><p class="text-sm text-gray-600">للمطاعم بس - إنشاء طاولات وربط الطلبات. حالة: فاضية، مشغولة، محجوزة</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">شاشة المطبخ</h3><p class="text-sm text-gray-600">عرض الطلبات الجديدة تلقائياً - الطبّاخ يحدث حالة كل صنف</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">درج الكاش</h3><p class="text-sm text-gray-600">فتح/قفل الدرج، حركات إيداع وسحب، ملخص الوردية</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">التحليلات</h3><p class="text-sm text-gray-600">إجمالي المبيعات، عدد الطلبات، أفضل المنتجات، أفضل كاشير. تصدير التقارير</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">إدارة العملاء</h3><p class="text-sm text-gray-600">بيانات العملاء: اسم، رقم، عنوان. سجل الطلبات ونقاط الولاء</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">نظام الولاء</h3><p class="text-sm text-gray-600">كسب نقاط مع كل طلب واستبدالها بخصم</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">العروض والخصومات</h3><p class="text-sm text-gray-600">خصم نسبة أو مبلغ ثابت، كود خصم، تاريخ انتهاء</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">المرتجعات والاستبدال</h3><p class="text-sm text-gray-600">إرجاع منتج واسترداد الفلوس أو استبدال بمنتج تاني</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">الدفع بالتقسيط</h3><p class="text-sm text-gray-600">العميل بيدفع على أقساط والنظام بيتبع المدفوع والمتبقي</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">ائتمان العملاء</h3><p class="text-sm text-gray-600">الدفع الآجل - العميل بياخد البضاعة ويدفع بعدين</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">الدفع المقسم</h3><p class="text-sm text-gray-600">تقسيم الفاتورة على أكتر من طريقة دفع</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">الحضور والانصراف</h3><p class="text-sm text-gray-600">تسجيل دوام الموظفين بـ PIN أو QR Code</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">المرتبات</h3><p class="text-sm text-gray-600">إدارة مرتبات العمال - شهري أو يومي + الأوفر تايم</p></div>
+        <div class="border rounded-xl p-3"><h3 class="font-bold text-green-700 mb-1">المنيو الرقمي</h3><p class="text-sm text-gray-600">منيو أونلاين للعملاء من على الموبايل</p></div>
+    </div>
+</div>
+
+<!-- Section 6 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٦. الباقات والأسعار</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="border-2 border-gray-200 rounded-xl p-4 text-center hover:border-green-500 transition">
+            <h3 class="font-bold text-lg mb-1" style="color:#1B3A5C">أساسي</h3>
+            <div class="text-3xl font-bold text-green-700 my-3">299 <span class="text-sm">ج.م/شهر</span></div>
+            <div class="text-gray-500 text-sm mb-3">مستخدم واحد</div>
+            <ul class="text-sm text-right space-y-1"><li>✅ نقطة بيع</li><li>✅ إدارة الطلبات</li><li>✅ إدارة المنيو</li><li>✅ درج الكاش</li><li>✅ فرع واحد</li></ul>
+        </div>
+        <div class="border-2 border-green-500 rounded-xl p-4 text-center relative">
+            <span class="absolute -top-3 right-4 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">الأكثر طلباً</span>
+            <h3 class="font-bold text-lg mb-1" style="color:#1B3A5C">احترافي</h3>
+            <div class="text-3xl font-bold text-green-700 my-3">599 <span class="text-sm">ج.م/شهر</span></div>
+            <div class="text-gray-500 text-sm mb-3">5 مستخدمين</div>
+            <ul class="text-sm text-right space-y-1"><li>✅ كل الأساسي</li><li>✅ تحليلات وتقارير</li><li>✅ إدارة المخزون</li><li>✅ شاشة المطبخ</li><li>✅ إدارة العملاء</li><li>✅ عروض وخصومات</li></ul>
+        </div>
+        <div class="border-2 border-gray-200 rounded-xl p-4 text-center hover:border-green-500 transition">
+            <h3 class="font-bold text-lg mb-1" style="color:#1B3A5C">مؤسسات</h3>
+            <div class="text-3xl font-bold text-green-700 my-3">999 <span class="text-sm">ج.م/شهر</span></div>
+            <div class="text-gray-500 text-sm mb-3">غير محدود</div>
+            <ul class="text-sm text-right space-y-1"><li>✅ كل الاحترافي</li><li>✅ فروع متعددة</li><li>✅ إدارة التوصيل</li><li>✅ الموردين</li><li>✅ تصدير التقارير</li><li>✅ الدفع بالتقسيط</li></ul>
+        </div>
+        <div class="border-2 border-gray-200 rounded-xl p-4 text-center hover:border-green-500 transition">
+            <h3 class="font-bold text-lg mb-1" style="color:#1B3A5C">مخصص</h3>
+            <div class="text-3xl font-bold text-green-700 my-3">حسب الاتفاق</div>
+            <div class="text-gray-500 text-sm mb-3">حسب الاتفاق</div>
+            <ul class="text-sm text-right space-y-1"><li>✅ مميزات مخصصة</li><li>✅ حسب احتياج العميل</li><li>✅ دعم خاص</li><li>✅ تدريب الفريق</li></ul>
+        </div>
+    </div>
+</div>
+
+<!-- Section 7 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٧. أسئلة شائعة</h2>
+    <div class="space-y-3">
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">إيه الفرق بين وصلك وأي نظام تاني؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">وصلك بيخدم كل أنواع الأنشطة مش بس المطاعم، وبيشتغل على الموبايل والكمبيوتر، وأسعاره مناسبة جداً.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">ممكن أشتغل من غير نت؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">فيه وضع العمل بدون إنترنت. بتعمل الطلبات عادي ولما النت يرجع بيتزامن تلقائياً.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">بيشتغل على إيه؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أندرويد (موبايل وتابلت) وديسكتوب (Windows و Mac). مش محتاج أجهزة غالية.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">ممكن أربط أكتر من فرع؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، في باقة المؤسسات بتقدر تربط كل الفروع على حساب واحد.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">التجربة المجانية مدتها قد إيه؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">7 أيام تجربة مجانية كاملة بكل المميزات.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">النظام بيدعم الباركود؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، تقدر تضيف باركود لكل منتج وتستخدم قارئ الباركود في الكاشير.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">ممكن أطبع فواتير؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، طباعة فواتير حرارية وكمان فواتير رقمية على الموبايل.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">إيه طرق الدفع المتاحة؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">كاش، فودافون كاش، إنستا باي، تحويل بنكي، كارت.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">إزاي أضيف موظف جديد؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">من تطبيق المدير ← الموظفين ← إضافة عامل. تحدد اسمه ودوره.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">النظام بيحسب الضرايب؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، تفعّل الضرايب وتحدد النسبة (مثلاً 14%). النظام بيحسبها تلقائياً.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">ممكن أصدّر التقارير؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، تصدّر تقارير المبيعات والمخزون كملف Excel.</div></details>
+        <details class="border rounded-lg"><summary class="p-3 font-bold cursor-pointer hover:bg-gray-50">البيانات آمنة؟</summary><div class="p-3 pt-0 text-gray-600 text-sm">أيوا، كل البيانات مشفرة ومحمية. كل حساب منفصل تماماً.</div></details>
+    </div>
+</div>
+
+<!-- Section 8 -->
+<div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-3" style="color:#1B3A5C">٨. التواصل والدعم</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-2xl mb-2">📱</div><div class="font-bold">واتساب</div><div class="text-gray-600 text-sm">رقم الدعم الفني</div></div>
+        <div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-2xl mb-2">📞</div><div class="font-bold">تليفون</div><div class="text-gray-600 text-sm">نفس رقم الواتساب</div></div>
+        <div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-2xl mb-2">🕐</div><div class="font-bold">مواعيد الدعم</div><div class="text-gray-600 text-sm">من 9 الصبح لـ 9 بالليل - كل يوم</div></div>
+        <div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-2xl mb-2">🚨</div><div class="font-bold">الدعم الطارئ</div><div class="text-gray-600 text-sm">متاح 24/7 للمشتركين</div></div>
+    </div>
+    <div class="text-center mt-6 p-4 border-t">
+        <p class="text-xl font-bold" style="color:#2E7D32">وصلك - بنوصلك بالنجاح 🚀</p>
+    </div>
+</div>
+
+</div>
+"""

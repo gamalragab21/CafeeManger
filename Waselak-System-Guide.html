@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دليل نظام وصلك الشامل</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,Tahoma,sans-serif;direction:rtl;text-align:right;background:#fff;color:#222;line-height:1.8;font-size:15px}
+.page{max-width:900px;margin:0 auto;padding:20px 30px}
+@media print{.page{max-width:100%}.no-print{display:none}h1,h2{page-break-after:avoid}.section{page-break-before:always}}
+
+/* Cover */
+.cover{text-align:center;padding:120px 20px 60px;min-height:90vh;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.cover h1{font-size:42px;color:#1B3A5C;margin-bottom:10px}
+.cover .sub{font-size:22px;color:#666;margin-bottom:30px;font-style:italic}
+.cover .for{font-size:20px;color:#2E7D32;border-top:3px solid #2E7D32;padding-top:15px;display:inline-block}
+.cover .ver{font-size:16px;color:#999;margin-top:60px}
+
+/* Navigation */
+.toc{background:#f8f9fa;border-radius:12px;padding:25px 30px;margin:30px 0}
+.toc h2{color:#1B3A5C;margin-bottom:15px;font-size:22px}
+.toc ol{padding-right:25px}
+.toc li{margin:8px 0}
+.toc a{color:#1B3A5C;text-decoration:none;font-size:16px;font-weight:500}
+.toc a:hover{color:#2E7D32;text-decoration:underline}
+
+/* Headings */
+h1{font-size:28px;color:#1B3A5C;border-bottom:3px solid #1B3A5C;padding-bottom:10px;margin:40px 0 20px}
+h2{font-size:20px;color:#2E7D32;margin:25px 0 12px;padding-right:12px;border-right:4px solid #2E7D32}
+h3{font-size:17px;color:#1B3A5C;margin:15px 0 8px}
+
+p{margin:8px 0 12px}
+ul,ol{padding-right:30px;margin:10px 0}
+li{margin:6px 0}
+
+/* Cards */
+.app-card{background:#f8f9fa;border-radius:10px;padding:18px 22px;margin:15px 0;border-right:5px solid #2E7D32}
+.app-card h3{color:#1B3A5C;margin:0 0 8px;border:none;padding:0}
+.app-card .who{color:#2E7D32;font-weight:bold;margin:4px 0}
+.app-card .platform{color:#666;font-size:14px}
+.app-card .features{margin-top:6px}
+
+/* Highlight box */
+.highlight{background:#E8F5E9;border-radius:8px;padding:14px 18px;margin:15px 0;border-right:4px solid #2E7D32;font-weight:bold;color:#1B3A5C}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:15px 0;direction:rtl}
+th{background:#1B3A5C;color:#fff;padding:10px 12px;font-size:14px;text-align:center;font-weight:bold}
+td{padding:9px 12px;border:1px solid #ddd;font-size:14px;text-align:center}
+td:first-child{text-align:right;font-weight:bold}
+tr:nth-child(even){background:#f5f5f5}
+tr:nth-child(odd){background:#fff}
+.section-row td{background:#E8F0FE !important;color:#1B3A5C;font-weight:bold;font-size:14px}
+.yes{color:#2E7D32;font-weight:bold}
+.no{color:#D32F2F;font-weight:bold}
+
+/* Feature detail */
+.feature{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:15px 18px;margin:12px 0}
+.feature h3{color:#2E7D32;margin:0 0 6px;border:none;padding:0;font-size:16px}
+.feature p{margin:0;color:#444}
+
+/* FAQ */
+.faq{margin:12px 0}
+.faq .q{font-weight:bold;color:#1B3A5C;font-size:15px;margin-bottom:4px}
+.faq .a{color:#444;padding-right:15px;border-right:3px solid #E8F0FE;margin-bottom:15px}
+
+/* Plans */
+.plan-card{display:inline-block;width:48%;vertical-align:top;background:#f8f9fa;border-radius:10px;padding:18px;margin:8px 1%;border-top:4px solid #2E7D32;text-align:center}
+.plan-card h3{color:#1B3A5C;font-size:18px;margin-bottom:5px}
+.plan-card .price{font-size:24px;color:#2E7D32;font-weight:bold;margin:8px 0}
+.plan-card .users{color:#666;font-size:14px;margin-bottom:8px}
+.plan-card ul{text-align:right;font-size:13px;list-style:none;padding:0}
+.plan-card li{padding:4px 0;border-bottom:1px solid #eee}
+@media(max-width:600px){.plan-card{width:100%}}
+
+/* Contact */
+.contact-table td:first-child{background:#E8F0FE;width:30%;font-weight:bold;text-align:center}
+
+/* Footer */
+.footer{text-align:center;padding:30px;color:#2E7D32;font-size:18px;font-weight:bold;border-top:3px solid #2E7D32;margin-top:40px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ═══ COVER ═══ -->
+<div class="cover section">
+<h1>دليل نظام وصلك الشامل</h1>
+<div class="sub">Waselak Complete System Guide</div>
+<div class="for">للفريق التجاري وخدمة العملاء</div>
+<div class="ver">الإصدار 1.5.3 | أبريل 2026</div>
+</div>
+
+<!-- ═══ TOC ═══ -->
+<div class="toc no-print">
+<h2>فهرس المحتويات</h2>
+<ol>
+<li><a href="#s1">إيه هو نظام وصلك؟</a></li>
+<li><a href="#s2">التطبيقات المتاحة</a></li>
+<li><a href="#s3">الفرق بين المستخدمين والعمال</a></li>
+<li><a href="#s4">أنواع الأنشطة التجارية</a></li>
+<li><a href="#s5">شرح كل ميزة بالتفصيل</a></li>
+<li><a href="#s6">الباقات والأسعار</a></li>
+<li><a href="#s7">أسئلة شائعة</a></li>
+<li><a href="#s8">التواصل والدعم</a></li>
+</ol>
+</div>
+
+<!-- ═══ SECTION 1 ═══ -->
+<div class="section" id="s1">
+<h1>١. إيه هو نظام وصلك؟</h1>
+<p>وصلك هو نظام نقاط بيع (POS) متكامل بيخدم كل أنواع الأنشطة التجارية: مطاعم، كافيهات، صيدليات، محلات تجزئة، سوبر ماركت، مخابز، وغيرهم.</p>
+<p><strong>النظام بيوفرلك:</strong></p>
+<ul>
+<li>نقطة بيع (POS) - شاشة الكاشير لعمل الطلبات واستلام الفلوس</li>
+<li>إدارة الطلبات - متابعة كل طلب من أول ما يتعمل لحد ما يتسلم</li>
+<li>إدارة المنيو/المنتجات - إضافة وتعديل الأصناف والأسعار</li>
+<li>إدارة المخزون - تتبع الكميات وتنبيهات النقص</li>
+<li>تحليلات وتقارير - إحصائيات المبيعات والأداء</li>
+<li>إدارة الموظفين - حضور وانصراف ومرتبات</li>
+<li>إدارة العملاء - بيانات ونقاط ولاء</li>
+<li>عروض وخصومات - أكواد خصم وعروض مخصصة</li>
+</ul>
+</div>
+
+<!-- ═══ SECTION 2 ═══ -->
+<div class="section" id="s2">
+<h1>٢. التطبيقات المتاحة</h1>
+<p>وصلك بيتكون من 5 تطبيقات، كل واحد ليه دور معين:</p>
+
+<div class="app-card">
+<h3>تطبيق المدير (Manager App)</h3>
+<div class="who">لمين: صاحب المحل أو المدير</div>
+<div class="platform">بيشتغل على: Android + Desktop (Windows/Mac)</div>
+<div class="features">بيعمل إيه: إدارة كل حاجة - المنتجات، الطلبات، الموظفين، المخزون، التحليلات، الإعدادات، العروض، العملاء</div>
+</div>
+
+<div class="app-card">
+<h3>تطبيق الكاشير (Cashier App)</h3>
+<div class="who">لمين: الكاشير / البائع</div>
+<div class="platform">بيشتغل على: Android + Desktop</div>
+<div class="features">بيعمل إيه: عمل طلبات، استلام فلوس، طباعة فواتير، فتح/قفل درج الكاش، الطلبات المجدولة</div>
+</div>
+
+<div class="app-card">
+<h3>تطبيق التوصيل (Delivery App)</h3>
+<div class="who">لمين: عامل التوصيل</div>
+<div class="platform">بيشتغل على: Android</div>
+<div class="features">بيعمل إيه: استلام طلبات التوصيل، تتبع الحالة، إيصال التوصيل</div>
+</div>
+
+<div class="app-card">
+<h3>شاشة المطبخ (KDS - Kitchen Display)</h3>
+<div class="who">لمين: المطبخ</div>
+<div class="platform">بيشتغل على: Android + Desktop</div>
+<div class="features">بيعمل إيه: عرض الطلبات الجديدة تلقائياً، تحديث حالة التحضير</div>
+</div>
+
+<div class="app-card">
+<h3>لوحة الإدارة (Admin Panel)</h3>
+<div class="who">لمين: فريق وصلك فقط</div>
+<div class="platform">بيشتغل على: Desktop</div>
+<div class="features">بيعمل إيه: إدارة حسابات العملاء، الباقات، الاشتراكات</div>
+</div>
+</div>
+
+<!-- ═══ SECTION 3 ═══ -->
+<div class="section" id="s3">
+<h1>٣. الفرق بين المستخدمين والعمال</h1>
+
+<h2>المستخدمين (Users)</h2>
+<p>دول اللي بيدخلوا على التطبيقات. كل مستخدم ليه رقم موبايل وباسورد.</p>
+<ul>
+<li><strong>مدير (Manager)</strong> - بيدخل على تطبيق المدير وبيتحكم في كل حاجة</li>
+<li><strong>كاشير (Cashier)</strong> - بيدخل على تطبيق الكاشير فقط</li>
+<li><strong>توصيل (Delivery)</strong> - بيدخل على تطبيق التوصيل فقط</li>
+<li><strong>مطبخ (Kitchen)</strong> - بيدخل على شاشة المطبخ فقط</li>
+</ul>
+
+<h2>العمال (Workers)</h2>
+<p>دول الموظفين اللي بيتسجلوا في النظام لأغراض الإدارة:</p>
+<ul>
+<li>ممكن يكون عامل من غير ما يكون مستخدم (مثلاً: عامل نظافة - محتاج تتبع حضوره بس مش محتاج يدخل على التطبيق)</li>
+<li>ممكن تفعله كمستخدم على تطبيق الكاشير أو التوصيل</li>
+<li>ليهم: مرتب (شهري/يومي)، حضور وانصراف، بصمة PIN</li>
+</ul>
+
+<div class="highlight">الفرق ببساطة: كل مستخدم ممكن يكون عامل، بس مش كل عامل لازم يكون مستخدم.</div>
+</div>
+
+<!-- ═══ SECTION 4 ═══ -->
+<div class="section" id="s4">
+<h1>٤. أنواع الأنشطة التجارية</h1>
+<p>كل نوع نشاط ليه مميزات مختلفة. الجدول ده بيوضح إيه اللي متاح لكل نوع:</p>
+
+<table>
+<tr><th>الميزة</th><th>مطعم/كافيه</th><th>صيدلية</th><th>تجزئة</th><th>سوبر ماركت</th><th>مخبز</th></tr>
+<tr class="section-row"><td colspan="6">قنوات البيع</td></tr>
+<tr><td>داخل المحل (Dine-In)</td><td class="yes">✅</td><td class="yes">✅ صرف مباشر</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td></tr>
+<tr><td>توصيل (Delivery)</td><td class="yes">✅</td><td class="yes">✅</td><td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+<tr><td>تيك أواي (Takeaway)</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td></tr>
+<tr><td>في المحل (In-Store)</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+<tr><td>حجز مسبق (Pickup Later)</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td></tr>
+
+<tr class="section-row"><td colspan="6">المميزات الرئيسية</td></tr>
+<tr><td>الطاولات</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td></tr>
+<tr><td>شاشة المطبخ (KDS)</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td></tr>
+<tr><td>الوصفات (Recipes)</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td></tr>
+<tr><td>المخزون</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+<tr><td>الباركود</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+<tr><td>درج الكاش</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+<tr><td>الروشتات</td><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td></tr>
+<tr><td>تفاعلات الأدوية</td><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td></tr>
+<tr><td>ائتمان العملاء</td><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td></tr>
+<tr><td>التقسيط</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="no">❌</td></tr>
+<tr><td>الدفع المقسم</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td></tr>
+<tr><td>المرتجعات</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="no">❌</td></tr>
+
+<tr class="section-row"><td colspan="6">مسميات المنيو</td></tr>
+<tr><td>اسم الأقسام</td><td>أقسام</td><td>أقسام</td><td>أقسام</td><td>أقسام</td><td>أقسام</td></tr>
+<tr><td>اسم الأصناف</td><td>أصناف</td><td>أدوية</td><td>منتجات</td><td>منتجات</td><td>أصناف</td></tr>
+</table>
+</div>
+
+<!-- ═══ SECTION 5 ═══ -->
+<div class="section" id="s5">
+<h1>٥. شرح كل ميزة بالتفصيل</h1>
+
+<div class="feature"><h3>نقطة البيع (POS)</h3><p>دي الشاشة الرئيسية اللي بيستخدمها الكاشير. بيختار المنتجات، يحدد الكمية، يختار طريقة الدفع (كاش / فودافون كاش / إنستا باي / كارت)، ويعمل الطلب. كمان بيقدر يختار قناة البيع (داخل المحل / توصيل / تيك أواي).</p></div>
+
+<div class="feature"><h3>إدارة الطلبات</h3><p>بتعرض كل الطلبات اللي اتعملت. كل طلب ليه حالة: جديد ← قيد التحضير ← جاهز ← تم التسليم ← مكتمل. تقدر تفلتر حسب الحالة، التاريخ، أو قناة البيع.</p></div>
+
+<div class="feature"><h3>إدارة المنيو / المنتجات</h3><p>بتضيف الأقسام والأصناف. كل صنف ليه: اسم، سعر، سعر تكلفة، صورة، باركود. كمان فيه متغيرات (Variants) زي حجم كبير/صغير أو إضافات.</p></div>
+
+<div class="feature"><h3>إدارة المخزون (Stock)</h3><p>بتتبع كميات المنتجات. فيه 3 أوضاع: بدون تتبع (NONE)، خصم مباشر (DIRECT) بينقص الكمية لما يتباع، ووصفة (RECIPE) بينقص المكونات. كمان فيه تنبيهات لما الكمية تقل.</p></div>
+
+<div class="feature"><h3>الطاولات (Tables)</h3><p>للمطاعم بس. بتعمل طاولات وتربط كل طلب بطاولة. حالة الطاولة: فاضية، مشغولة، محجوزة.</p></div>
+
+<div class="feature"><h3>شاشة المطبخ (KDS)</h3><p>للمطاعم والمخابز. بتعرض الطلبات الجديدة تلقائياً. الطبّاخ يقدر يحدّث حالة كل صنف (قيد التحضير / جاهز).</p></div>
+
+<div class="feature"><h3>درج الكاش (Cash Drawer)</h3><p>بيدير النقدية. الكاشير بيفتح الدرج في أول الوردية بمبلغ البداية، وبيقفله في آخرها. كمان فيه حركات إيداع وسحب، وملخص الوردية.</p></div>
+
+<div class="feature"><h3>التحليلات (Analytics)</h3><p>تقارير وإحصائيات شاملة: إجمالي المبيعات، عدد الطلبات، متوسط الطلب، أفضل المنتجات، أفضل كاشير، أفضل سائق. ممكن تصدّر التقارير.</p></div>
+
+<div class="feature"><h3>إدارة العملاء (Customers)</h3><p>بتسجل بيانات العملاء: اسم، رقم، عنوان. وبتتبع سجل طلباتهم ونقاط الولاء.</p></div>
+
+<div class="feature"><h3>نظام الولاء (Loyalty)</h3><p>العميل بيكسب نقاط مع كل طلب، ويقدر يستبدلها بخصم في الطلب الجاي. المدير بيحدد نسبة الكسب والاستبدال.</p></div>
+
+<div class="feature"><h3>العروض والخصومات (Offers)</h3><p>خصم نسبة أو مبلغ ثابت، كود خصم (Promo Code)، تاريخ انتهاء، حد أقصى للاستخدام.</p></div>
+
+<div class="feature"><h3>الموردين (Suppliers)</h3><p>إدارة بيانات الموردين وطلبات الشراء. بتتبع مين بيوردلك إيه وبكام.</p></div>
+
+<div class="feature"><h3>الحضور والانصراف (Attendance)</h3><p>تسجيل دوام الموظفين. ممكن بـ PIN أو QR Code.</p></div>
+
+<div class="feature"><h3>المرتبات (Salary)</h3><p>إدارة مرتبات العمال - شهري أو يومي، وحساب الأوفر تايم.</p></div>
+
+<div class="feature"><h3>المرتجعات والاستبدال (Returns & Exchanges)</h3><p>إرجاع منتج واسترداد الفلوس، أو استبدال منتج بمنتج تاني. لازم يكون مفعّل من الإعدادات.</p></div>
+
+<div class="feature"><h3>الدفع بالتقسيط (Installments)</h3><p>للمشتريات الكبيرة. العميل بيدفع على أقساط، والنظام بيتبع المدفوع والمتبقي.</p></div>
+
+<div class="feature"><h3>ائتمان العملاء (Customer Credit)</h3><p>العميل بياخد البضاعة دلوقتي ويدفع بعدين (الدفع الآجل). بيتسجل رصيد العميل.</p></div>
+
+<div class="feature"><h3>الدفع المقسم (Split Payment)</h3><p>تقسيم الفاتورة على أكتر من طريقة دفع (مثلاً: نص كاش ونص فودافون كاش).</p></div>
+
+<div class="feature"><h3>الطلبات المجدولة (Scheduled Orders)</h3><p>طلبات مسبقة بموعد محدد. العميل بيطلب دلوقتي ويستلم بكرة.</p></div>
+
+<div class="feature"><h3>الإعلانات (Announcements)</h3><p>إرسال إعلانات للموظفين من تطبيق المدير.</p></div>
+
+<div class="feature"><h3>المنيو الرقمي (Digital Menu)</h3><p>منيو أونلاين للعملاء بيقدروا يشوفوا الأصناف والأسعار من على الموبايل.</p></div>
+
+<div class="feature"><h3>الفاتورة الرقمية (Digital Receipt)</h3><p>إرسال الفاتورة على موبايل العميل بدل ما يطبعها.</p></div>
+</div>
+
+<!-- ═══ SECTION 6 ═══ -->
+<div class="section" id="s6">
+<h1>٦. الباقات والأسعار</h1>
+
+<div style="text-align:center">
+<div class="plan-card">
+<h3>أساسي (Basic)</h3>
+<div class="price">299 جنيه / شهر</div>
+<div class="users">مستخدم واحد</div>
+<ul><li>نقطة بيع (POS)</li><li>إدارة الطلبات</li><li>إدارة المنيو</li><li>درج الكاش</li><li>فرع واحد</li></ul>
+</div>
+<div class="plan-card">
+<h3>احترافي (Pro)</h3>
+<div class="price">599 جنيه / شهر</div>
+<div class="users">5 مستخدمين</div>
+<ul><li>كل الأساسي +</li><li>تحليلات وتقارير</li><li>إدارة المخزون</li><li>شاشة المطبخ (KDS)</li><li>إدارة العملاء</li><li>العروض والخصومات</li></ul>
+</div>
+<div class="plan-card">
+<h3>مؤسسات (Enterprise)</h3>
+<div class="price">999 جنيه / شهر</div>
+<div class="users">عدد غير محدود</div>
+<ul><li>كل الاحترافي +</li><li>فروع متعددة</li><li>إدارة التوصيل</li><li>الموردين</li><li>تصدير التقارير</li><li>الدفع بالتقسيط</li></ul>
+</div>
+<div class="plan-card">
+<h3>مخصص (Custom)</h3>
+<div class="price">حسب الاتفاق</div>
+<div class="users">حسب الاتفاق</div>
+<ul><li>مميزات مخصصة</li><li>حسب احتياج العميل</li><li>دعم خاص</li><li>تدريب الفريق</li></ul>
+</div>
+</div>
+</div>
+
+<!-- ═══ SECTION 7 ═══ -->
+<div class="section" id="s7">
+<h1>٧. أسئلة شائعة (FAQ)</h1>
+
+<div class="faq"><div class="q">س١: إيه الفرق بين وصلك وأي نظام تاني؟</div><div class="a">وصلك بيخدم كل أنواع الأنشطة مش بس المطاعم، وبيشتغل على الموبايل والكمبيوتر، وأسعاره مناسبة جداً مقارنة بالمنافسين.</div></div>
+
+<div class="faq"><div class="q">س٢: ممكن أشتغل من غير نت؟</div><div class="a">فيه وضع العمل بدون إنترنت (Offline Mode). بتعمل الطلبات عادي ولما النت يرجع بيتزامن تلقائياً.</div></div>
+
+<div class="faq"><div class="q">س٣: بيشتغل على إيه؟</div><div class="a">أندرويد (موبايل وتابلت) وديسكتوب (Windows و Mac). مش محتاج أجهزة غالية - أي موبايل أندرويد بيشتغل.</div></div>
+
+<div class="faq"><div class="q">س٤: ممكن أربط أكتر من فرع؟</div><div class="a">أيوا، في باقة المؤسسات (Enterprise) بتقدر تربط كل الفروع على حساب واحد.</div></div>
+
+<div class="faq"><div class="q">س٥: لو عندي مشكلة أعمل إيه؟</div><div class="a">تواصل معانا على الواتساب أو التليفون. فريق الدعم متاح من 9 الصبح لـ 9 بالليل.</div></div>
+
+<div class="faq"><div class="q">س٦: التجربة المجانية مدتها قد إيه؟</div><div class="a">7 أيام تجربة مجانية كاملة بكل المميزات.</div></div>
+
+<div class="faq"><div class="q">س٧: النظام بيدعم الباركود؟</div><div class="a">أيوا، تقدر تضيف باركود لكل منتج وتستخدم قارئ الباركود في الكاشير.</div></div>
+
+<div class="faq"><div class="q">س٨: ممكن أطبع فواتير؟</div><div class="a">أيوا، النظام بيدعم طباعة فواتير حرارية (Thermal) وكمان فواتير رقمية على الموبايل.</div></div>
+
+<div class="faq"><div class="q">س٩: إيه طرق الدفع المتاحة؟</div><div class="a">كاش، فودافون كاش، إنستا باي، تحويل بنكي، كارت.</div></div>
+
+<div class="faq"><div class="q">س١٠: ممكن أضيف خصم يدوي؟</div><div class="a">أيوا، الكاشير يقدر يضيف خصم يدوي على الطلب. المدير يقدر يحدد الحد الأقصى للخصم ولو محتاج PIN.</div></div>
+
+<div class="faq"><div class="q">س١١: إزاي أضيف موظف جديد؟</div><div class="a">من تطبيق المدير ← الموظفين ← إضافة عامل. تحدد اسمه ودوره ولو عايزه يدخل على التطبيق تفعله كمستخدم.</div></div>
+
+<div class="faq"><div class="q">س١٢: إيه الفرق بين المستخدم والعامل؟</div><div class="a">المستخدم بيدخل على التطبيق، العامل بيتسجل في النظام للإدارة (حضور، مرتب). مش كل عامل لازم يدخل على التطبيق.</div></div>
+
+<div class="faq"><div class="q">س١٣: النظام بيحسب الضرايب؟</div><div class="a">أيوا، تقدر تفعّل الضرايب وتحدد النسبة (مثلاً 14%). النظام بيحسبها تلقائياً على كل فاتورة.</div></div>
+
+<div class="faq"><div class="q">س١٤: ممكن أصدّر التقارير؟</div><div class="a">أيوا، من صفحة التحليلات تقدر تصدّر تقارير المبيعات والمخزون والموظفين كملف Excel.</div></div>
+
+<div class="faq"><div class="q">س١٥: البيانات آمنة؟</div><div class="a">أيوا، كل البيانات مشفرة ومحمية بنظام HMAC. كل حساب منفصل تماماً عن التاني.</div></div>
+</div>
+
+<!-- ═══ SECTION 8 ═══ -->
+<div class="section" id="s8">
+<h1>٨. التواصل والدعم</h1>
+<p>فريق وصلك موجود عشان يساعدك في أي وقت:</p>
+
+<table class="contact-table">
+<tr><td>واتساب</td><td>رقم الدعم الفني على الواتساب</td></tr>
+<tr><td>تليفون</td><td>نفس رقم الواتساب</td></tr>
+<tr><td>مواعيد الدعم</td><td>من 9 الصبح لـ 9 بالليل - كل يوم</td></tr>
+<tr><td>الدعم الطارئ</td><td>متاح 24/7 للمشتركين</td></tr>
+</table>
+
+<div class="footer">وصلك - بنوصلك بالنجاح</div>
+</div>
+
+</div>
+</body>
+</html>
