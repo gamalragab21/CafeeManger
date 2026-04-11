@@ -112,13 +112,33 @@ fun Route.crmRoutes() {
 
             val agentOptions = agents.joinToString("") { """<option value="${it.id}">${it.name}</option>""" }
 
+            // Status chips data
+            val statusCounts = clients.groupBy { it.status }.mapValues { it.value.size }
+            val allStatuses = listOf("عميل جديد", "متابعة", "ديمو محجوز", "يحتاج مناقشة", "تجربة فعالة", "تجربة منتهية", "تفاوض", "مدفوع", "مشترك", "رفض", "نشاط غير مناسب", "توقف")
+            val statusChipsHtml = allStatuses.filter { (statusCounts[it] ?: 0) > 0 }.joinToString("") { s ->
+                val bg = statusColor(s)
+                val txt = statusTextColor(s)
+                val count = statusCounts[s] ?: 0
+                """<button class="status-chip px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all" style="background:$bg;color:$txt" data-status-col="5" onclick="filterByStatusChip('$s', this)">$s: $count</button>"""
+            }
+            val agentNames = if (agents.isNotEmpty()) agents.map { it.name } else emptyList()
+            val sourceList = listOf("واتساب", "فيسبوك", "انستجرام", "إحالة صديق", "زيارة للمحل", "الموقع", "جوجل", "تيك توك")
+            val businessTypes = listOf("مطعم", "كافيه", "صيدلية", "محل تجزئة", "سوبر ماركت", "مخبز", "جزارة", "ملابس", "إلكترونيات", "موبايلات", "أخرى")
+
             val content = """
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">العملاء (${clients.size})</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">العملاء (<span id="visibleCount">${clients.size}</span> / ${clients.size})</h2>
                     <button onclick="document.getElementById('addClientModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة عميل</button>
                 </div>
+                <div class="flex flex-wrap gap-2 mb-4">$statusChipsHtml</div>
+                ${filterBarHtml(listOf(
+                    Triple("الحالات", 5, allStatuses),
+                    Triple("أنواع النشاط", 3, businessTypes),
+                    Triple("المندوبين", 9, agentNames),
+                    Triple("المصادر", -1, sourceList)
+                ), "بحث بالاسم أو الرقم...")}
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table id="dataTable" class="w-full text-sm">
                         <thead>
                             <tr class="bg-gray-100 border-b">
                                 <th class="p-2 text-right">الاسم</th>
@@ -138,6 +158,7 @@ fun Route.crmRoutes() {
                         <tbody>$tableRows</tbody>
                     </table>
                 </div>
+                ${filterScript()}
 
                 ${addClientModalHtml(agentOptions, principal.canSeeAll)}
                 ${editClientModalHtml(agentOptions, principal.canSeeAll)}
@@ -163,7 +184,6 @@ fun Route.crmRoutes() {
                     document.getElementById('edit_paymentMethod').value = c.paymentMethod || '';
                     document.getElementById('edit_source').value = c.source || '';
                     document.getElementById('edit_notes').value = c.notes || '';
-                    document.getElementById('edit_nextActionDate').value = c.nextActionDate || '';
                     ${if (principal.canSeeAll) "document.getElementById('edit_assignedTo').value = c.assignedTo || '';" else ""}
                     document.getElementById('editClientModal').showModal();
                 }
@@ -228,13 +248,24 @@ fun Route.crmRoutes() {
 
             val clientOptions = clients.joinToString("") { """<option value="${it.id}">${it.clientName} - ${it.phone}</option>""" }
 
+            val actionTypes = listOf("أول اتصال", "متابعة", "عرض توضيحي", "تفاوض", "إغلاق صفقة", "إعادة تنشيط", "دعم فني", "شكوى")
+            val channels = listOf("مكالمة تليفون", "واتساب", "زيارة", "فيديو كول", "رسالة SMS")
+            val results = listOf("مهتم", "غير مهتم", "طلب يرجعله", "ديمو محجوز", "بدأ تجربة", "استلم الدفع", "اشتراك مؤكد", "مردش", "مشغول", "رقم غلط")
+            val activityAgents = activities.map { it.agentName }.distinct()
+
             val content = """
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">الأنشطة (${activities.size})</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">الأنشطة (<span id="visibleCount">${activities.size}</span> / ${activities.size})</h2>
                     <button onclick="document.getElementById('addActivityModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة نشاط</button>
                 </div>
+                ${filterBarHtml(listOf(
+                    Triple("أنواع الإجراء", 2, actionTypes),
+                    Triple("القنوات", 3, channels),
+                    Triple("النتائج", 5, results),
+                    Triple("الموظفين", 0, activityAgents)
+                ), "بحث...")}
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table id="dataTable" class="w-full text-sm">
                         <thead>
                             <tr class="bg-gray-100 border-b">
                                 <th class="p-2 text-right">المندوب</th>
@@ -250,6 +281,7 @@ fun Route.crmRoutes() {
                         <tbody>$tableRows</tbody>
                     </table>
                 </div>
+                ${filterScript()}
 
                 ${addActivityModalHtml(clientOptions)}
 
@@ -390,7 +422,7 @@ fun Route.crmRoutes() {
                     val conversion = if (a.clients > 0) ((a.subscribed + a.paid) * 100.0 / a.clients) else 0.0
                     val photoHtml = agentPhotoHtml(a.photoUrl, a.agentName, 48)
                     append("""
-                        <div class="bg-white rounded-xl shadow p-6">
+                        <div class="bg-white rounded-xl shadow p-6 filterable-card" data-role="${roleDisplayName(a.role)}">
                             <div class="flex justify-between items-start mb-4">
                                 <div class="flex items-center gap-3">
                                     $photoHtml
@@ -416,9 +448,22 @@ fun Route.crmRoutes() {
                 }
             }
 
+            val teamRoles = stats.agentStats.map { roleDisplayName(it.role) }.distinct()
+
             val content = """
-                <h2 class="text-xl font-bold mb-6">أداء الفريق</h2>
+                <h2 class="text-xl font-bold mb-4">أداء الفريق</h2>
+                <div class="bg-white rounded-xl shadow p-4 mb-4">
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <input id="searchInput" oninput="applyCardFilters()" type="text" placeholder="بحث بالاسم..." class="px-3 py-2 border rounded-lg text-sm w-full md:w-64">
+                        <select class="filter-select px-3 py-2 border rounded-lg text-sm" data-field="role" onchange="applyCardFilters()">
+                            <option value="">كل الأدوار</option>
+                            ${teamRoles.joinToString("") { """<option value="$it">$it</option>""" }}
+                        </select>
+                        <button onclick="clearCardFilters()" class="text-sm text-red-600 hover:underline">مسح الفلاتر</button>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">$agentCards</div>
+                ${filterScript()}
             """.trimIndent()
 
             call.respondText(
@@ -448,8 +493,9 @@ fun Route.crmRoutes() {
                     append("<td class='p-2'>${a.email}</td>")
                     append("<td class='p-2'>${roleDisplayName(a.role)}</td>")
                     append("<td class='p-2'>$statusBadge</td>")
-                    append("""<td class='p-2'>
+                    append("""<td class='p-2 flex gap-1'>
                         <button onclick="toggleAgent('${a.id}', ${!a.active})" class="text-sm px-2 py-1 rounded ${if (a.active) "bg-red-100 text-red-700 hover:bg-red-200" else "bg-green-100 text-green-700 hover:bg-green-200"}">${if (a.active) "تعطيل" else "تفعيل"}</button>
+                        ${if (a.role != "owner") """<button onclick="deleteAgent('${a.id}', '${a.name}')" class="text-sm px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">حذف</button>""" else ""}
                     </td>""")
                     append("</tr>")
                 }
@@ -489,6 +535,11 @@ fun Route.crmRoutes() {
                 async function toggleAgent(id, active) {
                     const res = await fetch('/crm/api/agents/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({active:active})});
                     if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+                async function deleteAgent(id, name) {
+                    if (!confirm('هل أنت متأكد من حذف ' + name + '؟\nسيتم إلغاء تعيين كل عملائه.')) return;
+                    const res = await fetch('/crm/api/agents/' + id, {method:'DELETE'});
+                    if (res.ok) { location.reload(); } else { const d = await res.json(); alert(d.error || 'حدث خطأ'); }
                 }
                 </script>
             """.trimIndent()
@@ -556,6 +607,11 @@ fun Route.crmRoutes() {
                     ${kpiCard("غير مدفوع", billingStats.unpaidCount.toString(), "⏳", "#E65100")}
                 </div>
 
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">الفواتير (${invoices.size})</h2>
+                    <button onclick="document.getElementById('addInvoiceModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إنشاء فاتورة</button>
+                </div>
+
                 <div class="flex flex-wrap gap-2 mb-4">
                     <button onclick="filterInvoices('')" class="px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 hover:bg-blue-200 filter-btn active-filter">الكل</button>
                     <button onclick="filterInvoices('غير مدفوع')" class="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800 hover:bg-gray-200 filter-btn">غير مدفوع</button>
@@ -564,9 +620,11 @@ fun Route.crmRoutes() {
                     <button onclick="filterInvoices('متأخر')" class="px-3 py-1 rounded-full text-sm bg-red-100 text-red-800 hover:bg-red-200 filter-btn">متأخر</button>
                 </div>
 
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">الفواتير (${invoices.size})</h2>
-                    <button onclick="document.getElementById('addInvoiceModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إنشاء فاتورة</button>
+                <div class="bg-white rounded-xl shadow p-4 mb-4">
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <input id="billingSearch" oninput="applyBillingSearch()" type="text" placeholder="بحث بالاسم أو رقم الفاتورة..." class="px-3 py-2 border rounded-lg text-sm w-full md:w-64">
+                        <button onclick="clearBillingFilters()" class="text-sm text-red-600 hover:underline">مسح الفلاتر</button>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
@@ -710,16 +768,41 @@ fun Route.crmRoutes() {
                 </dialog>
 
                 <script>
+                let currentBillingStatus = '';
                 function filterInvoices(status) {
+                    currentBillingStatus = status;
                     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
                     event.target.classList.add('active-filter');
+                    applyBillingCombined();
+                }
+
+                function applyBillingSearch() {
+                    applyBillingCombined();
+                }
+
+                function applyBillingCombined() {
+                    const search = (document.getElementById('billingSearch')?.value || '').toLowerCase();
                     const rows = document.querySelectorAll('#invoicesBody tr');
                     rows.forEach(row => {
-                        if (!status) { row.style.display = ''; return; }
-                        const badge = row.querySelector('.rounded-full');
-                        const text = badge ? badge.textContent.trim() : '';
-                        row.style.display = text === status ? '' : 'none';
+                        const text = row.textContent.toLowerCase();
+                        const matchSearch = !search || text.includes(search);
+                        let matchStatus = true;
+                        if (currentBillingStatus) {
+                            const badge = row.querySelector('.rounded-full');
+                            const badgeText = badge ? badge.textContent.trim() : '';
+                            matchStatus = badgeText === currentBillingStatus;
+                        }
+                        row.style.display = (matchSearch && matchStatus) ? '' : 'none';
                     });
+                }
+
+                function clearBillingFilters() {
+                    const searchEl = document.getElementById('billingSearch');
+                    if (searchEl) searchEl.value = '';
+                    currentBillingStatus = '';
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
+                    document.querySelector('.filter-btn')?.classList.add('active-filter');
+                    applyBillingCombined();
                 }
 
                 function openPayModal(invoiceId, invoiceNum, remaining) {
@@ -845,8 +928,11 @@ fun Route.crmRoutes() {
                     ${kpiCard("إجمالي الخصومات", "${String.format("%,.1f", totalDeductions)} ج.م", "📉", "#C62828")}
                 </div>
 
+                ${filterBarHtml(listOf(
+                    Triple("الحالات", 6, listOf("معلق", "مدفوع"))
+                ), "بحث بالاسم...")}
                 <div class="bg-white rounded-xl shadow overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table id="dataTable" class="w-full text-sm">
                         <thead>
                             <tr class="bg-gray-100 border-b">
                                 <th class="p-3 text-right">الاسم</th>
@@ -863,6 +949,7 @@ fun Route.crmRoutes() {
                     </table>
                     ${if (salaryRecords.isEmpty()) """<p class="text-gray-400 text-center py-8">لا توجد مرتبات لهذا الشهر. اضغط "احسب مرتبات الشهر" لحساب المرتبات.</p>""" else ""}
                 </div>
+                ${filterScript()}
 
                 <!-- Commission Details Modal -->
                 <dialog id="commissionModal" class="rounded-2xl w-full max-w-2xl">
@@ -1042,9 +1129,9 @@ fun Route.crmRoutes() {
                             <p class="text-gray-500 text-sm mb-1">${agent.email}</p>
                             <div class="mt-1">$statusDot</div>
                         </div>
-                        <div class="flex gap-2">
+                        ${if (principal.agentId == agentId) """<div class="flex gap-2">
                             <a href="/crm/logout" class="text-sm px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">تسجيل الخروج</a>
-                        </div>
+                        </div>""" else ""}
                     </div>
                 </div>
                 <script>
@@ -3097,6 +3184,112 @@ private fun addAgentModalHtml(): String = """
 // ════════════════════════════════════════════════════════════════
 // Dropdown Options Helpers
 // ════════════════════════════════════════════════════════════════
+
+// ─── Filter Bar Helper ──────────────────────────────────────────
+// Each filter: Pair(label, listOf(options)), data-col = column index
+private fun filterBarHtml(filters: List<Triple<String, Int, List<String>>>, searchPlaceholder: String): String {
+    val dropdowns = filters.joinToString("\n") { (label, colIndex, options) ->
+        val opts = options.joinToString("") { """<option value="$it">$it</option>""" }
+        """<select class="filter-select px-3 py-2 border rounded-lg text-sm" data-col="$colIndex" onchange="applyFilters()">
+            <option value="">كل $label</option>
+            $opts
+        </select>"""
+    }
+    return """
+        <div class="bg-white rounded-xl shadow p-4 mb-4">
+            <div class="flex flex-wrap gap-3 items-center">
+                <input id="searchInput" oninput="applyFilters()" type="text" placeholder="$searchPlaceholder" class="px-3 py-2 border rounded-lg text-sm w-full md:w-64">
+                $dropdowns
+                <button onclick="clearFilters()" class="text-sm text-red-600 hover:underline">مسح الفلاتر</button>
+            </div>
+        </div>
+    """
+}
+
+private fun filterScript(): String = """
+    <script>
+    function applyFilters() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+        const rows = table.querySelectorAll('tbody tr');
+        const filters = {};
+        document.querySelectorAll('.filter-select').forEach(s => { filters[s.dataset.col] = s.value; });
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const matchSearch = !search || text.includes(search);
+            let matchFilters = true;
+            for (const [col, val] of Object.entries(filters)) {
+                if (!val) continue;
+                const colIdx = parseInt(col);
+                if (colIdx < 0) { if (!text.includes(val.toLowerCase())) matchFilters = false; }
+                else if (!row.children[colIdx]?.textContent?.includes(val)) matchFilters = false;
+            }
+            row.style.display = (matchSearch && matchFilters) ? '' : 'none';
+        });
+        updateVisibleCount();
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('.filter-select').forEach(s => s.value = '');
+        document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('ring-2', 'ring-offset-1'));
+        applyFilters();
+    }
+
+    function filterByStatusChip(status, el) {
+        // Toggle: if already selected, clear it
+        const statusSelect = document.querySelector('.filter-select[data-col="' + el.dataset.statusCol + '"]');
+        if (statusSelect) {
+            if (statusSelect.value === status) {
+                statusSelect.value = '';
+            } else {
+                statusSelect.value = status;
+            }
+        }
+        document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('ring-2', 'ring-offset-1'));
+        if (statusSelect && statusSelect.value) {
+            el.classList.add('ring-2', 'ring-offset-1');
+        }
+        applyFilters();
+    }
+
+    function updateVisibleCount() {
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+        const rows = table.querySelectorAll('tbody tr');
+        let visible = 0;
+        rows.forEach(r => { if (r.style.display !== 'none') visible++; });
+        const counter = document.getElementById('visibleCount');
+        if (counter) counter.textContent = visible;
+    }
+
+    // For card-based pages (team)
+    function applyCardFilters() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const cards = document.querySelectorAll('.filterable-card');
+        const filters = {};
+        document.querySelectorAll('.filter-select').forEach(s => { filters[s.dataset.field] = s.value; });
+
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            const matchSearch = !search || text.includes(search);
+            let matchFilters = true;
+            for (const [field, val] of Object.entries(filters)) {
+                if (val && card.dataset[field] !== val) matchFilters = false;
+            }
+            card.style.display = (matchSearch && matchFilters) ? '' : 'none';
+        });
+    }
+
+    function clearCardFilters() {
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('.filter-select').forEach(s => s.value = '');
+        applyCardFilters();
+    }
+    </script>
+"""
 
 private fun businessTypeOptions(): String = listOf(
     "مطعم", "كافيه", "صيدلية", "محل تجزئة", "سوبر ماركت", "مخبز", "جزارة", "ملابس", "إلكترونيات", "موبايلات", "أخرى"
