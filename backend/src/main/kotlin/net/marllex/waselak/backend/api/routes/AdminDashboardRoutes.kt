@@ -882,18 +882,28 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
         .badge-super_admin { background: #dbeafe; color: #1e40af; }
         .badge-support { background: #f3e8ff; color: #6b21a8; }
         /* Dark mode */
-        .dark body, .dark main { background: #111827 !important; color: #e5e7eb; }
-        .dark .bg-white { background: #1f2937 !important; }
-        .dark .bg-gray-100 { background: #111827 !important; }
-        .dark .bg-gray-50 { background: #1a2332 !important; }
-        .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-600 { color: #d1d5db !important; }
-        .dark .text-gray-500 { color: #9ca3af !important; }
-        .dark .border { border-color: #374151 !important; }
-        .dark .shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
-        .dark table th { background: #1e293b !important; }
-        .dark table tr:hover { background: #1e293b !important; }
-        .dark input, .dark select, .dark textarea { background: #374151 !important; color: #e5e7eb !important; border-color: #4b5563 !important; }
-        .dark dialog { background: #1f2937 !important; color: #e5e7eb !important; }
+        html.dark { color-scheme: dark; }
+        html.dark body { background: #0f172a; color: #e2e8f0; }
+        html.dark main { background: #0f172a; }
+        html.dark .bg-white, html.dark [class*="bg-white"] { background: #1e293b !important; color: #e2e8f0; }
+        html.dark .bg-gray-100, html.dark .bg-gray-50 { background: #0f172a !important; }
+        html.dark .text-gray-800 { color: #f1f5f9 !important; }
+        html.dark .text-gray-700 { color: #e2e8f0 !important; }
+        html.dark .text-gray-600 { color: #cbd5e1 !important; }
+        html.dark .text-gray-500 { color: #94a3b8 !important; }
+        html.dark .border, html.dark .border-b, html.dark .border-t { border-color: #334155 !important; }
+        html.dark .shadow, html.dark .shadow-xl, html.dark .shadow-2xl { box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important; }
+        html.dark .rounded-xl, html.dark .rounded-2xl { border: 1px solid #334155; }
+        html.dark table thead tr, html.dark table thead { background: #1e293b !important; }
+        html.dark table thead th { color: #94a3b8 !important; }
+        html.dark table tbody tr { border-color: #334155 !important; }
+        html.dark table tbody tr:hover { background: #1e293b !important; }
+        html.dark input, html.dark select, html.dark textarea { background: #1e293b !important; color: #e2e8f0 !important; border-color: #475569 !important; }
+        html.dark dialog { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #334155; }
+        html.dark dialog::backdrop { background: rgba(0,0,0,0.7); }
+        html.dark .kpi-card { border-color: #334155 !important; }
+        html.dark h1, html.dark h2, html.dark h3 { color: #f1f5f9 !important; }
+        html.dark a:not(.sidebar a) { color: #60a5fa; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
@@ -989,15 +999,56 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
     if (localStorage.getItem('darkMode') === 'true') {
         document.querySelectorAll('#darkBtn').forEach(b => b.textContent = '☀️');
     }
+    const t = {
+        'لوحة التحكم':'Dashboard','العملاء (Vendors)':'Vendors','العملاء':'Vendors',
+        'فريق الإدارة':'Admin Team','الباقات':'Plans','السجلات':'Logs',
+        'لوحة تحكم الإدارة':'Admin Control Panel','وصلك Admin':'Waselak Admin',
+        'إجمالي العملاء':'Total Vendors','عملاء نشطين':'Active Vendors',
+        'إجمالي المستخدمين':'Total Users','عملاء موقوفين':'Suspended',
+        'إدارة العملاء':'Manage Vendors','الباقات':'Plans','آخر العملاء المضافين':'Recent Vendors',
+        'عرض الكل':'View All','الاسم':'Name','النوع':'Type','المستخدمين':'Users',
+        'الحالة':'Status','تاريخ الإنشاء':'Created','الهاتف':'Phone',
+        'نشط':'Active','موقوف':'Suspended','تفاصيل':'Details',
+        'تعليق':'Suspend','حذف':'Delete','إضافة عميل جديد':'Add New Vendor',
+        'إضافة مستخدم':'Add User','تسجيل الخروج':'Logout',
+        'دعوة عضو جديد':'Invite Member','مدير عام':'Super Admin',
+        'دعم فني':'Support','البريد':'Email','الدور':'Role',
+        'إجراءات':'Actions','تعطيل':'Deactivate','تفعيل':'Activate',
+        'كلمة السر':'Password','كلمة المرور':'Password',
+        'تسجيل الدخول':'Login','العنوان':'Address',
+        'اسم العميل':'Vendor Name','اسم المدير':'Manager Name',
+        'هاتف المدير':'Manager Phone','كلمة مرور المدير':'Manager Password',
+        'نوع النشاط':'Business Type',
+    };
+    const tRev = {}; for (const [ar, en] of Object.entries(t)) tRev[en] = ar;
     let isArabic = localStorage.getItem('lang') !== 'en';
+
+    function translatePage(toEn) {
+        const map = toEn ? t : tRev;
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        while (walk.nextNode()) {
+            const node = walk.currentNode;
+            const trimmed = node.textContent.trim();
+            if (!trimmed) continue;
+            if (map[trimmed]) { node.textContent = node.textContent.replace(trimmed, map[trimmed]); continue; }
+            let txt = node.textContent;
+            for (const [from, to] of Object.entries(map)) { if (txt.includes(from)) txt = txt.replaceAll(from, to); }
+            node.textContent = txt;
+        }
+        document.querySelectorAll('input[placeholder]').forEach(el => { if (map[el.placeholder.trim()]) el.placeholder = map[el.placeholder.trim()]; });
+        document.querySelectorAll('select option').forEach(o => { if (map[o.textContent.trim()]) o.textContent = map[o.textContent.trim()]; });
+    }
+
     function toggleLang() {
         isArabic = !isArabic;
         document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
         document.documentElement.lang = isArabic ? 'ar' : 'en';
+        document.body.style.fontFamily = isArabic ? "'Segoe UI', Tahoma, Arial, sans-serif" : "Inter, 'Segoe UI', system-ui, sans-serif";
         document.querySelectorAll('#langBtn').forEach(b => b.textContent = isArabic ? 'EN' : 'عربي');
         localStorage.setItem('lang', isArabic ? 'ar' : 'en');
+        translatePage(!isArabic);
     }
-    if (!isArabic) toggleLang();
+    if (!isArabic) { isArabic = true; setTimeout(() => toggleLang(), 100); }
 
     // ─── Global Helpers ─────────────────────────────────────
     async function apiFetch(url, options = {}) {

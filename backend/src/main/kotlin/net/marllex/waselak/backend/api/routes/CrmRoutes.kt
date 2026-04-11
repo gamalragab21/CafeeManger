@@ -2912,24 +2912,39 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         @media (max-width: 767px) {
             dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; }
         }
-        /* Dark mode overrides */
-        .dark body, .dark main { background: #111827 !important; color: #e5e7eb; }
-        .dark .bg-white { background: #1f2937 !important; }
-        .dark .bg-gray-100 { background: #111827 !important; }
-        .dark .bg-gray-50 { background: #1a2332 !important; }
-        .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-600 { color: #d1d5db !important; }
-        .dark .text-gray-500 { color: #9ca3af !important; }
-        .dark .border { border-color: #374151 !important; }
-        .dark .border-b { border-color: #374151 !important; }
-        .dark .shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
-        .dark table th { background: #1e293b !important; }
-        .dark table tr:hover { background: #1e293b !important; }
-        .dark input, .dark select, .dark textarea { background: #374151 !important; color: #e5e7eb !important; border-color: #4b5563 !important; }
-        .dark dialog { background: #1f2937 !important; color: #e5e7eb !important; }
-        .dark .bg-blue-50 { background: #1e3a5f !important; }
-        .dark .bg-green-50 { background: #14532d !important; }
-        .dark .bg-yellow-50 { background: #422006 !important; }
-        .dark .bg-red-50 { background: #450a0a !important; }
+        /* Dark mode */
+        html.dark { color-scheme: dark; }
+        html.dark body { background: #0f172a; color: #e2e8f0; }
+        html.dark main { background: #0f172a; }
+        html.dark .bg-white, html.dark [class*="bg-white"] { background: #1e293b !important; color: #e2e8f0; }
+        html.dark .bg-gray-100, html.dark .bg-gray-50 { background: #0f172a !important; }
+        html.dark .text-gray-800 { color: #f1f5f9 !important; }
+        html.dark .text-gray-700 { color: #e2e8f0 !important; }
+        html.dark .text-gray-600 { color: #cbd5e1 !important; }
+        html.dark .text-gray-500 { color: #94a3b8 !important; }
+        html.dark .text-gray-400 { color: #64748b !important; }
+        html.dark .border, html.dark .border-b, html.dark .border-t { border-color: #334155 !important; }
+        html.dark .shadow, html.dark .shadow-xl { box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important; }
+        html.dark .rounded-xl, html.dark .rounded-2xl { border: 1px solid #334155; }
+        html.dark table thead tr { background: #1e293b !important; }
+        html.dark table thead th { color: #94a3b8 !important; }
+        html.dark table tbody tr { border-color: #334155 !important; }
+        html.dark table tbody tr:hover { background: #1e293b !important; }
+        html.dark table tbody tr:nth-child(even) { background: #162032 !important; }
+        html.dark input, html.dark select, html.dark textarea { background: #1e293b !important; color: #e2e8f0 !important; border-color: #475569 !important; }
+        html.dark input::placeholder { color: #64748b !important; }
+        html.dark dialog { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #334155; }
+        html.dark dialog::backdrop { background: rgba(0,0,0,0.7); }
+        html.dark .bg-blue-50 { background: #172554 !important; }
+        html.dark .bg-green-50, html.dark .bg-green-100 { background: #052e16 !important; }
+        html.dark .bg-yellow-50, html.dark .bg-yellow-100 { background: #422006 !important; }
+        html.dark .bg-red-50, html.dark .bg-red-100 { background: #450a0a !important; }
+        html.dark .bg-orange-50 { background: #431407 !important; }
+        html.dark .bg-purple-50, html.dark .bg-purple-100 { background: #2e1065 !important; }
+        html.dark .kpi-card, html.dark .feature { border-color: #334155 !important; }
+        html.dark h1, html.dark h2, html.dark h3 { color: #f1f5f9 !important; }
+        html.dark p { color: #cbd5e1; }
+        html.dark a:not(.sidebar a) { color: #60a5fa; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
@@ -3034,31 +3049,110 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         if (di) di.textContent = '☀️';
     }
 
-    // Language toggle
-    const translations = {
-        'لوحة التحكم': 'Dashboard', 'العملاء': 'Clients', 'الأنشطة': 'Activities',
-        'التقارير': 'Reports', 'الفواتير': 'Invoices', 'المرتبات': 'Salaries',
-        'الفريق': 'Team', 'الإعدادات': 'Settings', 'ملفي': 'My Profile',
-        'دليل النظام': 'System Guide', 'تسجيل الخروج': 'Logout',
-        'نظام إدارة المبيعات': 'Sales Management System',
-        'إضافة عميل': 'Add Client', 'إضافة نشاط': 'Add Activity',
-        'بحث': 'Search', 'الحالة': 'Status', 'الاسم': 'Name',
-        'الهاتف': 'Phone', 'الباقة': 'Plan', 'المبلغ': 'Amount',
-        'نوع النشاط': 'Business Type', 'المدينة': 'City', 'المحافظة': 'Governorate',
-        'الموظف المسؤول': 'Assigned To', 'المصدر': 'Source', 'ملاحظات': 'Notes',
-        'حفظ': 'Save', 'إلغاء': 'Cancel', 'تعديل': 'Edit', 'حذف': 'Delete',
+    // Language toggle with full text replacement
+    const t = {
+        'لوحة التحكم':'Dashboard','العملاء':'Clients','الأنشطة':'Activities',
+        'التقارير':'Reports','الفواتير':'Invoices','المرتبات':'Salaries',
+        'الفريق':'Team','الإعدادات':'Settings','ملفي':'My Profile',
+        'دليل النظام':'System Guide','تسجيل الخروج':'Logout',
+        'نظام إدارة المبيعات':'Sales Management System',
+        'وصلك CRM':'Waselak CRM','وصلك':'Waselak',
+        '+ إضافة عميل':'+ Add Client','+ إضافة نشاط':'+ Add Activity',
+        'إضافة عميل جديد':'Add New Client','إضافة نشاط جديد':'Add New Activity',
+        'بحث بالاسم أو الرقم...':'Search by name or number...',
+        'بحث...':'Search...','الحالة':'Status','الاسم':'Name',
+        'الهاتف':'Phone','الباقة':'Plan','المبلغ':'Amount',
+        'نوع النشاط':'Business Type','المدينة':'City','المحافظة':'Governorate',
+        'الموظف المسؤول':'Assigned To','المصدر':'Source','ملاحظات':'Notes',
+        'حفظ':'Save','إلغاء':'Cancel','تعديل':'Edit','حذف':'Delete',
+        'اسم العميل':'Client Name','رقم الموبايل':'Phone Number',
+        'اسم المحل':'Business Name','طريقة الدفع':'Payment',
+        'المبلغ الشهري':'Monthly Amount','نسبة الخصم':'Discount %',
+        'واتساب':'WhatsApp','لديه واتساب':'Has WhatsApp',
+        'كل الحالات':'All Statuses','أنواع النشاط':'Business Types',
+        'الموظفين':'Agents','المصادر':'Sources','مسح الفلاتر':'Clear Filters',
+        'المالك':'Owner','مدير مبيعات':'Sales Manager',
+        'مندوب مبيعات':'Sales Agent','كول سنتر':'Call Center',
+        'عميل جديد':'New Lead','متابعة':'Following Up',
+        'ديمو محجوز':'Demo Scheduled','يحتاج مناقشة':'Needs Discussion',
+        'تجربة فعالة':'Active Trial','تجربة منتهية':'Expired Trial',
+        'تفاوض':'Negotiating','مدفوع':'Paid','مشترك':'Subscribed',
+        'رفض':'Rejected','نشاط غير مناسب':'Invalid Business','توقف':'Churned',
+        'نوع الإجراء':'Action Type','القناة':'Channel','النتيجة':'Result',
+        'الخطوة القادمة':'Next Step','الموظف':'Agent','العميل':'Client',
+        'الإجراء':'Action','الحالة الجديدة':'New Status','الحالة السابقة':'Previous Status',
+        'أول اتصال':'First Call','عرض توضيحي':'Demo','إغلاق صفقة':'Closing',
+        'إعادة تنشيط':'Re-activation','دعم فني':'Support','شكوى':'Complaint',
+        'مكالمة تليفون':'Phone Call','زيارة':'Visit','فيديو كول':'Video Call',
+        'رسالة SMS':'SMS','مهتم':'Interested','غير مهتم':'Not Interested',
+        'طلب يرجعله':'Callback','بدأ تجربة':'Trial Started',
+        'استلم الدفع':'Payment Received','اشتراك مؤكد':'Subscription Confirmed',
+        'مردش':'No Answer','مشغول':'Busy','رقم غلط':'Wrong Number',
+        'البريد الإلكتروني':'Email','كلمة المرور':'Password',
+        'تسجيل الدخول':'Login','الدور':'Role',
+        'إجمالي العملاء':'Total Clients','المشتركين':'Subscribed',
+        'الإيراد الشهري':'Monthly Revenue','نسبة التحويل':'Conversion Rate',
+        'عملاء نشطين':'Active Clients','بدون تواصل ٧+ أيام':'No Contact 7+ Days',
+        'خط المبيعات':'Sales Pipeline','أداء الموظفين':'Team Performance',
+        'آخر الأنشطة':'Recent Activities','أنشطة':'Activities',
+        'عميل':'Client','اشتراكات':'Subscriptions','الإيراد':'Revenue',
     };
+    // Build reverse map
+    const tRev = {};
+    for (const [ar, en] of Object.entries(t)) tRev[en] = ar;
     let isArabic = true;
+    const origTexts = new Map(); // Store original node texts
+
+    function translatePage(toEn) {
+        const map = toEn ? t : tRev;
+        // Translate text nodes
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        while (walk.nextNode()) {
+            const node = walk.currentNode;
+            const trimmed = node.textContent.trim();
+            if (!trimmed) continue;
+            // Try exact match
+            if (map[trimmed]) {
+                node.textContent = node.textContent.replace(trimmed, map[trimmed]);
+                continue;
+            }
+            // Try partial matches for longer strings
+            let txt = node.textContent;
+            for (const [from, to] of Object.entries(map)) {
+                if (txt.includes(from)) txt = txt.replaceAll(from, to);
+            }
+            node.textContent = txt;
+        }
+        // Translate placeholders
+        document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(el => {
+            const ph = el.placeholder.trim();
+            if (map[ph]) el.placeholder = map[ph];
+        });
+        // Translate select options
+        document.querySelectorAll('select option').forEach(opt => {
+            const txt = opt.textContent.trim();
+            if (map[txt]) opt.textContent = map[txt];
+        });
+        // Translate button text
+        document.querySelectorAll('button, a').forEach(el => {
+            if (el.children.length > 0) return;
+            const txt = el.textContent.trim();
+            if (map[txt]) el.textContent = map[txt];
+        });
+    }
+
     function toggleLang() {
         isArabic = !isArabic;
         document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
         document.documentElement.lang = isArabic ? 'ar' : 'en';
-        const btn = document.getElementById('langIcon');
-        if (btn) btn.textContent = isArabic ? 'EN' : 'عربي';
+        document.body.style.fontFamily = isArabic ? "'Segoe UI', Tahoma, Arial, sans-serif" : "Inter, 'Segoe UI', system-ui, sans-serif";
+        document.querySelectorAll('#langIcon').forEach(b => b.textContent = isArabic ? 'EN' : 'عربي');
         localStorage.setItem('lang', isArabic ? 'ar' : 'en');
+        translatePage(!isArabic);
     }
     if (localStorage.getItem('lang') === 'en') {
-        toggleLang();
+        isArabic = true; // will flip to false in toggleLang
+        setTimeout(() => toggleLang(), 100);
     }
     </script>
 </body>
