@@ -77,7 +77,7 @@ compose.desktop {
                 shortcut = true
                 perUserInstall = true
                 dirChooser = true
-                upgradeUuid = if (isDebugDesktop) "b2c3d4e5-f6a7-8901-bcde-f12345678902" else "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                upgradeUuid = "b2c3d4e5-f6a7-8901-bcde-f12345678901" // Same UUID for debug+release
                 msiPackageVersion = project.findProperty("APP_VERSION_NAME") as? String ?: "1.0.0"
             }
             linux {
