@@ -50,6 +50,7 @@ fun VendorResponse.toDomain() = Vendor(
     enableCustomers = enableCustomers,
     enableExport = enableExport,
     enableDigitalReceipt = enableDigitalReceipt,
+    enableWhatsappReceipt = enableWhatsappReceipt,
     enableWorkerQrcode = enableWorkerQrcode,
     enableLoyalty = enableLoyalty,
     enableManualDiscount = enableManualDiscount,

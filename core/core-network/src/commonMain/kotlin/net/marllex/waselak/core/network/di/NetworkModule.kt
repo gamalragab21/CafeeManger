@@ -59,12 +59,14 @@ val networkModule = module {
         val tokenProvider = get<TokenProvider>()
         val hmacSecret = get<String>(qualifier = named("hmacSecret"))
 
+        val isDebug = try { get<String>(qualifier = named("appName")); hmacSecret.isBlank() } catch (_: Exception) { true }
+
         HttpClient(get<HttpClientEngineFactory<*>>()) {
             expectSuccess = false
             install(HttpTimeout) {
-                requestTimeoutMillis = 60_000   // 60 seconds for full request
-                connectTimeoutMillis = 30_000   // 30 seconds to establish connection
-                socketTimeoutMillis = 60_000    // 60 seconds for socket read/write
+                requestTimeoutMillis = 15_000   // 15 seconds for full request
+                connectTimeoutMillis = 10_000   // 10 seconds to establish connection
+                socketTimeoutMillis = 15_000    // 15 seconds for socket read/write
             }
             install(ContentNegotiation) {
                 json(get<Json>())
@@ -83,7 +85,7 @@ val networkModule = module {
                         CrashReporter.logInfo("HTTP", message)
                     }
                 }
-                level = LogLevel.ALL
+                level = if (isDebug) LogLevel.ALL else LogLevel.HEADERS
             }
             HttpResponseValidator {
                 validateResponse { response ->
@@ -109,41 +111,21 @@ val networkModule = module {
                         return@validateResponse
                     }
 
-                    // Log request details to Sentry
-                    val reqBody = try {
-                        when (val body = response.call.request.content) {
-                            is TextContent -> body.text
-                            is OutgoingContent.ByteArrayContent -> body.bytes().decodeToString()
-                            else -> ""
-                        }
-                    } catch (_: Exception) { "" }
-                    val reqTrunc = if (reqBody.length > 2000) reqBody.take(2000) + "..." else reqBody
-
                     CrashReporter.logNetwork(method, fullPath, status, 0L)
 
-                    // Save response for body reading
-                    val savedResp = response.call.save()
-                    val respBody = try { savedResp.response.bodyAsText() } catch (_: Exception) { "<unreadable>" }
-                    val respTrunc = if (respBody.length > 2000) respBody.take(2000) + "..." else respBody
-
-                    // Log FULL request + response to Sentry as ONE entry
-                    CrashReporter.logInfo("API", "$method $fullPath → $status\n" +
-                        "REQUEST: $reqTrunc\n" +
-                        "RESPONSE: $respTrunc")
-
                     if (!response.status.isSuccess()) {
-                        val truncBody = if (respBody.length > 3000) respBody.take(3000) + "...[truncated]" else respBody
-                        val respHeaders = response.headers.entries()
-                            .joinToString(", ") { (k, v) -> "$k: ${v.joinToString()}" }
-                        AppLogger.logToFileOnly("HTTP-RES", "$method $path -> $status | headers=[$respHeaders] | body=$truncBody")
+                        // Only read body on errors (not on every success response)
+                        val savedResp = response.call.save()
+                        val respBody = try { savedResp.response.bodyAsText() } catch (_: Exception) { "" }
                         val errorBody = try {
-                            savedResp.response.body<ApiErrorResponse>()
-                        } catch (_: Exception) {
-                            null
-                        }
+                            get<Json>().decodeFromString<ApiErrorResponse>(respBody)
+                        } catch (_: Exception) { null }
                         val message = errorBody?.message
                             ?: "HTTP ${response.status.value}: ${response.status.description}"
                         val errorType = errorBody?.error
+
+                        // Log errors only
+                        CrashReporter.logInfo("API-ERR", "$method $fullPath → $status\n$respBody")
 
                         // If vendor account is suspended, force-clear tokens to trigger
                         // auto-logout (isLoggedIn → false → navigate to login screen)

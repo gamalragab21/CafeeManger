@@ -120,6 +120,19 @@ fun Route.adminDashboardRoutes() {
             trace.step("Serve admin vendor detail completed")
         }
 
+        // ─── Vendor Edit Page ────────────────────────────────────
+        get("/admin/vendors/{id}/edit") {
+            val trace = call.routeTrace()
+            trace.step("Serve admin vendor edit started")
+            val admin = call.principal<AdminPrincipal>()!!
+            val vendorId = call.parameters["id"] ?: return@get call.respondRedirect("/admin/vendors")
+            call.respondText(
+                adminLayout("تعديل بيانات العميل", admin, "vendors", vendorEditContent(vendorId)),
+                ContentType.Text.Html
+            )
+            trace.step("Serve admin vendor edit completed")
+        }
+
         // ─── Team Management Page ───────────────────────────────
         get("/admin/team") {
             val trace = call.routeTrace()
@@ -663,6 +676,94 @@ fun Route.adminDashboardRoutes() {
                 call.respond(HttpStatusCode.OK, mapOf("status" to "toggled"))
             }
 
+            // ─── Vendor Update (cookie auth) ──────────────────────
+            put("/vendors/{id}") {
+                val trace = call.routeTrace()
+                trace.step("Dashboard update vendor started")
+                val id = call.parameters["id"]
+                    ?: return@put call.respondText("""{"error":"Missing vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                val vendorUuid = try { UUID.fromString(id) } catch (_: Exception) {
+                    return@put call.respondText("""{"error":"Invalid vendor ID"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+                trace.step("Parsed vendor ID", mapOf("vendorId" to id))
+
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                trace.step("Received update request body")
+
+                val updated = transaction {
+                    val exists = VendorsTable.selectAll()
+                        .where { VendorsTable.id eq vendorUuid }
+                        .firstOrNull() != null
+                    if (!exists) return@transaction false
+
+                    VendorsTable.update({ VendorsTable.id eq vendorUuid }) { stmt ->
+                        obj["name"]?.jsonPrimitive?.contentOrNull?.let { stmt[name] = it }
+                        obj["address"]?.jsonPrimitive?.contentOrNull?.let { stmt[address] = it }
+                        obj["contact_phone"]?.jsonPrimitive?.contentOrNull?.let { stmt[contactPhone] = it }
+                        obj["wallet_phone"]?.jsonPrimitive?.contentOrNull?.let { stmt[walletPhone] = it }
+                        obj["logo_url"]?.jsonPrimitive?.contentOrNull?.let { stmt[logoUrl] = it }
+                        obj["store_type"]?.jsonPrimitive?.contentOrNull?.let { stmt[storeType] = it }
+                        obj["business_type"]?.jsonPrimitive?.contentOrNull?.let { stmt[businessType] = it }
+                        obj["default_delivery_fee"]?.jsonPrimitive?.doubleOrNull?.let { stmt[defaultDeliveryFee] = java.math.BigDecimal.valueOf(it) }
+                        obj["tax_enabled"]?.jsonPrimitive?.booleanOrNull?.let { stmt[taxEnabled] = it }
+                        obj["default_tax_percent"]?.jsonPrimitive?.doubleOrNull?.let { stmt[defaultTaxPercent] = java.math.BigDecimal.valueOf(it) }
+                        obj["stock_mode"]?.jsonPrimitive?.contentOrNull?.let { stmt[stockMode] = it }
+                        obj["digital_menu_url"]?.jsonPrimitive?.contentOrNull?.let { stmt[digitalMenuUrl] = it }
+                        obj["enable_digital_menu"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableDigitalMenu] = it }
+                        obj["enable_tables"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableTables] = it }
+                        obj["enable_kds"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableKds] = it }
+                        obj["enable_dine_in"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableDineIn] = it }
+                        obj["enable_delivery"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableDelivery] = it }
+                        obj["enable_takeaway"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableTakeaway] = it }
+                        obj["enable_in_store"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableInStore] = it }
+                        obj["enable_pickup_later"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enablePickupLater] = it }
+                        obj["enable_recipe"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableRecipe] = it }
+                        obj["enable_split_payment"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableSplitPayment] = it }
+                        obj["enable_cash_drawer"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableCashDrawer] = it }
+                        obj["enable_returns"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableReturns] = it }
+                        obj["enable_customer_credit"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableCustomerCredit] = it }
+                        obj["enable_installments"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableInstallments] = it }
+                        obj["enable_pre_orders"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enablePreOrders] = it }
+                        obj["enable_scheduled_orders"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableScheduledOrders] = it }
+                        obj["enable_suppliers"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableSuppliers] = it }
+                        obj["enable_drug_interactions"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableDrugInteractions] = it }
+                        obj["enable_prescriptions"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enablePrescriptions] = it }
+                        obj["enable_analytics"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableAnalytics] = it }
+                        obj["enable_announcements"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableAnnouncements] = it }
+                        obj["enable_stock"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableStock] = it }
+                        obj["enable_attendance"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableAttendance] = it }
+                        obj["enable_overtime"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableOvertime] = it }
+                        obj["enable_salary"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableSalary] = it }
+                        obj["enable_customers"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableCustomers] = it }
+                        obj["enable_export"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableExport] = it }
+                        obj["enable_digital_receipt"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableDigitalReceipt] = it }
+                        obj["enable_whatsapp_receipt"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableWhatsappReceipt] = it }
+                        obj["enable_worker_qrcode"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableWorkerQrcode] = it }
+                        obj["enable_loyalty"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableLoyalty] = it }
+                        obj["enable_manual_discount"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableManualDiscount] = it }
+                        obj["enable_offers"]?.jsonPrimitive?.booleanOrNull?.let { stmt[enableOffers] = it }
+                        obj["loyalty_enabled"]?.jsonPrimitive?.booleanOrNull?.let { stmt[loyaltyEnabled] = it }
+                        obj["points_earn_rate"]?.jsonPrimitive?.doubleOrNull?.let { stmt[pointsEarnRate] = java.math.BigDecimal.valueOf(it) }
+                        obj["points_redeem_rate"]?.jsonPrimitive?.doubleOrNull?.let { stmt[pointsRedeemRate] = java.math.BigDecimal.valueOf(it) }
+                        obj["min_points_redeem"]?.jsonPrimitive?.intOrNull?.let { stmt[minPointsRedeem] = it }
+                        obj["max_manual_discount_percent"]?.jsonPrimitive?.doubleOrNull?.let { stmt[maxManualDiscountPercent] = java.math.BigDecimal.valueOf(it) }
+                        obj["manual_discount_requires_pin"]?.jsonPrimitive?.booleanOrNull?.let { stmt[manualDiscountRequiresPin] = it }
+                        stmt[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    }
+                    true
+                }
+                if (updated) {
+                    trace.step("Vendor updated via dashboard", mapOf("vendorId" to id))
+                    val json = buildJsonObject { put("success", true); put("message", "Vendor updated") }
+                    call.respondText(json.toString(), ContentType.Application.Json)
+                } else {
+                    trace.step("Vendor not found for dashboard update", mapOf("vendorId" to id))
+                    call.respondText("""{"error":"Vendor not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+                trace.step("Dashboard update vendor completed")
+            }
+
             delete("/vendors/{id}") {
                 val admin = call.principal<AdminPrincipal>()!!
                 if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
@@ -835,9 +936,9 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
     val roleDisplay = if (admin.isSuperAdmin) "مدير عام" else "دعم فني"
 
     fun navLink(tab: String, label: String, icon: String, href: String): String {
-        val active = if (tab == activeTab) "bg-white/10 font-bold" else "hover:bg-white/5"
-        return """<a href="$href" class="flex items-center gap-3 px-4 py-3 rounded-lg $active transition text-sm">
-            <span class="text-lg">$icon</span><span>$label</span>
+        val active = if (tab == activeTab) "bg-emerald-500/10 text-emerald-400 font-medium" else "text-zinc-400 hover:text-white hover:bg-white/5"
+        return """<a href="$href" class="flex items-center gap-3 px-3 py-2 rounded-md $active transition-all text-sm">
+            <span class="text-sm">$icon</span><span>$label</span>
         </a>"""
     }
 
@@ -857,93 +958,100 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$title - وصلك Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
     tailwind.config = { darkMode: 'class' };
     if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
     </script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
-        dialog::backdrop { background: rgba(0,0,0,0.5); }
-        dialog { border: none; border-radius: 1rem; padding: 0; max-width: 600px; width: 90%; }
-        .sidebar { background: #1B3A5C; }
-        .dark .sidebar { background: #0f1f2e; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        * { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; }
+        dialog::backdrop { background: rgba(0,0,0,0.3); }
+        dialog { border: none; border-radius: 0.75rem; padding: 0; max-width: 600px; width: 90%; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: #f97316; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @media (max-width: 767px) {
-            dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; }
-        }
-        .kpi-card { transition: transform 0.15s; }
-        .kpi-card:hover { transform: translateY(-2px); }
-        .badge-active { background: #dcfce7; color: #166534; }
-        .badge-suspended { background: #fee2e2; color: #991b1b; }
-        .badge-super_admin { background: #dbeafe; color: #1e40af; }
-        .badge-support { background: #f3e8ff; color: #6b21a8; }
+        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: #059669; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @media (max-width: 767px) { dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; } }
+
+        /* Stripe-inspired clean design */
+        body { background: #f6f8fa; }
+        .sidebar, .glass-sidebar { background: #0f172a; }
+        .kpi-card { transition: box-shadow 0.15s; border: 1px solid #e5e7eb; }
+        .kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .badge-active { background: #ecfdf5; color: #059669; font-weight: 500; }
+        .badge-suspended { background: #fef2f2; color: #dc2626; font-weight: 500; }
+        .badge-super_admin { background: #ecfdf5; color: #059669; font-weight: 500; }
+        .badge-support { background: #f0fdf4; color: #16a34a; font-weight: 500; }
+        table { border-collapse: separate; border-spacing: 0; }
+        table thead th { font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 0.75rem 1rem; }
+        table tbody td { padding: 0.75rem 1rem; }
+        table tbody tr { transition: background 0.1s; border-bottom: 1px solid #f3f4f6; }
+        table tbody tr:hover { background: #f9fafb; }
+        input, select, textarea { border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.875rem; transition: border-color 0.15s, box-shadow 0.15s; }
+        input:focus, select:focus, textarea:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.1); outline: none; }
+        .btn-primary { background: #059669; color: white; font-weight: 500; border-radius: 0.5rem; padding: 0.5rem 1rem; transition: background 0.15s; }
+        .btn-primary:hover { background: #047857; }
+
         /* Dark mode */
-        html.dark { color-scheme: dark; }
-        html.dark body { background: #0f172a; color: #e2e8f0; }
-        html.dark main { background: #0f172a; }
-        html.dark .bg-white, html.dark [class*="bg-white"] { background: #1e293b !important; color: #e2e8f0; }
-        html.dark .bg-gray-100, html.dark .bg-gray-50 { background: #0f172a !important; }
-        html.dark .text-gray-800 { color: #f1f5f9 !important; }
-        html.dark .text-gray-700 { color: #e2e8f0 !important; }
-        html.dark .text-gray-600 { color: #cbd5e1 !important; }
-        html.dark .text-gray-500 { color: #94a3b8 !important; }
-        html.dark .border, html.dark .border-b, html.dark .border-t { border-color: #334155 !important; }
-        html.dark .shadow, html.dark .shadow-xl, html.dark .shadow-2xl { box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important; }
-        html.dark .rounded-xl, html.dark .rounded-2xl { border: 1px solid #334155; }
-        html.dark table thead tr, html.dark table thead { background: #1e293b !important; }
-        html.dark table thead th { color: #94a3b8 !important; }
-        html.dark table tbody tr { border-color: #334155 !important; }
-        html.dark table tbody tr:hover { background: #1e293b !important; }
-        html.dark input, html.dark select, html.dark textarea { background: #1e293b !important; color: #e2e8f0 !important; border-color: #475569 !important; }
-        html.dark dialog { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #334155; }
-        html.dark dialog::backdrop { background: rgba(0,0,0,0.7); }
-        html.dark .kpi-card { border-color: #334155 !important; }
-        html.dark h1, html.dark h2, html.dark h3 { color: #f1f5f9 !important; }
-        html.dark a:not(.sidebar a) { color: #60a5fa; }
+        html.dark body { background: #0a0a0a; color: #e5e7eb; }
+        html.dark .sidebar, html.dark .glass-sidebar { background: #0a0a0a; border-left: 1px solid #1f2937; }
+        html.dark .bg-white { background: #111111 !important; color: #e5e7eb; border: 1px solid #1f2937; }
+        html.dark .bg-gray-50 { background: #0a0a0a !important; }
+        html.dark .text-gray-800 { color: #f3f4f6 !important; }
+        html.dark .text-gray-700 { color: #e5e7eb !important; }
+        html.dark .text-gray-600 { color: #d1d5db !important; }
+        html.dark .text-gray-500 { color: #9ca3af !important; }
+        html.dark .border, html.dark .border-b, html.dark .border-t { border-color: #1f2937 !important; }
+        html.dark .kpi-card { border-color: #1f2937 !important; background: #111111; }
+        html.dark .shadow { box-shadow: none !important; }
+        html.dark table thead th { color: #9ca3af !important; background: #111111 !important; }
+        html.dark table tbody tr { border-color: #1f2937 !important; }
+        html.dark table tbody tr:hover { background: #1a1a1a !important; }
+        html.dark input, html.dark select, html.dark textarea { background: #1a1a1a !important; color: #e5e7eb !important; border-color: #374151 !important; }
+        html.dark input:focus, html.dark select:focus { border-color: #059669 !important; box-shadow: 0 0 0 3px rgba(5,150,105,0.2) !important; }
+        html.dark dialog { background: #111111 !important; color: #e5e7eb !important; border: 1px solid #1f2937; }
+        html.dark h1, html.dark h2, html.dark h3 { color: #f3f4f6 !important; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
+<body class="min-h-screen transition-colors">
     <!-- Mobile header -->
-    <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
+    <div class="md:hidden fixed top-0 right-0 left-0 z-50 glass-sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">
-            <img src="/landing/waslek_logo_sm.png" class="w-7 h-7 rounded-lg bg-white p-0.5">
-            <span class="text-white font-bold text-sm">وصلك Admin</span>
+            <img src="/landing/waslek_logo_sm.png" class="w-7 h-7 rounded-lg bg-white/10 p-0.5">
+            <span class="text-white font-bold text-sm">وصلك</span>
         </div>
         <div class="text-white text-xs">
             <div class="font-medium leading-tight">${admin.email}</div>
-            <div class="text-white/60 leading-tight">$roleDisplay</div>
+            <div class="text-white/50 leading-tight text-[10px]">$roleDisplay</div>
         </div>
-        <button onclick="document.getElementById('mobileSidebar').classList.toggle('hidden')" class="text-white text-2xl">☰</button>
+        <button onclick="document.getElementById('mobileSidebar').classList.toggle('hidden')" class="text-white text-xl bg-white/10 w-8 h-8 rounded-lg flex items-center justify-center">☰</button>
     </div>
     <!-- Mobile sidebar overlay -->
     <div id="mobileSidebar" class="hidden fixed inset-0 z-40 md:hidden">
-        <div class="absolute inset-0 bg-black/50" onclick="this.parentElement.classList.add('hidden')"></div>
-        <aside class="sidebar absolute right-0 top-0 bottom-0 w-64 text-white flex flex-col">
-            <div class="p-6 border-b border-white/10 flex items-center gap-3">
-                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-lg bg-white p-1">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
+        <aside class="glass-sidebar absolute right-0 top-0 bottom-0 w-72 text-white flex flex-col">
+            <div class="p-5 border-b border-white/10 flex items-center gap-3">
+                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-xl bg-white/10 p-1">
                 <div>
-                    <h1 class="text-xl font-bold">وصلك Admin</h1>
-                    <p class="text-sm text-white/60">لوحة تحكم الإدارة</p>
+                    <h1 class="text-lg font-bold">وصلك Admin</h1>
+                    <p class="text-xs text-white/50">لوحة تحكم الإدارة</p>
                 </div>
             </div>
-            <nav class="flex-1 p-4 space-y-1">$navLinks</nav>
+            <nav class="flex-1 p-3 space-y-0.5">$navLinks</nav>
             <div class="p-4 border-t border-white/10">
                 <div class="flex items-center gap-3 mb-3">
-                    <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">${admin.email.first().uppercase()}</div>
+                    <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">${admin.email.first().uppercase()}</div>
                     <div class="text-sm">
-                        <p class="font-medium">${admin.email}</p>
-                        <p class="text-white/60">$roleDisplay</p>
+                        <p class="font-medium text-white/90">${admin.email}</p>
+                        <p class="text-white/50 text-xs">$roleDisplay</p>
                     </div>
                 </div>
-                <div class="flex gap-2 mt-2">
-                    <button onclick="toggleDarkMode()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="darkBtn">🌙</button>
-                    <button onclick="toggleLang()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="langBtn">EN</button>
+                <div class="flex gap-1.5 mt-2">
+                    <button onclick="toggleDarkMode()" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition" id="darkBtn">🌙</button>
+                    <button onclick="toggleLang()" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition" id="langBtn">EN</button>
                     <form method="POST" action="/admin/logout" class="inline">
-                        <button type="submit" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10">🚪</button>
+                        <button type="submit" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">🚪</button>
                     </form>
                 </div>
             </div>
@@ -952,28 +1060,28 @@ private fun adminLayout(title: String, admin: AdminPrincipal, activeTab: String,
 
     <div class="flex min-h-screen">
         <!-- Desktop Sidebar -->
-        <aside class="sidebar w-64 min-h-screen text-white hidden md:flex flex-col flex-shrink-0">
-            <div class="p-6 border-b border-white/10 flex items-center gap-3">
-                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-lg bg-white p-1">
+        <aside class="glass-sidebar w-64 min-h-screen text-white hidden md:flex flex-col flex-shrink-0">
+            <div class="p-5 border-b border-white/10 flex items-center gap-3">
+                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-xl bg-white/10 p-1">
                 <div>
-                    <h1 class="text-xl font-bold">وصلك Admin</h1>
-                    <p class="text-sm text-white/60">لوحة تحكم الإدارة</p>
+                    <h1 class="text-lg font-bold">وصلك Admin</h1>
+                    <p class="text-xs text-white/50">لوحة تحكم الإدارة</p>
                 </div>
             </div>
-            <nav class="flex-1 p-4 space-y-1">$navLinks</nav>
+            <nav class="flex-1 p-3 space-y-0.5">$navLinks</nav>
             <div class="p-4 border-t border-white/10">
                 <div class="flex items-center gap-3 mb-3">
-                    <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">${admin.email.first().uppercase()}</div>
+                    <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">${admin.email.first().uppercase()}</div>
                     <div class="text-sm">
-                        <p class="font-medium">${admin.email}</p>
-                        <p class="text-white/60">$roleDisplay</p>
+                        <p class="font-medium text-white/90">${admin.email}</p>
+                        <p class="text-white/50 text-xs">$roleDisplay</p>
                     </div>
                 </div>
-                <div class="flex gap-2 mt-2">
-                    <button onclick="toggleDarkMode()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="darkBtn">🌙</button>
-                    <button onclick="toggleLang()" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10" id="langBtn">EN</button>
+                <div class="flex gap-1.5 mt-2">
+                    <button onclick="toggleDarkMode()" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition" id="darkBtn">🌙</button>
+                    <button onclick="toggleLang()" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition" id="langBtn">EN</button>
                     <form method="POST" action="/admin/logout" class="inline">
-                        <button type="submit" class="text-xs text-white/60 hover:text-white px-2 py-1 rounded bg-white/10">🚪</button>
+                        <button type="submit" class="text-xs text-white/50 hover:text-white px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">🚪</button>
                     </form>
                 </div>
             </div>
@@ -1504,7 +1612,10 @@ async function createVendor(e) {
 // ════════════════════════════════════════════════════════════════
 
 private fun vendorDetailContent(vendorId: String, admin: AdminPrincipal): String = """
-<a href="/admin/vendors" class="text-blue-600 hover:underline text-sm mb-4 inline-block">&larr; العودة للقائمة</a>
+<div class="flex justify-between items-center mb-4">
+    <a href="/admin/vendors" class="text-blue-600 hover:underline text-sm">&larr; العودة للقائمة</a>
+    <a href="/admin/vendors/$vendorId/edit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">تعديل البيانات</a>
+</div>
 
 <div id="detailLoading" class="text-center py-12"><div class="spinner"></div><p class="text-gray-500 mt-3">جاري التحميل...</p></div>
 <div id="detailContent" style="display:none">
@@ -1706,6 +1817,368 @@ async function deactivateUser(userId) {
 }
 </script>
 """
+
+// ════════════════════════════════════════════════════════════════
+// Vendor Edit Content
+// ════════════════════════════════════════════════════════════════
+
+private fun vendorEditContent(vendorId: String): String {
+    val vendor = transaction {
+        VendorsTable.selectAll()
+            .where { VendorsTable.id eq UUID.fromString(vendorId) }
+            .firstOrNull()
+    } ?: return """<p class="text-red-500 text-center py-12">العميل غير موجود</p>"""
+
+    val v = vendor
+    fun esc(s: String?): String = (s ?: "").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+    fun bool(b: Boolean): String = if (b) "checked" else ""
+    fun selected(current: String?, value: String): String = if (current == value) "selected" else ""
+
+    val name = esc(v[VendorsTable.name])
+    val address = esc(v[VendorsTable.address])
+    val contactPhone = esc(v[VendorsTable.contactPhone])
+    val walletPhone = esc(v[VendorsTable.walletPhone])
+    val businessType = v[VendorsTable.businessType]
+    val storeType = esc(v[VendorsTable.storeType])
+    val defaultDeliveryFee = v[VendorsTable.defaultDeliveryFee].toDouble()
+    val taxEnabled = v[VendorsTable.taxEnabled]
+    val defaultTaxPercent = v[VendorsTable.defaultTaxPercent].toDouble()
+    val stockMode = v[VendorsTable.stockMode]
+
+    val enableDineIn = v[VendorsTable.enableDineIn]
+    val enableDelivery = v[VendorsTable.enableDelivery]
+    val enableTakeaway = v[VendorsTable.enableTakeaway]
+    val enableInStore = v[VendorsTable.enableInStore]
+    val enablePickupLater = v[VendorsTable.enablePickupLater]
+
+    val enableTables = v[VendorsTable.enableTables]
+    val enableKds = v[VendorsTable.enableKds]
+    val enableRecipe = v[VendorsTable.enableRecipe]
+    val enableSplitPayment = v[VendorsTable.enableSplitPayment]
+    val enableCashDrawer = v[VendorsTable.enableCashDrawer]
+    val enableReturns = v[VendorsTable.enableReturns]
+    val enableCustomerCredit = v[VendorsTable.enableCustomerCredit]
+    val enableInstallments = v[VendorsTable.enableInstallments]
+    val enableManualDiscount = v[VendorsTable.enableManualDiscount]
+    val enableStock = v[VendorsTable.enableStock]
+    val enableCustomers = v[VendorsTable.enableCustomers]
+    val enableLoyalty = v[VendorsTable.enableLoyalty]
+    val enableOffers = v[VendorsTable.enableOffers]
+    val enableDigitalMenu = v[VendorsTable.enableDigitalMenu]
+    val enableDigitalReceipt = v[VendorsTable.enableDigitalReceipt]
+    val enableWhatsappReceipt = v[VendorsTable.enableWhatsappReceipt]
+    val enableAttendance = v[VendorsTable.enableAttendance]
+    val enableOvertime = v[VendorsTable.enableOvertime]
+    val enableSalary = v[VendorsTable.enableSalary]
+    val enableWorkerQrcode = v[VendorsTable.enableWorkerQrcode]
+    val enablePreOrders = v[VendorsTable.enablePreOrders]
+    val enableScheduledOrders = v[VendorsTable.enableScheduledOrders]
+    val enableAnnouncements = v[VendorsTable.enableAnnouncements]
+    val enableSuppliers = v[VendorsTable.enableSuppliers]
+    val enableExport = v[VendorsTable.enableExport]
+    val enableAnalytics = v[VendorsTable.enableAnalytics]
+    val enablePrescriptions = v[VendorsTable.enablePrescriptions]
+    val enableDrugInteractions = v[VendorsTable.enableDrugInteractions]
+
+    val loyaltyEnabled = v[VendorsTable.loyaltyEnabled]
+    val pointsEarnRate = v[VendorsTable.pointsEarnRate].toDouble()
+    val pointsRedeemRate = v[VendorsTable.pointsRedeemRate].toDouble()
+    val minPointsRedeem = v[VendorsTable.minPointsRedeem]
+    val maxManualDiscountPercent = v[VendorsTable.maxManualDiscountPercent].toDouble()
+    val manualDiscountRequiresPin = v[VendorsTable.manualDiscountRequiresPin]
+
+    fun toggleSwitch(fieldName: String, label: String, checked: Boolean): String = """
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer" name="$fieldName" ${if (checked) "checked" else ""}>
+            <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">$label</span>
+        </label>
+    """
+
+    return """
+<div class="flex justify-between items-center mb-6">
+    <a href="/admin/vendors/$vendorId" class="text-blue-600 hover:underline text-sm">&larr; العودة</a>
+    <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">تعديل بيانات: $name</h2>
+</div>
+
+<form id="vendorEditForm" class="space-y-6">
+
+    <!-- Section 1: Basic Info -->
+    <details open class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">المعلومات الاساسية</summary>
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">اسم المحل</label>
+                <input type="text" name="name" value="$name" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">العنوان</label>
+                <input type="text" name="address" value="$address" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">رقم الهاتف</label>
+                <input type="text" name="contact_phone" value="$contactPhone" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">رقم المحفظة</label>
+                <input type="text" name="wallet_phone" value="$walletPhone" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نوع النشاط</label>
+                <select name="business_type" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                    <option value="RESTAURANT" ${selected(businessType, "RESTAURANT")}>RESTAURANT</option>
+                    <option value="CAFE" ${selected(businessType, "CAFE")}>CAFE</option>
+                    <option value="PHARMACY" ${selected(businessType, "PHARMACY")}>PHARMACY</option>
+                    <option value="RETAIL" ${selected(businessType, "RETAIL")}>RETAIL</option>
+                    <option value="SUPERMARKET" ${selected(businessType, "SUPERMARKET")}>SUPERMARKET</option>
+                    <option value="BAKERY" ${selected(businessType, "BAKERY")}>BAKERY</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نوع المتجر</label>
+                <input type="text" name="store_type" value="$storeType" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">رسوم التوصيل الافتراضية</label>
+                <input type="number" name="default_delivery_fee" value="$defaultDeliveryFee" step="0.01" min="0" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+        </div>
+    </details>
+
+    <!-- Section 2: Sales Channels -->
+    <details open class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">قنوات البيع</summary>
+        <div class="p-4 flex flex-wrap gap-6">
+            ${toggleSwitch("enable_dine_in", "داخل المحل (Dine In)", enableDineIn)}
+            ${toggleSwitch("enable_delivery", "توصيل (Delivery)", enableDelivery)}
+            ${toggleSwitch("enable_takeaway", "تيك اواي (Takeaway)", enableTakeaway)}
+            ${toggleSwitch("enable_in_store", "داخل المتجر (In Store)", enableInStore)}
+            ${toggleSwitch("enable_pickup_later", "استلام لاحق (Pickup Later)", enablePickupLater)}
+        </div>
+    </details>
+
+    <!-- Section 3: Features -->
+    <details open class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">المميزات</summary>
+        <div class="p-4 space-y-6">
+
+            <!-- Kitchen & Tables -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">المطبخ والطاولات</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_tables", "الطاولات", enableTables)}
+                    ${toggleSwitch("enable_kds", "شاشة المطبخ (KDS)", enableKds)}
+                    ${toggleSwitch("enable_recipe", "الوصفات", enableRecipe)}
+                </div>
+            </div>
+
+            <!-- Payments -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">المدفوعات</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_split_payment", "تقسيم الدفع", enableSplitPayment)}
+                    ${toggleSwitch("enable_cash_drawer", "درج النقد", enableCashDrawer)}
+                    ${toggleSwitch("enable_returns", "المرتجعات", enableReturns)}
+                    ${toggleSwitch("enable_customer_credit", "رصيد العملاء", enableCustomerCredit)}
+                    ${toggleSwitch("enable_installments", "التقسيط", enableInstallments)}
+                    ${toggleSwitch("enable_manual_discount", "الخصم اليدوي", enableManualDiscount)}
+                </div>
+            </div>
+
+            <!-- Stock -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">المخزون</h4>
+                <div class="flex flex-wrap gap-6 items-center">
+                    ${toggleSwitch("enable_stock", "ادارة المخزون", enableStock)}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">وضع المخزون</label>
+                        <select name="stock_mode" class="px-3 py-1.5 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                            <option value="NONE" ${selected(stockMode, "NONE")}>NONE</option>
+                            <option value="WARN" ${selected(stockMode, "WARN")}>WARN</option>
+                            <option value="ENFORCE" ${selected(stockMode, "ENFORCE")}>ENFORCE</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customers & Offers -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">العملاء والعروض</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_customers", "العملاء", enableCustomers)}
+                    ${toggleSwitch("enable_loyalty", "الولاء", enableLoyalty)}
+                    ${toggleSwitch("enable_offers", "العروض", enableOffers)}
+                    ${toggleSwitch("enable_digital_menu", "القائمة الرقمية", enableDigitalMenu)}
+                    ${toggleSwitch("enable_digital_receipt", "الايصال الرقمي", enableDigitalReceipt)}
+                    ${toggleSwitch("enable_whatsapp_receipt", "مشاركة الفاتورة واتساب", enableWhatsappReceipt)}
+                </div>
+            </div>
+
+            <!-- Staff -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">الموظفين</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_attendance", "الحضور والانصراف", enableAttendance)}
+                    ${toggleSwitch("enable_overtime", "العمل الاضافي", enableOvertime)}
+                    ${toggleSwitch("enable_salary", "الرواتب", enableSalary)}
+                    ${toggleSwitch("enable_worker_qrcode", "QR الموظف", enableWorkerQrcode)}
+                </div>
+            </div>
+
+            <!-- Orders -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">الطلبات</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_pre_orders", "الطلبات المسبقة", enablePreOrders)}
+                    ${toggleSwitch("enable_scheduled_orders", "الطلبات المجدولة", enableScheduledOrders)}
+                    ${toggleSwitch("enable_announcements", "الاعلانات", enableAnnouncements)}
+                </div>
+            </div>
+
+            <!-- Suppliers & Export -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">الموردين والتصدير</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_suppliers", "الموردين", enableSuppliers)}
+                    ${toggleSwitch("enable_export", "التصدير", enableExport)}
+                    ${toggleSwitch("enable_analytics", "التحليلات", enableAnalytics)}
+                </div>
+            </div>
+
+            <!-- Pharmacy -->
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3">الصيدلية</h4>
+                <div class="flex flex-wrap gap-6">
+                    ${toggleSwitch("enable_prescriptions", "الوصفات الطبية", enablePrescriptions)}
+                    ${toggleSwitch("enable_drug_interactions", "التفاعلات الدوائية", enableDrugInteractions)}
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- Section 4: Tax Settings -->
+    <details class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">اعدادات الضريبة</summary>
+        <div class="p-4 flex flex-wrap gap-6 items-center">
+            ${toggleSwitch("tax_enabled", "تفعيل الضريبة", taxEnabled)}
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">نسبة الضريبة الافتراضية (%)</label>
+                <input type="number" name="default_tax_percent" value="$defaultTaxPercent" step="0.01" min="0" max="100" dir="ltr" class="px-3 py-1.5 border dark:border-gray-600 rounded-lg text-sm w-32 bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+        </div>
+    </details>
+
+    <!-- Section 5: Loyalty Settings -->
+    <details class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">اعدادات الولاء</summary>
+        <div class="p-4 space-y-4">
+            <div class="flex flex-wrap gap-6 items-center">
+                ${toggleSwitch("loyalty_enabled", "تفعيل نظام الولاء", loyaltyEnabled)}
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">معدل كسب النقاط</label>
+                    <input type="number" name="points_earn_rate" value="$pointsEarnRate" step="0.01" min="0" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">معدل استبدال النقاط</label>
+                    <input type="number" name="points_redeem_rate" value="$pointsRedeemRate" step="0.01" min="0" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">الحد الادنى للاستبدال</label>
+                    <input type="number" name="min_points_redeem" value="$minPointsRedeem" min="0" dir="ltr" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- Section 6: Discount Settings -->
+    <details class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <summary class="p-4 cursor-pointer font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700 select-none hover:bg-gray-50 dark:hover:bg-gray-700">اعدادات الخصم</summary>
+        <div class="p-4 flex flex-wrap gap-6 items-center">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">اقصى نسبة خصم يدوي (%)</label>
+                <input type="number" name="max_manual_discount_percent" value="$maxManualDiscountPercent" step="0.01" min="0" max="100" dir="ltr" class="px-3 py-1.5 border dark:border-gray-600 rounded-lg text-sm w-40 bg-white dark:bg-gray-700 dark:text-gray-100">
+            </div>
+            ${toggleSwitch("manual_discount_requires_pin", "الخصم اليدوي يتطلب PIN", manualDiscountRequiresPin)}
+        </div>
+    </details>
+
+    <!-- Submit -->
+    <div class="flex justify-between items-center">
+        <a href="/admin/vendors/$vendorId" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-sm">الغاء</a>
+        <button type="submit" id="saveBtn" class="bg-green-700 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-green-800 transition">حفظ التعديلات</button>
+    </div>
+</form>
+
+<div id="editToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white text-sm font-medium shadow-lg z-50 transition-all duration-300 opacity-0 pointer-events-none"></div>
+
+<script>
+document.getElementById('vendorEditForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الحفظ...';
+
+    const form = e.target;
+    const data = {};
+
+    // Text & number inputs
+    form.querySelectorAll('input[type="text"], input[type="number"]').forEach(function(el) {
+        const val = el.value.trim();
+        if (el.type === 'number') {
+            data[el.name] = val === '' ? null : parseFloat(val);
+        } else {
+            data[el.name] = val;
+        }
+    });
+
+    // Selects
+    form.querySelectorAll('select').forEach(function(el) {
+        data[el.name] = el.value;
+    });
+
+    // Toggle switches (checkboxes)
+    form.querySelectorAll('input[type="checkbox"]').forEach(function(el) {
+        data[el.name] = el.checked;
+    });
+
+    // Special: min_points_redeem should be integer
+    if (data.min_points_redeem !== null && data.min_points_redeem !== undefined) {
+        data.min_points_redeem = Math.round(data.min_points_redeem);
+    }
+
+    try {
+        const res = await apiFetch('/admin/api/vendors/$vendorId', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        if (res && res.ok) {
+            showEditToast('تم حفظ التعديلات بنجاح', 'success');
+            setTimeout(function() { window.location.href = '/admin/vendors/$vendorId'; }, 1200);
+        } else {
+            const err = res ? await res.json().catch(function() { return {}; }) : {};
+            showEditToast(err.error || err.message || 'حدث خطا', 'error');
+            btn.disabled = false;
+            btn.textContent = 'حفظ التعديلات';
+        }
+    } catch(ex) {
+        showEditToast('حدث خطا في الاتصال', 'error');
+        btn.disabled = false;
+        btn.textContent = 'حفظ التعديلات';
+    }
+});
+
+function showEditToast(msg, type) {
+    const t = document.getElementById('editToast');
+    t.textContent = msg;
+    t.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white text-sm font-medium shadow-lg z-50 transition-all duration-300 opacity-100';
+    t.classList.add(type === 'success' ? 'bg-green-600' : 'bg-red-600');
+    setTimeout(function() { t.classList.remove('opacity-100'); t.classList.add('opacity-0'); }, 3000);
+}
+</script>
+"""
+}
 
 // ════════════════════════════════════════════════════════════════
 // Team Management Content (super_admin only)

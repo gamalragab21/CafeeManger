@@ -54,6 +54,7 @@ object VendorsTable : UUIDTable("vendors") {
     val enableCustomers = bool("enable_customers").default(true)
     val enableExport = bool("enable_export").default(true)
     val enableDigitalReceipt = bool("enable_digital_receipt").default(false)
+    val enableWhatsappReceipt = bool("enable_whatsapp_receipt").default(false)
     val enableWorkerQrcode = bool("enable_worker_qrcode").default(false)
     val enableLoyalty = bool("enable_loyalty").default(false)
     val enableManualDiscount = bool("enable_manual_discount").default(true)

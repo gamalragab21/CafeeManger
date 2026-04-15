@@ -61,7 +61,7 @@ class SyncScheduler(
 
         // Trigger 3: Startup — sync pending items if already online
         scope.launch {
-            delay(5_000) // let app fully initialize
+            delay(1_000) // quick startup — app is ready after 1s
             if (networkMonitor.isOnline.value) {
                 triggerSync("startup")
             }
@@ -97,10 +97,15 @@ class SyncScheduler(
             } catch (e: Exception) {
                 AppLogger.e("SyncScheduler", "Attendance sync failed (non-critical): reason=$reason", e)
             }
-            // Refresh all cached data from server to get latest changes
+            // Selective refresh — only refresh data types that were actually synced
             try {
-                dataRefreshManager.refreshAll()
-                AppLogger.i("SyncScheduler", "Data refresh done: reason=$reason")
+                val syncedTypes = syncService.lastSyncedTypes
+                if (syncedTypes.isNotEmpty()) {
+                    dataRefreshManager.refreshForSyncTypes(syncedTypes)
+                } else {
+                    dataRefreshManager.refreshAll()
+                }
+                AppLogger.i("SyncScheduler", "Data refresh done: reason=$reason, types=$syncedTypes")
             } catch (e: Exception) {
                 AppLogger.e("SyncScheduler", "Data refresh failed (non-critical): reason=$reason", e)
             }

@@ -82,4 +82,26 @@ class DataRefreshManager(
 
         AppLogger.i(TAG, "Data refresh complete: $successCount succeeded, $failCount failed")
     }
+
+    /**
+     * Selective refresh — only refresh data relevant to what was synced.
+     * Much faster than refreshAll() after syncing just a few items.
+     */
+    suspend fun refreshForSyncTypes(types: Set<String>) {
+        AppLogger.i(TAG, "Selective refresh for types: $types")
+        coroutineScope {
+            // Always refresh vendor (lightweight, has feature flags)
+            launch { vendorRepository.refreshVendor().onFailure { AppLogger.e(TAG, "Vendor refresh failed", it) } }
+
+            if ("ORDER" in types || "PAYMENT_UPDATE" in types || "ORDER_STATUS_UPDATE" in types || "REFUND" in types) {
+                // Orders affect stock
+                launch { stockRepository.refreshStock().onFailure { AppLogger.e(TAG, "Stock refresh failed", it) } }
+            }
+            if ("CHECK_IN" in types || "CHECK_OUT" in types) {
+                launch { workerRepository.refreshWorkers().onFailure { AppLogger.e(TAG, "Workers refresh failed", it) } }
+            }
+            // Skip heavy item/category/customer/offer refresh unless explicitly needed
+        }
+        AppLogger.i(TAG, "Selective refresh complete")
+    }
 }

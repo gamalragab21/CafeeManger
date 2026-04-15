@@ -597,6 +597,7 @@ fun Route.adminApiRoutes() {
                         request.enable_customers?.let { stmt[enableCustomers] = it }
                         request.enable_export?.let { stmt[enableExport] = it }
                         request.enable_digital_receipt?.let { stmt[enableDigitalReceipt] = it }
+                        request.enable_whatsapp_receipt?.let { stmt[enableWhatsappReceipt] = it }
                         request.enable_worker_qrcode?.let { stmt[enableWorkerQrcode] = it }
                         request.enable_loyalty?.let { stmt[enableLoyalty] = it }
                         request.enable_manual_discount?.let { stmt[enableManualDiscount] = it }
@@ -1025,6 +1026,7 @@ fun Route.adminApiRoutes() {
                             put("enable_customers", vendorRow[VendorsTable.enableCustomers])
                             put("enable_export", vendorRow[VendorsTable.enableExport])
                             put("enable_digital_receipt", vendorRow[VendorsTable.enableDigitalReceipt])
+                            put("enable_whatsapp_receipt", vendorRow[VendorsTable.enableWhatsappReceipt])
                             put("enable_worker_qrcode", vendorRow[VendorsTable.enableWorkerQrcode])
                             put("enable_loyalty", vendorRow[VendorsTable.enableLoyalty])
                             put("enable_manual_discount", vendorRow[VendorsTable.enableManualDiscount])

@@ -262,14 +262,14 @@ class PosViewModel constructor(
                     _uiState.update { it.copy(activeOffers = offers) }
                 }
         }
-        // Refresh from API in background (non-blocking — failures are silent when offline)
+        // Refresh from API in PARALLEL (non-blocking — failures are silent when offline)
+        viewModelScope.launch { vendorRepository.refreshVendor() }
+        viewModelScope.launch { itemRepository.refreshItems() }
+        viewModelScope.launch { categoryRepository.refreshCategories() }
+        viewModelScope.launch { tableRepository.refreshTables() }
+        viewModelScope.launch { customerRepository.refreshCustomers() }
+        viewModelScope.launch { offerRepository.refreshOffers() }
         viewModelScope.launch {
-            vendorRepository.refreshVendor()
-            itemRepository.refreshItems()
-            categoryRepository.refreshCategories()
-            tableRepository.refreshTables()
-            customerRepository.refreshCustomers()
-            offerRepository.refreshOffers()
             taxPlaceRepository.getTaxPlaces().onSuccess { places ->
                 _uiState.update { state ->
                     state.copy(

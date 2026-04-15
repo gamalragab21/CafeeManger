@@ -36,9 +36,14 @@ class SyncService(
         private const val MAX_RETRIES = 5
     }
 
+    /** Types of items that were synced in the last syncAll() call */
+    var lastSyncedTypes: Set<String> = emptySet()
+        private set
+
     suspend fun syncAll(): Int {
         _syncState.value = SyncState.SYNCING
         var syncedCount = 0
+        val syncedTypes = mutableSetOf<String>()
         val offlineIdMap = mutableMapOf<String, String>()
         try {
             val pending = pendingSyncDao.getAllPendingList()
@@ -54,7 +59,11 @@ class SyncService(
             }
 
             val activePending = pending.filter { (it.retry_count ?: 0) < MAX_RETRIES }
-            for (item in activePending) {
+            // Process ORDERs first (others may depend on their server IDs)
+            val orders = activePending.filter { it.type == "ORDER" }
+            val others = activePending.filter { it.type != "ORDER" }
+            val sortedPending = orders + others
+            for (item in sortedPending) {
                 AppLogger.d("Sync", "Processing: type=${item.type}, id=${item.id}, retries=${item.retry_count}, payload=${item.payload}")
                 try {
                     when (item.type) {
@@ -76,7 +85,7 @@ class SyncService(
                             offlineIdMap[offlineId] = serverId
                             remapDependentItems(offlineId, serverId)
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                         "CHECK_IN" -> {
                             val params = json.decodeFromString<CheckInPayload>(item.payload)
@@ -88,7 +97,7 @@ class SyncService(
                             }
                             AppLogger.i("Sync", "CHECK_IN synced: workerId=${params.workerId}")
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                         "CHECK_OUT" -> {
                             val params = json.decodeFromString<CheckOutPayload>(item.payload)
@@ -100,7 +109,7 @@ class SyncService(
                             }
                             AppLogger.i("Sync", "CHECK_OUT synced: attendanceId=${params.attendanceId}")
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                         "PAYMENT_UPDATE" -> {
                             val params = json.decodeFromString<PaymentUpdatePayload>(item.payload)
@@ -129,7 +138,7 @@ class SyncService(
                             orderDao.insertOrder(order.toDbEntity())
                             AppLogger.i("Sync", "PAYMENT_UPDATE synced: orderId=$resolvedOrderId, newStatus=${params.status}")
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                         "ORDER_STATUS_UPDATE" -> {
                             val params = json.decodeFromString<OrderStatusPayload>(item.payload)
@@ -158,7 +167,7 @@ class SyncService(
                             orderDao.insertOrder(order.toDbEntity())
                             AppLogger.i("Sync", "ORDER_STATUS_UPDATE synced: orderId=$resolvedOrderId, newStatus=${params.status}")
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                         "REFUND" -> {
                             val params = json.decodeFromString<RefundPayload>(item.payload)
@@ -184,7 +193,7 @@ class SyncService(
                             orderDao.insertOrder(order.toDbEntity())
                             AppLogger.i("Sync", "REFUND synced: orderId=$resolvedOrderId")
                             pendingSyncDao.deletePending(item.id)
-                            syncedCount++
+                            syncedCount++; syncedTypes.add(item.type)
                         }
                     }
                 } catch (e: Exception) {
@@ -207,7 +216,8 @@ class SyncService(
                     }
                 }
             }
-            AppLogger.i("Sync", "syncAll completed: synced=$syncedCount of ${activePending.size} active (${staleItems.size} stale removed)")
+            lastSyncedTypes = syncedTypes.toSet()
+            AppLogger.i("Sync", "syncAll completed: synced=$syncedCount of ${activePending.size} active, types=$syncedTypes (${staleItems.size} stale removed)")
             _syncState.value = if (syncedCount > 0) SyncState.SUCCESS else SyncState.IDLE
         } catch (e: Exception) {
             AppLogger.e("Sync", "syncAll FAILED with exception", e)

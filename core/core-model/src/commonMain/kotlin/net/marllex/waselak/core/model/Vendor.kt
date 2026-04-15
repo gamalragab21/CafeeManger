@@ -48,6 +48,7 @@ data class Vendor(
     val enableCustomers: Boolean = true,
     val enableExport: Boolean = true,
     val enableDigitalReceipt: Boolean = false,
+    val enableWhatsappReceipt: Boolean = false,
     val enableWorkerQrcode: Boolean = false,
     val enableLoyalty: Boolean = false,
     val enableManualDiscount: Boolean = true,

@@ -2848,9 +2848,9 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
     val sidebarPhotoHtml = agentPhotoHtml(myPhotoUrl, agentName, 36)
 
     fun navLink(tab: String, label: String, icon: String, href: String): String {
-        val active = if (tab == activeTab) "bg-white/10 font-bold" else "hover:bg-white/5"
-        return """<a href="$href" class="flex items-center gap-3 px-4 py-3 rounded-lg $active transition">
-            <span class="text-lg">$icon</span><span>$label</span>
+        val active = if (tab == activeTab) "bg-emerald-500/10 text-emerald-400 font-medium" else "text-zinc-400 hover:text-white hover:bg-white/5"
+        return """<a href="$href" class="flex items-center gap-3 px-3 py-2 rounded-md $active transition-all text-sm">
+            <span class="text-sm">$icon</span><span>$label</span>
         </a>"""
     }
 
@@ -2893,61 +2893,54 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$title - وصلك CRM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
     tailwind.config = { darkMode: 'class' };
-    // Dark mode: restore from localStorage
     if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
     </script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
-        dialog::backdrop { background: rgba(0,0,0,0.5); }
-        dialog { border: none; border-radius: 1rem; padding: 0; max-width: 600px; width: 90%; }
-        .sidebar { background: #1B3A5C; }
-        .dark .sidebar { background: #0f1f2e; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        * { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; }
+        dialog::backdrop { background: rgba(0,0,0,0.3); }
+        dialog { border: none; border-radius: 0.75rem; padding: 0; max-width: 600px; width: 90%; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .overdue { animation: pulse 2s infinite; }
-        @media (max-width: 767px) {
-            dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; }
-        }
+        @media (max-width: 767px) { dialog { max-width: 100%; width: 100%; margin: 0; border-radius: 0.5rem; } }
+
+        /* Stripe-inspired clean design */
+        body { background: #f6f8fa; }
+        .sidebar { background: #0f172a; }
+        table { border-collapse: separate; border-spacing: 0; }
+        table thead th { font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 0.75rem 1rem; }
+        table tbody td { padding: 0.75rem 1rem; }
+        table tbody tr { transition: background 0.1s; border-bottom: 1px solid #f3f4f6; }
+        table tbody tr:hover { background: #f9fafb; }
+        input, select, textarea { border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+        input:focus, select:focus, textarea:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.1); outline: none; }
+
         /* Dark mode */
-        html.dark { color-scheme: dark; }
-        html.dark body { background: #0f172a; color: #e2e8f0; }
-        html.dark main { background: #0f172a; }
-        html.dark .bg-white, html.dark [class*="bg-white"] { background: #1e293b !important; color: #e2e8f0; }
-        html.dark .bg-gray-100, html.dark .bg-gray-50 { background: #0f172a !important; }
-        html.dark .text-gray-800 { color: #f1f5f9 !important; }
-        html.dark .text-gray-700 { color: #e2e8f0 !important; }
-        html.dark .text-gray-600 { color: #cbd5e1 !important; }
-        html.dark .text-gray-500 { color: #94a3b8 !important; }
-        html.dark .text-gray-400 { color: #64748b !important; }
-        html.dark .border, html.dark .border-b, html.dark .border-t { border-color: #334155 !important; }
-        html.dark .shadow, html.dark .shadow-xl { box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important; }
-        html.dark .rounded-xl, html.dark .rounded-2xl { border: 1px solid #334155; }
-        html.dark table thead tr { background: #1e293b !important; }
-        html.dark table thead th { color: #94a3b8 !important; }
-        html.dark table tbody tr { border-color: #334155 !important; }
-        html.dark table tbody tr:hover { background: #1e293b !important; }
-        html.dark table tbody tr:nth-child(even) { background: #162032 !important; }
-        html.dark input, html.dark select, html.dark textarea { background: #1e293b !important; color: #e2e8f0 !important; border-color: #475569 !important; }
-        html.dark input::placeholder { color: #64748b !important; }
-        html.dark dialog { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #334155; }
-        html.dark dialog::backdrop { background: rgba(0,0,0,0.7); }
-        html.dark .bg-blue-50 { background: #172554 !important; }
-        html.dark .bg-green-50, html.dark .bg-green-100 { background: #052e16 !important; }
-        html.dark .bg-yellow-50, html.dark .bg-yellow-100 { background: #422006 !important; }
-        html.dark .bg-red-50, html.dark .bg-red-100 { background: #450a0a !important; }
-        html.dark .bg-orange-50 { background: #431407 !important; }
-        html.dark .bg-purple-50, html.dark .bg-purple-100 { background: #2e1065 !important; }
-        html.dark .kpi-card, html.dark .feature { border-color: #334155 !important; }
-        html.dark h1, html.dark h2, html.dark h3 { color: #f1f5f9 !important; }
-        html.dark p { color: #cbd5e1; }
-        html.dark a:not(.sidebar a) { color: #60a5fa; }
+        html.dark body { background: #0a0a0a; color: #e5e7eb; }
+        html.dark .sidebar { background: #0a0a0a; border-left: 1px solid #1f2937; }
+        html.dark .bg-white { background: #111111 !important; color: #e5e7eb; border: 1px solid #1f2937; }
+        html.dark .bg-gray-100, html.dark .bg-gray-50 { background: #0a0a0a !important; }
+        html.dark .text-gray-800 { color: #f3f4f6 !important; }
+        html.dark .text-gray-700 { color: #e5e7eb !important; }
+        html.dark .text-gray-600 { color: #d1d5db !important; }
+        html.dark .text-gray-500 { color: #9ca3af !important; }
+        html.dark .border, html.dark .border-b { border-color: #1f2937 !important; }
+        html.dark .shadow { box-shadow: none !important; }
+        html.dark table thead th { color: #9ca3af !important; background: #111111 !important; }
+        html.dark table tbody tr { border-color: #1f2937 !important; }
+        html.dark table tbody tr:hover { background: #1a1a1a !important; }
+        html.dark input, html.dark select, html.dark textarea { background: #1a1a1a !important; color: #e5e7eb !important; border-color: #374151 !important; }
+        html.dark input:focus, html.dark select:focus { border-color: #059669 !important; box-shadow: 0 0 0 3px rgba(5,150,105,0.2) !important; }
+        html.dark dialog { background: #111111 !important; color: #e5e7eb !important; border: 1px solid #1f2937; }
+        html.dark h1, html.dark h2, html.dark h3 { color: #f3f4f6 !important; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
+<body class="min-h-screen transition-colors">
     <!-- Mobile header -->
     <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">

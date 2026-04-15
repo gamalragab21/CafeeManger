@@ -68,6 +68,7 @@ data class VendorResponse(
     val enable_customers: Boolean = true,
     val enable_export: Boolean = true,
     val enable_digital_receipt: Boolean = false,
+    val enable_whatsapp_receipt: Boolean = false,
     val enable_worker_qrcode: Boolean = false,
     val enable_loyalty: Boolean = false,
     val enable_manual_discount: Boolean = true,
@@ -131,6 +132,7 @@ data class UpdateVendorRequest(
     val enable_customers: Boolean? = null,
     val enable_export: Boolean? = null,
     val enable_digital_receipt: Boolean? = null,
+    val enable_whatsapp_receipt: Boolean? = null,
     val enable_worker_qrcode: Boolean? = null,
     val enable_loyalty: Boolean? = null,
     val enable_manual_discount: Boolean? = null,
@@ -382,6 +384,7 @@ fun Route.vendorRoutes() {
                 enable_customers = vendor[VendorsTable.enableCustomers],
                 enable_export = vendor[VendorsTable.enableExport],
                 enable_digital_receipt = vendor[VendorsTable.enableDigitalReceipt],
+                enable_whatsapp_receipt = vendor[VendorsTable.enableWhatsappReceipt],
                 enable_worker_qrcode = vendor[VendorsTable.enableWorkerQrcode],
                 enable_loyalty = vendor[VendorsTable.enableLoyalty],
                 enable_manual_discount = vendor[VendorsTable.enableManualDiscount],
@@ -506,6 +509,7 @@ fun Route.vendorRoutes() {
                     request.enable_customers?.let { stmt[enableCustomers] = it }
                     request.enable_export?.let { stmt[enableExport] = it }
                     request.enable_digital_receipt?.let { stmt[enableDigitalReceipt] = it }
+                    request.enable_whatsapp_receipt?.let { stmt[enableWhatsappReceipt] = it }
                     request.enable_worker_qrcode?.let { stmt[enableWorkerQrcode] = it }
                     request.enable_loyalty?.let { stmt[enableLoyalty] = it }
                     request.enable_manual_discount?.let { stmt[enableManualDiscount] = it }
@@ -587,6 +591,7 @@ fun Route.vendorRoutes() {
                 enable_customers = updated[VendorsTable.enableCustomers],
                 enable_export = updated[VendorsTable.enableExport],
                 enable_digital_receipt = updated[VendorsTable.enableDigitalReceipt],
+                enable_whatsapp_receipt = updated[VendorsTable.enableWhatsappReceipt],
                 enable_worker_qrcode = updated[VendorsTable.enableWorkerQrcode],
                 enable_loyalty = updated[VendorsTable.enableLoyalty],
                 enable_manual_discount = updated[VendorsTable.enableManualDiscount],

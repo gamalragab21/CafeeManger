@@ -119,6 +119,7 @@ data class AdminUpdateVendorRequest(
     val enable_customers: Boolean? = null,
     val enable_export: Boolean? = null,
     val enable_digital_receipt: Boolean? = null,
+    val enable_whatsapp_receipt: Boolean? = null,
     val enable_worker_qrcode: Boolean? = null,
     val enable_loyalty: Boolean? = null,
     val enable_manual_discount: Boolean? = null,

@@ -49,6 +49,7 @@ data class VendorResponse(
     @SerialName("enable_customers") val enableCustomers: Boolean = true,
     @SerialName("enable_export") val enableExport: Boolean = true,
     @SerialName("enable_digital_receipt") val enableDigitalReceipt: Boolean = false,
+    @SerialName("enable_whatsapp_receipt") val enableWhatsappReceipt: Boolean = false,
     @SerialName("enable_worker_qrcode") val enableWorkerQrcode: Boolean = false,
     @SerialName("enable_loyalty") val enableLoyalty: Boolean = false,
     @SerialName("enable_manual_discount") val enableManualDiscount: Boolean = true,

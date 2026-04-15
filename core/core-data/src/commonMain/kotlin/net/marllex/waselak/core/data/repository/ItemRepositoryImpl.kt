@@ -31,14 +31,26 @@ class ItemRepositoryImpl constructor(
 
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
 
-    private suspend fun List<Item>.withVariants(): List<Item> = map { item ->
-        val groups = itemVariantDao.getVariantGroupsByItemList(item.id)
-        if (groups.isEmpty()) return@map item
-        val variantGroups = groups.map { group ->
-            val options = itemVariantDao.getVariantOptionsByGroupList(group.id)
-            group.toDomain(options.map { it.toDomain() })
+    private suspend fun List<Item>.withVariants(): List<Item> {
+        if (isEmpty()) return this
+        // Batch load: 2 queries total instead of N+1
+        val itemIds = map { it.id }
+        val allGroups = itemIds.flatMap { id -> itemVariantDao.getVariantGroupsByItemList(id).map { id to it } }
+            .groupBy({ it.first }, { it.second })
+        val allGroupIds = allGroups.values.flatten().map { it.id }
+        val allOptions = if (allGroupIds.isNotEmpty()) {
+            allGroupIds.flatMap { gid -> itemVariantDao.getVariantOptionsByGroupList(gid).map { gid to it } }
+                .groupBy({ it.first }, { it.second })
+        } else emptyMap()
+
+        return map { item ->
+            val groups = allGroups[item.id]
+            if (groups.isNullOrEmpty()) return@map item
+            item.copy(variantGroups = groups.map { group ->
+                val options = allOptions[group.id] ?: emptyList()
+                group.toDomain(options.map { it.toDomain() })
+            })
         }
-        item.copy(variantGroups = variantGroups)
     }
 
     override fun getItems(categoryId: String?): Flow<List<Item>> {
