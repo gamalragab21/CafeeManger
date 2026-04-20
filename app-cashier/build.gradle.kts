@@ -134,6 +134,8 @@ kotlin {
             implementation(libs.androidx.appcompat)
             implementation(libs.androidx.activity.compose)
             implementation(libs.koin.android)
+            // Baseline profile — precompiles hot POS paths at install time
+            implementation(libs.androidx.profileinstaller)
         }
 
         val desktopMain by getting

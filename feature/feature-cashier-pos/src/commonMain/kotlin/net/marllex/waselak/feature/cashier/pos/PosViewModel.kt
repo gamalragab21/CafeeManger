@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.cashier.pos
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -73,12 +74,16 @@ class PosViewModel constructor(
     private val navClientName: String? = savedStateHandle["clientName"]
     private val navClientPhone: String? = savedStateHandle["clientPhone"]
 
+    @Immutable
     data class UiState(
         val items: List<Item> = emptyList(),
         val categories: List<Category> = emptyList(),
         val tables: List<Table> = emptyList(),
         val taxPlaces: List<TaxPlace> = emptyList(),
         val selectedCategoryId: String? = null,
+        /** What's in the TextField right now — updates on every keystroke. */
+        val searchInput: String = "",
+        /** Committed query used to filter items — 200ms debounced. */
         val searchQuery: String = "",
         val cart: List<CartItem> = emptyList(),
         val channel: OrderChannel = OrderChannel.DINE_IN,
@@ -184,6 +189,7 @@ class PosViewModel constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var phoneLookupJob: Job? = null
+    private var searchDebounceJob: Job? = null
 
     init {
         loadMenu()
@@ -285,11 +291,25 @@ class PosViewModel constructor(
 
     fun selectCategory(categoryId: String?) {
         AppLogger.d("POS", "Select category: $categoryId")
-        _uiState.update { it.copy(selectedCategoryId = categoryId, searchQuery = "") }
+        searchDebounceJob?.cancel()
+        _uiState.update { it.copy(selectedCategoryId = categoryId, searchInput = "", searchQuery = "") }
     }
 
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        // Update the raw input immediately so the TextField stays responsive.
+        _uiState.update { it.copy(searchInput = query) }
+        // Debounce the committed searchQuery (what drives filteredItems) by 200ms — skips
+        // re-filtering + recomposing the grid on every keystroke while the user is typing.
+        searchDebounceJob?.cancel()
+        if (query.isBlank()) {
+            // Blank resets instantly so "clear search" feels snappy.
+            _uiState.update { it.copy(searchQuery = "") }
+        } else {
+            searchDebounceJob = viewModelScope.launch {
+                delay(200)
+                _uiState.update { it.copy(searchQuery = query) }
+            }
+        }
     }
 
     fun addToCart(item: Item) {
@@ -918,10 +938,11 @@ class PosViewModel constructor(
     fun clearOrder() {
         AppLogger.d("POS", "Clearing order")
         phoneLookupJob?.cancel()
+        searchDebounceJob?.cancel()
         _uiState.update {
             it.copy(
                 cart = emptyList(), createdOrder = null, appliedOffer = null,
-                searchQuery = "", scheduledFor = null,
+                searchInput = "", searchQuery = "", scheduledFor = null,
                 clientName = "", clientPhone = "", clientAddress = "",
                 notes = "", selectedTableId = null, reservationId = null,
                 selectedTaxPlaceId = _uiState.value.taxPlaces.firstOrNull { tp -> tp.isDefault }?.id,

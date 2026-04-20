@@ -3,6 +3,8 @@ package net.marllex.waselak.core.data.repository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.marllex.waselak.core.database.dao.ItemDao
 import net.marllex.waselak.core.database.dao.ItemVariantDao
 import net.marllex.waselak.core.database.mapper.toDomain
@@ -31,25 +33,51 @@ class ItemRepositoryImpl constructor(
 
     private val vendorId: String get() = authRepository.getCurrentVendorId() ?: ""
 
+    // ── In-memory variant cache ─────────────────────────────────────────────
+    // The item Flow re-emits whenever any item row changes, which triggers withVariants()
+    // and, before this cache, two DB scans of the variants tables on every emission.
+    // Variants only change on refreshItems() / updateItemVariants(), so we memoize by
+    // itemId and invalidate on those paths. Missing entries mean "no variants" (cached
+    // as an empty list so we don't re-query every call).
+    private val variantCacheMutex = Mutex()
+    private val variantCache = mutableMapOf<String, List<VariantGroup>>()
+
     private suspend fun List<Item>.withVariants(): List<Item> {
         if (isEmpty()) return this
-        // Batch load: 2 queries total instead of N+1
-        val itemIds = map { it.id }
-        val allGroups = itemIds.flatMap { id -> itemVariantDao.getVariantGroupsByItemList(id).map { id to it } }
-            .groupBy({ it.first }, { it.second })
-        val allGroupIds = allGroups.values.flatten().map { it.id }
-        val allOptions = if (allGroupIds.isNotEmpty()) {
-            allGroupIds.flatMap { gid -> itemVariantDao.getVariantOptionsByGroupList(gid).map { gid to it } }
-                .groupBy({ it.first }, { it.second })
-        } else emptyMap()
 
+        // Figure out which items we haven't seen yet.
+        val missingIds = variantCacheMutex.withLock {
+            filter { !variantCache.containsKey(it.id) }.map { it.id }
+        }
+
+        // Batch-load the missing ones (2 queries total, matches the pre-cache fast path).
+        if (missingIds.isNotEmpty()) {
+            val freshGroups = missingIds.associateWith { id ->
+                itemVariantDao.getVariantGroupsByItemList(id)
+            }
+            val allGroupIds = freshGroups.values.flatten().map { it.id }
+            val freshOptions = if (allGroupIds.isEmpty()) emptyMap() else {
+                allGroupIds.associateWith { gid -> itemVariantDao.getVariantOptionsByGroupList(gid) }
+            }
+            variantCacheMutex.withLock {
+                for ((id, groups) in freshGroups) {
+                    variantCache[id] = groups.map { g ->
+                        g.toDomain(freshOptions[g.id].orEmpty().map { it.toDomain() })
+                    }
+                }
+            }
+        }
+
+        val snapshot = variantCacheMutex.withLock { variantCache.toMap() }
         return map { item ->
-            val groups = allGroups[item.id]
-            if (groups.isNullOrEmpty()) return@map item
-            item.copy(variantGroups = groups.map { group ->
-                val options = allOptions[group.id] ?: emptyList()
-                group.toDomain(options.map { it.toDomain() })
-            })
+            val groups = snapshot[item.id]
+            if (groups.isNullOrEmpty()) item else item.copy(variantGroups = groups)
+        }
+    }
+
+    private suspend fun invalidateVariantCache(itemId: String? = null) {
+        variantCacheMutex.withLock {
+            if (itemId != null) variantCache.remove(itemId) else variantCache.clear()
         }
     }
 
@@ -93,6 +121,7 @@ class ItemRepositoryImpl constructor(
         AppLogger.d("ItemRepo", "Saving ${items.size} items to local DB")
         itemDao.deleteAllItems(vendorId)
         itemDao.insertItems(items.map { it.toDbEntity() })
+        invalidateVariantCache()
         // Save variant groups locally for offline access
         AppLogger.d("ItemRepo", "Saving variant groups to local DB")
         itemVariantDao.deleteAllVariants()
@@ -226,6 +255,7 @@ class ItemRepositoryImpl constructor(
             // Clear variants if empty
             itemVariantDao.insertVariantGroups(itemId, emptyList(), emptyList())
         }
+        invalidateVariantCache(itemId)
         AppLogger.i("ItemRepo", "Variants updated for item=$itemId, groups=${groups.size}")
         item
     }.onFailure { e ->

@@ -1,5 +1,6 @@
 import com.android.build.gradle.LibraryExtension
 import net.marllex.waselak.configureAndroidLibrary
+import net.marllex.waselak.configureComposeStability
 import net.marllex.waselak.configureKmpTargets
 import net.marllex.waselak.libs
 import org.gradle.api.Plugin
@@ -17,6 +18,8 @@ class KmpFeatureConventionPlugin : Plugin<Project> {
                 apply("org.jetbrains.compose")
                 apply("com.android.library")
             }
+
+            configureComposeStability()
 
             extensions.configure<KotlinMultiplatformExtension> {
                 configureKmpTargets(this)

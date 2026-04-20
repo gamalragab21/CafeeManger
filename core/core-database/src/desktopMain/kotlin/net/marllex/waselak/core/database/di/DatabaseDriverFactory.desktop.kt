@@ -4,6 +4,7 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import net.marllex.waselak.core.database.WaselakDatabase
 import java.io.File
+import java.sql.DriverManager
 
 actual class DatabaseDriverFactory {
     actual fun createDriver(): SqlDriver {
@@ -17,7 +18,26 @@ actual class DatabaseDriverFactory {
         } else {
             runMigrations(driver)
         }
+        applyPragmas(dbFile)
+        driver.applyPerformanceIndexes()
         return driver
+    }
+
+    /**
+     * sqlite-jdbc doesn't expose a way to run result-returning PRAGMAs through the SQLDelight
+     * driver cleanly, so we open a short-lived raw JDBC connection to set WAL mode on the file.
+     * WAL is a file-level attribute — once set, all future connections use it.
+     */
+    private fun applyPragmas(dbFile: File) {
+        runCatching {
+            DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+                conn.createStatement().use { st ->
+                    st.execute("PRAGMA journal_mode = WAL;")
+                    st.execute("PRAGMA synchronous = NORMAL;")
+                    st.execute("PRAGMA temp_store = MEMORY;")
+                }
+            }
+        }
     }
 
     private fun runMigrations(driver: SqlDriver) {

@@ -159,7 +159,10 @@ data class CrmPrincipal(
     val isManager: Boolean get() = role == "owner" || role == "مدير مبيعات"
     val isSales: Boolean get() = role == "مندوب مبيعات"
     val isCallCenter: Boolean get() = role == "كول سنتر"
-    val canSeeAll: Boolean get() = isOwner || role == "مدير مبيعات"
+    // Call-center staff handle inbound support and account updates across every client,
+    // so they need to see the full CRM just like a sales manager. Only sales reps (agents)
+    // remain scoped to their own assigned clients/activities.
+    val canSeeAll: Boolean get() = isOwner || role == "مدير مبيعات" || isCallCenter
     val canSeeAnalytics: Boolean get() = isOwner
     val canManageAgents: Boolean get() = isOwner
 }

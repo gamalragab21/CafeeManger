@@ -221,6 +221,27 @@ object DatabaseConfig {
             exec("UPDATE stock SET quantity = quantity * 12, min_quantity = min_quantity * 12, unit = 'PIECE', base_unit = 'PIECE', conversion_rate = 1.0 WHERE unit = 'DOZEN'")
             exec("UPDATE stock SET unit = 'PIECE', base_unit = 'PIECE', conversion_rate = 1.0 WHERE unit = 'PLATE'")
             exec("UPDATE stock SET unit = 'PACK', base_unit = 'PACK', conversion_rate = 1.0 WHERE unit IN ('BOX','BAG','BOTTLE','CAN','CARTON','SACK','TRAY','BUCKET','ROLL')")
+
+            // ─── CRM Timestamps Backfill ────────────────────────────────
+            // Exposed's `.default(Clock.System.now())` freezes the DDL default at JVM-start
+            // time, so every row inserted without an explicit timestamp shared one value.
+            // createClient/createActivity now set these explicitly, but existing rows need
+            // a sensible backfill so the dashboard shows something meaningful.
+            //
+            // For clients we have first_contact_at, which IS set explicitly on create —
+            // that's the true creation moment. Use it wherever it's earlier than the
+            // (shared) created_at default. Then clamp updated_at to be at least created_at.
+            exec(
+                "UPDATE crm_clients SET created_at = first_contact_at " +
+                "WHERE first_contact_at IS NOT NULL AND first_contact_at < created_at"
+            )
+            exec(
+                "UPDATE crm_clients SET updated_at = created_at WHERE updated_at < created_at"
+            )
+            // For activities, we have no other real timestamp to recover from; the parent
+            // client's last_contact_at is updated by every activity so it doesn't identify
+            // any single row. Leave crm_activities.created_at untouched — new rows written
+            // after this deploy use the correct timestamp.
         }
 
         // Seed admin user if not exists

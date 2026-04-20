@@ -58,6 +58,9 @@ camerax = "1.4.1"
 # Biometric (Android-only)
 biometric = "1.1.0"
 
+# Profile Installer (Android-only) — loads baseline profile at first-run
+profileinstaller = "1.4.1"
+
 # Accompanist (Android-only)
 accompanist = "0.36.0"
 
@@ -84,6 +87,7 @@ turbine = "1.2.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-print = { group = "androidx.print", name = "print", version = "1.1.0" }
 
 # Lifecycle & ViewModel (KMP)

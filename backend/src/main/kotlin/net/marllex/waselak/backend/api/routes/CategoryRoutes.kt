@@ -38,9 +38,27 @@ fun Route.categoryRoutes() {
             trace.step("List categories started")
             val principal = currentUser()
             trace.step("User authenticated", mapOf("userId" to principal.userId, "vendorId" to principal.vendorId))
+
+            // Cheap ETag check: if (max(updatedAt), rowCount) hasn't changed since the
+            // client's last fetch we can skip the full serialization and body transfer.
+            val vendorUuid = UUID.fromString(principal.vendorId)
+            val (maxUpdatedAt, rowCount) = transaction {
+                val maxUpd = CategoriesTable.updatedAt.max()
+                val cnt = CategoriesTable.id.count()
+                val row = CategoriesTable.select(maxUpd, cnt)
+                    .where { CategoriesTable.vendorId eq vendorUuid }
+                    .first()
+                (row[maxUpd]?.toEpochMilliseconds() ?: 0L) to (row[cnt])
+            }
+            val etag = ETagSupport.weakEtag(maxUpdatedAt, rowCount)
+            if (ETagSupport.respondNotModifiedIfMatches(call, etag)) {
+                trace.step("Categories 304 Not Modified", mapOf("count" to rowCount.toString()))
+                return@get
+            }
+
             val categories = transaction {
                 CategoriesTable.selectAll()
-                    .where { CategoriesTable.vendorId eq UUID.fromString(principal.vendorId) }
+                    .where { CategoriesTable.vendorId eq vendorUuid }
                     .orderBy(CategoriesTable.displayOrder)
                     .map { it.toCategoryDto() }
             }

@@ -15,6 +15,13 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 import java.util.*
 
+/**
+ * Egypt local time. Must match the CRM UI's timezone (see CrmRoutes.CRM_TZ) so the
+ * "today" / "this month" buckets used by stats line up with what the user sees.
+ * Named zone handles DST transitions automatically (Egypt reinstated DST in 2023).
+ */
+private val CRM_TZ = TimeZone.of("Africa/Cairo")
+
 class CrmService(private val jwtConfig: AdminJwtConfig) {
 
     // ── Auth ──────────────────────────────────────────────────────
@@ -109,6 +116,9 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val source: String?, val notes: String?,
         val firstContactAt: Long?, val lastContactAt: Long?, val nextActionDate: String?,
         val interactionCount: Int, val daysSinceLastContact: Long?,
+        // Audit timestamps surfaced for the dashboard so agents can see when a record was
+        // added/last edited. Epoch millis — UI formats in local TZ.
+        val createdAt: Long, val updatedAt: Long,
     )
 
     fun listClients(agentId: String?, isManager: Boolean): List<ClientDto> = transaction {
@@ -135,6 +145,9 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         discountPercent: Int, paymentMethod: String?, assignedTo: String?, source: String?, notes: String?,
         nextActionDate: String?,
     ): ClientDto = transaction {
+        // Treat blank strings as missing so UUID/date parsers never see empty input.
+        val assignedToClean = assignedTo?.takeIf { it.isNotBlank() }
+        val nextActionDateClean = nextActionDate?.takeIf { it.isNotBlank() }
         val id = CrmClientsTable.insertAndGetId {
             it[CrmClientsTable.clientName] = clientName
             it[CrmClientsTable.phone] = phone
@@ -148,13 +161,17 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             it[CrmClientsTable.monthlyAmount] = java.math.BigDecimal.valueOf(monthlyAmount)
             it[CrmClientsTable.discountPercent] = discountPercent
             it[CrmClientsTable.paymentMethod] = paymentMethod
-            if (assignedTo != null) it[CrmClientsTable.assignedTo] = UUID.fromString(assignedTo)
+            if (assignedToClean != null) it[CrmClientsTable.assignedTo] = UUID.fromString(assignedToClean)
             it[CrmClientsTable.leadSource] = source
             it[CrmClientsTable.notes] = notes
             it[firstContactAt] = Clock.System.now()
             it[lastContactAt] = Clock.System.now()
-            if (nextActionDate != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDate)
+            if (nextActionDateClean != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDateClean)
             it[interactionCount] = 1
+            // Exposed's column default (Clock.System.now()) is frozen at JVM start, so old
+            // rows ended up sharing one timestamp. Set these explicitly on every insert.
+            it[createdAt] = Clock.System.now()
+            it[updatedAt] = Clock.System.now()
         }
         getClient(id.value.toString())!!
     }
@@ -165,6 +182,11 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         monthlyAmount: Double?, discountPercent: Int?, paymentMethod: String?, assignedTo: String?,
         source: String?, notes: String?, nextActionDate: String?,
     ): Boolean = transaction {
+        // Treat blank strings as "field not provided" so the front-end's empty form fields
+        // don't blow up UUID.fromString / LocalDate.parse (which would surface as 400 Bad
+        // Request via StatusPages' IllegalArgumentException handler).
+        val assignedToClean = assignedTo?.takeIf { it.isNotBlank() }
+        val nextActionDateClean = nextActionDate?.takeIf { it.isNotBlank() }
         CrmClientsTable.update({ CrmClientsTable.id eq UUID.fromString(id) }) {
             if (clientName != null) it[CrmClientsTable.clientName] = clientName
             if (phone != null) it[CrmClientsTable.phone] = phone
@@ -178,10 +200,10 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             if (monthlyAmount != null) it[CrmClientsTable.monthlyAmount] = java.math.BigDecimal.valueOf(monthlyAmount)
             if (discountPercent != null) it[CrmClientsTable.discountPercent] = discountPercent
             if (paymentMethod != null) it[CrmClientsTable.paymentMethod] = paymentMethod
-            if (assignedTo != null) it[CrmClientsTable.assignedTo] = UUID.fromString(assignedTo)
+            if (assignedToClean != null) it[CrmClientsTable.assignedTo] = UUID.fromString(assignedToClean)
             if (source != null) it[CrmClientsTable.leadSource] = source
             if (notes != null) it[CrmClientsTable.notes] = notes
-            if (nextActionDate != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDate)
+            if (nextActionDateClean != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDateClean)
             it[updatedAt] = Clock.System.now()
         } > 0
     }
@@ -195,6 +217,21 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         CrmClientsTable.deleteWhere { CrmClientsTable.id eq cid } > 0
     }
 
+    /**
+     * Returns true if the given agent is the one the client is currently assigned to.
+     * Used to authorise agent-level edits/deletes on their own clients while letting
+     * owners/managers act on anyone's.
+     */
+    fun isClientOwnedBy(clientId: String, agentId: String): Boolean = transaction {
+        CrmClientsTable
+            .select(CrmClientsTable.assignedTo)
+            .where { CrmClientsTable.id eq UUID.fromString(clientId) }
+            .firstOrNull()
+            ?.get(CrmClientsTable.assignedTo)
+            ?.value
+            ?.toString() == agentId
+    }
+
     // ── Activities CRUD ───────────────────────────────────────────
 
     data class ActivityDto(
@@ -203,6 +240,42 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val planOffered: String?, val amount: Double?, val discountPercent: Int?, val callDuration: String?,
         val result: String?, val nextStep: String?, val nextDate: String?, val notes: String?, val createdAt: Long,
     )
+
+    /**
+     * Activities for a single client, newest first. Used by the client-details page
+     * to render the per-client timeline. No ownership filtering here — the caller
+     * is expected to have already authorised access to the client record.
+     */
+    fun listActivitiesForClient(clientId: String): List<ActivityDto> = transaction {
+        CrmActivitiesTable
+            .innerJoin(SalesAgentsTable, { CrmActivitiesTable.agentId }, { SalesAgentsTable.id })
+            .innerJoin(CrmClientsTable, { CrmActivitiesTable.clientId }, { CrmClientsTable.id })
+            .selectAll()
+            .where { CrmActivitiesTable.clientId eq UUID.fromString(clientId) }
+            .orderBy(CrmActivitiesTable.createdAt, SortOrder.DESC)
+            .map {
+                ActivityDto(
+                    id = it[CrmActivitiesTable.id].value.toString(),
+                    agentId = it[CrmActivitiesTable.agentId].value.toString(),
+                    agentName = it[SalesAgentsTable.name],
+                    clientId = it[CrmActivitiesTable.clientId].value.toString(),
+                    clientName = it[CrmClientsTable.clientName],
+                    actionType = it[CrmActivitiesTable.actionType],
+                    channel = it[CrmActivitiesTable.channel],
+                    previousStatus = it[CrmActivitiesTable.previousStatus],
+                    newStatus = it[CrmActivitiesTable.newStatus],
+                    planOffered = it[CrmActivitiesTable.planOffered],
+                    amount = it[CrmActivitiesTable.amount]?.toDouble(),
+                    discountPercent = it[CrmActivitiesTable.discountPercent],
+                    callDuration = it[CrmActivitiesTable.callDuration],
+                    result = it[CrmActivitiesTable.result],
+                    nextStep = it[CrmActivitiesTable.nextStep],
+                    nextDate = it[CrmActivitiesTable.nextDate]?.toString(),
+                    notes = it[CrmActivitiesTable.notes],
+                    createdAt = it[CrmActivitiesTable.createdAt].toEpochMilliseconds(),
+                )
+            }
+    }
 
     fun listActivities(agentId: String?, isManager: Boolean, limit: Int = 100): List<ActivityDto> = transaction {
         val query = CrmActivitiesTable
@@ -246,9 +319,14 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         amount: Double?, discountPercent: Int?, callDuration: String?,
         result: String?, nextStep: String?, nextDate: String?, notes: String?,
     ): String = transaction {
+        // Blank-in-form ↔ missing-in-API: treat "" as null so we don't feed bogus values
+        // into UUID.fromString / LocalDate.parse (which would fail as a confusing 400).
+        val clientIdClean = clientId.takeIf { it.isNotBlank() }
+            ?: throw IllegalArgumentException("Missing clientId")
+        val nextDateClean = nextDate?.takeIf { it.isNotBlank() }
         val id = CrmActivitiesTable.insertAndGetId {
             it[CrmActivitiesTable.agentId] = UUID.fromString(agentId)
-            it[CrmActivitiesTable.clientId] = UUID.fromString(clientId)
+            it[CrmActivitiesTable.clientId] = UUID.fromString(clientIdClean)
             it[CrmActivitiesTable.actionType] = actionType
             it[CrmActivitiesTable.channel] = channel
             it[CrmActivitiesTable.previousStatus] = previousStatus
@@ -259,15 +337,17 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             it[CrmActivitiesTable.callDuration] = callDuration
             it[CrmActivitiesTable.result] = result
             it[CrmActivitiesTable.nextStep] = nextStep
-            if (nextDate != null) it[CrmActivitiesTable.nextDate] = LocalDate.parse(nextDate)
+            if (nextDateClean != null) it[CrmActivitiesTable.nextDate] = LocalDate.parse(nextDateClean)
             it[CrmActivitiesTable.notes] = notes
+            // Same reason as createClient: don't rely on the frozen JVM-start default.
+            it[createdAt] = Clock.System.now()
         }
 
         // Update client status + last contact + interaction count
-        CrmClientsTable.update({ CrmClientsTable.id eq UUID.fromString(clientId) }) {
+        CrmClientsTable.update({ CrmClientsTable.id eq UUID.fromString(clientIdClean) }) {
             if (newStatus != null) it[status] = newStatus
             it[lastContactAt] = Clock.System.now()
-            if (nextDate != null) it[nextActionDate] = LocalDate.parse(nextDate)
+            if (nextDateClean != null) it[nextActionDate] = LocalDate.parse(nextDateClean)
             with(SqlExpressionBuilder) {
                 it.update(interactionCount, interactionCount + 1)
             }
@@ -275,6 +355,65 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         }
 
         id.value.toString()
+    }
+
+    /**
+     * Returns true if the given agent created this activity. Used for agent-level
+     * authorisation when editing/deleting — owners and managers bypass this check.
+     */
+    fun isActivityOwnedBy(activityId: String, agentId: String): Boolean = transaction {
+        CrmActivitiesTable
+            .select(CrmActivitiesTable.agentId)
+            .where { CrmActivitiesTable.id eq UUID.fromString(activityId) }
+            .firstOrNull()
+            ?.get(CrmActivitiesTable.agentId)
+            ?.value
+            ?.toString() == agentId
+    }
+
+    fun updateActivity(
+        id: String, actionType: String?, channel: String?,
+        previousStatus: String?, newStatus: String?, planOffered: String?,
+        amount: Double?, discountPercent: Int?, callDuration: String?,
+        result: String?, nextStep: String?, nextDate: String?, notes: String?,
+    ): Boolean = transaction {
+        val aid = UUID.fromString(id)
+        // Blank strings from HTML forms should behave as "unset", not "invalid date".
+        val nextDateClean = nextDate?.takeIf { it.isNotBlank() }
+        val updated = CrmActivitiesTable.update({ CrmActivitiesTable.id eq aid }) {
+            if (actionType != null) it[CrmActivitiesTable.actionType] = actionType
+            if (channel != null) it[CrmActivitiesTable.channel] = channel
+            if (previousStatus != null) it[CrmActivitiesTable.previousStatus] = previousStatus
+            if (newStatus != null) it[CrmActivitiesTable.newStatus] = newStatus
+            if (planOffered != null) it[CrmActivitiesTable.planOffered] = planOffered
+            if (amount != null) it[CrmActivitiesTable.amount] = java.math.BigDecimal.valueOf(amount)
+            if (discountPercent != null) it[CrmActivitiesTable.discountPercent] = discountPercent
+            if (callDuration != null) it[CrmActivitiesTable.callDuration] = callDuration
+            if (result != null) it[CrmActivitiesTable.result] = result
+            if (nextStep != null) it[CrmActivitiesTable.nextStep] = nextStep
+            if (nextDateClean != null) it[CrmActivitiesTable.nextDate] = LocalDate.parse(nextDateClean)
+            if (notes != null) it[CrmActivitiesTable.notes] = notes
+        }
+        if (updated > 0 && newStatus != null) {
+            // Keep the client's status in sync the same way createActivity does.
+            val clientId = CrmActivitiesTable
+                .select(CrmActivitiesTable.clientId)
+                .where { CrmActivitiesTable.id eq aid }
+                .firstOrNull()
+                ?.get(CrmActivitiesTable.clientId)
+                ?.value
+            if (clientId != null) {
+                CrmClientsTable.update({ CrmClientsTable.id eq clientId }) {
+                    it[status] = newStatus
+                    it[updatedAt] = Clock.System.now()
+                }
+            }
+        }
+        updated > 0
+    }
+
+    fun deleteActivity(id: String): Boolean = transaction {
+        CrmActivitiesTable.deleteWhere { CrmActivitiesTable.id eq UUID.fromString(id) } > 0
     }
 
     // ── Stats ─────────────────────────────────────────────────────
@@ -377,6 +516,8 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             nextActionDate = this[CrmClientsTable.nextActionDate]?.toString(),
             interactionCount = this[CrmClientsTable.interactionCount],
             daysSinceLastContact = daysSince,
+            createdAt = this[CrmClientsTable.createdAt].toEpochMilliseconds(),
+            updatedAt = this[CrmClientsTable.updatedAt].toEpochMilliseconds(),
         )
     }
 
@@ -400,7 +541,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
 
     fun nextInvoiceNumber(): String = transaction {
         val count = CrmInvoicesTable.selectAll().count()
-        val year = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+        val year = Clock.System.now().toLocalDateTime(CRM_TZ).year
         "INV-$year-${(count + 1).toString().padStart(4, '0')}"
     }
 
@@ -413,7 +554,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         if (clientId != null) query.andWhere { CrmInvoicesTable.clientId eq UUID.fromString(clientId) }
         if (status != null) query.andWhere { CrmInvoicesTable.status eq status }
 
-        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
 
         query.map { row ->
             val final = row[CrmInvoicesTable.finalAmount].toDouble()
@@ -466,7 +607,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         }
 
         // Auto-mark overdue invoices for this client
-        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
         CrmInvoicesTable.update({
             (CrmInvoicesTable.clientId eq UUID.fromString(clientId)) and
             (CrmInvoicesTable.status eq "غير مدفوع") and
@@ -497,7 +638,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val totalPaid = invoice[CrmInvoicesTable.paidAmount].toDouble() + amount
         val finalAmt = invoice[CrmInvoicesTable.finalAmount].toDouble()
 
-        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
 
         CrmInvoicesTable.update({ CrmInvoicesTable.id eq UUID.fromString(invoiceId) }) {
             it[paidAmount] = java.math.BigDecimal.valueOf(totalPaid)
@@ -613,8 +754,8 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val mon = parts[1].toInt()
         val startDate = kotlinx.datetime.LocalDate(year, mon, 1)
         val endDate = if (mon == 12) kotlinx.datetime.LocalDate(year + 1, 1, 1) else kotlinx.datetime.LocalDate(year, mon + 1, 1)
-        val startInstant = startDate.atStartOfDayIn(TimeZone.currentSystemDefault())
-        val endInstant = endDate.atStartOfDayIn(TimeZone.currentSystemDefault())
+        val startInstant = startDate.atStartOfDayIn(CRM_TZ)
+        val endInstant = endDate.atStartOfDayIn(CRM_TZ)
 
         val actualClients = CrmClientsTable.selectAll().where {
             (CrmClientsTable.assignedTo eq aid) and
@@ -720,7 +861,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             agent[SalesAgentsTable.role], agent[SalesAgentsTable.photoUrl], agent[SalesAgentsTable.active],
         )
 
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = Clock.System.now().toLocalDateTime(CRM_TZ)
         val currentMonth = "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
         val aid = UUID.fromString(agentId)
 
@@ -862,7 +1003,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             }.orderBy(CrmActivitiesTable.createdAt, SortOrder.ASC).firstOrNull()
 
             val subscriptionDate = firstSubscription?.let {
-                it[CrmActivitiesTable.createdAt].toLocalDateTime(TimeZone.currentSystemDefault())
+                it[CrmActivitiesTable.createdAt].toLocalDateTime(CRM_TZ)
             }
 
             // Calculate month number since subscription
@@ -1032,7 +1173,7 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
     }
 
     fun markSalaryPaid(recordId: String): Boolean = transaction {
-        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
         CrmSalaryRecordsTable.update({ CrmSalaryRecordsTable.id eq UUID.fromString(recordId) }) {
             it[status] = "مدفوع"
             it[paidDate] = today

@@ -40,6 +40,13 @@ CREATE TABLE IF NOT EXISTS orders (
     sync_status TEXT NOT NULL DEFAULT 'SYNCED'
 );
 
+CREATE INDEX IF NOT EXISTS idx_orders_vendor_created ON orders(vendor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_vendor_status ON orders(vendor_id, status);
+CREATE INDEX IF NOT EXISTS idx_orders_vendor_channel ON orders(vendor_id, channel);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_delivery_user ON orders(delivery_user_id, status);
+CREATE INDEX IF NOT EXISTS idx_orders_sync_status ON orders(sync_status, created_at);
+
 getOrders:
 SELECT * FROM orders WHERE vendor_id = ? ORDER BY created_at DESC;
 

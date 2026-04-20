@@ -8,11 +8,19 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.domain.service.CrmService
 import net.marllex.waselak.backend.plugins.CrmPrincipal
 import org.koin.java.KoinJavaComponent
+
+/**
+ * All CRM timestamps are rendered in Egypt local time, regardless of where the server
+ * runs (our VPS is UTC). Using a named zone lets the JVM handle DST transitions — Egypt
+ * reinstated DST in 2023, so we can't safely hardcode a fixed offset like "+02:00".
+ */
+private val CRM_TZ = TimeZone.of("Africa/Cairo")
 
 fun Route.crmRoutes() {
     val crmService by KoinJavaComponent.inject<CrmService>(clazz = CrmService::class.java)
@@ -87,27 +95,66 @@ fun Route.crmRoutes() {
             val clients = crmService.listClients(principal.agentId, principal.canSeeAll)
             val agents = if (principal.canSeeAll) crmService.listAgents() else emptyList()
 
+            // Stable avatar palette — same name always maps to the same colour across
+            // the list and the details page, making clients feel recognisable.
+            val avatarPalette = listOf("#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316")
+
             val tableRows = buildString {
                 clients.forEach { c ->
-                    val bgClass = if ((c.daysSinceLastContact ?: 0) >= 7) "bg-red-50" else ""
+                    val staleClass = if ((c.daysSinceLastContact ?: 0) >= 7) "border-r-4 border-r-red-400" else "border-r-4 border-r-transparent"
                     val statusBg = statusColor(c.status)
                     val statusTxt = statusTextColor(c.status)
-                    val indicator = clientStatusIndicator(c.status)
-                    append("""<tr class="border-b hover:bg-gray-50 $bgClass" data-id="${c.id}">""")
-                    append("<td class='p-2 font-medium'>${c.clientName}</td>")
-                    append("<td class='p-2'>${c.phone}</td>")
-                    append("<td class='p-2'>${c.businessName ?: "-"}</td>")
-                    append("<td class='p-2'>${c.businessType ?: "-"}</td>")
-                    append("<td class='p-2'>${c.governorate ?: "-"}</td>")
-                    append("""<td class='p-2'><span class="px-2 py-1 rounded-full text-xs font-medium" style="background:$statusBg;color:$statusTxt">${c.status}</span></td>""")
-                    append("""<td class='p-2'>$indicator</td>""")
-                    append("<td class='p-2'>${c.plan ?: "-"}</td>")
-                    append("<td class='p-2'>${String.format("%,.0f", c.finalAmount)} ج.م</td>")
-                    append("<td class='p-2'>${c.assignedName ?: "-"}</td>")
-                    append("<td class='p-2'>${c.daysSinceLastContact?.let { "${it} يوم" } ?: "-"}</td>")
-                    append("""<td class='p-2 flex gap-1'>
-                        <button onclick="openEditClient('${c.id}')" class="text-blue-600 hover:underline text-xs">تعديل</button>
-                        ${if (principal.canSeeAll) """<button onclick="deleteClient('${c.id}', '${c.clientName.replace("'", "\\'")}')" class="text-red-600 hover:underline text-xs">حذف</button>""" else ""}
+                    val avatarColor = avatarPalette[(c.clientName.hashCode().let { if (it < 0) -it else it }) % avatarPalette.size]
+                    val initial = c.clientName.trim().firstOrNull()?.toString() ?: "؟"
+                    val escapedName = c.clientName.replace("'", "\\'")
+                    val freshness = when {
+                        c.daysSinceLastContact == null -> """<span class="text-xs text-gray-400">لم يُتواصل بعد</span>"""
+                        c.daysSinceLastContact == 0L -> """<span class="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>اليوم</span>"""
+                        c.daysSinceLastContact!! < 3 -> """<span class="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>${c.daysSinceLastContact} يوم</span>"""
+                        c.daysSinceLastContact!! < 7 -> """<span class="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>${c.daysSinceLastContact} يوم</span>"""
+                        else -> """<span class="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>${c.daysSinceLastContact} يوم</span>"""
+                    }
+                    append("""<tr class="$staleClass hover:bg-gray-50 cursor-pointer transition" data-id="${c.id}" onclick="goToClient(event, '${c.id}')">""")
+                    // Column 0 — identity cell: avatar + name + phone + business (rich)
+                    append("""<td class='p-3'>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0" style="background:$avatarColor">$initial</div>
+                            <div class="min-w-0">
+                                <div class="font-semibold text-gray-800 truncate">${c.clientName}</div>
+                                <div class="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                                    <span>📞 ${c.phone}</span>
+                                    ${c.businessName?.let { """<span class="truncate">🏢 $it</span>""" } ?: ""}
+                                </div>
+                            </div>
+                        </div>
+                    </td>""")
+                    // Column 1 — Business type (filterable)
+                    append("<td class='p-3 text-sm text-gray-600'>${c.businessType ?: "-"}</td>")
+                    // Column 2 — Governorate
+                    append("<td class='p-3 text-sm text-gray-600'>${c.governorate ?: "-"}</td>")
+                    // Column 3 — Status (filterable)
+                    append("""<td class='p-3'><span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap" style="background:$statusBg;color:$statusTxt">${c.status}</span></td>""")
+                    // Column 4 — Plan + Amount (stacked)
+                    append("""<td class='p-3'>
+                        <div class="text-sm font-medium text-gray-800">${String.format("%,.0f", c.finalAmount)} <span class="text-xs text-gray-500">ج.م</span></div>
+                        <div class="text-xs text-gray-500">${c.plan ?: "-"}</div>
+                    </td>""")
+                    // Column 5 — Assigned agent (filterable)
+                    append("""<td class='p-3 text-sm text-gray-700'>${c.assignedName ?: "-"}</td>""")
+                    // Column 6 — Last contact freshness pill
+                    append("<td class='p-3'>$freshness</td>")
+                    // Column 7 — Created / Updated compact
+                    append("""<td class='p-3'>
+                        <div class="text-xs text-gray-600 whitespace-nowrap">➕ ${formatCrmDate(c.createdAt)}</div>
+                        <div class="text-xs text-gray-400 whitespace-nowrap">✏️ ${formatCrmDate(c.updatedAt)}</div>
+                    </td>""")
+                    // Column 8 — Actions: stopPropagation so buttons don't navigate
+                    append("""<td class='p-3' onclick="event.stopPropagation()">
+                        <div class="flex items-center gap-1 justify-end">
+                            <a href="/crm/clients/${c.id}" class="p-1.5 rounded hover:bg-emerald-50 text-emerald-600 transition" title="عرض التفاصيل">👁️</a>
+                            <button onclick="openEditClient('${c.id}')" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition" title="تعديل">✏️</button>
+                            <button onclick="deleteClient('${c.id}', '$escapedName')" class="p-1.5 rounded hover:bg-red-50 text-red-600 transition" title="حذف">🗑️</button>
+                        </div>
                     </td>""")
                     append("</tr>")
                 }
@@ -122,44 +169,102 @@ fun Route.crmRoutes() {
                 val bg = statusColor(s)
                 val txt = statusTextColor(s)
                 val count = statusCounts[s] ?: 0
-                """<button class="status-chip px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all" style="background:$bg;color:$txt" data-status-col="5" onclick="filterByStatusChip('$s', this)">$s: $count</button>"""
+                // data-status-col matches the new Status column index (3)
+                """<button class="status-chip px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shadow-sm hover:scale-105" style="background:$bg;color:$txt" data-status-col="3" onclick="filterByStatusChip('$s', this)">$s <span class="opacity-70">· $count</span></button>"""
             }
             val agentNames = if (agents.isNotEmpty()) agents.map { it.name } else emptyList()
             val sourceList = listOf("واتساب", "فيسبوك", "انستجرام", "إحالة صديق", "زيارة للمحل", "الموقع", "جوجل", "تيك توك")
             val businessTypes = listOf("مطعم", "كافيه", "صيدلية", "محل تجزئة", "سوبر ماركت", "مخبز", "جزارة", "ملابس", "إلكترونيات", "موبايلات", "أخرى")
 
+            // Summary KPIs for the rebrand hero strip.
+            val totalClients = clients.size
+            val activeClients = clients.count { it.status in setOf("مشترك", "مدفوع") }
+            val pipelineClients = clients.count { it.status in setOf("متابعة", "ديمو محجوز", "تفاوض", "تجربة فعالة") }
+            val staleClients = clients.count { (it.daysSinceLastContact ?: 0) >= 7 }
+            val totalRevenue = clients.filter { it.status in setOf("مشترك", "مدفوع") }.sumOf { it.finalAmount }
+
             val content = """
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">العملاء (<span id="visibleCount">${clients.size}</span> / ${clients.size})</h2>
-                    <button onclick="document.getElementById('addClientModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة عميل</button>
+                <!-- Hero header -->
+                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">العملاء</h2>
+                        <p class="text-sm text-gray-500 mt-1">إدارة كل العملاء وسجلاتهم في مكان واحد</p>
+                    </div>
+                    <button onclick="document.getElementById('addClientModal').showModal()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl shadow-sm transition font-medium">
+                        <span class="text-lg">＋</span><span>إضافة عميل</span>
+                    </button>
                 </div>
+
+                <!-- KPI summary strip -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي العملاء</p>
+                                <p class="text-2xl font-bold text-gray-800 mt-1"><span id="visibleCount">$totalClients</span> <span class="text-sm font-normal text-gray-400">/ $totalClients</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xl">👥</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">عملاء نشطين</p>
+                                <p class="text-2xl font-bold text-emerald-600 mt-1">$activeClients</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-xl">✅</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">تحت المتابعة</p>
+                                <p class="text-2xl font-bold text-sky-600 mt-1">$pipelineClients</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center text-xl">🔍</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">${if (staleClients > 0) "يحتاج متابعة" else "إيراد نشط/شهر"}</p>
+                                <p class="text-2xl font-bold ${if (staleClients > 0) "text-red-600" else "text-amber-600"} mt-1">${if (staleClients > 0) "$staleClients" else String.format("%,.0f", totalRevenue)}</p>
+                                ${if (staleClients == 0) """<p class="text-xs text-gray-400">ج.م</p>""" else ""}
+                            </div>
+                            <div class="w-10 h-10 rounded-lg ${if (staleClients > 0) "bg-red-50" else "bg-amber-50"} flex items-center justify-center text-xl">${if (staleClients > 0) "⚠️" else "💰"}</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-2 mb-4">$statusChipsHtml</div>
                 ${filterBarHtml(listOf(
-                    Triple("الحالات", 5, allStatuses),
-                    Triple("أنواع النشاط", 3, businessTypes),
-                    Triple("الموظفين", 9, agentNames),
+                    Triple("الحالات", 3, allStatuses),
+                    Triple("أنواع النشاط", 1, businessTypes),
+                    Triple("الموظفين", 5, agentNames),
                     Triple("المصادر", -1, sourceList)
                 ), "بحث بالاسم أو الرقم...")}
-                <div class="bg-white rounded-xl shadow overflow-x-auto">
+                <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100">
                     <table id="dataTable" class="w-full text-sm">
                         <thead>
-                            <tr class="bg-gray-100 border-b">
-                                <th class="p-2 text-right">الاسم</th>
-                                <th class="p-2 text-right">الهاتف</th>
-                                <th class="p-2 text-right">النشاط</th>
-                                <th class="p-2 text-right">النوع</th>
-                                <th class="p-2 text-right">المحافظة</th>
-                                <th class="p-2 text-right">الحالة</th>
-                                <th class="p-2 text-right">التصنيف</th>
-                                <th class="p-2 text-right">الباقة</th>
-                                <th class="p-2 text-right">المبلغ</th>
-                                <th class="p-2 text-right">الموظف</th>
-                                <th class="p-2 text-right">آخر تواصل</th>
-                                <th class="p-2 text-right"></th>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">العميل</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">النوع</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">المحافظة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الحالة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الباقة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الموظف</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">آخر تواصل</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">التواريخ</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium"></th>
                             </tr>
                         </thead>
                         <tbody>$tableRows</tbody>
                     </table>
+                    ${if (clients.isEmpty()) """<div class="text-center py-16">
+                        <div class="text-6xl mb-3">📂</div>
+                        <p class="text-gray-500 mb-4">لا يوجد عملاء بعد</p>
+                        <button onclick="document.getElementById('addClientModal').showModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">أضف أول عميل</button>
+                    </div>""" else ""}
                 </div>
                 ${filterScript()}
 
@@ -167,6 +272,14 @@ fun Route.crmRoutes() {
                 ${editClientModalHtml(agentOptions, principal.canSeeAll)}
 
                 <script>
+                // Row-level click handler — navigates to client details unless the click
+                // was on an explicit action button/link inside the action cell.
+                function goToClient(event, id) {
+                    const target = event.target;
+                    if (target.closest('button, a, select, input')) return;
+                    window.location.href = '/crm/clients/' + id;
+                }
+
                 async function openEditClient(id) {
                     const res = await fetch('/crm/api/clients');
                     const clients = await res.json();
@@ -227,29 +340,538 @@ fun Route.crmRoutes() {
             )
         }
 
+        // ─── Client Details Page ────────────────────────────────
+        // Full 360° view of a single client: header with actions, KPIs, info panels,
+        // a vertical activities timeline, and the invoices section. Agents can only
+        // open details for clients they own; managers/owners see everyone.
+        get("/crm/clients/{id}") {
+            val principal = call.principal<CrmPrincipal>()!!
+            val clientId = call.parameters["id"]
+                ?: return@get call.respondText("Missing id", status = HttpStatusCode.BadRequest)
+
+            val client = crmService.getClient(clientId)
+            if (client == null) {
+                call.respondText(
+                    crmLayout("غير موجود", principal.name, principal.role, principal, "clients",
+                        """<div class="bg-white rounded-2xl p-10 text-center">
+                            <div class="text-6xl mb-3">🔎</div>
+                            <h2 class="text-xl font-bold mb-2">هذا العميل غير موجود</h2>
+                            <p class="text-gray-500 mb-4">ربما تم حذفه أو لم يعد متاحًا لك.</p>
+                            <a href="/crm/clients" class="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">العودة إلى العملاء</a>
+                        </div>"""),
+                    ContentType.Text.Html
+                )
+                return@get
+            }
+
+            // Agents may only open details for clients assigned to them.
+            if (!principal.canSeeAll && !crmService.isClientOwnedBy(clientId, principal.agentId)) {
+                call.respondText(
+                    crmLayout("ممنوع", principal.name, principal.role, principal, "clients",
+                        """<div class="bg-white rounded-2xl p-10 text-center">
+                            <div class="text-6xl mb-3">🚫</div>
+                            <h2 class="text-xl font-bold mb-2">ليس لديك صلاحية لعرض هذا العميل</h2>
+                            <a href="/crm/clients" class="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 mt-3">العودة إلى العملاء</a>
+                        </div>"""),
+                    ContentType.Text.Html, HttpStatusCode.Forbidden
+                )
+                return@get
+            }
+
+            val activities = crmService.listActivitiesForClient(clientId)
+            val invoices = crmService.listInvoices(clientId)
+            val agents = if (principal.canSeeAll) crmService.listAgents() else emptyList()
+            val agentOptions = agents.joinToString("") { """<option value="${it.id}">${it.name}</option>""" }
+
+            // Stats for the hero KPIs.
+            val totalActivities = activities.size
+            val lastContactLabel = when {
+                client.daysSinceLastContact == null -> "لم يُتواصل بعد"
+                client.daysSinceLastContact == 0L -> "اليوم"
+                client.daysSinceLastContact == 1L -> "أمس"
+                else -> "منذ ${client.daysSinceLastContact} يوم"
+            }
+            val daysAsClient = ((Clock.System.now().toEpochMilliseconds() - client.createdAt) / 86_400_000L).coerceAtLeast(0)
+            val totalPaid = invoices.sumOf { it.paidAmount }
+            val totalOutstanding = invoices.sumOf { it.remainingAmount }
+
+            // Avatar colour — hash-based so the same client keeps the same colour across pages.
+            val avatarPalette = listOf("#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316")
+            val avatarColor = avatarPalette[(client.clientName.hashCode().let { if (it < 0) -it else it }) % avatarPalette.size]
+            val initial = client.clientName.trim().firstOrNull()?.toString() ?: "؟"
+            val statusBg = statusColor(client.status)
+            val statusTxt = statusTextColor(client.status)
+
+            // WhatsApp deep link — strip anything non-digit and default-prefix 2 (Egypt) if the
+            // number looks local. Not foolproof but matches Egyptian conventions we see in data.
+            val waNumber = client.phone.filter { it.isDigit() }.let {
+                if (it.startsWith("2") || it.length <= 10) it else "2$it"
+            }
+            val waUrl = "https://wa.me/$waNumber"
+
+            fun infoRow(label: String, value: String?, icon: String = ""): String {
+                val display = value?.takeIf { it.isNotBlank() } ?: "-"
+                val iconSpan = if (icon.isNotEmpty()) """<span class="text-gray-400">$icon</span>""" else ""
+                return """
+                    <div class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-0">
+                        $iconSpan
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-gray-500">$label</div>
+                            <div class="text-sm font-medium text-gray-800 break-words">$display</div>
+                        </div>
+                    </div>
+                """.trimIndent()
+            }
+
+            // Vertical activities timeline.
+            val timelineHtml = if (activities.isEmpty()) """
+                <div class="text-center py-10">
+                    <div class="text-5xl mb-2">📭</div>
+                    <p class="text-gray-500">لا توجد أنشطة مسجلة لهذا العميل بعد</p>
+                </div>
+            """ else buildString {
+                append("""<div class="relative pr-6">""")
+                // Vertical rail
+                append("""<div class="absolute right-2 top-2 bottom-2 w-0.5 bg-gray-200"></div>""")
+                activities.forEach { a ->
+                    val dotColor = statusColor(a.newStatus ?: client.status)
+                    val channelIcon = when (a.channel) {
+                        "اتصال" -> "📞"
+                        "واتساب" -> "💬"
+                        "زيارة" -> "🏠"
+                        "اجتماع" -> "🤝"
+                        "بريد إلكتروني" -> "✉️"
+                        else -> "📝"
+                    }
+                    val prevChip = a.previousStatus?.let {
+                        val bg = statusColor(it); val tx = statusTextColor(it)
+                        """<span class="inline-block px-2 py-0.5 rounded-full text-xs" style="background:$bg;color:$tx">$it</span>"""
+                    } ?: ""
+                    val newChip = a.newStatus?.let {
+                        val bg = statusColor(it); val tx = statusTextColor(it)
+                        """<span class="inline-block px-2 py-0.5 rounded-full text-xs" style="background:$bg;color:$tx">$it</span>"""
+                    } ?: ""
+                    val transition = if (a.previousStatus != null && a.newStatus != null && a.previousStatus != a.newStatus)
+                        """<div class="flex items-center gap-2 mt-2 flex-wrap">$prevChip <span class="text-gray-400">←</span> $newChip</div>"""
+                    else if (a.newStatus != null)
+                        """<div class="mt-2">$newChip</div>"""
+                    else ""
+                    val notesRow = a.notes?.takeIf { it.isNotBlank() }?.let {
+                        """<div class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">"$it"</div>"""
+                    } ?: ""
+                    val nextStepRow = a.nextStep?.takeIf { it.isNotBlank() }?.let {
+                        """<div class="mt-2 text-xs text-emerald-700 flex items-center gap-1">
+                            <span>➡️</span><span>${it} ${a.nextDate?.let { d -> "— $d" } ?: ""}</span>
+                        </div>"""
+                    } ?: ""
+                    val amountChip = a.amount?.takeIf { it > 0 }?.let {
+                        """<span class="inline-block px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 font-medium">${String.format("%,.0f", it)} ج.م</span>"""
+                    } ?: ""
+
+                    append("""
+                        <div class="relative mb-5 pr-6">
+                            <div class="absolute right-0 top-2 w-4 h-4 rounded-full border-2 border-white shadow" style="background:$dotColor"></div>
+                            <div class="bg-white rounded-lg border border-gray-100 p-3 shadow-sm hover:shadow-md transition">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="text-xl">$channelIcon</span>
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-sm text-gray-800 truncate">${a.actionType ?: "نشاط"} ${a.channel?.let { "· $it" } ?: ""}</div>
+                                            <div class="text-xs text-gray-500">${formatCrmDate(a.createdAt)} · ${a.agentName}</div>
+                                        </div>
+                                    </div>
+                                    $amountChip
+                                </div>
+                                $transition
+                                ${a.result?.takeIf { it.isNotBlank() }?.let { """<div class="mt-2 text-xs text-gray-600"><strong>النتيجة:</strong> $it</div>""" } ?: ""}
+                                $notesRow
+                                $nextStepRow
+                            </div>
+                        </div>
+                    """)
+                }
+                append("</div>")
+            }
+
+            // Invoices section.
+            val invoicesHtml = if (invoices.isEmpty()) """
+                <div class="text-center py-6 text-gray-400 text-sm">لا توجد فواتير</div>
+            """ else buildString {
+                append("""<div class="overflow-x-auto"><table class="w-full text-sm">
+                    <thead><tr class="border-b">
+                        <th class="p-2 text-right text-xs text-gray-500">رقم الفاتورة</th>
+                        <th class="p-2 text-right text-xs text-gray-500">الفترة</th>
+                        <th class="p-2 text-right text-xs text-gray-500">المبلغ</th>
+                        <th class="p-2 text-right text-xs text-gray-500">المدفوع</th>
+                        <th class="p-2 text-right text-xs text-gray-500">الحالة</th>
+                    </tr></thead><tbody>""")
+                invoices.forEach { inv ->
+                    val statusClr = when (inv.status) {
+                        "مدفوع" -> "bg-emerald-100 text-emerald-700"
+                        "متأخر" -> "bg-red-100 text-red-700"
+                        "جزئي" -> "bg-amber-100 text-amber-700"
+                        else -> "bg-gray-100 text-gray-700"
+                    }
+                    append("""<tr class="border-b hover:bg-gray-50">
+                        <td class="p-2 font-mono text-xs">${inv.invoiceNumber}</td>
+                        <td class="p-2">${inv.period}</td>
+                        <td class="p-2 font-medium">${String.format("%,.0f", inv.finalAmount)} ج.م</td>
+                        <td class="p-2 text-emerald-700">${String.format("%,.0f", inv.paidAmount)} ج.م</td>
+                        <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs $statusClr">${inv.status}</span></td>
+                    </tr>""")
+                }
+                append("</tbody></table></div>")
+            }
+
+            val canEdit = principal.canSeeAll || client.assignedTo == principal.agentId
+
+            // Action buttons — only shown to users with permission on this record.
+            val actionButtons = buildString {
+                append("""<a href="$waUrl" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium">
+                    <span>💬</span><span>واتساب</span>
+                </a>""")
+                append("""<a href="tel:${client.phone}" class="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition text-sm font-medium">
+                    <span>📞</span><span>اتصال</span>
+                </a>""")
+                if (canEdit) {
+                    append("""<button onclick="openEditClient('${client.id}')" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700">
+                        <span>✏️</span><span>تعديل</span>
+                    </button>""")
+                    append("""<button onclick="document.getElementById('addActivityModal').showModal()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                        <span>＋</span><span>إضافة نشاط</span>
+                    </button>""")
+                    append("""<button onclick="deleteClient()" class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition text-sm font-medium">
+                        <span>🗑️</span><span>حذف</span>
+                    </button>""")
+                }
+            }
+
+            val clientOptionsForActivity = """<option value="${client.id}" selected>${client.clientName} - ${client.phone}</option>"""
+
+            val finalAmountFormatted = String.format("%,.0f", client.finalAmount)
+            val monthlyFormatted = String.format("%,.0f", client.monthlyAmount)
+
+            val content = """
+                <!-- Back link + breadcrumbs -->
+                <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                    <a href="/crm/clients" class="hover:text-emerald-600 transition flex items-center gap-1">
+                        <span>←</span><span>العودة إلى العملاء</span>
+                    </a>
+                </div>
+
+                <!-- Hero header card -->
+                <div class="bg-gradient-to-l from-slate-900 via-slate-800 to-slate-700 rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden">
+                    <!-- subtle pattern -->
+                    <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(circle at 20% 20%, white 1px, transparent 1px); background-size: 30px 30px;"></div>
+                    <div class="relative flex flex-col lg:flex-row lg:items-center gap-6">
+                        <!-- Avatar -->
+                        <div class="flex-shrink-0">
+                            <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-xl" style="background:$avatarColor">
+                                $initial
+                            </div>
+                        </div>
+                        <!-- Main info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <h1 class="text-2xl lg:text-3xl font-bold truncate">${client.clientName}</h1>
+                                <span class="px-3 py-1 rounded-full text-xs font-medium" style="background:$statusBg;color:$statusTxt">${client.status}</span>
+                                ${client.plan?.let { """<span class="px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white backdrop-blur">${it}</span>""" } ?: ""}
+                            </div>
+                            <div class="text-sm text-white/70 flex items-center gap-4 flex-wrap">
+                                <span class="flex items-center gap-1">📞 ${client.phone}</span>
+                                ${client.businessName?.let { """<span class="flex items-center gap-1">🏢 ${it}</span>""" } ?: ""}
+                                ${client.governorate?.let { """<span class="flex items-center gap-1">📍 ${it}</span>""" } ?: ""}
+                                ${client.assignedName?.let { """<span class="flex items-center gap-1">👤 ${it}</span>""" } ?: ""}
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                            $actionButtons
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI row -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي الأنشطة</p>
+                                <p class="text-2xl font-bold mt-1 text-gray-800">$totalActivities</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-xl">📋</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">آخر تواصل</p>
+                                <p class="text-lg font-bold mt-1 text-gray-800">$lastContactLabel</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600 text-xl">⏱️</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">القيمة الشهرية</p>
+                                <p class="text-xl font-bold mt-1 text-emerald-600">$finalAmountFormatted ج.م</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl">💰</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">عميل منذ</p>
+                                <p class="text-2xl font-bold mt-1 text-gray-800">$daysAsClient <span class="text-sm font-normal">يوم</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 text-xl">📅</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two-column grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left: client info + financial -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-800 flex items-center gap-2"><span>📇</span><span>معلومات العميل</span></h3>
+                            </div>
+                            ${infoRow("الهاتف", client.phone, "📞")}
+                            ${infoRow("واتساب", if (client.whatsapp) "مفعّل" else "غير مفعّل", "💬")}
+                            ${infoRow("اسم النشاط", client.businessName, "🏢")}
+                            ${infoRow("نوع النشاط", client.businessType, "🏷️")}
+                            ${infoRow("المدينة", client.city, "📍")}
+                            ${infoRow("المحافظة", client.governorate, "🗺️")}
+                            ${infoRow("مصدر العميل", client.source, "🧭")}
+                            ${infoRow("الموظف المسؤول", client.assignedName, "👤")}
+                            ${infoRow("تاريخ الإضافة", formatCrmDate(client.createdAt), "🗓️")}
+                            ${infoRow("آخر تعديل", formatCrmDate(client.updatedAt), "✏️")}
+                            ${infoRow("الإجراء القادم", client.nextActionDate, "➡️")}
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                            <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><span>💳</span><span>الباقة والدفع</span></h3>
+                            ${infoRow("الباقة", client.plan, "📦")}
+                            ${infoRow("المبلغ الشهري", "$monthlyFormatted ج.م", "💵")}
+                            ${infoRow("نسبة الخصم", "${client.discountPercent}%", "🏷️")}
+                            ${infoRow("المبلغ النهائي", "$finalAmountFormatted ج.م", "💰")}
+                            ${infoRow("طريقة الدفع", client.paymentMethod, "💳")}
+                        </div>
+
+                        ${if (!client.notes.isNullOrBlank()) """
+                        <div class="bg-amber-50 rounded-2xl p-5 border border-amber-100">
+                            <h3 class="font-bold text-amber-900 mb-2 flex items-center gap-2"><span>📝</span><span>ملاحظات</span></h3>
+                            <p class="text-sm text-amber-900 whitespace-pre-wrap">${client.notes}</p>
+                        </div>""" else ""}
+                    </div>
+
+                    <!-- Right: timeline + invoices -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-gray-800 flex items-center gap-2"><span>📜</span><span>سجل الأنشطة</span></h3>
+                                <span class="text-sm text-gray-500">${totalActivities} نشاط</span>
+                            </div>
+                            $timelineHtml
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-800 flex items-center gap-2"><span>🧾</span><span>الفواتير</span></h3>
+                                <div class="text-sm text-gray-500">
+                                    مدفوع: <span class="text-emerald-600 font-medium">${String.format("%,.0f", totalPaid)} ج.م</span>
+                                    ${if (totalOutstanding > 0) """· متبقي: <span class="text-red-600 font-medium">${String.format("%,.0f", totalOutstanding)} ج.م</span>""" else ""}
+                                </div>
+                            </div>
+                            $invoicesHtml
+                        </div>
+                    </div>
+                </div>
+
+                ${if (canEdit) editClientModalHtml(agentOptions, principal.canSeeAll) else ""}
+                ${if (canEdit) addActivityModalHtml(clientOptionsForActivity) else ""}
+
+                <script>
+                async function openEditClient(id) {
+                    const res = await fetch('/crm/api/clients');
+                    const clients = await res.json();
+                    const c = clients.find(x => x.id === id);
+                    if (!c) return alert('عميل غير موجود');
+                    document.getElementById('edit_id').value = c.id;
+                    document.getElementById('edit_clientName').value = c.clientName || '';
+                    document.getElementById('edit_phone').value = c.phone || '';
+                    document.getElementById('edit_whatsapp').checked = c.whatsapp || false;
+                    document.getElementById('edit_businessName').value = c.businessName || '';
+                    document.getElementById('edit_businessType').value = c.businessType || '';
+                    document.getElementById('edit_city').value = c.city || '';
+                    document.getElementById('edit_governorate').value = c.governorate || '';
+                    document.getElementById('edit_status').value = c.status || '';
+                    document.getElementById('edit_plan').value = c.plan || '';
+                    document.getElementById('edit_monthlyAmount').value = c.monthlyAmount || 0;
+                    document.getElementById('edit_discountPercent').value = c.discountPercent || 0;
+                    document.getElementById('edit_paymentMethod').value = c.paymentMethod || '';
+                    document.getElementById('edit_source').value = c.source || '';
+                    document.getElementById('edit_notes').value = c.notes || '';
+                    ${if (principal.canSeeAll) "document.getElementById('edit_assignedTo').value = c.assignedTo || '';" else ""}
+                    document.getElementById('editClientModal').showModal();
+                }
+                async function submitEditClient(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const data = Object.fromEntries(new FormData(form));
+                    const id = data.id; delete data.id;
+                    data.whatsapp = form.querySelector('[name=whatsapp]').checked;
+                    data.monthlyAmount = parseFloat(data.monthlyAmount) || 0;
+                    data.discountPercent = parseInt(data.discountPercent) || 0;
+                    const res = await fetch('/crm/api/clients/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+                async function submitNewActivity(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const data = Object.fromEntries(new FormData(form));
+                    data.amount = parseFloat(data.amount) || 0;
+                    data.discountPercent = parseInt(data.discountPercent) || 0;
+                    const res = await fetch('/crm/api/activities', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+                    if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+                async function deleteClient() {
+                    if (!confirm('هل أنت متأكد من حذف العميل ${client.clientName.replace("'", "\\'")}?\nسيتم حذف كل بياناته وفواتيره.')) return;
+                    const res = await fetch('/crm/api/clients/${client.id}', {method:'DELETE'});
+                    if (res.ok) { window.location.href = '/crm/clients'; } else { const d = await res.json(); alert(d.error || 'حدث خطأ'); }
+                }
+                </script>
+            """.trimIndent()
+
+            call.respondText(
+                crmLayout(client.clientName, principal.name, principal.role, principal, "clients", content),
+                ContentType.Text.Html
+            )
+        }
+
         // ─── Activities Page ────────────────────────────────────
         get("/crm/activities") {
             val principal = call.principal<CrmPrincipal>()!!
             val activities = crmService.listActivities(principal.agentId, principal.canSeeAll)
             val clients = crmService.listClients(principal.agentId, principal.canSeeAll)
 
+            // Consistent hashed avatar palette — same agent always gets the same color
+            // across clients list, details page, activities, and their profile.
+            val avatarPalette = listOf("#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316")
+
+            // Channel glyph map used across the new CRM UI — keeps the timeline, list
+            // and summaries consistent.
+            fun channelIcon(ch: String?): String = when (ch) {
+                "مكالمة تليفون", "اتصال" -> "📞"
+                "واتساب" -> "💬"
+                "زيارة" -> "🏠"
+                "اجتماع", "فيديو كول" -> "🤝"
+                "بريد إلكتروني" -> "✉️"
+                "رسالة SMS" -> "📩"
+                else -> "📝"
+            }
+
+            // Today's midnight in local TZ — used to bucket today's activities for the KPI.
+            val tzNow = Clock.System.now().toLocalDateTime(CRM_TZ)
+            val todayStart = kotlinx.datetime.LocalDateTime(tzNow.year, tzNow.month, tzNow.dayOfMonth, 0, 0)
+                .toInstant(CRM_TZ).toEpochMilliseconds()
+            val sevenDaysAgo = Clock.System.now().toEpochMilliseconds() - 7L * 86_400_000L
+            val activitiesToday = activities.count { it.createdAt >= todayStart }
+            val activitiesWeek = activities.count { it.createdAt >= sevenDaysAgo }
+            val topChannel = activities.mapNotNull { it.channel }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+            val topResult = activities.mapNotNull { it.result }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+
             val tableRows = buildString {
                 activities.forEach { a ->
-                    append("<tr class='border-b hover:bg-gray-50'>")
-                    append("<td class='p-2'>${a.agentName}</td>")
-                    append("<td class='p-2'>${a.clientName}</td>")
-                    append("<td class='p-2'>${a.actionType ?: "-"}</td>")
-                    append("<td class='p-2'>${a.channel ?: "-"}</td>")
-                    if (a.newStatus != null) {
-                        val bg = statusColor(a.newStatus)
-                        val txt = statusTextColor(a.newStatus)
-                        append("""<td class='p-2'><span class="px-2 py-1 rounded-full text-xs" style="background:$bg;color:$txt">${a.newStatus}</span></td>""")
-                    } else {
-                        append("<td class='p-2'>-</td>")
+                    // Agent may act on their own activities; manager/owner may act on any.
+                    val canEdit = principal.canSeeAll || a.agentId == principal.agentId
+                    val agentInitial = a.agentName.trim().firstOrNull()?.toString() ?: "؟"
+                    val agentColor = avatarPalette[(a.agentName.hashCode().let { if (it < 0) -it else it }) % avatarPalette.size]
+                    val icon = channelIcon(a.channel)
+                    val escapedClient = a.clientName.replace("'", "\\'")
+
+                    // Colored side border tints the row by channel for quick scanning.
+                    val railColor = when (a.channel) {
+                        "مكالمة تليفون", "اتصال" -> "border-r-sky-400"
+                        "واتساب" -> "border-r-emerald-400"
+                        "زيارة" -> "border-r-amber-400"
+                        "اجتماع", "فيديو كول" -> "border-r-indigo-400"
+                        "بريد إلكتروني" -> "border-r-rose-400"
+                        else -> "border-r-gray-200"
                     }
-                    append("<td class='p-2'>${a.result ?: "-"}</td>")
-                    append("<td class='p-2'>${a.notes ?: "-"}</td>")
-                    append("<td class='p-2'>${a.nextDate ?: "-"}</td>")
+
+                    append("""<tr class="border-b border-gray-100 border-r-4 $railColor hover:bg-gray-50 transition">""")
+                    // 0. Date (formatted) — filter col for agents depends on this being index 0? old was 0.
+                    append("""<td class='p-3 align-top'>
+                        <div class="text-xs font-medium text-gray-700 whitespace-nowrap">${formatCrmDate(a.createdAt)}</div>
+                    </td>""")
+                    // 1. Agent — avatar + name; link to profile for everyone
+                    append("""<td class='p-3 align-top'>
+                        <a href="/crm/profile/${a.agentId}" class="inline-flex items-center gap-2 group">
+                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0" style="background:$agentColor">$agentInitial</span>
+                            <span class="text-sm text-gray-800 group-hover:text-emerald-600 group-hover:underline">${a.agentName}</span>
+                        </a>
+                    </td>""")
+                    // 2. Client — link to details
+                    append("""<td class='p-3 align-top'>
+                        <a href="/crm/clients/${a.clientId}" class="text-sm font-medium text-gray-800 hover:text-emerald-600 hover:underline">${a.clientName}</a>
+                    </td>""")
+                    // 3. Action type
+                    append("""<td class='p-3 align-top'>
+                        <span class="inline-block px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">${a.actionType ?: "-"}</span>
+                    </td>""")
+                    // 4. Channel (icon + label)
+                    append("""<td class='p-3 align-top'>
+                        <span class="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                            <span class="text-lg">$icon</span><span>${a.channel ?: "-"}</span>
+                        </span>
+                    </td>""")
+                    // 5. Status transition (prev ← new) or just new
+                    val statusCell = buildString {
+                        if (a.previousStatus != null && a.newStatus != null && a.previousStatus != a.newStatus) {
+                            val pBg = statusColor(a.previousStatus); val pTx = statusTextColor(a.previousStatus)
+                            val nBg = statusColor(a.newStatus); val nTx = statusTextColor(a.newStatus)
+                            append("""<div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="px-2 py-0.5 rounded-full text-xs" style="background:$pBg;color:$pTx">${a.previousStatus}</span>
+                                <span class="text-gray-400 text-xs">←</span>
+                                <span class="px-2 py-0.5 rounded-full text-xs" style="background:$nBg;color:$nTx">${a.newStatus}</span>
+                            </div>""")
+                        } else if (a.newStatus != null) {
+                            val nBg = statusColor(a.newStatus); val nTx = statusTextColor(a.newStatus)
+                            append("""<span class="inline-block px-2 py-0.5 rounded-full text-xs" style="background:$nBg;color:$nTx">${a.newStatus}</span>""")
+                        } else {
+                            append("""<span class="text-gray-400 text-xs">-</span>""")
+                        }
+                    }
+                    append("<td class='p-3 align-top'>$statusCell</td>")
+                    // 6. Result
+                    append("<td class='p-3 align-top text-sm text-gray-700'>${a.result ?: "-"}</td>")
+                    // 7. Notes (truncated with tooltip)
+                    val notesCell = a.notes?.takeIf { it.isNotBlank() }?.let {
+                        val truncated = if (it.length > 60) it.take(60) + "…" else it
+                        """<div class="text-xs text-gray-600 max-w-xs" title="${it.replace("\"", "&quot;")}">"$truncated"</div>"""
+                    } ?: """<span class="text-gray-400 text-xs">-</span>"""
+                    append("<td class='p-3 align-top'>$notesCell</td>")
+                    // 8. Next action
+                    val nextCell = a.nextDate?.let {
+                        val step = a.nextStep?.takeIf { s -> s.isNotBlank() }?.let { s -> " — $s" } ?: ""
+                        """<span class="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full whitespace-nowrap">➡️ $it$step</span>"""
+                    } ?: """<span class="text-gray-400 text-xs">-</span>"""
+                    append("<td class='p-3 align-top'>$nextCell</td>")
+                    // 9. Actions
+                    if (canEdit) {
+                        append("""<td class='p-3 align-top'>
+                            <div class="flex items-center gap-1 justify-end">
+                                <button onclick="openEditActivity('${a.id}')" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition" title="تعديل">✏️</button>
+                                <button onclick="deleteActivity('${a.id}', '$escapedClient')" class="p-1.5 rounded hover:bg-red-50 text-red-600 transition" title="حذف">🗑️</button>
+                            </div>
+                        </td>""")
+                    } else {
+                        append("<td class='p-3'></td>")
+                    }
                     append("</tr>")
                 }
             }
@@ -262,36 +884,92 @@ fun Route.crmRoutes() {
             val activityAgents = activities.map { it.agentName }.distinct()
 
             val content = """
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">الأنشطة (<span id="visibleCount">${activities.size}</span> / ${activities.size})</h2>
-                    <button onclick="document.getElementById('addActivityModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة نشاط</button>
+                <!-- Hero header -->
+                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">الأنشطة</h2>
+                        <p class="text-sm text-gray-500 mt-1">سجل كل التواصلات والإجراءات مع العملاء</p>
+                    </div>
+                    <button onclick="document.getElementById('addActivityModal').showModal()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl shadow-sm transition font-medium">
+                        <span class="text-lg">＋</span><span>إضافة نشاط</span>
+                    </button>
                 </div>
+
+                <!-- KPI summary strip -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي الأنشطة</p>
+                                <p class="text-2xl font-bold text-gray-800 mt-1"><span id="visibleCount">${activities.size}</span> <span class="text-sm font-normal text-gray-400">/ ${activities.size}</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xl">📋</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">نشاط اليوم</p>
+                                <p class="text-2xl font-bold text-emerald-600 mt-1">$activitiesToday</p>
+                                <p class="text-xs text-gray-400 mt-0.5">آخر 7 أيام: $activitiesWeek</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-xl">⚡</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">القناة الأكثر استخدامًا</p>
+                                <p class="text-xl font-bold text-sky-600 mt-1 flex items-center gap-1">${channelIcon(topChannel)} <span>${topChannel ?: "-"}</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center text-xl">📡</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">النتيجة الأكثر تكرارًا</p>
+                                <p class="text-lg font-bold text-amber-700 mt-1">${topResult ?: "-"}</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-xl">🎯</div>
+                        </div>
+                    </div>
+                </div>
+
                 ${filterBarHtml(listOf(
-                    Triple("أنواع الإجراء", 2, actionTypes),
-                    Triple("القنوات", 3, channels),
-                    Triple("النتائج", 5, results),
-                    Triple("الموظفين", 0, activityAgents)
+                    Triple("أنواع الإجراء", 3, actionTypes),
+                    Triple("القنوات", 4, channels),
+                    Triple("النتائج", 6, results),
+                    Triple("الموظفين", 1, activityAgents)
                 ), "بحث...")}
-                <div class="bg-white rounded-xl shadow overflow-x-auto">
+                <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100">
                     <table id="dataTable" class="w-full text-sm">
                         <thead>
-                            <tr class="bg-gray-100 border-b">
-                                <th class="p-2 text-right">الموظف</th>
-                                <th class="p-2 text-right">العميل</th>
-                                <th class="p-2 text-right">الإجراء</th>
-                                <th class="p-2 text-right">القناة</th>
-                                <th class="p-2 text-right">الحالة الجديدة</th>
-                                <th class="p-2 text-right">النتيجة</th>
-                                <th class="p-2 text-right">ملاحظات</th>
-                                <th class="p-2 text-right">الإجراء القادم</th>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">التاريخ</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الموظف</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">العميل</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الإجراء</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">القناة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">تغيير الحالة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">النتيجة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">ملاحظات</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">التالي</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium"></th>
                             </tr>
                         </thead>
                         <tbody>$tableRows</tbody>
                     </table>
+                    ${if (activities.isEmpty()) """<div class="text-center py-16">
+                        <div class="text-6xl mb-3">📭</div>
+                        <p class="text-gray-500 mb-4">لا توجد أنشطة مسجلة بعد</p>
+                        <button onclick="document.getElementById('addActivityModal').showModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">سجّل أول نشاط</button>
+                    </div>""" else ""}
                 </div>
                 ${filterScript()}
 
                 ${addActivityModalHtml(clientOptions)}
+                ${editActivityModalHtml(clientOptions)}
 
                 <script>
                 // Client data for auto-fill when selecting a client in activity form
@@ -328,6 +1006,47 @@ fun Route.crmRoutes() {
                     data.discountPercent = parseInt(data.discountPercent) || 0;
                     const res = await fetch('/crm/api/activities', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
                     if (res.ok) { location.reload(); } else { alert('حدث خطأ'); }
+                }
+
+                async function openEditActivity(id) {
+                    const res = await fetch('/crm/api/activities');
+                    const activities = await res.json();
+                    const a = activities.find(x => x.id === id);
+                    if (!a) return alert('نشاط غير موجود');
+                    document.getElementById('edit_activity_id').value = a.id;
+                    document.getElementById('edit_activity_clientId').value = a.clientId || '';
+                    document.getElementById('edit_activity_actionType').value = a.actionType || '';
+                    document.getElementById('edit_activity_channel').value = a.channel || '';
+                    document.getElementById('edit_activity_previousStatus').value = a.previousStatus || '';
+                    document.getElementById('edit_activity_newStatus').value = a.newStatus || '';
+                    document.getElementById('edit_activity_planOffered').value = a.planOffered || '';
+                    document.getElementById('edit_activity_amount').value = a.amount || 0;
+                    document.getElementById('edit_activity_discountPercent').value = a.discountPercent || 0;
+                    document.getElementById('edit_activity_callDuration').value = a.callDuration || '';
+                    document.getElementById('edit_activity_result').value = a.result || '';
+                    document.getElementById('edit_activity_nextStep').value = a.nextStep || '';
+                    document.getElementById('edit_activity_nextDate').value = a.nextDate || '';
+                    document.getElementById('edit_activity_notes').value = a.notes || '';
+                    document.getElementById('editActivityModal').showModal();
+                }
+
+                async function submitEditActivity(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const data = Object.fromEntries(new FormData(form));
+                    const id = data.id; delete data.id;
+                    // clientId is not mutable via PUT (the row belongs to that client).
+                    delete data.clientId;
+                    data.amount = parseFloat(data.amount) || 0;
+                    data.discountPercent = parseInt(data.discountPercent) || 0;
+                    const res = await fetch('/crm/api/activities/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+                    if (res.ok) { location.reload(); } else { const d = await res.json().catch(()=>({})); alert(d.error || 'حدث خطأ'); }
+                }
+
+                async function deleteActivity(id, clientName) {
+                    if (!confirm('هل أنت متأكد من حذف نشاط العميل ' + clientName + '؟')) return;
+                    const res = await fetch('/crm/api/activities/' + id, {method:'DELETE'});
+                    if (res.ok) { location.reload(); } else { const d = await res.json().catch(()=>({})); alert(d.error || 'حدث خطأ'); }
                 }
                 </script>
             """.trimIndent()
@@ -973,7 +1692,7 @@ fun Route.crmRoutes() {
                 call.respondRedirect("/crm/dashboard")
                 return@get
             }
-            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val now = Clock.System.now().toLocalDateTime(CRM_TZ)
             val currentMonth = call.request.queryParameters["month"] ?: "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
             val agents = crmService.listAgents().filter { it.active }
             val salaryRecords = crmService.listAllSalaryRecords(currentMonth)
@@ -1203,7 +1922,7 @@ fun Route.crmRoutes() {
                 return@get
             }
 
-            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val now = Clock.System.now().toLocalDateTime(CRM_TZ)
             val agent = profile.agent
             val (roleBg, roleTxt) = roleBadgeColor(agent.role)
             val photoHtml = agentPhotoHtml(agent.photoUrl, agent.name, 96)
@@ -1212,28 +1931,60 @@ fun Route.crmRoutes() {
 
             val canEditPhoto = principal.isOwner || principal.agentId == agentId
 
-            // Section 1: Agent Card
+            // Section 1: Rebranded hero card — gradient background, big photo, inline
+            // KPI chips, role badge and action row. Matches the client-details hero so
+            // the CRM feels like one consistent product.
+            val roleTag = """<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style="background:$roleBg;color:$roleTxt">${roleDisplayName(agent.role)}</span>"""
+            val heroStatusDot = if (agent.active)
+                """<span class="inline-flex items-center gap-1.5 text-xs text-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>نشط</span>"""
+            else
+                """<span class="inline-flex items-center gap-1.5 text-xs text-red-200"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>غير نشط</span>"""
             val agentCard = """
-                <div class="bg-white rounded-2xl shadow p-6 md:p-8 mb-6">
-                    <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
-                        <div class="relative group">
-                            $photoHtml
+                <!-- Hero header card -->
+                <div class="bg-gradient-to-l from-slate-900 via-slate-800 to-slate-700 rounded-2xl p-6 md:p-8 mb-6 text-white shadow-lg relative overflow-hidden">
+                    <!-- subtle pattern -->
+                    <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(circle at 20% 20%, white 1px, transparent 1px); background-size: 30px 30px;"></div>
+                    <div class="relative flex flex-col md:flex-row items-center md:items-start gap-6">
+                        <!-- Photo (or initial avatar) with optional hover-to-change overlay -->
+                        <div class="relative group flex-shrink-0">
+                            <div class="p-1 rounded-full bg-gradient-to-br from-white/30 to-white/5 shadow-xl">
+                                $photoHtml
+                            </div>
                             ${if (canEditPhoto) """
-                            <button onclick="document.getElementById('photoInput').click()" class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                            <button onclick="document.getElementById('photoInput').click()" class="absolute inset-1 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer">
                                 <span class="text-white text-sm">📷 تغيير</span>
                             </button>
                             <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="uploadPhoto(this)">
                             """ else ""}
                         </div>
-                        <div class="text-center md:text-right flex-1">
-                            <h1 class="text-2xl font-bold mb-2">${agent.name}</h1>
-                            <span class="inline-block px-3 py-1 rounded-full text-sm font-medium mb-2" style="background:$roleBg;color:$roleTxt">${roleDisplayName(agent.role)}</span>
-                            <p class="text-gray-500 text-sm mb-1">${agent.email}</p>
-                            <div class="mt-1">$statusDot</div>
+
+                        <!-- Identity -->
+                        <div class="text-center md:text-right flex-1 min-w-0">
+                            <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap mb-2">
+                                <h1 class="text-2xl md:text-3xl font-bold truncate">${agent.name}</h1>
+                                $roleTag
+                                $heroStatusDot
+                            </div>
+                            <p class="text-white/70 text-sm mb-3 flex items-center justify-center md:justify-start gap-1">
+                                <span>✉️</span><span>${agent.email}</span>
+                            </p>
+                            <!-- Inline quick stats -->
+                            <div class="flex flex-wrap gap-2 justify-center md:justify-start">
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-xs backdrop-blur">👥 ${profile.totalClients} عميل</span>
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-xs backdrop-blur">✅ ${profile.totalSubscriptions} اشتراك</span>
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-xs backdrop-blur">📋 ${profile.totalActivities} نشاط</span>
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-xs backdrop-blur">💰 ${String.format("%,.0f", profile.totalRevenue)} ج.م</span>
+                            </div>
                         </div>
-                        ${if (principal.agentId == agentId) """<div class="flex gap-2 flex-wrap">
-                            <button onclick="document.getElementById('changeMyPasswordModal').showModal()" class="text-sm px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition">تغيير كلمة السر</button>
-                            <a href="/crm/logout" class="text-sm px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">تسجيل الخروج</a>
+
+                        <!-- Self-service actions (only on own profile) -->
+                        ${if (principal.agentId == agentId) """<div class="flex gap-2 flex-wrap items-start">
+                            <button onclick="document.getElementById('changeMyPasswordModal').showModal()" class="flex items-center gap-2 text-sm px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition backdrop-blur">
+                                <span>🔒</span><span>تغيير كلمة السر</span>
+                            </button>
+                            <a href="/crm/logout" class="flex items-center gap-2 text-sm px-4 py-2 bg-red-500/20 text-red-100 rounded-lg hover:bg-red-500/30 transition backdrop-blur">
+                                <span>🚪</span><span>تسجيل الخروج</span>
+                            </a>
                         </div>
                         <dialog id="changeMyPasswordModal" class="rounded-2xl">
                             <div class="p-6">
@@ -1248,7 +1999,7 @@ fun Route.crmRoutes() {
                                     <input type="password" id="myConfirmPass" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                                     <div class="flex justify-end gap-2 pt-2">
                                         <button type="button" onclick="document.getElementById('changeMyPasswordModal').close()" class="px-4 py-2 text-sm border rounded-lg">إلغاء</button>
-                                        <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-yellow-600">تغيير</button>
+                                        <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">تغيير</button>
                                     </div>
                                 </form>
                             </div>
@@ -1296,35 +2047,43 @@ fun Route.crmRoutes() {
                 </script>
             """.trimIndent()
 
-            // Section 2: Monthly Target + Progress
+            // Section 2: Monthly Target + Progress — same progressBar but in the refreshed
+            // card shell (subtle border, softer shadow, icon in the heading).
             val currentMonthLabel = arabicMonth(profile.currentMonth)
             val targetSection = if (profile.target != null) {
                 val p = profile.progress
                 """
-                <div class="bg-white rounded-2xl shadow p-6 mb-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold">هدف $currentMonthLabel</h2>
-                        ${if (principal.isOwner) """<button onclick="document.getElementById('setTargetModal').showModal()" class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">تعديل الهدف</button>""" else ""}
+                        <h2 class="font-bold text-gray-800 flex items-center gap-2"><span>🎯</span><span>هدف $currentMonthLabel</span></h2>
+                        ${if (principal.isOwner) """<button onclick="document.getElementById('setTargetModal').showModal()" class="flex items-center gap-1 text-sm px-3 py-1.5 bg-sky-50 text-sky-700 rounded-lg hover:bg-sky-100 transition">
+                            <span>✏️</span><span>تعديل الهدف</span>
+                        </button>""" else ""}
                     </div>
                     ${progressBar("عملاء جدد", p.actualClients.toString(), p.targetClients.toString(), p.clientsPercent)}
                     ${progressBar("اشتراكات", p.actualSubscriptions.toString(), p.targetSubscriptions.toString(), p.subscriptionsPercent)}
                     ${progressBar("الإيراد", "${String.format("%,.0f", p.actualRevenue)} ج.م", "${String.format("%,.0f", p.targetRevenue)} ج.م", p.revenuePercent)}
                     ${if (!profile.target?.notes.isNullOrBlank()) """
-                    <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <p class="text-sm font-bold text-blue-800 mb-1">📝 ملاحظات الهدف:</p>
-                        <p class="text-sm text-blue-700">${profile.target?.notes}</p>
+                    <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <p class="text-sm font-bold text-amber-800 mb-1">📝 ملاحظات الهدف</p>
+                        <p class="text-sm text-amber-900 whitespace-pre-wrap">${profile.target?.notes}</p>
                     </div>
                     """ else ""}
                 </div>
                 """.trimIndent()
             } else {
                 """
-                <div class="bg-white rounded-2xl shadow p-6 mb-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold">هدف $currentMonthLabel</h2>
-                        ${if (principal.isOwner) """<button onclick="document.getElementById('setTargetModal').showModal()" class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">تعديل الهدف</button>""" else ""}
+                        <h2 class="font-bold text-gray-800 flex items-center gap-2"><span>🎯</span><span>هدف $currentMonthLabel</span></h2>
+                        ${if (principal.isOwner) """<button onclick="document.getElementById('setTargetModal').showModal()" class="flex items-center gap-1 text-sm px-3 py-1.5 bg-sky-50 text-sky-700 rounded-lg hover:bg-sky-100 transition">
+                            <span>✏️</span><span>تعديل الهدف</span>
+                        </button>""" else ""}
                     </div>
-                    <p class="text-gray-400 text-center py-4">لم يتم تحديد هدف لهذا الشهر</p>
+                    <div class="text-center py-6">
+                        <div class="text-4xl mb-2">🎯</div>
+                        <p class="text-gray-400 text-sm">لم يتم تحديد هدف لهذا الشهر</p>
+                    </div>
                 </div>
                 """.trimIndent()
             }
@@ -1535,13 +2294,45 @@ fun Route.crmRoutes() {
                 "$configDisplay\n$salaryConfigModal"
             } else ""
 
-            // Section 3: All-time Stats
+            // Section 3: All-time Stats — modern KPI cards consistent with the rest of the rebrand.
             val statsSection = """
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    ${kpiCard("إجمالي العملاء", profile.totalClients.toString(), "👥", "#1B3A5C")}
-                    ${kpiCard("إجمالي الاشتراكات", profile.totalSubscriptions.toString(), "✅", "#2E7D32")}
-                    ${kpiCard("إجمالي الإيراد", "${String.format("%,.0f", profile.totalRevenue)} ج.م", "💰", "#E65100")}
-                    ${kpiCard("إجمالي الأنشطة", profile.totalActivities.toString(), "📋", "#00838F")}
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي العملاء</p>
+                                <p class="text-2xl font-bold mt-1 text-slate-800">${profile.totalClients}</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 text-xl">👥</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي الاشتراكات</p>
+                                <p class="text-2xl font-bold mt-1 text-emerald-600">${profile.totalSubscriptions}</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl">✅</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي الإيراد</p>
+                                <p class="text-xl font-bold mt-1 text-amber-600">${String.format("%,.0f", profile.totalRevenue)} <span class="text-sm font-normal">ج.م</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 text-xl">💰</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">إجمالي الأنشطة</p>
+                                <p class="text-2xl font-bold mt-1 text-indigo-600">${profile.totalActivities}</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-xl">📋</div>
+                        </div>
+                    </div>
                 </div>
             """.trimIndent()
 
@@ -1591,21 +2382,27 @@ fun Route.crmRoutes() {
             }
 
             val reviewsSection = """
-                <div class="bg-white rounded-2xl shadow p-6 mb-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold">سجل التقييمات</h2>
-                        ${if (principal.isOwner) """<button onclick="document.getElementById('addReviewModal').showModal()" class="text-sm px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">+ إضافة تقييم</button>""" else ""}
+                        <h2 class="font-bold text-gray-800 flex items-center gap-2"><span>⭐</span><span>سجل التقييمات</span></h2>
+                        ${if (principal.isOwner) """<button onclick="document.getElementById('addReviewModal').showModal()" class="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition">
+                            <span>＋</span><span>إضافة تقييم</span>
+                        </button>""" else ""}
                     </div>
-                    ${if (profile.reviews.isEmpty()) """<p class="text-gray-400 text-center py-4">لا توجد تقييمات</p>""" else """
+                    ${if (profile.reviews.isEmpty()) """
+                    <div class="text-center py-8">
+                        <div class="text-4xl mb-2">🌟</div>
+                        <p class="text-gray-400 text-sm">لا توجد تقييمات بعد</p>
+                    </div>""" else """
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="bg-gray-100 border-b">
-                                    <th class="p-2 text-right">الشهر</th>
-                                    <th class="p-2 text-right">التقييم</th>
-                                    <th class="p-2 text-right">الملاحظات</th>
-                                    <th class="p-2 text-center">مثبت</th>
-                                    <th class="p-2 text-right">إجراءات</th>
+                                <tr class="bg-gray-50 border-b">
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الشهر</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">التقييم</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الملاحظات</th>
+                                    <th class="p-3 text-center text-xs text-gray-500 uppercase tracking-wider font-medium">مثبت</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>$reviewRows</tbody>
@@ -1615,32 +2412,76 @@ fun Route.crmRoutes() {
                 </div>
             """.trimIndent()
 
-            // Section 6: Recent Activities
+            // Section 6: Recent Activities — styled to match the main /crm/activities screen,
+            // with channel icons, colored rails, status transition chips and linked clients.
+            fun profileChannelIcon(ch: String?): String = when (ch) {
+                "مكالمة تليفون", "اتصال" -> "📞"
+                "واتساب" -> "💬"
+                "زيارة" -> "🏠"
+                "اجتماع", "فيديو كول" -> "🤝"
+                "بريد إلكتروني" -> "✉️"
+                "رسالة SMS" -> "📩"
+                else -> "📝"
+            }
             val activityRows = profile.recentActivities.joinToString("") { a ->
+                val icon = profileChannelIcon(a.channel)
+                val rail = when (a.channel) {
+                    "مكالمة تليفون", "اتصال" -> "border-r-sky-400"
+                    "واتساب" -> "border-r-emerald-400"
+                    "زيارة" -> "border-r-amber-400"
+                    "اجتماع", "فيديو كول" -> "border-r-indigo-400"
+                    "بريد إلكتروني" -> "border-r-rose-400"
+                    else -> "border-r-gray-200"
+                }
+                val statusCell = when {
+                    a.previousStatus != null && a.newStatus != null && a.previousStatus != a.newStatus -> {
+                        val pBg = statusColor(a.previousStatus); val pTx = statusTextColor(a.previousStatus)
+                        val nBg = statusColor(a.newStatus); val nTx = statusTextColor(a.newStatus)
+                        """<div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="px-2 py-0.5 rounded-full text-xs" style="background:$pBg;color:$pTx">${a.previousStatus}</span>
+                            <span class="text-gray-400 text-xs">←</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs" style="background:$nBg;color:$nTx">${a.newStatus}</span>
+                        </div>"""
+                    }
+                    a.newStatus != null -> {
+                        val nBg = statusColor(a.newStatus); val nTx = statusTextColor(a.newStatus)
+                        """<span class="inline-block px-2 py-0.5 rounded-full text-xs" style="background:$nBg;color:$nTx">${a.newStatus}</span>"""
+                    }
+                    else -> """<span class="text-gray-400 text-xs">-</span>"""
+                }
                 """
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2">${a.createdAt}</td>
-                    <td class="p-2">${a.clientName}</td>
-                    <td class="p-2">${a.actionType ?: "-"}</td>
-                    <td class="p-2">${a.channel ?: "-"}</td>
-                    <td class="p-2">${a.result ?: "-"}</td>
+                <tr class="border-b border-gray-100 border-r-4 $rail hover:bg-gray-50 transition">
+                    <td class="p-3 align-top"><div class="text-xs font-medium text-gray-700 whitespace-nowrap">${formatCrmDate(a.createdAt)}</div></td>
+                    <td class="p-3 align-top"><a href="/crm/clients/${a.clientId}" class="text-sm font-medium text-gray-800 hover:text-emerald-600 hover:underline">${a.clientName}</a></td>
+                    <td class="p-3 align-top"><span class="inline-block px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">${a.actionType ?: "-"}</span></td>
+                    <td class="p-3 align-top"><span class="inline-flex items-center gap-1.5 text-sm text-gray-700"><span class="text-lg">$icon</span><span>${a.channel ?: "-"}</span></span></td>
+                    <td class="p-3 align-top">$statusCell</td>
+                    <td class="p-3 align-top text-sm text-gray-700">${a.result ?: "-"}</td>
                 </tr>
                 """
             }
 
             val activitiesSection = """
-                <div class="bg-white rounded-2xl shadow p-6 mb-6">
-                    <h2 class="text-lg font-bold mb-4">آخر الأنشطة</h2>
-                    ${if (profile.recentActivities.isEmpty()) """<p class="text-gray-400 text-center py-4">لا توجد أنشطة</p>""" else """
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-bold text-gray-800 flex items-center gap-2"><span>📜</span><span>آخر الأنشطة</span></h2>
+                        <a href="/crm/activities" class="text-xs text-emerald-600 hover:underline">عرض الكل ←</a>
+                    </div>
+                    ${if (profile.recentActivities.isEmpty()) """
+                    <div class="text-center py-8">
+                        <div class="text-4xl mb-2">📭</div>
+                        <p class="text-gray-400 text-sm">لا توجد أنشطة بعد</p>
+                    </div>""" else """
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="bg-gray-100 border-b">
-                                    <th class="p-2 text-right">التاريخ</th>
-                                    <th class="p-2 text-right">العميل</th>
-                                    <th class="p-2 text-right">الإجراء</th>
-                                    <th class="p-2 text-right">القناة</th>
-                                    <th class="p-2 text-right">النتيجة</th>
+                                <tr class="bg-gray-50 border-b">
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">التاريخ</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">العميل</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الإجراء</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">القناة</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">تغيير الحالة</th>
+                                    <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">النتيجة</th>
                                 </tr>
                             </thead>
                             <tbody>$activityRows</tbody>
@@ -1909,6 +2750,11 @@ fun Route.crmRoutes() {
             put("/clients/{id}") {
                 val principal = call.principal<CrmPrincipal>()!!
                 val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                // Agents may only edit clients they own. Managers/owners edit anyone.
+                if (!principal.canSeeAll && !crmService.isClientOwnedBy(id, principal.agentId)) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@put
+                }
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val ok = crmService.updateClient(
@@ -1939,11 +2785,12 @@ fun Route.crmRoutes() {
 
             delete("/clients/{id}") {
                 val principal = call.principal<CrmPrincipal>()!!
-                if (!principal.canSeeAll) {
+                val id = call.parameters["id"] ?: return@delete
+                // Agents may delete only clients assigned to them. Managers/owners delete anyone.
+                if (!principal.canSeeAll && !crmService.isClientOwnedBy(id, principal.agentId)) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@delete
                 }
-                val id = call.parameters["id"] ?: return@delete
                 if (crmService.deleteClient(id)) {
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
@@ -2000,6 +2847,55 @@ fun Route.crmRoutes() {
                 )
                 val result = buildJsonObject { put("id", id); put("status", "ok") }
                 call.respondText(result.toString(), ContentType.Application.Json, HttpStatusCode.Created)
+            }
+
+            // PUT /crm/api/activities/{id}
+            put("/activities/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                // Agents may only edit activities they recorded. Managers/owners edit anyone's.
+                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(id, principal.agentId)) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@put
+                }
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val ok = crmService.updateActivity(
+                    id = id,
+                    actionType = obj["actionType"]?.jsonPrimitive?.contentOrNull,
+                    channel = obj["channel"]?.jsonPrimitive?.contentOrNull,
+                    previousStatus = obj["previousStatus"]?.jsonPrimitive?.contentOrNull,
+                    newStatus = obj["newStatus"]?.jsonPrimitive?.contentOrNull,
+                    planOffered = obj["planOffered"]?.jsonPrimitive?.contentOrNull,
+                    amount = obj["amount"]?.jsonPrimitive?.doubleOrNull,
+                    discountPercent = obj["discountPercent"]?.jsonPrimitive?.intOrNull,
+                    callDuration = obj["callDuration"]?.jsonPrimitive?.contentOrNull,
+                    result = obj["result"]?.jsonPrimitive?.contentOrNull,
+                    nextStep = obj["nextStep"]?.jsonPrimitive?.contentOrNull,
+                    nextDate = obj["nextDate"]?.jsonPrimitive?.contentOrNull,
+                    notes = obj["notes"]?.jsonPrimitive?.contentOrNull,
+                )
+                if (ok) {
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+            }
+
+            // DELETE /crm/api/activities/{id}
+            delete("/activities/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                val id = call.parameters["id"] ?: return@delete
+                // Agents may only delete activities they recorded. Managers/owners delete anyone's.
+                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(id, principal.agentId)) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                if (crmService.deleteActivity(id)) {
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
             }
 
             // GET /crm/api/stats
@@ -2391,7 +3287,7 @@ fun Route.crmRoutes() {
                     return@get
                 }
                 val month = call.request.queryParameters["month"] ?: run {
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    val now = Clock.System.now().toLocalDateTime(CRM_TZ)
                     "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
                 }
                 val progress = crmService.getProgress(id, month)
@@ -2466,7 +3362,7 @@ fun Route.crmRoutes() {
                     return@get
                 }
                 val month = call.request.queryParameters["month"] ?: run {
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    val now = Clock.System.now().toLocalDateTime(CRM_TZ)
                     "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
                 }
                 val record = crmService.getSalaryRecord(id, month)
@@ -2552,7 +3448,7 @@ fun Route.crmRoutes() {
                     return@get
                 }
                 val month = call.request.queryParameters["month"] ?: run {
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    val now = Clock.System.now().toLocalDateTime(CRM_TZ)
                     "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
                 }
                 val records = crmService.listAllSalaryRecords(month)
@@ -2732,10 +3628,11 @@ private fun buildOwnerDashboard(stats: CrmService.CrmStats, recentActivities: Li
         append("<div class='bg-white rounded-xl shadow p-6'>")
         append("<h3 class='text-lg font-bold mb-4'>آخر الأنشطة</h3>")
         append("<div class='overflow-x-auto'><table class='w-full text-sm'><thead><tr class='border-b'>")
-        append("<th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
+        append("<th class='p-2 text-right'>التاريخ</th><th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
         append("</tr></thead><tbody>")
         recentActivities.forEach { act ->
             append("<tr class='border-b hover:bg-gray-50'>")
+            append("<td class='p-2 text-xs text-gray-600 whitespace-nowrap'>${formatCrmDate(act.createdAt)}</td>")
             append("<td class='p-2'>${act.agentName}</td>")
             append("<td class='p-2'>${act.clientName}</td>")
             append("<td class='p-2'>${act.actionType ?: "-"}</td>")
@@ -2779,10 +3676,11 @@ private fun buildBasicDashboard(stats: CrmService.CrmStats, recentActivities: Li
         append("<div class='bg-white rounded-xl shadow p-6'>")
         append("<h3 class='text-lg font-bold mb-4'>آخر الأنشطة</h3>")
         append("<div class='overflow-x-auto'><table class='w-full text-sm'><thead><tr class='border-b'>")
-        append("<th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
+        append("<th class='p-2 text-right'>التاريخ</th><th class='p-2 text-right'>الموظف</th><th class='p-2 text-right'>العميل</th><th class='p-2 text-right'>الإجراء</th><th class='p-2 text-right'>القناة</th><th class='p-2 text-right'>النتيجة</th>")
         append("</tr></thead><tbody>")
         recentActivities.forEach { act ->
             append("<tr class='border-b hover:bg-gray-50'>")
+            append("<td class='p-2 text-xs text-gray-600 whitespace-nowrap'>${formatCrmDate(act.createdAt)}</td>")
             append("<td class='p-2'>${act.agentName}</td>")
             append("<td class='p-2'>${act.clientName}</td>")
             append("<td class='p-2'>${act.actionType ?: "-"}</td>")
@@ -2804,6 +3702,32 @@ private fun buildBasicDashboard(stats: CrmService.CrmStats, recentActivities: Li
 // ════════════════════════════════════════════════════════════════
 // HTML Helper Functions
 // ════════════════════════════════════════════════════════════════
+
+/**
+ * Formats an epoch-milliseconds timestamp for display in the dashboard.
+ * Renders as `yyyy-MM-dd hh:mm ص|م` (12-hour clock with Arabic AM/PM markers) in Egypt
+ * local time (CRM_TZ) — the VPS itself runs UTC, so we must never fall back to the
+ * JVM's default zone. Returns "-" for null/zero so tables stay tidy when the value is
+ * missing.
+ */
+private fun formatCrmDate(epochMs: Long?): String {
+    if (epochMs == null || epochMs <= 0L) return "-"
+    val ldt = kotlinx.datetime.Instant.fromEpochMilliseconds(epochMs)
+        .toLocalDateTime(CRM_TZ)
+    val mm = ldt.monthNumber.toString().padStart(2, '0')
+    val dd = ldt.dayOfMonth.toString().padStart(2, '0')
+    // 12-hour clock: 0 → 12 ص, 1–11 → ص, 12 → 12 م, 13–23 → 1–11 م.
+    val hour24 = ldt.hour
+    val hour12 = when {
+        hour24 == 0 -> 12
+        hour24 > 12 -> hour24 - 12
+        else -> hour24
+    }
+    val ampm = if (hour24 < 12) "ص" else "م"
+    val hh = hour12.toString().padStart(2, '0')
+    val mi = ldt.minute.toString().padStart(2, '0')
+    return "${ldt.year}-$mm-$dd $hh:$mi $ampm"
+}
 
 private fun statusColor(status: String): String = when (status) {
     "عميل جديد" -> "#E0E0E0"
@@ -3472,6 +4396,99 @@ private fun addActivityModalHtml(clientOptions: String): String = """
     </dialog>
 """
 
+private fun editActivityModalHtml(clientOptions: String): String = """
+    <dialog id="editActivityModal" class="rounded-2xl">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">تعديل النشاط</h3>
+                <button onclick="document.getElementById('editActivityModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <form onsubmit="submitEditActivity(event)" class="space-y-3 max-h-[70vh] overflow-y-auto">
+                <input type="hidden" name="id" id="edit_activity_id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">العميل</label>
+                        <select name="clientId" id="edit_activity_clientId" disabled class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50">
+                            <option value="">-- اختر العميل --</option>
+                            $clientOptions
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">نوع الإجراء</label>
+                        <select name="actionType" id="edit_activity_actionType" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${actionTypeOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">القناة</label>
+                        <select name="channel" id="edit_activity_channel" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${channelOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الحالة السابقة</label>
+                        <select name="previousStatus" id="edit_activity_previousStatus" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${statusOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الحالة الجديدة</label>
+                        <select name="newStatus" id="edit_activity_newStatus" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${statusOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الباقة المعروضة</label>
+                        <select name="planOffered" id="edit_activity_planOffered" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${planOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">المبلغ</label>
+                        <input type="number" name="amount" id="edit_activity_amount" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">نسبة الخصم %</label>
+                        <input type="number" name="discountPercent" id="edit_activity_discountPercent" value="0" min="0" max="100" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">مدة المكالمة</label>
+                        <input type="text" name="callDuration" id="edit_activity_callDuration" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">النتيجة</label>
+                        <select name="result" id="edit_activity_result" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">-- اختر --</option>
+                            ${resultOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الخطوة القادمة</label>
+                        <input type="text" name="nextStep" id="edit_activity_nextStep" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الإجراء القادم</label>
+                        <input type="date" name="nextDate" id="edit_activity_nextDate" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                        <textarea name="notes" id="edit_activity_notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-3">
+                    <button type="button" onclick="document.getElementById('editActivityModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90" style="background:#2E7D32">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+"""
+
 private fun addAgentModalHtml(): String = """
     <dialog id="addAgentModal" class="rounded-2xl">
         <div class="p-6">
@@ -3670,15 +4687,24 @@ private fun arabicMonth(month: String): String {
 }
 
 private fun progressBar(label: String, actual: String, target: String, percent: Int): String {
-    val color = when { percent >= 75 -> "#2E7D32"; percent >= 50 -> "#F9A825"; else -> "#D32F2F" }
+    // Tailwind-friendly gradient + softer background. Color thresholds stay the same so
+    // existing behaviour (red < 50% < amber < 75% < green) is preserved.
+    val (grad, pillBg, pillTxt) = when {
+        percent >= 75 -> Triple("linear-gradient(90deg,#059669,#10b981)", "bg-emerald-50", "text-emerald-700")
+        percent >= 50 -> Triple("linear-gradient(90deg,#d97706,#f59e0b)", "bg-amber-50", "text-amber-700")
+        else -> Triple("linear-gradient(90deg,#dc2626,#ef4444)", "bg-red-50", "text-red-700")
+    }
     return """
     <div class="mb-4">
-        <div class="flex justify-between text-sm mb-1">
-            <span class="font-bold">$label</span>
-            <span>$actual / $target (${percent}%)</span>
+        <div class="flex justify-between items-center text-sm mb-2">
+            <span class="font-medium text-gray-800">$label</span>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-500 text-xs">$actual / $target</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium $pillBg $pillTxt">${percent}%</span>
+            </div>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-4">
-            <div class="h-4 rounded-full transition-all duration-500" style="width:${percent.coerceAtMost(100)}%;background:$color"></div>
+        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+            <div class="h-2 rounded-full transition-all duration-700" style="width:${percent.coerceAtMost(100)}%;background:$grad"></div>
         </div>
     </div>
     """
@@ -3697,7 +4723,7 @@ private fun roleBadgeColor(role: String): Pair<String, String> = when (role) {
 private fun monthOptions(): String = monthOptions(null)
 
 private fun monthOptions(selected: String?): String {
-    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    val now = Clock.System.now().toLocalDateTime(CRM_TZ)
     val months = mutableListOf<String>()
     for (i in 0..11) {
         var y = now.year

@@ -21,6 +21,11 @@ android {
         }
         release {
             isMinifyEnabled = true
+            // Strip unused drawables/layouts/strings after R8 removes unreferenced code —
+            // noticeable APK size drop on low-end devices, and a slight cold-start win.
+            // R8 full mode is enabled globally via gradle.properties (applies to every
+            // release variant across the project).
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

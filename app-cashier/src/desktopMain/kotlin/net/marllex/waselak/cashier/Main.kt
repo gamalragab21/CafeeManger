@@ -11,8 +11,14 @@ import androidx.compose.ui.window.application
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.request.CachePolicy
+import coil3.request.crossfade
 import io.ktor.client.HttpClient
+import okio.Path.Companion.toOkioPath
+import java.io.File
 import net.marllex.waselak.core.ui.components.applyLanguage
 import net.marllex.waselak.core.ui.components.currentLanguageState
 import net.marllex.waselak.core.ui.components.getPersistedLanguage
@@ -35,12 +41,28 @@ fun main() {
     }
     AppLogger.initialize("cashier")
 
-    // Configure Coil image loader with Ktor client (has ngrok header)
+    // Configure Coil image loader with Ktor client (has ngrok header) and a
+    // generous on-disk cache so reopening the cashier reuses menu thumbnails.
     SingletonImageLoader.setSafe {
+        val cacheDir = File(System.getProperty("user.home"), ".waselak/image_cache").also { it.mkdirs() }
         ImageLoader.Builder(PlatformContext.INSTANCE)
             .components {
                 add(KtorNetworkFetcherFactory(httpClient = getKoin().get<HttpClient>()))
             }
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizeBytes(128L * 1024L * 1024L) // 128 MB in RAM
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.toOkioPath())
+                    .maxSizeBytes(512L * 1024L * 1024L) // 512 MB on disk
+                    .build()
+            }
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .crossfade(true)
             .build()
     }
 

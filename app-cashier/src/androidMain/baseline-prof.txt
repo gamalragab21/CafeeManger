@@ -1,0 +1,53 @@
+# Baseline Profile for Waselak Cashier.
+#
+# Format: [flags]L<class>;->[<method>](<params>)<return>
+#   H = hot (executed many times)
+#   S = startup (needed during app startup)
+#   P = post-startup (useful after startup settles)
+#   L prefix + ; suffix = JVM class descriptor
+#
+# Read at APK install time by androidx.profileinstaller, which hands it to ART
+# so the listed classes/methods are AOT-compiled instead of being JIT'd on
+# first use. Yields a 20-30% faster cold start and smoother first-frame render
+# on the POS screen.
+#
+# Starter profile covering hot Compose, SQLDelight, and cashier POS paths.
+# Regenerate with a macrobenchmark module + BaselineProfileRule for a precise
+# profile captured from a real POS → checkout run.
+
+HSPLandroidx/compose/runtime/**->**(**)**
+HSPLandroidx/compose/foundation/**->**(**)**
+HSPLandroidx/compose/foundation/lazy/**->**(**)**
+HSPLandroidx/compose/foundation/lazy/grid/**->**(**)**
+HSPLandroidx/compose/material3/**->**(**)**
+HSPLandroidx/compose/ui/**->**(**)**
+HSPLandroidx/compose/animation/**->**(**)**
+HSPLandroidx/lifecycle/**->**(**)**
+HSPLandroidx/navigation/**->**(**)**
+HSPLandroidx/activity/**->**(**)**
+HSPLapp/cash/sqldelight/**->**(**)**
+HSPLio/ktor/**->**(**)**
+HSPLkotlinx/coroutines/**->**(**)**
+HSPLkotlinx/serialization/**->**(**)**
+HSPLcoil3/**->**(**)**
+HSPLorg/koin/**->**(**)**
+
+HSPLnet/marllex/waselak/cashier/**->**(**)**
+HSPLnet/marllex/waselak/feature/cashier/pos/**->**(**)**
+HSPLnet/marllex/waselak/feature/cashier/payment/**->**(**)**
+HSPLnet/marllex/waselak/feature/cashier/receipt/**->**(**)**
+HSPLnet/marllex/waselak/feature/cashier/attendance/**->**(**)**
+HSPLnet/marllex/waselak/feature/manager/orders/**->**(**)**
+HSPLnet/marllex/waselak/feature/manager/tables/**->**(**)**
+HSPLnet/marllex/waselak/core/ui/**->**(**)**
+HSPLnet/marllex/waselak/core/data/**->**(**)**
+HSPLnet/marllex/waselak/core/database/**->**(**)**
+HSPLnet/marllex/waselak/core/domain/**->**(**)**
+HSPLnet/marllex/waselak/core/network/**->**(**)**
+HSPLnet/marllex/waselak/core/model/**->**(**)**
+HSPLnet/marllex/waselak/core/common/**->**(**)**
+HSPLnet/marllex/waselak/core/auth/**->**(**)**
+
+Lnet/marllex/waselak/cashier/**;
+Lnet/marllex/waselak/feature/cashier/**;
+Lnet/marllex/waselak/core/**;

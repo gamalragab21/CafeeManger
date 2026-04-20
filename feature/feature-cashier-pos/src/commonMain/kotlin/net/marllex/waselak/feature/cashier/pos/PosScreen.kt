@@ -317,8 +317,11 @@ fun PosScreen(
                 }
 
                 // ─── Search Bar ──────────────────────────────
+                // Bound to searchInput (updates on every keystroke), not searchQuery
+                // (debounced) — keeps the TextField feeling instant while the item grid
+                // filter only recomputes after the user pauses typing.
                 WaselakSearchBar(
-                    query = uiState.searchQuery,
+                    query = uiState.searchInput,
                     onQueryChange = viewModel::updateSearchQuery,
                     placeholder = stringResource(Res.string.search_menu),
                     modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 4.dp),
@@ -390,7 +393,11 @@ fun PosScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                items(animatedItems, key = { it.id }) { item ->
+                                items(
+                                    animatedItems,
+                                    key = { it.id },
+                                    contentType = { "menu_item" },
+                                ) { item ->
                                     MenuItemGridCard(
                                         item = item,
                                         cartQuantity = uiState.cart.find { it.item.id == item.id }?.quantity ?: 0,
@@ -559,6 +566,7 @@ private fun CategorySidebar(
             items(
                 items = categories,
                 key = { it.first ?: "__all__" },
+                contentType = { "category_sidebar_item" },
             ) { (categoryId, categoryName) ->
                 val isSelected = categoryId == selectedCategoryId
                 val count = itemCountByCategory[categoryId]
@@ -887,7 +895,14 @@ private fun CartBottomSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            itemsIndexed(uiState.cart) { index, cartItem ->
+            itemsIndexed(
+                uiState.cart,
+                key = { _, cartItem ->
+                    // Composite key: same item can appear as multiple cart lines (different variants)
+                    cartItem.item.id + cartItem.variantSelections.joinToString("|") { "${it.groupName}:${it.optionName}" }
+                },
+                contentType = { _, _ -> "cart_row" },
+            ) { index, cartItem ->
                 CartItemRow(
                     cartItem = cartItem,
                     onIncrease = { viewModel.updateCartQuantity(index, cartItem.quantity + 1) },
@@ -1542,7 +1557,11 @@ private fun CartBottomSheet(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(stringResource(Res.string.delivery_fee_label), style = MaterialTheme.typography.labelMedium)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(uiState.taxPlaces) { place ->
+                            items(
+                                uiState.taxPlaces,
+                                key = { it.id },
+                                contentType = { "tax_place_chip" },
+                            ) { place ->
                                 FilterChip(
                                     selected = uiState.selectedTaxPlaceId == place.id,
                                     onClick = { viewModel.setSelectedTaxPlaceId(place.id) },
@@ -1564,7 +1583,11 @@ private fun CartBottomSheet(
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    items(uiState.recentOrders) { order ->
+                    items(
+                        uiState.recentOrders,
+                        key = { it.id },
+                        contentType = { "recent_order_card" },
+                    ) { order ->
                         RecentOrderCard(order = order)
                     }
                 }
@@ -1575,7 +1598,11 @@ private fun CartBottomSheet(
                 item {
                     Text(text = stringResource(Res.string.select_table), style = MaterialTheme.typography.labelMedium)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(uiState.tables) { table ->
+                        items(
+                            uiState.tables,
+                            key = { it.id },
+                            contentType = { "table_chip" },
+                        ) { table ->
                             FilterChip(
                                 selected = uiState.selectedTableId == table.id,
                                 onClick = { viewModel.setTableId(table.id) },
@@ -2044,7 +2071,11 @@ private fun VariantSelectorDialog(
                     androidx.compose.foundation.lazy.LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(group.options) { option ->
+                        items(
+                            group.options,
+                            key = { it.id },
+                            contentType = { "variant_option_chip" },
+                        ) { option ->
                             val isSelected = selections[group.id]?.optionName == option.name
                             FilterChip(
                                 selected = isSelected,

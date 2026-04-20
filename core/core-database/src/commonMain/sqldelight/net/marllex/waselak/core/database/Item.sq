@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS items (
     stock_behavior TEXT NOT NULL DEFAULT 'NONE'
 );
 
+CREATE INDEX IF NOT EXISTS idx_items_vendor_category ON items(vendor_id, category_id);
+CREATE INDEX IF NOT EXISTS idx_items_vendor_available ON items(vendor_id, available);
+CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(vendor_id, barcode);
+CREATE INDEX IF NOT EXISTS idx_items_sku ON items(vendor_id, sku);
+
 getItems:
 SELECT * FROM items WHERE vendor_id = ? ORDER BY name ASC;
 

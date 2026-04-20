@@ -117,12 +117,34 @@ fun Route.itemRoutes() {
             val h = call.request.header("Host") ?: "localhost:8080"
             val s = call.request.header("X-Forwarded-Proto") ?: "http"
 
+            // Compute ETag from (max(updatedAt), rowCount) of the filtered query first —
+            // if the client already has fresh data we can 304 before doing the expensive
+            // DTO serialization with URL rewriting.
+            val vendorUuid = UUID.fromString(principal.vendorId)
+            val categoryUuid = categoryId?.let { UUID.fromString(it) }
+            val (maxUpdatedAt, rowCount) = transaction {
+                val maxUpd = ItemsTable.updatedAt.max()
+                val cnt = ItemsTable.id.count()
+                var q = ItemsTable.select(maxUpd, cnt)
+                    .where { ItemsTable.vendorId eq vendorUuid }
+                if (categoryUuid != null) {
+                    q = q.andWhere { ItemsTable.categoryId eq categoryUuid }
+                }
+                val row = q.first()
+                (row[maxUpd]?.toEpochMilliseconds() ?: 0L) to (row[cnt])
+            }
+            val etag = ETagSupport.weakEtag(maxUpdatedAt, rowCount)
+            if (ETagSupport.respondNotModifiedIfMatches(call, etag)) {
+                trace.step("Items 304 Not Modified", mapOf("count" to rowCount.toString()))
+                return@get
+            }
+
             val items = transaction {
                 var query = ItemsTable.selectAll()
-                    .where { ItemsTable.vendorId eq UUID.fromString(principal.vendorId) }
+                    .where { ItemsTable.vendorId eq vendorUuid }
 
-                categoryId?.let {
-                    query = query.andWhere { ItemsTable.categoryId eq UUID.fromString(it) }
+                if (categoryUuid != null) {
+                    query = query.andWhere { ItemsTable.categoryId eq categoryUuid }
                 }
 
                 query.orderBy(ItemsTable.name)

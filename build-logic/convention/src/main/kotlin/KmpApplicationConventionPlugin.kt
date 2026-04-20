@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import net.marllex.waselak.configureComposeStability
 import net.marllex.waselak.configureKmpTargets
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
@@ -18,6 +19,8 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                 apply("org.jetbrains.compose")
                 apply("com.android.application")
             }
+
+            configureComposeStability()
 
             // ── Determine build environment (debug or release) ──────────────
             val buildEnv = resolveBuildEnv()
