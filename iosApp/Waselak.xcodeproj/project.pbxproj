@@ -1,0 +1,578 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1BEA493A4BC2A354867152FB /* DeliveryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23FC4028A2DCB82B73827614 /* DeliveryApp.swift */; };
+		749C96C02434D9D1474B5BAE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C155E78BF070C3EFA620198A /* Assets.xcassets */; };
+		95D1394A4B94FD358A63ED17 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA0E070DD27810913633F67D /* Assets.xcassets */; };
+		EC9308AB5C3101543106B3DD /* CashierApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C5336027E03581CFE9D07C3 /* CashierApp.swift */; };
+		F3055B2C4C266E82FC630C07 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0A76A8D1A48159F931512ED5 /* Assets.xcassets */; };
+		F5BCF7841E0539C04E285987 /* ManagerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5B9FCFEA681F0C21F411E2 /* ManagerApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		077AEEED7F006B0BCA6C1F80 /* WaselakManager.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WaselakManager.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A76A8D1A48159F931512ED5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0C5336027E03581CFE9D07C3 /* CashierApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CashierApp.swift; sourceTree = "<group>"; };
+		23FC4028A2DCB82B73827614 /* DeliveryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryApp.swift; sourceTree = "<group>"; };
+		6C5B9FCFEA681F0C21F411E2 /* ManagerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagerApp.swift; sourceTree = "<group>"; };
+		75384750BB2BEB188DEC4088 /* WaselakCashier.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WaselakCashier.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D9DE6FEDF6201251C98F6B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8B48733D75C47CD2784942C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B5B818076C9BBB68551F73FA /* WaselakDelivery.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WaselakDelivery.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C155E78BF070C3EFA620198A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E9DE785D67EBACBE0564743A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FA0E070DD27810913633F67D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		042394B9182E8AE999BE7DCD = {
+			isa = PBXGroup;
+			children = (
+				9780EEEC3C6BD6B39AA6F447 /* Cashier */,
+				18DCDA496C753653C6B2F8E3 /* Delivery */,
+				3CC96E9FFF733A249FFFBBD9 /* Manager */,
+				ABE3E64B30D007A3955DD393 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		18DCDA496C753653C6B2F8E3 /* Delivery */ = {
+			isa = PBXGroup;
+			children = (
+				FA0E070DD27810913633F67D /* Assets.xcassets */,
+				23FC4028A2DCB82B73827614 /* DeliveryApp.swift */,
+				84D9DE6FEDF6201251C98F6B /* Info.plist */,
+			);
+			path = Delivery;
+			sourceTree = "<group>";
+		};
+		3CC96E9FFF733A249FFFBBD9 /* Manager */ = {
+			isa = PBXGroup;
+			children = (
+				0A76A8D1A48159F931512ED5 /* Assets.xcassets */,
+				8B48733D75C47CD2784942C2 /* Info.plist */,
+				6C5B9FCFEA681F0C21F411E2 /* ManagerApp.swift */,
+			);
+			path = Manager;
+			sourceTree = "<group>";
+		};
+		9780EEEC3C6BD6B39AA6F447 /* Cashier */ = {
+			isa = PBXGroup;
+			children = (
+				C155E78BF070C3EFA620198A /* Assets.xcassets */,
+				0C5336027E03581CFE9D07C3 /* CashierApp.swift */,
+				E9DE785D67EBACBE0564743A /* Info.plist */,
+			);
+			path = Cashier;
+			sourceTree = "<group>";
+		};
+		ABE3E64B30D007A3955DD393 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				75384750BB2BEB188DEC4088 /* WaselakCashier.app */,
+				B5B818076C9BBB68551F73FA /* WaselakDelivery.app */,
+				077AEEED7F006B0BCA6C1F80 /* WaselakManager.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		08827DA1B8EA160E86062A18 /* WaselakCashier */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9807BA7179207C574EEC71EE /* Build configuration list for PBXNativeTarget "WaselakCashier" */;
+			buildPhases = (
+				E0AEB358BDC06B747FD1E47B /* Build Kotlin Framework */,
+				30A4FEEE0FABE85CEF30DD3B /* Sources */,
+				09BCCBEDF034046205552F23 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WaselakCashier;
+			packageProductDependencies = (
+			);
+			productName = WaselakCashier;
+			productReference = 75384750BB2BEB188DEC4088 /* WaselakCashier.app */;
+			productType = "com.apple.product-type.application";
+		};
+		307CCC81CC2AD0250F686F16 /* WaselakManager */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7DB1C0088C09FA150F81B04 /* Build configuration list for PBXNativeTarget "WaselakManager" */;
+			buildPhases = (
+				3A993312EA39A2A82054A0E8 /* Build Kotlin Framework */,
+				CB02D6DC46F84458317929D3 /* Sources */,
+				E5104761F23731933E9CA086 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WaselakManager;
+			packageProductDependencies = (
+			);
+			productName = WaselakManager;
+			productReference = 077AEEED7F006B0BCA6C1F80 /* WaselakManager.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AD69F7D59870537B6BC2AC28 /* WaselakDelivery */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9B8DB9C616AD29FA6EF46FF /* Build configuration list for PBXNativeTarget "WaselakDelivery" */;
+			buildPhases = (
+				35A7238E7AADFE20F44290ED /* Build Kotlin Framework */,
+				F5E807F770F451BD81AE48DB /* Sources */,
+				ACF955968D95D4AD56875CC0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WaselakDelivery;
+			packageProductDependencies = (
+			);
+			productName = WaselakDelivery;
+			productReference = B5B818076C9BBB68551F73FA /* WaselakDelivery.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B66893209D21A951BC160BEA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 87521A84F22809C57700263E /* Build configuration list for PBXProject "Waselak" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 042394B9182E8AE999BE7DCD;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = ABE3E64B30D007A3955DD393 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				08827DA1B8EA160E86062A18 /* WaselakCashier */,
+				AD69F7D59870537B6BC2AC28 /* WaselakDelivery */,
+				307CCC81CC2AD0250F686F16 /* WaselakManager */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		09BCCBEDF034046205552F23 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				749C96C02434D9D1474B5BAE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ACF955968D95D4AD56875CC0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95D1394A4B94FD358A63ED17 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E5104761F23731933E9CA086 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3055B2C4C266E82FC630C07 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		35A7238E7AADFE20F44290ED /* Build Kotlin Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :app-delivery:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}\n";
+		};
+		3A993312EA39A2A82054A0E8 /* Build Kotlin Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :app-manager:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}\n";
+		};
+		E0AEB358BDC06B747FD1E47B /* Build Kotlin Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :app-cashier:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		30A4FEEE0FABE85CEF30DD3B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EC9308AB5C3101543106B3DD /* CashierApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB02D6DC46F84458317929D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5BCF7841E0539C04E285987 /* ManagerApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5E807F770F451BD81AE48DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1BEA493A4BC2A354867152FB /* DeliveryApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		174E2D075552A921B8685945 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-cashier/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-cashier/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Cashier/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.cashier;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		21C5E08340779A8D0C60E50B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		2469B821FCD1CEC82DECDEBD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Manager/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.manager;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		559F9A170E2488B38E3BECE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-delivery/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-delivery/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Delivery/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.delivery;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6E3EC564F4C9C63D8596C451 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		793C24E6AD3192559C7BF424 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-cashier/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-cashier/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Cashier/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.cashier;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A2BCC10AF38E32B1430144A6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Manager/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.manager;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BB7B561548CA3ACC44F21210 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SRCROOT)/../app-delivery/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-delivery/build/bin/iosArm64/releaseFramework",
+				);
+				INFOPLIST_FILE = Delivery/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LINKER_FLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.delivery;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		87521A84F22809C57700263E /* Build configuration list for PBXProject "Waselak" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6E3EC564F4C9C63D8596C451 /* Debug */,
+				21C5E08340779A8D0C60E50B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9807BA7179207C574EEC71EE /* Build configuration list for PBXNativeTarget "WaselakCashier" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				174E2D075552A921B8685945 /* Debug */,
+				793C24E6AD3192559C7BF424 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B7DB1C0088C09FA150F81B04 /* Build configuration list for PBXNativeTarget "WaselakManager" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2BCC10AF38E32B1430144A6 /* Debug */,
+				2469B821FCD1CEC82DECDEBD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B9B8DB9C616AD29FA6EF46FF /* Build configuration list for PBXNativeTarget "WaselakDelivery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB7B561548CA3ACC44F21210 /* Debug */,
+				559F9A170E2488B38E3BECE9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B66893209D21A951BC160BEA /* Project object */;
+}

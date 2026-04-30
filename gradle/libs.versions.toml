@@ -1,8 +1,11 @@
 [versions]
 # Core
 agp = "8.9.1"
-kotlin = "2.1.0"
-ksp = "2.1.0-1.0.29"
+# Kotlin 2.1.0 had a Konan link-step NPE in CacheBuilder.getAllTransitiveDependencies
+# that blocked iosArm64 + iosSimulatorArm64 link tasks regardless of cacheKind. The
+# 2.1.20 patch release fixed it. KSP version follows Kotlin patch (2.1.20-1.0.32).
+kotlin = "2.1.20"
+ksp = "2.1.20-1.0.32"
 
 # Compose Multiplatform
 composeCmp = "1.8.0"

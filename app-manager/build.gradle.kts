@@ -139,6 +139,12 @@ kotlin {
             // Koin Compose
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
+
+            // kotlinx.datetime — installed-screens use it directly for
+            // installment due-date math after the iOS port replaced
+            // java.time. core-model has it on `implementation` (not
+            // api) so we need to declare it locally.
+            implementation(libs.kotlinx.datetime)
         }
 
         androidMain.dependencies {
