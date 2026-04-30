@@ -10,6 +10,7 @@
 		1BEA493A4BC2A354867152FB /* DeliveryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23FC4028A2DCB82B73827614 /* DeliveryApp.swift */; };
 		749C96C02434D9D1474B5BAE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C155E78BF070C3EFA620198A /* Assets.xcassets */; };
 		95D1394A4B94FD358A63ED17 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA0E070DD27810913633F67D /* Assets.xcassets */; };
+		C9C432E5C09C5C6CD545AA40 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 6273E672319E78EF56DCA24F /* Sentry */; };
 		EC9308AB5C3101543106B3DD /* CashierApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C5336027E03581CFE9D07C3 /* CashierApp.swift */; };
 		F3055B2C4C266E82FC630C07 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0A76A8D1A48159F931512ED5 /* Assets.xcassets */; };
 		F5BCF7841E0539C04E285987 /* ManagerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5B9FCFEA681F0C21F411E2 /* ManagerApp.swift */; };
@@ -29,6 +30,17 @@
 		E9DE785D67EBACBE0564743A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FA0E070DD27810913633F67D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		37945894BAA507BE0902ADE2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C9C432E5C09C5C6CD545AA40 /* Sentry in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		042394B9182E8AE999BE7DCD = {
@@ -110,6 +122,7 @@
 				3A993312EA39A2A82054A0E8 /* Build Kotlin Framework */,
 				CB02D6DC46F84458317929D3 /* Sources */,
 				E5104761F23731933E9CA086 /* Resources */,
+				37945894BAA507BE0902ADE2 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -117,6 +130,7 @@
 			);
 			name = WaselakManager;
 			packageProductDependencies = (
+				6273E672319E78EF56DCA24F /* Sentry */,
 			);
 			productName = WaselakManager;
 			productReference = 077AEEED7F006B0BCA6C1F80 /* WaselakManager.app */;
@@ -161,6 +175,9 @@
 			);
 			mainGroup = 042394B9182E8AE999BE7DCD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AB1C7A5EB7E7DE409A3E0BEE /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ABE3E64B30D007A3955DD393 /* Products */;
 			projectDirPath = "";
@@ -236,8 +253,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :app-manager:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}\n";
+			shellPath = "/bin/bash -l";
+			shellScript = "set -e\nset -x  # echo each command into the build log so a failure is debuggable\n\n# Pin to JDK 17. The system default (`/usr/libexec/java_home`)\n# currently resolves to OpenJDK 25.0.1, which Kotlin Gradle Plugin\n# 2.1.20 + AGP 8.9.1 don't recognise — gradle aborts with the cryptic\n# `* What went wrong: 25.0.1` and the Xcode build phase crashes with\n# \"Command PhaseScriptExecution failed with a nonzero exit code\".\n# Switching to 17 (any flavour — Corretto / Temurin / Homebrew) keeps\n# us aligned with the toolchain Android already uses.\nexport JAVA_HOME=\"$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home -v 21 2>/dev/null)\"\nif [ -z \"$JAVA_HOME\" ]; then\n  echo \"❌ No JDK 17 or 21 installed. brew install openjdk@21 or download Corretto 17.\" >&2\n  exit 1\nfi\nexport PATH=\"$JAVA_HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\necho \"Using JAVA_HOME=$JAVA_HOME\"\n\ncd \"$SRCROOT/..\"\n\n# Pick simulator vs device based on the SDK Xcode is targeting\n# (iphonesimulator vs iphoneos), and Debug vs Release from Xcode's\n# CONFIGURATION env var. -PBUILD_ENV bakes the matching BASE_URL\n# into BuildConfig (debug → 187.124.47.222:8081, release → 8080).\ncase \"$SDK_NAME\" in\n  *simulator*) ARCH=\"IosSimulatorArm64\" ;;\n  *)           ARCH=\"IosArm64\" ;;\nesac\n\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  ./gradlew :app-manager:linkReleaseFramework${ARCH} -PBUILD_ENV=release --no-daemon\nelse\n  ./gradlew :app-manager:linkDebugFramework${ARCH} -PBUILD_ENV=debug --no-daemon\nfi\n";
 		};
 		E0AEB358BDC06B747FD1E47B /* Build Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -354,7 +371,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -371,7 +388,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
-					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework",
 					"$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework",
 				);
 				INFOPLIST_FILE = Manager/Info.plist;
@@ -379,9 +396,11 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LINKER_FLAGS = "-ObjC";
+				OTHER_LDFLAGS = "-ObjC -lsqlite3";
 				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.manager;
+				PRODUCT_NAME = "Waselak Manager";
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -458,7 +477,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -498,16 +517,18 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework",
-					"$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework",
+					"$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework",
 				);
 				INFOPLIST_FILE = Manager/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LINKER_FLAGS = "-ObjC";
-				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.manager;
+				OTHER_LDFLAGS = "-ObjC -lsqlite3";
+				PRODUCT_BUNDLE_IDENTIFIER = net.marllex.waselak.manager.debug;
+				PRODUCT_NAME = "Waselak Manager Debug";
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -573,6 +594,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AB1C7A5EB7E7DE409A3E0BEE /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6273E672319E78EF56DCA24F /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB1C7A5EB7E7DE409A3E0BEE /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B66893209D21A951BC160BEA /* Project object */;
 }

@@ -807,7 +807,13 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             }
     }
 
-    fun listActivities(orgId: String?, agentId: String?, isManager: Boolean, limit: Int = 100): List<ActivityDto> = transaction {
+    // `limit` is nullable on purpose: the dashboard preview passes a small cap (e.g. 10),
+    // but the full /crm/activities page and the /crm/api/activities endpoint must NOT cap —
+    // the front-end search/filter is client-side and can only match rows that were rendered.
+    // Capping silently dropped older activities for managers (who scan org-wide) so a phone
+    // search returned fewer rows than a call-center agent saw on the same data. listClients
+    // is also uncapped, so the two stay in parity.
+    fun listActivities(orgId: String?, agentId: String?, isManager: Boolean, limit: Int? = null): List<ActivityDto> = transaction {
         val org = resolveOrgId(orgId)
         val query = CrmActivitiesTable
             .innerJoin(SalesAgentsTable, { CrmActivitiesTable.agentId }, { SalesAgentsTable.id })
@@ -815,7 +821,8 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             .selectAll()
             .where { CrmActivitiesTable.organizationId eq org }
             .orderBy(CrmActivitiesTable.createdAt, SortOrder.DESC)
-            .limit(limit)
+
+        if (limit != null) query.limit(limit)
 
         if (!isManager && agentId != null) {
             query.andWhere { CrmActivitiesTable.agentId eq UUID.fromString(agentId) }

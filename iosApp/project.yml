@@ -1,15 +1,35 @@
 name: Waselak
 options:
   bundleIdPrefix: net.marllex.waselak
+  # Bumped from 16.0 → 17.0 because the Kotlin framework (via the Compose
+  # Multiplatform 1.8.0 runtime) auto-links SwiftUICore.tbd which Apple
+  # gates behind iOS 17. With deployment-target 16.0 the linker rejected it
+  # ("product being built is not an allowed client of it").
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   xcodeVersion: "15.0"
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
 
+# Sentry-Cocoa (Swift Package). Sentry KMP's iOS layer auto-links to the
+# `Sentry` and `UIUtilities` frameworks at compile time; without the SPM
+# dependency declared here the linker fails with "framework 'Sentry' not
+# found". Pinned at 8.x — Sentry KMP 0.13+ is built against 8.x.
+packages:
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: "8.0.0"
+
 targets:
+  # Manager — installs as TWO distinct apps so debug + release can coexist on
+  # the same iPhone:
+  #   • Debug   bundle id: net.marllex.waselak.manager.debug   → backend 8081
+  #   • Release bundle id: net.marllex.waselak.manager         → backend 8080
+  # Each configuration triggers the matching Gradle linkXxxFrameworkIosArm64
+  # task with -PBUILD_ENV={debug|release} so BuildConfig.BASE_URL bakes in
+  # the right URL.
   WaselakManager:
     type: application
     platform: iOS
@@ -17,18 +37,78 @@ targets:
       - Manager
     info:
       path: Manager/Info.plist
+    dependencies:
+      - package: Sentry
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager
-        FRAMEWORK_SEARCH_PATHS:
-          - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework"
-          - "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework"
-        OTHER_LINKER_FLAGS: "-ObjC"
+        # -ObjC: keep Obj-C class metadata that the Kotlin framework relies on.
+        # -lsqlite3: link iOS' system SQLite. SqlDelight's iOS native driver
+        #            (co.touchlab.sqliter) calls into sqlite3_* and won't
+        #            link without it.
+        # The setting name matters: Xcode reads OTHER_LDFLAGS, not the
+        # OTHER_LINKER_FLAGS alias xcodegen used to emit. With the alias,
+        # the flags reached the project file but were silently ignored by
+        # the dylib-link sub-step in debug builds, leaving sqlite3 unresolved.
+        OTHER_LDFLAGS: "-ObjC -lsqlite3"
+        SUPPORTS_MACCATALYST: "NO"
+        TARGETED_DEVICE_FAMILY: "1,2"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager.debug
+          PRODUCT_NAME: "Waselak Manager Debug"
+          FRAMEWORK_SEARCH_PATHS:
+            - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework"
+            - "$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework"
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager
+          PRODUCT_NAME: "Waselak Manager"
+          FRAMEWORK_SEARCH_PATHS:
+            - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework"
+            - "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework"
     preBuildScripts:
       - name: "Build Kotlin Framework"
+        # Run in a login shell so PATH includes /usr/local/bin, /opt/homebrew/bin
+        # etc. — Xcode's default build-script environment is intentionally
+        # minimal (no PATH, no JAVA_HOME). Without this, the gradle wrapper
+        # exits 127 ("command not found") for `java`, and the only thing in
+        # the build log is "Command PhaseScriptExecution failed with a
+        # nonzero exit code" — which is what we kept hitting.
+        shell: /bin/bash -l
         script: |
+          set -e
+          set -x  # echo each command into the build log so a failure is debuggable
+
+          # Pin to JDK 17. The system default (`/usr/libexec/java_home`)
+          # currently resolves to OpenJDK 25.0.1, which Kotlin Gradle Plugin
+          # 2.1.20 + AGP 8.9.1 don't recognise — gradle aborts with the cryptic
+          # `* What went wrong: 25.0.1` and the Xcode build phase crashes with
+          # "Command PhaseScriptExecution failed with a nonzero exit code".
+          # Switching to 17 (any flavour — Corretto / Temurin / Homebrew) keeps
+          # us aligned with the toolchain Android already uses.
+          export JAVA_HOME="$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home -v 21 2>/dev/null)"
+          if [ -z "$JAVA_HOME" ]; then
+            echo "❌ No JDK 17 or 21 installed. brew install openjdk@21 or download Corretto 17." >&2
+            exit 1
+          fi
+          export PATH="$JAVA_HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+          echo "Using JAVA_HOME=$JAVA_HOME"
+
           cd "$SRCROOT/.."
-          ./gradlew :app-manager:linkDebugFrameworkIos${NATIVE_ARCH_ACTUAL:+SimulatorArm64}
+
+          # Pick simulator vs device based on the SDK Xcode is targeting
+          # (iphonesimulator vs iphoneos), and Debug vs Release from Xcode's
+          # CONFIGURATION env var. -PBUILD_ENV bakes the matching BASE_URL
+          # into BuildConfig (debug → 187.124.47.222:8081, release → 8080).
+          case "$SDK_NAME" in
+            *simulator*) ARCH="IosSimulatorArm64" ;;
+            *)           ARCH="IosArm64" ;;
+          esac
+
+          if [ "$CONFIGURATION" = "Release" ]; then
+            ./gradlew :app-manager:linkReleaseFramework${ARCH} -PBUILD_ENV=release --no-daemon
+          else
+            ./gradlew :app-manager:linkDebugFramework${ARCH} -PBUILD_ENV=debug --no-daemon
+          fi
         basedOnDependencyAnalysis: false
 
   WaselakCashier:
