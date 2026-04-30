@@ -18,5 +18,49 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<!-- ─── Compose Multiplatform required keys ───────────────────────
+	     The CMP iOS runtime (androidx.compose.ui.uikit.PlistSanityCheck)
+	     refuses to launch if these are missing — that's the SIGABRT we
+	     saw with stack frame `kfun:...PlistSanityCheck...invoke#internal`.
+	     Source: JetBrains' compose-multiplatform iOS template.
+	-->
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<!-- Lets CADisplayLink hit the device's max refresh rate (120Hz on
+	     ProMotion iPhones) instead of being capped at 60. CMP performance
+	     guide recommends this; harmless on non-ProMotion devices. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<!-- The app talks to a development backend over plain HTTP (port 8081
+	     for debug, 8080 for release). Without the ATS exception iOS would
+	     block the connection and every API call would fail with NSURLError.
+	     Move to HTTPS before App Store submission. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
