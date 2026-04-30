@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.customercredit
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -83,7 +84,7 @@ fun CustomerCreditScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${stringResource(Res.string.customer)}: ${uiState.selectedCredit?.customerName ?: ""}")
-                    Text(stringResource(Res.string.current_limit, "%.2f".format(uiState.selectedCredit?.creditLimit ?: 0.0)))
+                    Text(stringResource(Res.string.current_limit, kFormat("%.2f", uiState.selectedCredit?.creditLimit ?: 0.0)))
                     OutlinedTextField(
                         value = uiState.newLimit,
                         onValueChange = viewModel::onNewLimitChange,
@@ -114,11 +115,11 @@ private fun DebtorCard(credit: CustomerCredit, onClick: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(0.6f),
                     color = if (credit.isAtLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 )
-                Text("${"%.2f".format(credit.balance)} / ${"%.2f".format(credit.creditLimit)}", style = MaterialTheme.typography.bodySmall)
+                Text("${kFormat("%.2f", credit.balance)} / ${kFormat("%.2f", credit.creditLimit)}", style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "${"%.2f".format(credit.balance)}",
+                    "${kFormat("%.2f", credit.balance)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (credit.hasDebt) MaterialTheme.colorScheme.error else Color(0xFF4CAF50),
@@ -147,13 +148,13 @@ private fun CustomerDetailContent(modifier: Modifier, credit: CustomerCredit, tr
                         Spacer(Modifier.height(8.dp))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(Res.string.outstanding_balance)); Text("${"%.2f".format(credit.balance)}", fontWeight = FontWeight.Bold, color = if (credit.hasDebt) MaterialTheme.colorScheme.error else Color(0xFF4CAF50))
+                        Text(stringResource(Res.string.outstanding_balance)); Text("${kFormat("%.2f", credit.balance)}", fontWeight = FontWeight.Bold, color = if (credit.hasDebt) MaterialTheme.colorScheme.error else Color(0xFF4CAF50))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(Res.string.credit_limit)); Text("${"%.2f".format(credit.creditLimit)}")
+                        Text(stringResource(Res.string.credit_limit)); Text("${kFormat("%.2f", credit.creditLimit)}")
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(Res.string.available_credit)); Text("${"%.2f".format(credit.availableCredit)}", color = Color(0xFF4CAF50))
+                        Text(stringResource(Res.string.available_credit)); Text("${kFormat("%.2f", credit.availableCredit)}", color = Color(0xFF4CAF50))
                     }
                     Spacer(Modifier.height(4.dp))
                     LinearProgressIndicator(
@@ -200,10 +201,10 @@ private fun TransactionRow(transaction: CreditTransaction) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "${if (transaction.isPayment) "-" else "+"}${"%.2f".format(transaction.amount)}",
+                    "${if (transaction.isPayment) "-" else "+"}${kFormat("%.2f", transaction.amount)}",
                     style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.SemiBold,
                 )
-                Text(stringResource(Res.string.transaction_balance, "%.2f".format(transaction.newBalance)), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(Res.string.transaction_balance, kFormat("%.2f", transaction.newBalance)), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

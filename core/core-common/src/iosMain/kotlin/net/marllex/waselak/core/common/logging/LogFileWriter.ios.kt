@@ -5,14 +5,17 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
 import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileHandle
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileModificationDate
+import platform.Foundation.NSMutableData
 import platform.Foundation.NSString
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.appendData
 import platform.Foundation.create
 import platform.Foundation.dataUsingEncoding
+import platform.Foundation.timeIntervalSince1970
+import platform.Foundation.writeToFile
 import platform.posix.memcpy
 
 @OptIn(ExperimentalForeignApi::class)
@@ -33,15 +36,21 @@ actual object LogFileWriter {
     }
 
     actual fun appendLine(path: String, line: String) {
-        val fileManager = NSFileManager.defaultManager
-        if (!fileManager.fileExistsAtPath(path)) {
-            fileManager.createFileAtPath(path, contents = null, attributes = null)
-        }
-        val handle = NSFileHandle.fileHandleForWritingAtPath(path) ?: return
-        handle.seekToEndOfFile()
-        val data = NSString.create(string = "$line\n").dataUsingEncoding(NSUTF8StringEncoding) ?: return
-        handle.writeData(data)
-        handle.closeFile()
+        // Read-modify-write append. The previous NSFileHandle-based version
+        // hit Kotlin/Native binding churn — `seekToEndOfFile` / `closeFile`
+        // were dropped in favour of error-throwing variants, and importing
+        // the new ones as top-level extensions varies across cinterop
+        // versions. Logs are tiny (one line per call), so loading the
+        // existing bytes into NSMutableData and writing the whole file
+        // back atomically is correct AND simpler than fighting the
+        // bindings. If this ever becomes a hot path, switch to the modern
+        // NSFileHandle.fileHandleForWritingToURL(url, error:) API.
+        val newBytes = NSString.create(string = "$line\n").dataUsingEncoding(NSUTF8StringEncoding) ?: return
+        val mutable = NSMutableData()
+        val existing = NSFileManager.defaultManager.contentsAtPath(path)
+        if (existing != null) mutable.appendData(existing)
+        mutable.appendData(newBytes)
+        mutable.writeToFile(path, atomically = true)
     }
 
     actual fun readBytes(path: String): ByteArray {

@@ -44,12 +44,12 @@ data class DomainFeatures(
     // ── Kitchen & Prep ──────────────────────────────────────────────
     /** Kitchen Display System (order queue for kitchen staff) */
     val hasKDS: Boolean = false,
-    /** Course firing (fire appetizers → mains → desserts) */
-    val hasCourseFiring: Boolean = false,
-    /** Pre-orders / scheduled orders (order for a future date/time) */
+    /**
+     * Pre-orders / scheduled orders (order for a future date/time).
+     * Reads as `enableScheduledOrders` on [Vendor] — historical naming mismatch we
+     * keep for backwards compatibility. Treat the two as the same feature.
+     */
     val hasPreOrders: Boolean = false,
-    /** Production planning (daily batch quantities) */
-    val hasProductionPlanning: Boolean = false,
 
     // ── Payment & Billing ───────────────────────────────────────────
     /** Split payments / bill splitting */
@@ -151,9 +151,7 @@ data class DomainFeatures(
             hasRecipes = true,
             defaultStockMode = "WARN",
             hasKDS = true,
-            hasCourseFiring = true,
             hasPreOrders = true,
-            hasProductionPlanning = false,
             hasSplitPayments = true,
             hasCashDrawer = true,
             hasReturns = false,
@@ -182,9 +180,7 @@ data class DomainFeatures(
             hasRecipes = true,
             defaultStockMode = "WARN",
             hasKDS = true,
-            hasCourseFiring = false,
             hasPreOrders = false,
-            hasProductionPlanning = false,
             hasSplitPayments = true,
             hasCashDrawer = true,
             hasReturns = false,
@@ -213,9 +209,7 @@ data class DomainFeatures(
             hasRecipes = false,
             defaultStockMode = "ENFORCE",
             hasKDS = false,
-            hasCourseFiring = false,
             hasPreOrders = true,
-            hasProductionPlanning = false,
             hasSplitPayments = false,
             hasCashDrawer = true,
             hasReturns = true,
@@ -244,9 +238,7 @@ data class DomainFeatures(
             hasRecipes = true,
             defaultStockMode = "WARN",
             hasKDS = true,
-            hasCourseFiring = false,
             hasPreOrders = true,
-            hasProductionPlanning = true,
             hasSplitPayments = false,
             hasCashDrawer = true,
             hasReturns = false,
@@ -275,9 +267,7 @@ data class DomainFeatures(
             hasRecipes = false,
             defaultStockMode = "ENFORCE",
             hasKDS = false,
-            hasCourseFiring = false,
             hasPreOrders = false,
-            hasProductionPlanning = false,
             hasSplitPayments = true,
             hasCashDrawer = true,
             hasReturns = true,
@@ -306,9 +296,7 @@ data class DomainFeatures(
             hasRecipes = false,
             defaultStockMode = "ENFORCE",
             hasKDS = false,
-            hasCourseFiring = false,
             hasPreOrders = false,
-            hasProductionPlanning = false,
             hasSplitPayments = false,
             hasCashDrawer = true,
             hasReturns = true,
@@ -337,9 +325,7 @@ data class DomainFeatures(
             hasRecipes = false,
             defaultStockMode = "ENFORCE",
             hasKDS = false,
-            hasCourseFiring = false,
             hasPreOrders = false,
-            hasProductionPlanning = false,
             hasSplitPayments = true,
             hasCashDrawer = true,
             hasReturns = true,
@@ -368,9 +354,7 @@ data class DomainFeatures(
             hasRecipes = true,
             defaultStockMode = "WARN",
             hasKDS = true,
-            hasCourseFiring = false,
             hasPreOrders = false,
-            hasProductionPlanning = false,
             hasSplitPayments = false,
             hasCashDrawer = true,
             hasReturns = false,

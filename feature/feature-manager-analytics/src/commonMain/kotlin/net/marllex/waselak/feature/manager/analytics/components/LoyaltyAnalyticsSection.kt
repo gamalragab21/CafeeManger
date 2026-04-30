@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,7 +61,7 @@ fun LoyaltyAnalyticsSection(
             )
             KpiCard(
                 label = stringResource(Res.string.redemption_rate_label),
-                value = "${String.format(java.util.Locale.US, "%.1f", data.redemptionRate)}%",
+                value = "${kFormat("%.1f", data.redemptionRate)}%",
                 modifier = Modifier.weight(1f),
             )
             KpiCard(

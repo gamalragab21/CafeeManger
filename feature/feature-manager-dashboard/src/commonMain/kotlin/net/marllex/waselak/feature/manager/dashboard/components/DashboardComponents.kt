@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.dashboard.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -125,7 +126,7 @@ fun KpiCard(
                     MaterialTheme.colorScheme.error
                 val arrow = if (changePercent >= 0) "↑" else "↓"
                 Text(
-                    text = "$arrow ${String.format("%.1f", kotlin.math.abs(changePercent))}%",
+                    text = "$arrow ${kFormat("%.1f", kotlin.math.abs(changePercent))}%",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = color,
@@ -442,19 +443,19 @@ fun StockBadge(
 
 fun formatCurrency(amount: Double): String {
     return if (amount >= 1_000_000) {
-        String.format("%.1fM", amount / 1_000_000)
+        kFormat("%.1fM", amount / 1_000_000)
     } else if (amount >= 1_000) {
-        String.format("%.1fK", amount / 1_000)
+        kFormat("%.1fK", amount / 1_000)
     } else {
-        String.format("%.2f", amount)
+        kFormat("%.2f", amount)
     }
 }
 
 fun formatNumber(n: Int): String {
     return if (n >= 1_000_000) {
-        String.format("%.1fM", n / 1_000_000.0)
+        kFormat("%.1fM", n / 1_000_000.0)
     } else if (n >= 1_000) {
-        String.format("%.1fK", n / 1_000.0)
+        kFormat("%.1fK", n / 1_000.0)
     } else {
         n.toString()
     }

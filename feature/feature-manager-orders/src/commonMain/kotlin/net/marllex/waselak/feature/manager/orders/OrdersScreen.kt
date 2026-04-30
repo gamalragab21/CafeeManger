@@ -360,7 +360,13 @@ fun OrdersScreen(
         AssignDeliveryBottomSheet(
             deliveryUsers = uiState.deliveryUsers,
             isLoading = uiState.isLoading,
+            // Independent of isLoading: this reflects the auto-refresh that fires when
+            // the sheet opens, so users added from another device show up without
+            // needing to leave+reopen the orders screen.
+            isRefreshing = uiState.isRefreshingDeliveryUsers,
+            refreshError = uiState.refreshDeliveryUsersError,
             onAssign = viewModel::assignDeliveryUser,
+            onRetryRefresh = viewModel::refreshDeliveryUsers,
             onDismiss = viewModel::dismissAssignDeliveryDialog,
         )
     }
@@ -425,6 +431,12 @@ fun OrdersScreen(
 private fun AssignDeliveryBottomSheet(
     deliveryUsers: List<net.marllex.waselak.core.model.User>,
     isLoading: Boolean,
+    /** True while the sheet is pulling a fresh delivery-user list from the backend. */
+    isRefreshing: Boolean = false,
+    /** Error message from the most recent refresh, or null on success. */
+    refreshError: String? = null,
+    /** Invoked when the user taps the inline "retry" link after a failed refresh. */
+    onRetryRefresh: () -> Unit = {},
     onAssign: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -452,14 +464,48 @@ private fun AssignDeliveryBottomSheet(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
+                // Small inline progress indicator while the list is refreshing — lets the
+                // user know new delivery workers might pop in momentarily.
+                if (isRefreshing) {
+                    Spacer(Modifier.weight(1f))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                }
+            }
+
+            // If the refresh failed, surface an inline retry link. We don't nuke the
+            // existing list — whatever's in local DB is better than nothing.
+            if (refreshError != null && !isRefreshing) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "تعذّر تحديث القائمة",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    TextButton(onClick = onRetryRefresh) { Text("إعادة المحاولة") }
+                }
             }
 
             if (deliveryUsers.isEmpty()) {
-                Text(
-                    text = stringResource(Res.string.no_delivery_users),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (isRefreshing) {
+                    // First-load case: no cached users yet, still fetching. Show a nicer
+                    // loading state than "no delivery users" which would be misleading.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { CircularProgressIndicator() }
+                } else {
+                    Text(
+                        text = stringResource(Res.string.no_delivery_users),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             } else {
                 Text(
                     text = stringResource(Res.string.select_delivery_person),

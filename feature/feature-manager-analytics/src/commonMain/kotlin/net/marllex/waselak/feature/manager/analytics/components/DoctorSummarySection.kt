@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,7 +52,7 @@ fun DoctorSummarySection(doctors: List<DoctorStats>) {
                 }
                 Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                     Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${"%.2f".format(doctors.sumOf { it.totalRevenue })}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFFFF9800))
+                        Text("${kFormat("%.2f", doctors.sumOf { it.totalRevenue })}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFFFF9800))
                         Text(stringResource(Res.string.credit_revenue), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -73,7 +74,7 @@ fun DoctorSummarySection(doctors: List<DoctorStats>) {
                             }
                         }
                         Text(
-                            "${"%.2f".format(doctor.totalRevenue)}",
+                            "${kFormat("%.2f", doctor.totalRevenue)}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF4CAF50),

@@ -10,6 +10,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.marllex.waselak.core.model.ReturnsAnalytics
+import net.marllex.waselak.feature.manager.analytics.generated.resources.Res
+import net.marllex.waselak.feature.manager.analytics.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 private fun fmt(v: Double): String {
     val whole = v.toLong()
@@ -25,7 +28,7 @@ fun ReturnsAnalyticsSection(data: ReturnsAnalytics) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Returns & Exchanges",
+                stringResource(Res.string.returns_and_exchanges),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -37,21 +40,21 @@ fun ReturnsAnalyticsSection(data: ReturnsAnalytics) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SummaryChip(
-                    label = "Refunds",
+                    label = stringResource(Res.string.refunds),
                     value = "${data.totalRefunds}",
                     amount = fmt(data.totalRefundedAmount),
                     color = Color(0xFFE53935),
                     modifier = Modifier.weight(1f),
                 )
                 SummaryChip(
-                    label = "Exchanges",
+                    label = stringResource(Res.string.exchanges),
                     value = "${data.totalExchanges}",
                     amount = fmt(data.totalExchangedAmount),
                     color = Color(0xFFFF9800),
                     modifier = Modifier.weight(1f),
                 )
                 SummaryChip(
-                    label = "Items",
+                    label = stringResource(Res.string.items),
                     value = "${data.totalReturnedItems}",
                     amount = "",
                     color = Color(0xFF7B1FA2),
@@ -65,7 +68,7 @@ fun ReturnsAnalyticsSection(data: ReturnsAnalytics) {
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Returned Items",
+                    stringResource(Res.string.returned_items),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -80,7 +83,7 @@ fun ReturnsAnalyticsSection(data: ReturnsAnalytics) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.itemName, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "${item.totalQuantity} items",
+                                stringResource(Res.string.items_count_short, item.totalQuantity),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -101,7 +104,7 @@ fun ReturnsAnalyticsSection(data: ReturnsAnalytics) {
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Exchange Replacements",
+                    stringResource(Res.string.exchange_replacements),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFFFF9800),

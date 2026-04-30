@@ -30,7 +30,17 @@ data class UserDto(
     val photo_url: String? = null,
     val active: Boolean = true,
     val created_at: Long? = null,
-    val updated_at: Long? = null
+    val updated_at: Long? = null,
+    /**
+     * UUID of the [WorkersTable] row that's linked to this user, if any. Set when:
+     *  - The user was created via the auto-link create-user flow (MANAGER/CASHIER/DELIVERY)
+     *  - An existing user was paired up by the startup backfill
+     * Lets the Permissions & Roles UI show "Salary: X · open salary screen" inline,
+     * and the Workers screen show "Has login: ✓" on the corresponding row.
+     */
+    val linked_worker_id: String? = null,
+    /** Worker's salary amount, surfaced for inline display in the Users list. */
+    val linked_worker_salary: Double? = null,
 )
 
 @Serializable
@@ -194,6 +204,41 @@ fun Route.userManagementRoutes() {
                     it[createdAt] = Clock.System.now()
                     it[updatedAt] = Clock.System.now()
                 }
+
+                // Auto-create a paired Worker record so the new user can be paid + clock in.
+                // Without this, managers/cashiers/delivery had login-only "ghost" accounts:
+                // they could log in but the Salaries / Attendance screens didn't know they
+                // existed. The Worker is created with salary 0 (owner sets it later in the
+                // Salaries screen) and links back via WorkersTable.userId.
+                //
+                // KITCHEN role is intentionally skipped — kitchen staff already get their
+                // Worker records via the Workers screen and rarely have logins.
+                if (request.role in listOf("MANAGER", "CASHIER", "DELIVERY")) {
+                    val vendorUUID = UUID.fromString(principal.vendorId)
+                    val alreadyLinked = WorkersTable.selectAll()
+                        .where { WorkersTable.userId eq id }
+                        .any()
+                    if (!alreadyLinked) {
+                        val workerCount = WorkersTable.selectAll()
+                            .where { WorkersTable.vendorId eq vendorUUID }
+                            .count()
+                        WorkersTable.insert {
+                            it[WorkersTable.vendorId] = vendorUUID
+                            it[WorkersTable.userId] = id
+                            it[workerId] = "WRK-${(workerCount + 1).toString().padStart(3, '0')}"
+                            it[fullName] = request.name
+                            it[WorkersTable.phone] = request.phone
+                            it[WorkersTable.role] = request.role
+                            it[salaryType] = "MONTHLY"
+                            // salaryAmount defaults to ZERO — owner sets it via the Salaries
+                            // screen. Better than guessing.
+                            it[WorkersTable.active] = true
+                            it[WorkersTable.createdAt] = Clock.System.now()
+                            it[WorkersTable.updatedAt] = Clock.System.now()
+                        }
+                    }
+                }
+
                 UsersTable.selectAll().where { UsersTable.id eq id }.first().toUserDto()
             }
             trace.step("Create user result", mapOf("userId" to user.id, "name" to user.name, "role" to user.role))
@@ -368,21 +413,44 @@ private fun ResultRow.toUserDto(host: String = "localhost:8080", scheme: String 
     updated_at = this[UsersTable.updatedAt].toEpochMilliseconds()
 )
 
-/** Fill missing user photo_url from their linked worker's photo (must run inside a transaction) */
+/**
+ * Hydrate a list of [UserDto] with their linked worker's id, salary, and (if missing)
+ * photo. Runs three batched queries instead of one-per-user; safe to call inside any
+ * `transaction {}` block.
+ *
+ * The cross-link surfaces in two places:
+ *  - The Permissions & Roles UI uses `linked_worker_id` + `linked_worker_salary` to
+ *    show inline "Salary: X" and a deep-link to the salary screen.
+ *  - The photo enrichment fallback (kept from the prior implementation) lets a
+ *    manager who only set their photo on the Worker side still appear with a face
+ *    in the Users list.
+ */
 private fun enrichUsersWithWorkerPhotos(users: List<UserDto>): List<UserDto> {
-    val noPhotoUserIds = users.filter { it.photo_url == null }.map { it.id }.toSet()
-    if (noPhotoUserIds.isEmpty()) return users
+    if (users.isEmpty()) return users
+    val userIds = users.map { it.id }.toSet()
 
-    val workerPhotoMap = WorkersTable.selectAll()
-        .where { WorkersTable.userId.isNotNull() and WorkersTable.photoUrl.isNotNull() }
+    // Single pass over the workers belonging to these users — collects link, salary,
+    // and photo together so we don't hit the DB three times.
+    data class WorkerLink(val workerId: String, val salary: Double, val photo: String?)
+    val byUser: Map<String, WorkerLink> = WorkersTable.selectAll()
+        .where { WorkersTable.userId.isNotNull() }
         .mapNotNull { row ->
-            val userId = row[WorkersTable.userId]?.value?.toString() ?: return@mapNotNull null
-            val photo = row[WorkersTable.photoUrl] ?: return@mapNotNull null
-            userId to photo
+            val userIdStr = row[WorkersTable.userId]?.value?.toString() ?: return@mapNotNull null
+            if (userIdStr !in userIds) return@mapNotNull null
+            userIdStr to WorkerLink(
+                workerId = row[WorkersTable.id].value.toString(),
+                salary = row[WorkersTable.salaryAmount].toDouble(),
+                photo = row[WorkersTable.photoUrl],
+            )
         }
         .toMap()
 
     return users.map { dto ->
-        if (dto.photo_url == null) dto.copy(photo_url = workerPhotoMap[dto.id]) else dto
+        val link = byUser[dto.id]
+        dto.copy(
+            photo_url = dto.photo_url ?: link?.photo,
+            linked_worker_id = link?.workerId,
+            linked_worker_salary = link?.salary,
+        )
     }
 }

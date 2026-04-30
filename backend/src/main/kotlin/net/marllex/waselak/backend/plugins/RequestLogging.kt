@@ -37,6 +37,17 @@ fun Application.configureRequestLogging() {
 
             call.attributes.put(requestStartTimeKey, System.currentTimeMillis())
 
+            // Skip body capture entirely for multipart uploads. The body is a
+            // binary stream of file bytes (PNG/JPG signatures contain 0x00),
+            // which Postgres rejects as invalid UTF-8 when we try to persist
+            // request_body to request_logs. Reading it here would also
+            // double-buffer the whole upload in memory for no benefit, since
+            // we never log the binary content anyway.
+            val ct = call.request.header("Content-Type") ?: ""
+            if (ct.startsWith("multipart/", ignoreCase = true)) {
+                return@onCall
+            }
+
             // Capture request body (DoubleReceive is already installed by HMAC plugin)
             try {
                 val body = call.receiveText()
@@ -177,6 +188,11 @@ private fun truncate(value: String, maxLen: Int): String {
 /** Remove sensitive fields from JSON-like request bodies. */
 private fun sanitizeBody(body: String): String {
     return body
+        // Strip NULL bytes — Postgres' UTF-8 text columns refuse 0x00 and the
+        // whole INSERT errors out, swallowing the legitimate request log. We
+        // still skip multipart in onCall above; this is belt-and-suspenders
+        // for any future caller that slips a binary blob through.
+        .replace("\u0000", "")
         .replace(Regex(""""password"\s*:\s*"[^"]*""""), """"password":"***"""")
         .replace(Regex(""""password_hash"\s*:\s*"[^"]*""""), """"password_hash":"***"""")
         .replace(Regex(""""token"\s*:\s*"[^"]*""""), """"token":"***"""")

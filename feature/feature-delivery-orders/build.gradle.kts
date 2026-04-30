@@ -18,6 +18,10 @@ kotlin {
             implementation(project(":core:core-auth"))
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
+        }
+        // See feature-manager-staff/build.gradle.kts for why qr-kit is
+        // androidMain-only.
+        androidMain.dependencies {
             implementation("network.chaintech:qr-kit:3.1.3")
         }
     }

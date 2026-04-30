@@ -197,14 +197,18 @@ fun PosScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 actions = {
-                    // Barcode scanner toggle
-                    IconButton(onClick = viewModel::toggleBarcodeScanner) {
-                        Icon(
-                            Icons.Filled.QrCodeScanner,
-                            contentDescription = stringResource(Res.string.barcode_scanner),
-                            tint = if (uiState.showBarcodeScanner) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    // Barcode scanner toggle — hidden for business types whose items
+                    // don't carry barcodes (restaurants/cafes/juice bars). Avoids a
+                    // dead button that just opens an empty scan dialog.
+                    if (uiState.canUseBarcode) {
+                        IconButton(onClick = viewModel::toggleBarcodeScanner) {
+                            Icon(
+                                Icons.Filled.QrCodeScanner,
+                                contentDescription = stringResource(Res.string.barcode_scanner),
+                                tint = if (uiState.showBarcodeScanner) MaterialTheme.colorScheme.primary
+                                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     // Cart button
                     IconButton(onClick = { showCartSheet = true }) {
@@ -1743,8 +1747,11 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Doctor info (pharmacy only)
-            if (uiState.businessType == "PHARMACY") {
+            // Doctor / diagnosis info — only when the vendor can capture prescriptions.
+            // Uses the capability flag (DomainFeatures + enablePrescriptions) instead of
+            // a raw `businessType == "PHARMACY"` string compare so casing variants and
+            // mistyped business types don't silently drop the fields.
+            if (uiState.canUsePrescriptions) {
                 item {
                     Text(stringResource(Res.string.doctor_name), style = MaterialTheme.typography.labelMedium)
                     OutlinedTextField(
@@ -1791,8 +1798,14 @@ private fun CartBottomSheet(
             if (selectedTiming == PaymentTiming.PAY_NOW) {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
+                    // SPLIT is filtered out (presented via a separate flow), and CREDIT
+                    // requires both the business *type* to support customer credit (via
+                    // DomainFeatures) AND the owner to have explicitly enabled it. The
+                    // double-gate prevents a stray `enableCustomerCredit=true` toggle on
+                    // a restaurant from offering a payment method the business model
+                    // doesn't support.
                     val selectableMethods = PaymentMethod.entries.filter {
-                        it != PaymentMethod.SPLIT && (it != PaymentMethod.CREDIT || uiState.enableCustomerCredit)
+                        it != PaymentMethod.SPLIT && (it != PaymentMethod.CREDIT || uiState.canUseCustomerCredit)
                     }
                     Text(stringResource(Res.string.payment_method_label), style = MaterialTheme.typography.labelMedium)
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {

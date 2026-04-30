@@ -595,6 +595,20 @@ fun DeliveryNavHost(
     // Shift summary state
     val apiClient: WaselakApiClient = koinInject()
     val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
+
+    // Suspension watchdog: proactive ping every 60s. See CashierNavHost for the
+    // full rationale — in short, without this a delivery user whose account got
+    // suspended would keep working on cached screens until they happened to hit
+    // the backend. The ping lets the global suspension interceptor fire reliably.
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000L)
+            if (isLoggedIn) {
+                runCatching { apiClient.pingAuth() }
+            }
+        }
+    }
+
     var showShiftSummary by remember { mutableStateOf(false) }
     var shiftSummaryWithSignOut by remember { mutableStateOf(true) }
     var shiftSummaryData by remember { mutableStateOf<net.marllex.waselak.core.ui.components.ShiftSummaryUiModel?>(null) }

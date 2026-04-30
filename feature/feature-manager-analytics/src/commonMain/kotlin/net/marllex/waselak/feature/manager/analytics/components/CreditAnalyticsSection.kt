@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -29,13 +30,13 @@ fun CreditAnalyticsSection(data: CreditAnalytics) {
         ) {
             CreditKpiCard(
                 label = stringResource(Res.string.total_outstanding),
-                value = "${"%.2f".format(data.totalOutstanding)}",
+                value = "${kFormat("%.2f", data.totalOutstanding)}",
                 color = if (data.totalOutstanding > 0) Color(0xFFF44336) else Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f),
             )
             CreditKpiCard(
                 label = stringResource(Res.string.credit_utilization),
-                value = "${"%.1f".format(data.utilizationPercent)}%",
+                value = "${kFormat("%.1f", data.utilizationPercent)}%",
                 color = when {
                     data.utilizationPercent > 80 -> Color(0xFFF44336)
                     data.utilizationPercent > 50 -> Color(0xFFFF9800)
@@ -51,13 +52,13 @@ fun CreditAnalyticsSection(data: CreditAnalytics) {
         ) {
             CreditKpiCard(
                 label = stringResource(Res.string.total_charges_label),
-                value = "${"%.2f".format(data.totalCharges)}",
+                value = "${kFormat("%.2f", data.totalCharges)}",
                 color = Color(0xFFF44336),
                 modifier = Modifier.weight(1f),
             )
             CreditKpiCard(
                 label = stringResource(Res.string.total_payments_label),
-                value = "${"%.2f".format(data.totalPayments)}",
+                value = "${kFormat("%.2f", data.totalPayments)}",
                 color = Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f),
             )
@@ -75,7 +76,7 @@ fun CreditAnalyticsSection(data: CreditAnalytics) {
             )
             CreditKpiCard(
                 label = stringResource(Res.string.credit_revenue),
-                value = "${"%.2f".format(data.creditOrdersRevenue)}",
+                value = "${kFormat("%.2f", data.creditOrdersRevenue)}",
                 color = Color(0xFF2196F3),
                 modifier = Modifier.weight(1f),
             )
@@ -106,13 +107,13 @@ fun CreditAnalyticsSection(data: CreditAnalytics) {
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                "${"%.2f".format(debtor.balance)}",
+                                "${kFormat("%.2f", debtor.balance)}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFF44336),
                             )
                             Text(
-                                "/ ${"%.2f".format(debtor.creditLimit)}",
+                                "/ ${kFormat("%.2f", debtor.creditLimit)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

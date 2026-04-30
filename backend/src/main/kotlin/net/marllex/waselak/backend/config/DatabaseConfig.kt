@@ -10,6 +10,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 object DatabaseConfig {
 
@@ -119,6 +120,7 @@ object DatabaseConfig {
                 ReservationsTable,
                 AppReleasesTable,
                 AppSettingsTable,
+                CrmOrganizationsTable, // multi-tenant root, must come BEFORE the other CRM tables
                 SalesAgentsTable, CrmClientsTable, CrmActivitiesTable,
                 CrmInvoicesTable, CrmPaymentsTable,
                 CrmAgentTargetsTable, CrmAgentReviewsTable,
@@ -242,7 +244,73 @@ object DatabaseConfig {
             // client's last_contact_at is updated by every activity so it doesn't identify
             // any single row. Leave crm_activities.created_at untouched — new rows written
             // after this deploy use the correct timestamp.
+
+            // ─── CRM multi-tenancy backfill ────────────────────────────
+            // Every CRM record (agents, clients, activities, …) gained an `organization_id`
+            // column when v1.9 added the multi-tenant model. Existing rows belong to the
+            // Waselak team's own CRM, so we seed a single "Waselak" organisation row and
+            // tag every NULL `organization_id` to point at it. Idempotent: re-running the
+            // migration is a no-op once every row has a value.
+            // Step 1: create the default org if it doesn't exist (use INSERT ... SELECT
+            //          WHERE NOT EXISTS so this stays a single SQL round-trip).
+            exec(
+                "INSERT INTO crm_organizations (id, name, contact_email, plan_tier, active, created_at, updated_at) " +
+                "SELECT gen_random_uuid(), 'Waselak', NULL, 'internal', TRUE, NOW(), NOW() " +
+                "WHERE NOT EXISTS (SELECT 1 FROM crm_organizations WHERE name = 'Waselak')"
+            )
+            // Step 2: backfill every CRM table whose rows are still missing an org. The
+            //          subquery picks the Waselak org's id once per UPDATE statement.
+            //          Each table is its own statement so a partial DDL deploy doesn't
+            //          leave us in a half-migrated state.
+            val crmBackfillTables = listOf(
+                "sales_agents", "crm_clients", "crm_activities",
+                "crm_invoices", "crm_payments",
+                "crm_agent_targets", "crm_agent_reviews",
+                "crm_salary_configs", "crm_salary_records", "crm_commission_details",
+            )
+            crmBackfillTables.forEach { tableName ->
+                exec(
+                    "UPDATE $tableName SET organization_id = " +
+                    "(SELECT id FROM crm_organizations WHERE name = 'Waselak' LIMIT 1) " +
+                    "WHERE organization_id IS NULL"
+                )
+            }
+
+            // Promote the Waselak org's owner agent to super_admin so they can manage
+            // every tenant from the CRM dashboard. Idempotent: subsequent runs are
+            // no-ops because the role is already super_admin.
+            exec(
+                "UPDATE sales_agents SET role = 'super_admin' " +
+                "WHERE role = 'owner' " +
+                "  AND organization_id = (SELECT id FROM crm_organizations WHERE name = 'Waselak' LIMIT 1)"
+            )
+
+            // Strip any host prefix from existing org logo URLs. The first version of
+            // the logo upload endpoint stored absolute URLs (http://host:8080/uploads/...)
+            // which broke the moment the dashboard was loaded from the other instance.
+            // We now save relative paths; this rewrites any leftover absolute URL down
+            // to the same path so existing uploads keep showing. Idempotent.
+            exec(
+                "UPDATE crm_organizations " +
+                "SET logo_url = regexp_replace(logo_url, '^https?://[^/]+', '') " +
+                "WHERE logo_url ~ '^https?://'"
+            )
+
+            // Lowercase every existing CRM agent email so the case-insensitive login
+            // lookup keeps a 1:1 match with the stored row. New rows are already
+            // normalised at insert time (see CrmService.createAgent / provisionOrg);
+            // this is the one-shot backfill for rows that pre-date that change.
+            // Idempotent — lower(lower(x)) == lower(x).
+            exec("UPDATE sales_agents SET email = lower(email) WHERE email <> lower(email)")
         }
+
+        // ─── Worker auto-link backfill ─────────────────────────────────
+        // Until v1.8.x users with login (managers, cashiers, delivery) didn't get an
+        // automatic Worker row — so they had no salary, no clock-in, no attendance log.
+        // From now on, createUser auto-creates the paired Worker; this block backfills
+        // every existing user that's missing one. Idempotent: running it twice is a
+        // no-op because the WHERE clause excludes users that already have a worker.
+        backfillWorkerRowsForExistingUsers()
 
         // Seed admin user if not exists
         seedAdminUser(config)
@@ -259,6 +327,62 @@ object DatabaseConfig {
         // Migrate existing vendors without a subscription to Enterprise plan
         // (must run AFTER seedIfEmpty so new vendors get assigned)
         migrateExistingVendorsToEnterprise()
+    }
+
+    /**
+     * Idempotent backfill: for every existing User with role MANAGER/CASHIER/DELIVERY
+     * that doesn't yet have a paired row in [WorkersTable], create one and link them
+     * via [WorkersTable.userId]. Default salary is 0 — owners set the real number in
+     * the Salaries screen. Default `salary_type` is MONTHLY.
+     *
+     * Pre-existing pure Workers (kitchen staff, no login) are untouched — only Users
+     * are scanned. Workers without `userId` stay as login-less HR records.
+     */
+    private fun backfillWorkerRowsForExistingUsers() {
+        transaction {
+            val targetRoles = listOf("MANAGER", "CASHIER", "DELIVERY")
+            // Gather every user in scope — one query, vendor-agnostic.
+            val candidateUsers = UsersTable.selectAll()
+                .where { UsersTable.role inList targetRoles }
+                .map { Triple(
+                    it[UsersTable.id].value,
+                    it[UsersTable.vendorId].value,
+                    Triple(it[UsersTable.name], it[UsersTable.phone], it[UsersTable.role]),
+                ) }
+            if (candidateUsers.isEmpty()) return@transaction
+
+            // Find the userIds that ALREADY have a worker so we can skip them.
+            val alreadyLinkedUserIds: Set<UUID> = WorkersTable.selectAll()
+                .where { WorkersTable.userId.isNotNull() }
+                .mapNotNull { it[WorkersTable.userId]?.value }
+                .toSet()
+
+            val toBackfill = candidateUsers.filter { (uid, _, _) -> uid !in alreadyLinkedUserIds }
+            if (toBackfill.isEmpty()) return@transaction
+
+            // For human-readable WRK-### IDs we need the current per-vendor count.
+            // Cache it once per vendor to avoid a count query inside the loop.
+            val countsByVendor = mutableMapOf<UUID, Long>()
+            toBackfill.forEach { (userId, vendorUuid, nameRoleTriple) ->
+                val (name, phone, role) = nameRoleTriple
+                val nextCount = (countsByVendor[vendorUuid]
+                    ?: WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUuid }.count()) + 1
+                countsByVendor[vendorUuid] = nextCount
+                WorkersTable.insert {
+                    it[WorkersTable.vendorId] = vendorUuid
+                    it[WorkersTable.userId] = userId
+                    it[workerId] = "WRK-${nextCount.toString().padStart(3, '0')}"
+                    it[fullName] = name
+                    it[WorkersTable.phone] = phone
+                    it[WorkersTable.role] = role
+                    it[salaryType] = "MONTHLY"
+                    // salaryAmount defaults to 0; owner will set it later.
+                    it[WorkersTable.active] = true
+                    it[WorkersTable.createdAt] = Clock.System.now()
+                    it[WorkersTable.updatedAt] = Clock.System.now()
+                }
+            }
+        }
     }
 
     private fun seedAdminUser(config: ApplicationConfig) {

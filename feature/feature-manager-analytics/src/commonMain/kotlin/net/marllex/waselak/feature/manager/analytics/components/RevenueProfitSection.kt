@@ -56,9 +56,14 @@ fun RevenueProfitSection(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(localizedPaymentMethod(pm.method), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "${formatCurrency(pm.revenue)} (${pm.orderCount} orders)",
+                        net.marllex.waselak.core.ui.components.formatPaymentMethodLabel(pm.method),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    // Localized "<revenue> (<N> orders)" — uses a shared pluralisable
+                    // string resource so the suffix reads as "طلب" in Arabic, "orders" in English.
+                    Text(
+                        "${formatCurrency(pm.revenue)} (${stringResource(Res.string.orders_count_short, pm.orderCount)})",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -82,11 +87,3 @@ fun RevenueProfitSection(
     }
 }
 
-private fun localizedPaymentMethod(method: String): String = when (method) {
-    "CASH" -> "Cash"
-    "CARD" -> "Card"
-    "WALLET" -> "Wallet"
-    "CREDIT" -> "Credit"
-    "SPLIT" -> "Split"
-    else -> method
-}

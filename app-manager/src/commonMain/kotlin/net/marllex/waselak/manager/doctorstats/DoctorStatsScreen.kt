@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.doctorstats
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -75,7 +76,7 @@ private fun DoctorCard(doctor: DoctorStatsResponse) {
                     Text(doctor.doctorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 }
                 Text(
-                    "${"%.2f".format(doctor.totalRevenue)}",
+                    "${kFormat("%.2f", doctor.totalRevenue)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4CAF50),

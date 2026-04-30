@@ -331,4 +331,27 @@
     <string name="day_fri">Fri</string>
     <string name="day_sat">Sat</string>
     <string name="day_sun">Sun</string>
+
+    <!-- Tab titles for the ScrollableTabRow in AnalyticsScreen -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_revenue">Revenue</string>
+    <string name="tab_team">Team</string>
+    <string name="tab_products">Products</string>
+    <string name="tab_customers">Customers</string>
+    <string name="tab_installments">Installments</string>
+    <string name="tab_pharmacy">Pharmacy</string>
+    <string name="tab_alerts">Alerts</string>
+    <string name="tab_export">Export</string>
+
+    <!-- Inline counts that need a formatted count + noun -->
+    <string name="orders_count_short">%1$d orders</string>
+    <string name="items_count_short">%1$d items</string>
+
+    <!-- Returns &amp; Exchanges section -->
+    <string name="returns_and_exchanges">Returns &amp; Exchanges</string>
+    <string name="refunds">Refunds</string>
+    <string name="exchanges">Exchanges</string>
+    <string name="items">Items</string>
+    <string name="returned_items">Returned Items</string>
+    <string name="exchange_replacements">Exchange Replacements</string>
 </resources>

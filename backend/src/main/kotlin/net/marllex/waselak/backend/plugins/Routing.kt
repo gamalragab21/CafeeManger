@@ -34,6 +34,8 @@ fun Application.configureRouting() {
         adminRoutes()
         // Admin API routes (JWT Bearer auth for CMP admin app)
         adminApiRoutes()
+        // Super-admin: provision new CRM tenant organisations + suspend/list them
+        crmSuperAdminRoutes()
         // Admin CMS analytics routes (vendor analytics via admin JWT)
         adminAnalyticsRoutes()
         // CMS App Settings (social links etc.) — inside admin JWT auth
@@ -67,6 +69,18 @@ fun Application.configureRouting() {
                     }
                 }
             }
+
+            // Lightweight auth heartbeat — the Android apps poll this on a 60-second
+            // interval from the foreground NavHost. It does nothing on its own; it just
+            // passes through the suspension interceptor above, so a suspended vendor
+            // receives 403 + ACCOUNT_SUSPENDED and NetworkModule's handler forces the
+            // logout. Cheap: no DB read, no serialization of a payload.
+            get("/api/v1/auth/ping") {
+                call.respond(io.ktor.http.HttpStatusCode.OK, mapOf("ok" to true))
+            }
+
+            // Manager POS-override PIN: set/change own, verify at cashier, admin reset.
+            overridePinRoutes()
 
             vendorRoutes()
             categoryRoutes()

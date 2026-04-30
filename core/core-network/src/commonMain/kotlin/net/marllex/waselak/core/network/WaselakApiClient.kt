@@ -7,6 +7,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
@@ -36,6 +37,44 @@ class WaselakApiClient(private val client: HttpClient) {
 
     suspend fun logout(): ApiSuccessResponse =
         client.post("api/v1/auth/logout").body()
+
+    /**
+     * Cheap authenticated heartbeat. Returns 200 normally; returns 403 with
+     * `ACCOUNT_SUSPENDED` if the vendor has been suspended — and that response is
+     * intercepted in NetworkModule which clears tokens, flipping `isLoggedIn` to
+     * false so the NavHost boots the user to login. Called on a 60-second interval
+     * from the foreground so suspension is detected even when the user is idle.
+     */
+    suspend fun pingAuth(): ApiSuccessResponse =
+        client.get("api/v1/auth/ping").body()
+
+    // ─── Manager Override PIN ────────────────────────────────────
+
+    /**
+     * Manager sets or changes their own POS-override PIN. Re-authenticates with the
+     * current password to prevent an unlocked device from silently overwriting the PIN.
+     */
+    suspend fun setMyOverridePin(request: SetOverridePinRequest): SetOverridePinResponse =
+        client.post("api/v1/users/me/override-pin") {
+            setBody(request)
+        }.body()
+
+    /**
+     * Cashier calls this at the POS to redeem a PIN for an approval token. Returns
+     * 403 on invalid PIN. The token is valid for ~90 seconds and must be attached as
+     * `managerOverrideToken` on the next `createOrder(...)` call.
+     */
+    suspend fun verifyOverridePin(request: VerifyOverridePinRequest): VerifyOverridePinResponse =
+        client.post("api/v1/auth/verify-override-pin") {
+            setBody(request)
+        }.body()
+
+    /**
+     * Admin-only: wipe another manager's override PIN hash. The caller never receives
+     * the PIN itself. Used when a manager forgets or leaves.
+     */
+    suspend fun resetManagerOverridePin(userId: String): ResetOverridePinResponse =
+        client.post("api/v1/users/$userId/reset-override-pin").body()
 
     // ─── Vendor ──────────────────────────────────────────────────
 
@@ -230,8 +269,18 @@ class WaselakApiClient(private val client: HttpClient) {
     suspend fun getOrder(id: String): OrderResponse =
         client.get("api/v1/orders/$id").body()
 
-    suspend fun createOrder(request: CreateOrderRequest): OrderResponse =
+    suspend fun createOrder(
+        request: CreateOrderRequest,
+        /**
+         * Short-lived manager approval token returned by `verifyOverridePin()`. Required
+         * when the order has a discount and the cashier is not themselves a manager;
+         * otherwise the server responds 403 `DISCOUNT_REQUIRES_MANAGER`. Null for plain
+         * no-discount orders.
+         */
+        managerOverrideToken: String? = null,
+    ): OrderResponse =
         client.post("api/v1/orders") {
+            if (managerOverrideToken != null) header("X-Manager-Override", managerOverrideToken)
             setBody(request)
         }.body()
 
@@ -531,31 +580,13 @@ class WaselakApiClient(private val client: HttpClient) {
      * Returns the saved file path in Downloads folder.
      */
     suspend fun downloadFile(url: String, onProgress: (Float) -> Unit): String? {
+        // App-update download. The actual file write is platform-specific —
+        // JVM (Android + Desktop) writes to ~/Downloads, iOS no-ops because
+        // App Store handles updates there. The helper hides the details.
         val response: HttpResponse = client.get(url)
         val contentLength = response.headers["Content-Length"]?.toLongOrNull() ?: -1L
-        val channel = response.bodyAsChannel()
-
-        // Save to temp/downloads
         val filename = url.substringAfterLast("/").substringBefore("?").ifBlank { "update.bin" }
-        val downloadsDir = java.io.File(System.getProperty("user.home"), "Downloads")
-        if (!downloadsDir.exists()) downloadsDir.mkdirs()
-        val file = java.io.File(downloadsDir, filename)
-
-        var totalBytesRead = 0L
-        file.outputStream().use { output ->
-            val buffer = ByteArray(8192)
-            while (!channel.isClosedForRead) {
-                val bytesRead = channel.readAvailable(buffer)
-                if (bytesRead <= 0) break
-                output.write(buffer, 0, bytesRead)
-                totalBytesRead += bytesRead
-                if (contentLength > 0) {
-                    onProgress(totalBytesRead.toFloat() / contentLength.toFloat())
-                }
-            }
-        }
-        onProgress(1f)
-        return file.absolutePath
+        return saveDownloadToFile(filename, response.bodyAsChannel(), contentLength, onProgress)
     }
 
     // ─── Export (streaming) ──────────────────────────────────────
@@ -1400,16 +1431,7 @@ class WaselakApiClient(private val client: HttpClient) {
     // (duplicate removed — checkForUpdate is defined above)
 }
 
-private fun detectPlatform(): String {
-    return try {
-        val osName = java.lang.System.getProperty("os.name")?.lowercase() ?: ""
-        when {
-            osName.contains("win") -> "windows"
-            osName.contains("mac") -> "macos"
-            osName.contains("linux") && !osName.contains("android") -> "linux"
-            else -> "android"
-        }
-    } catch (_: Exception) {
-        "android" // fallback for iOS/other
-    }
-}
+// Detected at runtime via the multiplatform helper in PlatformDetect.kt.
+// JVM looks at System.getProperty("os.name") to distinguish android / mac /
+// windows / linux; iOS returns "ios" directly.
+private fun detectPlatform(): String = currentPlatformName()

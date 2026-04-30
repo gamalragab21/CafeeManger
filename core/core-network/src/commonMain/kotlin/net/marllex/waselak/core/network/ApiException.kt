@@ -38,20 +38,10 @@ fun Throwable.isFeatureNotAvailableOrOffline(): Boolean =
 fun Throwable.isAccountSuspended(): Boolean =
     this is ApiException && statusCode == 403 && errorType == "ACCOUNT_SUSPENDED"
 
-/**
- * Returns true if this is a network/connection error (offline, timeout, DNS failure).
- */
-fun Throwable.isNetworkError(): Boolean =
-    this !is ApiException && (
-        this is java.net.ConnectException ||
-        this is java.net.UnknownHostException ||
-        this is java.net.SocketTimeoutException ||
-        this.message?.contains("No route to host") == true ||
-        this.message?.contains("Network is unreachable") == true ||
-        this.message?.contains("Unable to resolve host") == true ||
-        this.message?.contains("timeout") == true ||
-        this.cause?.let { it is java.net.ConnectException || it is java.net.UnknownHostException } == true
-    )
+// `Throwable.isNetworkError()` lives in NetworkErrorClassifier.kt now —
+// it's an expect/actual pair so iOS doesn't trip over the JVM-only
+// `java.net.*` exception types this used to inline. Same return shape;
+// every existing caller works unchanged.
 
 /**
  * Returns a user-friendly Arabic error message for any exception.

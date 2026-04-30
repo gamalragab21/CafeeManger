@@ -888,6 +888,24 @@ fun Route.orderRoutes() {
 
                 val afterDiscount = (subtotal - discountAmount).coerceAtLeast(BigDecimal.ZERO)
 
+                // Manager-override PIN enforcement. Any non-zero discount from a cashier
+                // requires a valid X-Manager-Override token issued by /auth/verify-override-pin.
+                // Managers placing orders themselves are implicitly authorised.
+                // We throw SecurityException (StatusPages maps it to 403 Forbidden) because
+                // we're inside a `transaction {}` block where `return@post` isn't allowed.
+                // The cashier app checks for this message prefix to re-prompt the PIN dialog.
+                var approvingManagerId: UUID? = null
+                if (discountAmount > BigDecimal.ZERO && principal.role.uppercase() != "MANAGER") {
+                    val rawToken = call.request.headers["X-Manager-Override"]
+                    val payload = rawToken?.let { jwtConfig.verifyOverrideToken(it) }
+                    if (payload == null || payload.vendorId != principal.vendorId) {
+                        throw SecurityException(
+                            "DISCOUNT_REQUIRES_MANAGER: Manager PIN approval is required for this discount"
+                        )
+                    }
+                    approvingManagerId = UUID.fromString(payload.managerUserId)
+                }
+
                 // Tax calculation - percentage-based on all channels (Phase 3)
                 var taxAmount = BigDecimal.ZERO
                 var taxPercentValue = BigDecimal.ZERO
@@ -957,6 +975,9 @@ fun Route.orderRoutes() {
                     stmt[OrdersTable.doctorName] = request.doctor_name
                     stmt[OrdersTable.diagnosis] = request.diagnosis
                     request.offer_id?.let { oid -> stmt[OrdersTable.offerId] = UUID.fromString(oid) }
+                    // Record which manager approved the discount (null if no discount
+                    // or if the cashier is themselves a manager — approving themselves).
+                    approvingManagerId?.let { mid -> stmt[OrdersTable.discountApprovedBy] = mid }
                     stmt[createdAt] = Clock.System.now()
                     stmt[updatedAt] = Clock.System.now()
                 }

@@ -331,4 +331,27 @@
     <string name="day_fri">جمعة</string>
     <string name="day_sat">سبت</string>
     <string name="day_sun">أحد</string>
+
+    <!-- تبويبات شاشة التحليلات -->
+    <string name="tab_overview">نظرة عامة</string>
+    <string name="tab_revenue">الإيرادات</string>
+    <string name="tab_team">الفريق</string>
+    <string name="tab_products">المنتجات</string>
+    <string name="tab_customers">العملاء</string>
+    <string name="tab_installments">الأقساط</string>
+    <string name="tab_pharmacy">الصيدلية</string>
+    <string name="tab_alerts">التنبيهات</string>
+    <string name="tab_export">تصدير</string>
+
+    <!-- عدّادات إضافية بين قوسين -->
+    <string name="orders_count_short">%1$d طلب</string>
+    <string name="items_count_short">%1$d قطعة</string>
+
+    <!-- قسم المرتجعات والتبديل -->
+    <string name="returns_and_exchanges">المرتجعات والتبديل</string>
+    <string name="refunds">المرتجعات</string>
+    <string name="exchanges">التبديلات</string>
+    <string name="items">القطع</string>
+    <string name="returned_items">قطع مرتجعة</string>
+    <string name="exchange_replacements">قطع التبديل</string>
 </resources>

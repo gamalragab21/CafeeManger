@@ -19,7 +19,11 @@ val appModule = module {
     single { OrderService() }
     single { PinService() }
     single { QrCodeService() }
-    single { net.marllex.waselak.backend.domain.service.ExportService() }
+    // ExportService now depends on AnalyticsQueryService to collect every analytics
+    // section (revenue, cashiers, products, customers, alerts, stock, etc.) into one
+    // multi-sheet Excel / multi-section PDF. Declare the query service first so Koin
+    // can resolve the dependency.
     single { AnalyticsQueryService() }
+    single { net.marllex.waselak.backend.domain.service.ExportService(get()) }
     single { NotificationService() }
 }

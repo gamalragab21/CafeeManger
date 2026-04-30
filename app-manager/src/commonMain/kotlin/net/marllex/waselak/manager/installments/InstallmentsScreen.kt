@@ -1,5 +1,9 @@
 package net.marllex.waselak.manager.installments
 
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -146,9 +150,9 @@ private fun PlansListContent(
             item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.total_plans), "${analytics.totalPlans}", Color(0xFF1976D2)) }
             item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.active_plans), "${analytics.activePlans}", Color(0xFF388E3C)) }
             item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.overdue_plans), "${analytics.defaultedPlans}", Color(0xFFD32F2F)) }
-            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.collected), "%.0f".format(analytics.collectedRevenue), Color(0xFF388E3C)) }
-            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.pending_amount), "%.0f".format(analytics.pendingRevenue), Color(0xFFF57C00)) }
-            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.late_fees), "%.0f".format(analytics.lateFeesCollected), Color(0xFFD32F2F)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.collected), kFormat("%.0f", analytics.collectedRevenue), Color(0xFF388E3C)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.pending_amount), kFormat("%.0f", analytics.pendingRevenue), Color(0xFFF57C00)) }
+            item(span = { GridItemSpan(1) }) { StatCard(stringResource(CoreRes.string.late_fees), kFormat("%.0f", analytics.lateFeesCollected), Color(0xFFD32F2F)) }
         }
 
         // Filter chips (full width)
@@ -213,9 +217,9 @@ private fun PlanCard(plan: InstallmentPlan, onClick: () -> Unit) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(plan.customerName ?: stringResource(CoreRes.string.customer), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                 plan.customerPhone?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Text("%.2f".format(plan.totalAmount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
-                Text(stringResource(CoreRes.string.remaining_value, "%.2f".format(plan.remainingAmount)), style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57C00))
-                Text(stringResource(CoreRes.string.months_count, plan.numInstallments) + " • " + "%.2f".format(plan.installmentAmount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(kFormat("%.2f", plan.totalAmount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
+                Text(stringResource(CoreRes.string.remaining_value, kFormat("%.2f", plan.remainingAmount)), style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57C00))
+                Text(stringResource(CoreRes.string.months_count, plan.numInstallments) + " • " + kFormat("%.2f", plan.installmentAmount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(formatStatus(plan.status), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
                     if (plan.overdueCount > 0) {
@@ -236,7 +240,7 @@ private fun PlanDetailContent(
     onChangeStatus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val nowMs = remember { System.currentTimeMillis() }
+    val nowMs = remember { kotlinx.datetime.Clock.System.now().toEpochMilliseconds() }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -261,17 +265,17 @@ private fun PlanDetailContent(
         }
 
         // ── Financial summary grid: 3 columns of stat cards ──
-        item { StatCard(stringResource(CoreRes.string.total_amount), "%.2f".format(plan.totalAmount), Color(0xFF1976D2)) }
-        item { StatCard(stringResource(CoreRes.string.total_paid_amount), "%.2f".format(plan.paidAmount), Color(0xFF388E3C)) }
-        item { StatCard(stringResource(CoreRes.string.total_remaining), "%.2f".format(plan.remainingAmount), if (plan.remainingAmount > 0) Color(0xFFF57C00) else Color(0xFF388E3C)) }
+        item { StatCard(stringResource(CoreRes.string.total_amount), kFormat("%.2f", plan.totalAmount), Color(0xFF1976D2)) }
+        item { StatCard(stringResource(CoreRes.string.total_paid_amount), kFormat("%.2f", plan.paidAmount), Color(0xFF388E3C)) }
+        item { StatCard(stringResource(CoreRes.string.total_remaining), kFormat("%.2f", plan.remainingAmount), if (plan.remainingAmount > 0) Color(0xFFF57C00) else Color(0xFF388E3C)) }
 
-        item { StatCard(stringResource(CoreRes.string.monthly_installment), "%.2f".format(plan.installmentAmount), Color(0xFF1976D2)) }
+        item { StatCard(stringResource(CoreRes.string.monthly_installment), kFormat("%.2f", plan.installmentAmount), Color(0xFF1976D2)) }
         item { StatCard(stringResource(CoreRes.string.paid_installments, plan.paidPaymentsCount, plan.numInstallments), "", Color(0xFF388E3C)) }
-        item { StatCard(stringResource(CoreRes.string.late_fees), "%.2f".format(plan.totalLateFees), if (plan.totalLateFees > 0) Color(0xFFD32F2F) else Color(0xFF757575)) }
+        item { StatCard(stringResource(CoreRes.string.late_fees), kFormat("%.2f", plan.totalLateFees), if (plan.totalLateFees > 0) Color(0xFFD32F2F) else Color(0xFF757575)) }
 
         if (plan.downPayment > 0 || plan.lateFeePercent > 0) {
-            item { StatCard(stringResource(CoreRes.string.down_payment), "%.2f".format(plan.downPayment), Color(0xFF1976D2)) }
-            item { StatCard(stringResource(CoreRes.string.late_fee_percent), "%.1f%%".format(plan.lateFeePercent), Color(0xFFD32F2F)) }
+            item { StatCard(stringResource(CoreRes.string.down_payment), kFormat("%.2f", plan.downPayment), Color(0xFF1976D2)) }
+            item { StatCard(stringResource(CoreRes.string.late_fee_percent), kFormat("%.1f%%", plan.lateFeePercent), Color(0xFFD32F2F)) }
             item { StatCard(stringResource(CoreRes.string.plan_start_date), formatDate(plan.startDate), Color(0xFF757575)) }
         }
 
@@ -279,9 +283,9 @@ private fun PlanDetailContent(
         plan.currentMonthPayment(nowMs)?.let { current ->
             item(span = { GridItemSpan(3) }) {
                 val isThisMonth = run {
-                    val now = java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    val due = java.time.Instant.ofEpochMilli(current.dueDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    now.year == due.year && now.monthValue == due.monthValue
+                    val now = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(TimeZone.currentSystemDefault()).date
+                    val due = Instant.fromEpochMilliseconds(current.dueDate).toLocalDateTime(TimeZone.currentSystemDefault()).date
+                    now.year == due.year && now.monthNumber == due.monthNumber
                 }
                 val cardColor = if (current.isOverdue) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                     else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -297,12 +301,12 @@ private fun PlanDetailContent(
                         )
                         HorizontalDivider()
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatCard(stringResource(CoreRes.string.due_this_month, ""), "%.2f".format(current.totalDue), Color(0xFF1976D2), Modifier.weight(1f))
-                            StatCard(stringResource(CoreRes.string.paid_this_month, ""), "%.2f".format(current.paidAmount), Color(0xFF388E3C), Modifier.weight(1f))
-                            StatCard(stringResource(CoreRes.string.remaining_this_month, ""), "%.2f".format(current.remainingDue), if (current.isOverdue) Color(0xFFD32F2F) else Color(0xFFF57C00), Modifier.weight(1f))
+                            StatCard(stringResource(CoreRes.string.due_this_month, ""), kFormat("%.2f", current.totalDue), Color(0xFF1976D2), Modifier.weight(1f))
+                            StatCard(stringResource(CoreRes.string.paid_this_month, ""), kFormat("%.2f", current.paidAmount), Color(0xFF388E3C), Modifier.weight(1f))
+                            StatCard(stringResource(CoreRes.string.remaining_this_month, ""), kFormat("%.2f", current.remainingDue), if (current.isOverdue) Color(0xFFD32F2F) else Color(0xFFF57C00), Modifier.weight(1f))
                         }
                         if (current.lateFee > 0) {
-                            Text(stringResource(CoreRes.string.late_fee_value, "%.2f".format(current.lateFee)), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(CoreRes.string.late_fee_value, kFormat("%.2f", current.lateFee)), color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
                         }
                         Text(stringResource(CoreRes.string.due_date_value, formatDate(current.dueDate)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (current.needsPayment) {
@@ -312,8 +316,8 @@ private fun PlanDetailContent(
                             ) {
                                 Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                if (current.isPartiallyPaid) Text(stringResource(CoreRes.string.pay_remaining) + " (%.2f)".format(current.remainingDue))
-                                else Text(stringResource(CoreRes.string.record_payment) + " (%.2f)".format(current.totalDue))
+                                if (current.isPartiallyPaid) Text(stringResource(CoreRes.string.pay_remaining) + kFormat(" (%.2f)", current.remainingDue))
+                                else Text(stringResource(CoreRes.string.record_payment) + kFormat(" (%.2f)", current.totalDue))
                             }
                         }
                     }
@@ -399,18 +403,18 @@ private fun PaymentGridCard(
                 // Due date
                 Text(formatDate(payment.dueDate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Amount
-                Text("%.2f".format(payment.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(kFormat("%.2f", payment.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 // Late fee
                 if (payment.lateFee > 0) {
-                    Text("+ %.2f".format(payment.lateFee), color = Color(0xFFD32F2F), style = MaterialTheme.typography.labelSmall)
+                    Text(kFormat("+ %.2f", payment.lateFee), color = Color(0xFFD32F2F), style = MaterialTheme.typography.labelSmall)
                 }
                 // Paid
                 if (payment.paidAmount > 0) {
-                    Text(stringResource(CoreRes.string.paid_amount_value, "%.2f".format(payment.paidAmount)), color = Color(0xFF388E3C), style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(CoreRes.string.paid_amount_value, kFormat("%.2f", payment.paidAmount)), color = Color(0xFF388E3C), style = MaterialTheme.typography.labelSmall)
                 }
                 // Remaining
                 if (payment.needsPayment && payment.remainingDue > 0 && payment.remainingDue != payment.totalDue) {
-                    Text(stringResource(CoreRes.string.remaining_this_month, "%.2f".format(payment.remainingDue)), color = Color(0xFFF57C00), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(CoreRes.string.remaining_this_month, kFormat("%.2f", payment.remainingDue)), color = Color(0xFFF57C00), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 }
                 // Actions
                 if (payment.needsPayment) {
@@ -615,7 +619,7 @@ private fun CreatePlanDialog(
                 val months = uiState.createMonths.toIntOrNull() ?: 1
                 if (total > 0 && months > 0) {
                     val monthly = (total - down) / months
-                    Text(stringResource(CoreRes.string.monthly_preview, "%.2f".format(monthly)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(CoreRes.string.monthly_preview, kFormat("%.2f", monthly)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
             }
         },
@@ -650,18 +654,18 @@ private fun RecordPaymentDialog(
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(CoreRes.string.due_date_value, formatDate(targetPayment.dueDate)), style = MaterialTheme.typography.bodySmall)
-                            Text(stringResource(CoreRes.string.amount_value, "%.2f".format(targetPayment.amount)), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(CoreRes.string.amount_value, kFormat("%.2f", targetPayment.amount)), style = MaterialTheme.typography.bodySmall)
                             if (targetPayment.lateFee > 0) {
-                                Text(stringResource(CoreRes.string.late_fee_value, "%.2f".format(targetPayment.lateFee)), style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
+                                Text(stringResource(CoreRes.string.late_fee_value, kFormat("%.2f", targetPayment.lateFee)), style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
                             }
                             Text(
-                                stringResource(CoreRes.string.due_this_month, "%.2f".format(targetPayment.totalDue)),
+                                stringResource(CoreRes.string.due_this_month, kFormat("%.2f", targetPayment.totalDue)),
                                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
                             )
                             if (targetPayment.paidAmount > 0) {
-                                Text(stringResource(CoreRes.string.paid_this_month, "%.2f".format(targetPayment.paidAmount)), style = MaterialTheme.typography.bodySmall, color = Color(0xFF388E3C))
+                                Text(stringResource(CoreRes.string.paid_this_month, kFormat("%.2f", targetPayment.paidAmount)), style = MaterialTheme.typography.bodySmall, color = Color(0xFF388E3C))
                                 Text(
-                                    stringResource(CoreRes.string.remaining_this_month, "%.2f".format(targetPayment.remainingDue)),
+                                    stringResource(CoreRes.string.remaining_this_month, kFormat("%.2f", targetPayment.remainingDue)),
                                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57C00),
                                 )
                             }
@@ -709,6 +713,6 @@ private fun StatusChangeDialog(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val date = java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-    return "${date.dayOfMonth}/${date.monthValue}/${date.year}"
+    val date = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()).date
+    return "${date.dayOfMonth}/${date.monthNumber}/${date.year}"
 }

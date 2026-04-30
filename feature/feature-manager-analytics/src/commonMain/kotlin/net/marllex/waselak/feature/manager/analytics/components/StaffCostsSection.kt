@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -104,7 +105,7 @@ fun StaffCostsSection(
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Text(
-                        "${String.format(java.util.Locale.US, "%.1f", data.overtimePercentage)}%",
+                        "${kFormat("%.1f", data.overtimePercentage)}%",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.tertiary,
@@ -145,7 +146,7 @@ fun StaffCostsSection(
                             style = MaterialTheme.typography.labelMedium,
                         )
                         Text(
-                            "${String.format(java.util.Locale.US, "%.1f", paidPercent)}%",
+                            "${kFormat("%.1f", paidPercent)}%",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (paidPercent >= 100.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
@@ -177,7 +178,7 @@ fun StaffCostsSection(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    stringResource(Res.string.overtime_hours_total, String.format(java.util.Locale.US, "%.1f", data.overtimeHours)),
+                    stringResource(Res.string.overtime_hours_total, kFormat("%.1f", data.overtimeHours)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -212,7 +213,7 @@ fun StaffCostsSection(
                     )
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            "${String.format(java.util.Locale.US, "%.1f", worker.overtimeHours)}h",
+                            "${kFormat("%.1f", worker.overtimeHours)}h",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

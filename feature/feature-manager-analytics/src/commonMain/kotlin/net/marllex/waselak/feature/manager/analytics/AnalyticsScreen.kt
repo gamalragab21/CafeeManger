@@ -61,30 +61,53 @@ fun AnalyticsScreen(
     viewModel: AnalyticsViewModel = koinViewModel(),
     onNavigateBack: (() -> Unit)? = null,
     businessType: String? = null,
+    /**
+     * Whether to surface the "Pharmacy" tab (credit + doctor-stats sections). Used to
+     * be inferred from `businessType == "PHARMACY" || "RETAIL"`, but that's brittle —
+     * restaurants and cafes were leaking the tab when the backend stored their type in
+     * a case that matched ("PHARMACY"/"pharmacy"/"Pharmacy"). Now the caller passes an
+     * explicit boolean derived from DomainFeatures.hasPrescriptions/hasDrugInteractions
+     * + vendor toggles (same source of truth the More menu uses).
+     */
+    hasPharmacyAnalytics: Boolean = false,
+    /**
+     * Whether to surface the "Installments" tab. Defaults to true so existing callers
+     * that only pass businessType keep working, but the call site should pass the real
+     * `DomainFeatures.hasInstallments && vendor?.enableInstallments != false` flag.
+     */
+    hasInstallmentsAnalytics: Boolean = true,
 ) {
     val state by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
     val scope = rememberCoroutineScope()
 
-    val isPharmacyOrRetail = businessType in listOf("PHARMACY", "RETAIL")
-    val hasInstallments = businessType !in listOf("PHARMACY", "RESTAURANT")
-
-    // Build tabs dynamically based on business type
-    val tabs = remember(isPharmacyOrRetail, hasInstallments) {
+    // Build tabs dynamically based on business type. Titles come from stringResource so
+    // they localise properly — when rebuilding the list, we depend on the locale flipping
+    // by keying `remember` on it (the strings below are evaluated at composition time).
+    val tabOverview = stringResource(Res.string.tab_overview)
+    val tabRevenue = stringResource(Res.string.tab_revenue)
+    val tabTeam = stringResource(Res.string.tab_team)
+    val tabProducts = stringResource(Res.string.tab_products)
+    val tabCustomers = stringResource(Res.string.tab_customers)
+    val tabInstallments = stringResource(Res.string.tab_installments)
+    val tabPharmacy = stringResource(Res.string.tab_pharmacy)
+    val tabAlerts = stringResource(Res.string.tab_alerts)
+    val tabExport = stringResource(Res.string.tab_export)
+    val tabs = remember(hasPharmacyAnalytics, hasInstallmentsAnalytics, tabOverview, tabRevenue, tabTeam, tabProducts, tabCustomers, tabInstallments, tabPharmacy, tabAlerts, tabExport) {
         buildList {
-            add(AnalyticsTab("Overview", "overview"))
-            add(AnalyticsTab("Revenue", "revenue"))
-            add(AnalyticsTab("Team", "team"))
-            add(AnalyticsTab("Products", "products"))
-            add(AnalyticsTab("Customers", "customers"))
-            if (hasInstallments) {
-                add(AnalyticsTab("Installments", "installments"))
+            add(AnalyticsTab(tabOverview, "overview"))
+            add(AnalyticsTab(tabRevenue, "revenue"))
+            add(AnalyticsTab(tabTeam, "team"))
+            add(AnalyticsTab(tabProducts, "products"))
+            add(AnalyticsTab(tabCustomers, "customers"))
+            if (hasInstallmentsAnalytics) {
+                add(AnalyticsTab(tabInstallments, "installments"))
             }
-            if (isPharmacyOrRetail) {
-                add(AnalyticsTab("Pharmacy", "pharmacy"))
+            if (hasPharmacyAnalytics) {
+                add(AnalyticsTab(tabPharmacy, "pharmacy"))
             }
-            add(AnalyticsTab("Alerts", "alerts"))
-            add(AnalyticsTab("Export", "export"))
+            add(AnalyticsTab(tabAlerts, "alerts"))
+            add(AnalyticsTab(tabExport, "export"))
         }
     }
 

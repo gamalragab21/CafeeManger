@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -123,10 +124,10 @@ private fun localizeAlertMessage(type: String, value: Double, threshold: Double)
             val previousRevenue = threshold / 0.7
             ((previousRevenue - value) / previousRevenue * 100.0)
         } else 0.0
-        stringResource(Res.string.alert_msg_revenue_drop, String.format(java.util.Locale.US, "%.1f", dropPct))
+        stringResource(Res.string.alert_msg_revenue_drop, kFormat("%.1f", dropPct))
     }
-    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_msg_high_cancellation, String.format(java.util.Locale.US, "%.1f", value))
-    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_msg_high_refund, String.format(java.util.Locale.US, "%.1f", value))
+    "HIGH_CANCELLATION" -> stringResource(Res.string.alert_msg_high_cancellation, kFormat("%.1f", value))
+    "HIGH_REFUND_RATE" -> stringResource(Res.string.alert_msg_high_refund, kFormat("%.1f", value))
     "OUT_OF_STOCK" -> stringResource(Res.string.alert_msg_out_of_stock, value.toInt())
     "LOW_STOCK" -> stringResource(Res.string.alert_msg_low_stock, value.toInt())
     else -> null

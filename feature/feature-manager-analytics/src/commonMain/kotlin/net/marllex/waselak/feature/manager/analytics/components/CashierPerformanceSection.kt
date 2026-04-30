@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,7 +82,7 @@ fun CashierPerformanceSection(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "${String.format(java.util.Locale.US, "%.1f", cashier.cancellationRate)}%",
+                    "${kFormat("%.1f", cashier.cancellationRate)}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (cashier.cancellationRate > 10) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),

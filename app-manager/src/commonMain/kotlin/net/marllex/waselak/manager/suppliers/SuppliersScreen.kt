@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.suppliers
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,9 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+// Date formatting was JVM-only (SimpleDateFormat / java.util.Date / java.util.Locale).
+// kotlinx.datetime works on iOS too — Instant.fromEpochMilliseconds → LocalDate
+// in the system zone, then a one-line "yyyy-MM-dd" format.
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.model.PurchaseOrder
 import net.marllex.waselak.core.model.Stock
 import net.marllex.waselak.core.model.Supplier
@@ -461,7 +465,7 @@ private fun CreatePurchaseOrderDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(stringResource(Res.string.subtotal), fontWeight = FontWeight.SemiBold)
-                        Text(String.format(java.util.Locale.US, "%.2f", subtotal), fontWeight = FontWeight.SemiBold)
+                        Text(kFormat("%.2f", subtotal), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -499,8 +503,7 @@ private fun CreatePurchaseOrderDialog(
                             TextButton(onClick = {
                                 showExpectedDatePicker = false
                                 datePickerState.selectedDateMillis?.let { millis ->
-                                    val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                    onExpectedDateChange(fmt.format(Date(millis)))
+                                    onExpectedDateChange(formatYmd(millis))
                                 }
                             }) { Text(stringResource(Res.string.ok)) }
                         },
@@ -592,7 +595,7 @@ private fun PoDetailDialog(
                                 }
                             }
                             Text(
-                                String.format(java.util.Locale.US, "%.2f", item.totalCost),
+                                kFormat("%.2f", item.totalCost),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -608,7 +611,7 @@ private fun PoDetailDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(stringResource(Res.string.subtotal), fontWeight = FontWeight.Bold)
-                    Text(String.format(java.util.Locale.US, "%.2f", po.total), fontWeight = FontWeight.Bold)
+                    Text(kFormat("%.2f", po.total), fontWeight = FontWeight.Bold)
                 }
 
                 // Action buttons
@@ -756,8 +759,7 @@ private fun ReceiveItemsDialog(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        onUpdateExpiry(idx, fmt.format(Date(millis)))
+                        onUpdateExpiry(idx, formatYmd(millis))
                     }
                     showExpiryPickerForIndex = -1
                 }) { Text(stringResource(Res.string.ok)) }
@@ -771,4 +773,16 @@ private fun ReceiveItemsDialog(
             DatePicker(state = datePickerState)
         }
     }
+}
+
+// "yyyy-MM-dd" formatter used by the supplier purchase-order date pickers.
+// Lives here (private) because it's the only place in this file that needs
+// it. Same output as the old SimpleDateFormat("yyyy-MM-dd", Locale.US).
+private fun formatYmd(epochMillis: Long): String {
+    val ld = Instant.fromEpochMilliseconds(epochMillis)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .date
+    val mm = ld.monthNumber.toString().padStart(2, '0')
+    val dd = ld.dayOfMonth.toString().padStart(2, '0')
+    return "${ld.year}-$mm-$dd"
 }

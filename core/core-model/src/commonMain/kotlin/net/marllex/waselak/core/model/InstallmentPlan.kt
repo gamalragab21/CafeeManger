@@ -1,5 +1,8 @@
 package net.marllex.waselak.core.model
 
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -37,13 +40,19 @@ data class InstallmentPlan(
     }
     /** Payment whose due date falls in the current calendar month (or the next unpaid if none this month) */
     fun currentMonthPayment(nowMs: Long): InstallmentPayment? {
-        val now = java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-        val thisMonth = now.year * 100 + now.monthValue
+        // Switched off java.time so this compiles on iOS too — kotlinx.datetime
+        // is multiplatform and the project already pulls it in for both
+        // commonMain and iosMain. Logic is identical: epoch-ms → local date in
+        // the system timezone, then a year*100+month integer makes month
+        // comparison cheap. `monthNumber` (1-12) replaces JVM's monthValue.
+        val tz = TimeZone.currentSystemDefault()
+        val now = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(tz).date
+        val thisMonth = now.year * 100 + now.monthNumber
         // First try: find unpaid payment due THIS month
         val thisMonthPayment = payments.firstOrNull { p ->
             p.needsPayment && run {
-                val due = java.time.Instant.ofEpochMilli(p.dueDate).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                (due.year * 100 + due.monthValue) == thisMonth
+                val due = Instant.fromEpochMilliseconds(p.dueDate).toLocalDateTime(tz).date
+                (due.year * 100 + due.monthNumber) == thisMonth
             }
         }
         // Fallback: first unpaid payment (overdue or upcoming)

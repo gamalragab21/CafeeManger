@@ -52,4 +52,39 @@ class JwtConfig(config: ApplicationConfig) {
             null
         }
     }
+
+    /** Payload returned when a manager override token is verified successfully. */
+    data class OverrideTokenPayload(val managerUserId: String, val vendorId: String)
+
+    /**
+     * Issue a single-use short-lived token representing "a manager approved this
+     * action at the POS". Lives for 90 seconds — long enough for the cashier to
+     * finish placing the order, too short to stash and reuse later.
+     */
+    fun generateOverrideToken(managerUserId: String, vendorId: String): String {
+        return JWT.create()
+            .withSubject(managerUserId)
+            .withIssuer(issuer)
+            .withClaim("type", "override")
+            .withClaim("vendor_id", vendorId)
+            .withJWTId(UUID.randomUUID().toString())
+            .withIssuedAt(Date())
+            .withExpiresAt(Date(System.currentTimeMillis() + 90_000L))
+            .sign(Algorithm.HMAC256(secret))
+    }
+
+    fun verifyOverrideToken(token: String): OverrideTokenPayload? {
+        return try {
+            val decoded = JWT.require(Algorithm.HMAC256(secret))
+                .withIssuer(issuer)
+                .build()
+                .verify(token)
+            if (decoded.getClaim("type").asString() != "override") return null
+            val subject = decoded.subject ?: return null
+            val vendorId = decoded.getClaim("vendor_id").asString() ?: return null
+            OverrideTokenPayload(managerUserId = subject, vendorId = vendorId)
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

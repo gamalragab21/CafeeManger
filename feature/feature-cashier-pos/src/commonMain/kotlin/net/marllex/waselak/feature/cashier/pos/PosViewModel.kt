@@ -97,6 +97,17 @@ class PosViewModel constructor(
         val vendorName: String = "",
         val vendorLogoUrl: String? = null,
         val businessType: String = "RESTAURANT",
+        // Capability flags derived once from `DomainFeatures.forVendor(vendor)` plus the
+        // vendor's `enable*` toggles. Replacing the previous `businessType == "PHARMACY"`
+        // string compares — those silently broke whenever the value's casing varied
+        // (`"pharmacy"`, `"Pharmacy"`) or when an admin had set the wrong type.
+        // `canUseX = (DomainFeatures says this business *type* supports X)
+        //         && (vendor has explicitly enabled X — defaults to true if no toggle)`.
+        val canUsePrescriptions: Boolean = false,
+        val canUseDrugInteractions: Boolean = false,
+        val canUseBarcode: Boolean = false,
+        val canUseCustomerCredit: Boolean = false,
+        val canUseSplitPayments: Boolean = true,
         val selectedTableId: String? = null,
         val selectedDeliveryUserId: String? = null,
         val reservationId: String? = null,
@@ -145,6 +156,14 @@ class PosViewModel constructor(
         val maxManualDiscountPercent: Double = 100.0,
         val manualDiscountRequiresPin: Boolean = false,
         val pinApproved: Boolean = false,
+        /**
+         * Short-lived manager override token returned by `/api/v1/auth/verify-override-pin`.
+         * Attached to the next `createOrder()` call when the discount > 0 and the
+         * cashier is not a manager. Cleared after a successful submission so a stale
+         * token can't be replayed for a later order.
+         */
+        val managerOverrideToken: String? = null,
+        val managerApprovedByName: String? = null,
         // Offline confirmation dialog
         val showOfflineConfirmation: Boolean = false,
         // Scheduled order (PICKUP_LATER)
@@ -239,6 +258,9 @@ class PosViewModel constructor(
                         vendor.enablePickupLater -> OrderChannel.PICKUP_LATER
                         else -> OrderChannel.DINE_IN
                     }
+                    // Compute the *capability* flags once from DomainFeatures + vendor toggles
+                    // so checks elsewhere don't have to compare raw business-type strings.
+                    val features = net.marllex.waselak.core.model.DomainFeatures.forVendor(vendor)
                     _uiState.update { it.copy(
                         enableTables = vendor.enableTables,
                         enableDineIn = vendor.enableDineIn,
@@ -256,6 +278,11 @@ class PosViewModel constructor(
                         minPointsRedeem = vendor.minPointsRedeem,
                         maxManualDiscountPercent = vendor.maxManualDiscountPercent,
                         manualDiscountRequiresPin = vendor.manualDiscountRequiresPin,
+                        canUsePrescriptions = features.hasPrescriptions && vendor.enablePrescriptions,
+                        canUseDrugInteractions = features.hasDrugInteractions && vendor.enableDrugInteractions,
+                        canUseBarcode = features.hasBarcode,
+                        canUseCustomerCredit = features.hasCustomerCredit && vendor.enableCustomerCredit,
+                        canUseSplitPayments = features.hasSplitPayments,
                     ) }
                 }
             }
@@ -727,11 +754,24 @@ class PosViewModel constructor(
     fun verifyManagerPin(pin: String) {
         viewModelScope.launch {
             try {
-                api.verifyManagerPin(pin)
-                _uiState.update { it.copy(showPinDialog = false, pinApproved = true, pinError = null) }
-                AppLogger.i("POS", "Manager PIN approved for discount")
+                // New endpoint: verify the PIN AND receive a short-lived approval token
+                // that we'll attach to the next createOrder call. Old endpoint
+                // (/workers/verify-manager-pin) only returned "ok" with no token.
+                val resp = api.verifyOverridePin(
+                    net.marllex.waselak.core.network.dto.VerifyOverridePinRequest(pin)
+                )
+                _uiState.update {
+                    it.copy(
+                        showPinDialog = false,
+                        pinApproved = true,
+                        pinError = null,
+                        managerOverrideToken = resp.token,
+                        managerApprovedByName = resp.managerName,
+                    )
+                }
+                AppLogger.i("POS", "Manager PIN approved by ${resp.managerName} for discount")
             } catch (e: Exception) {
-                _uiState.update { it.copy(pinError = e.message) }
+                _uiState.update { it.copy(pinError = e.message ?: "PIN غير صحيح") }
                 AppLogger.w("POS", "Manager PIN verification failed: ${e.message}")
             }
         }
@@ -775,8 +815,9 @@ class PosViewModel constructor(
                 }
             }
 
-            // Drug interaction check for pharmacy
-            if (s.businessType == "PHARMACY" && s.cart.size >= 2) {
+            // Drug-interaction check, gated on real capability flags rather than the raw
+            // business-type string (which used to silently miss non-uppercase values).
+            if (s.canUseDrugInteractions && s.cart.size >= 2) {
                 val itemIds = s.cart.map { it.item.id }
                 drugInteractionRepository.checkInteractions(itemIds)
                     .onSuccess { result ->
@@ -910,6 +951,10 @@ class PosViewModel constructor(
                     doctorName = s.doctorName.ifBlank { null },
                     diagnosis = s.diagnosis.ifBlank { null },
                     deliveryUserId = s.selectedDeliveryUserId,
+                    // Attach the manager override token if a PIN was verified earlier
+                    // in the flow. Server requires it when discount > 0 and the cashier
+                    // isn't a manager; otherwise it's ignored.
+                    managerOverrideToken = s.managerOverrideToken,
                 ).onSuccess { order ->
                     AppLogger.i("POS", "Order submitted: id=${order.id}")
                     onSuccess(order)
@@ -921,12 +966,27 @@ class PosViewModel constructor(
                 }.onFailure { e ->
                     CrashReporter.captureException(e)
                     AppLogger.e("POS", "Order submission failed", e)
+                    val msg = e.message.orEmpty()
                     when {
                         e.isPlanLimitExceeded() -> _uiState.update {
                             it.copy(isSubmitting = false, showPlanLimitDialog = true, planLimitMessage = e.message ?: "")
                         }
                         e.isFeatureNotAvailableOrOffline() -> _uiState.update {
                             it.copy(isSubmitting = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "")
+                        }
+                        // Server rejected the order because it needs manager approval that
+                        // we didn't send (or sent an expired/invalid token). Re-open the PIN
+                        // dialog and clear any stale approval state; cashier enters a fresh
+                        // PIN and retries the submit.
+                        msg.contains("DISCOUNT_REQUIRES_MANAGER") -> _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                showPinDialog = true,
+                                pinError = "يرجى إدخال رمز المدير لاعتماد الخصم",
+                                pinApproved = false,
+                                managerOverrideToken = null,
+                                managerApprovedByName = null,
+                            )
                         }
                         else -> _uiState.update { it.copy(isSubmitting = false, error = e.message) }
                     }
@@ -965,7 +1025,11 @@ class PosViewModel constructor(
                 manualDiscountType = "FIXED",
                 manualDiscountReason = "",
                 pointsToRedeem = 0,
+                // Clear manager approval state — tokens are single-order; force a fresh
+                // PIN entry on the next order that needs approval.
                 pinApproved = false,
+                managerOverrideToken = null,
+                managerApprovedByName = null,
             )
         }
     }

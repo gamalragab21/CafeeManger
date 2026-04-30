@@ -38,7 +38,12 @@ actual object HmacSigner {
 
         buildString {
             for (i in 0 until digestLength) {
-                append("%02x".format(result[i].toInt() and 0xFF))
+                // Kotlin/Native doesn't expose String.format, so build the
+                // hex string manually. Same output (lowercase 2-digit hex)
+                // that "%02x".format(v) would have produced on JVM.
+                val v = result[i].toInt() and 0xFF
+                if (v < 0x10) append('0')
+                append(v.toString(16))
             }
         }
     }
@@ -58,7 +63,12 @@ actual object HmacSigner {
 
         buildString {
             for (i in 0 until digestLength) {
-                append("%02x".format(result[i].toInt() and 0xFF))
+                // Kotlin/Native doesn't expose String.format, so build the
+                // hex string manually. Same output (lowercase 2-digit hex)
+                // that "%02x".format(v) would have produced on JVM.
+                val v = result[i].toInt() and 0xFF
+                if (v < 0x10) append('0')
+                append(v.toString(16))
             }
         }
     }

@@ -46,8 +46,12 @@ fun OrdersIntelligenceSection(
                 MaterialTheme.colorScheme.tertiary,
                 MaterialTheme.colorScheme.error,
             )
+            // Localize the raw channel strings (DINE_IN / DELIVERY / …) so the donut
+            // legend reads in the user's language, not the backend enum value.
             DonutChart(
-                segments = data.channelBreakdown.map { it.channel to it.count.toFloat() },
+                segments = data.channelBreakdown.map {
+                    net.marllex.waselak.core.ui.components.formatChannelLabel(it.channel) to it.count.toFloat()
+                },
                 colors = colors,
             )
         }

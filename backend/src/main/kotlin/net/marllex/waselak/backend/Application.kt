@@ -77,6 +77,27 @@ fun Application.module() {
         requestLogService.cleanupOldLogs(retentionDays)
     }
 
+    // Janitor for orphan create-org modal uploads. The super-admin
+    // create-org modal uploads a logo BEFORE the org is created (we don't
+    // have an orgId yet), naming the file `pending-<uuid>.png`. If the
+    // operator submits the form, the URL is persisted in `crm_organizations.logo_url`
+    // and the file is referenced. If they cancel, the file is orphaned —
+    // never referenced from any DB row but consuming disk forever. This
+    // sweep deletes any `pending-*` file in uploads/crm-photos/ older than
+    // an hour, which is far longer than any realistic edit-modal session.
+    fixedRateTimer("pending-logo-cleanup", daemon = true, initialDelay = 5 * 60_000L, period = 60 * 60_000L) {
+        try {
+            val dir = File("uploads/crm-photos")
+            if (!dir.exists()) return@fixedRateTimer
+            val cutoff = System.currentTimeMillis() - 60 * 60_000L  // 1h
+            dir.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("pending-") && it.lastModified() < cutoff }
+                ?.forEach { runCatching { it.delete() } }
+        } catch (_: Exception) {
+            // Cleanup is best-effort; never let a transient FS error kill the timer.
+        }
+    }
+
     // Schedule subscription expiry checks (daily, 2-minute initial delay)
     val notificationService by inject<NotificationService>()
     fixedRateTimer("subscription-check", daemon = true, initialDelay = 120_000L, period = 86_400_000L) {

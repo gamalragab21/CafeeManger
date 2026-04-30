@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import net.marllex.waselak.core.domain.repository.CustomerRepository
 import net.marllex.waselak.core.domain.repository.InstallmentRepository
 import net.marllex.waselak.core.model.Customer
@@ -248,11 +251,17 @@ class InstallmentsViewModel(
         val fee = s.createLateFeePercent.toDoubleOrNull() ?: 0.0
         if (s.createCustomerId.isBlank() || total <= 0 || months <= 0) return
 
-        // Calculate start date based on selected month offset
+        // Calculate start date based on selected month offset. Was on
+        // java.time.LocalDate which is JVM-only — kotlinx.datetime works
+        // on iOS too. Same arithmetic: today → first-of-month at offset
+        // months → midnight in the device's local zone → epoch millis.
         val startDate = if (s.createStartMonth > 0) {
-            val now = java.time.LocalDate.now()
-            val startMonth = now.plusMonths(s.createStartMonth.toLong()).withDayOfMonth(1)
-            startMonth.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val tz = kotlinx.datetime.TimeZone.currentSystemDefault()
+            val today = kotlinx.datetime.Clock.System.now().toLocalDateTime(tz).date
+            val startMonth = today
+                .plus(s.createStartMonth, kotlinx.datetime.DateTimeUnit.MONTH)
+                .let { kotlinx.datetime.LocalDate(it.year, it.monthNumber, 1) }
+            startMonth.atStartOfDayIn(tz).toEpochMilliseconds()
         } else null // null = backend uses current time
 
         viewModelScope.launch {

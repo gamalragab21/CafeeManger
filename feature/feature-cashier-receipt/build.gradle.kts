@@ -17,10 +17,13 @@ kotlin {
             implementation(project(":core:core-network"))
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
-            implementation("network.chaintech:qr-kit:3.1.3")
         }
         androidMain.dependencies {
             implementation(libs.androidx.print)
+            // qr-kit:3.1.3 fails to link on iOS (Kotlin/Native KLIB resolver
+            // bug). Confined to androidMain since nothing in commonMain
+            // actually imports it.
+            implementation("network.chaintech:qr-kit:3.1.3")
         }
     }
 }

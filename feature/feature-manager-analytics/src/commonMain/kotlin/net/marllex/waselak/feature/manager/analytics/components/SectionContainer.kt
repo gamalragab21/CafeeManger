@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -180,7 +181,7 @@ fun KpiCard(
                     color = badgeColor.copy(alpha = 0.12f),
                 ) {
                     Text(
-                        text = "$arrow ${String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(changePercent))}%",
+                        text = "$arrow ${kFormat("%.1f", kotlin.math.abs(changePercent))}%",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = badgeColor,
@@ -193,9 +194,9 @@ fun KpiCard(
 }
 
 fun formatCurrency(amount: Double): String {
-    return String.format(java.util.Locale.US, "%,.2f", amount)
+    return kFormat("%,.2f", amount)
 }
 
 fun formatNumber(n: Int): String {
-    return String.format(java.util.Locale.US, "%,d", n)
+    return kFormat("%,d", n)
 }

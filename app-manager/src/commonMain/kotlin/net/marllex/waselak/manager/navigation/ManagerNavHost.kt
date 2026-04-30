@@ -1,5 +1,6 @@
 package net.marllex.waselak.manager.navigation
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -853,9 +854,24 @@ private fun MoreTabContent(
                     )
                     FeatureNotAvailableView()
                 } else {
+                    // Derive real feature capabilities the same way the More menu does
+                    // (DomainFeatures + vendor-level toggles). This prevents the Pharmacy
+                    // tab from leaking into restaurants/cafes when a stray "PHARMACY"
+                    // value ends up in businessType, and respects the owner's
+                    // enable/disable toggles in Store Configuration.
+                    val v = vendor
+                    val analyticsFeatures = if (v != null) net.marllex.waselak.core.model.DomainFeatures.forVendor(v)
+                        else net.marllex.waselak.core.model.DomainFeatures.forType("RESTAURANT")
+                    val showPharmacyTab = (analyticsFeatures.hasDrugInteractions || analyticsFeatures.hasPrescriptions) &&
+                        v?.enableDrugInteractions != false &&
+                        v?.enablePrescriptions != false
+                    val showInstallmentsTab = analyticsFeatures.hasInstallments &&
+                        v?.enableInstallments != false
                     AnalyticsScreen(
                         onNavigateBack = { activeSubScreen = null },
-                        businessType = vendor?.businessType,
+                        businessType = v?.businessType,
+                        hasPharmacyAnalytics = showPharmacyTab,
+                        hasInstallmentsAnalytics = showInstallmentsTab,
                     )
                 }
             }
@@ -893,6 +909,13 @@ private fun MoreTabContent(
             "store_profile" -> {
                 RestaurantProfileScreen(
                     onNavigateBack = { activeSubScreen = null },
+                )
+            }
+
+            "my_account" -> {
+                net.marllex.waselak.manager.myaccount.MyAccountScreen(
+                    onNavigateBack = { activeSubScreen = null },
+                    onSignOut = onSignOut,
                 )
             }
 
@@ -1079,7 +1102,7 @@ private fun MoreTabContent(
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
                     onCheckUpdate = {
-                        val api = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+                        val api = org.koin.mp.KoinPlatform.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
                         val resp = api.checkForUpdate("manager", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
                         net.marllex.waselak.core.ui.components.UpdateInfo(
                             hasUpdate = resp.hasUpdate,
@@ -1094,7 +1117,7 @@ private fun MoreTabContent(
                         )
                     },
                     onDownload = { url, onProgress ->
-                        val api = org.koin.java.KoinJavaComponent.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
+                        val api = org.koin.mp.KoinPlatform.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
                         api.downloadFile(url, onProgress)
                     },
                     onNavigateBack = { activeSubScreen = null },
@@ -1149,10 +1172,12 @@ private fun MoreTabContent(
                         MoreSectionHeader(stringResource(CoreRes.string.account_information))
 
                         val accountItems = listOf(
+                            Triple(Icons.Filled.Person, "حسابي", Color(0xFF1B3A5C)),
                             Triple(Icons.Filled.Store, stringResource(CoreRes.string.tab_store), Color(0xFF00838F)),
                             Triple(Icons.Filled.Star, stringResource(CoreRes.string.subscription_plans), Color(0xFFF9A825)),
                         )
                         val accountActions = listOf<() -> Unit>(
+                            { activeSubScreen = "my_account" },
                             { activeSubScreen = "store_profile" },
                             { activeSubScreen = "plans" },
                         )
@@ -1208,7 +1233,7 @@ private fun MoreTabContent(
                                             logUploadMessage = logsUploadedMsg
                                         }
                                     } catch (e: Exception) {
-                                        logUploadMessage = logsUploadFailedMsg.format(e.message ?: "")
+                                        logUploadMessage = kFormat(logsUploadFailedMsg, e.message ?: "")
                                     } finally {
                                         isUploadingLogs = false
                                     }

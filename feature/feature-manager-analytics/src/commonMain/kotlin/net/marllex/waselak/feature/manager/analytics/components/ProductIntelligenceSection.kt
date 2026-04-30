@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -86,7 +87,7 @@ fun ProductIntelligenceSection(
                 ) {
                     Text(item.itemName, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Text(
-                        "${String.format(java.util.Locale.US, "%.1f", item.profitMargin)}%",
+                        "${kFormat("%.1f", item.profitMargin)}%",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

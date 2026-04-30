@@ -191,3 +191,32 @@ fun formatChannelLabel(channel: net.marllex.waselak.core.model.OrderChannel, bus
         net.marllex.waselak.core.model.OrderChannel.IN_STORE -> stringResource(Res.string.channel_in_store)
         net.marllex.waselak.core.model.OrderChannel.PICKUP_LATER -> stringResource(Res.string.channel_pickup_later)
     }
+
+/**
+ * Raw-string variant of [formatChannelLabel] for places where the backend returns
+ * the channel as a plain String (e.g. analytics breakdowns — ChannelBreakdownDto
+ * stores "DINE_IN"/"DELIVERY" as Strings). Falls back to the raw value if it can't
+ * be parsed so no information is hidden.
+ */
+@Composable
+fun formatChannelLabel(channelRaw: String, businessType: String? = null): String {
+    val channel = runCatching {
+        net.marllex.waselak.core.model.OrderChannel.valueOf(channelRaw.uppercase())
+    }.getOrNull() ?: return channelRaw
+    return formatChannelLabel(channel, businessType)
+}
+
+/**
+ * Localize a payment-method string as it comes from the backend
+ * (`"CASH"`, `"CARD"`, `"WALLET"`, `"CREDIT"`, `"SPLIT"`). Returns the raw value for
+ * anything unknown so unrecognised methods still display rather than disappear.
+ */
+@Composable
+fun formatPaymentMethodLabel(method: String): String = when (method.uppercase()) {
+    "CASH" -> stringResource(Res.string.payment_cash)
+    "CARD" -> stringResource(Res.string.payment_card)
+    "WALLET" -> stringResource(Res.string.payment_wallet)
+    "CREDIT" -> stringResource(Res.string.payment_credit)
+    "SPLIT" -> stringResource(Res.string.payment_split)
+    else -> method
+}

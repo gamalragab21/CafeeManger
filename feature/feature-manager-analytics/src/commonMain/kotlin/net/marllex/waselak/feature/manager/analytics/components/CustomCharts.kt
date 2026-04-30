@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -115,7 +116,7 @@ fun DonutChart(
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "$label (${String.format(java.util.Locale.US, "%.1f", (value / total) * 100)}%)",
+                        text = "$label (${kFormat("%.1f", (value / total) * 100)}%)",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

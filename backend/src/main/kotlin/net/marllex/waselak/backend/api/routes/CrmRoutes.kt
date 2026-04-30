@@ -8,6 +8,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.*
@@ -21,6 +22,36 @@ import org.koin.java.KoinJavaComponent
  * reinstated DST in 2023, so we can't safely hardcode a fixed offset like "+02:00".
  */
 private val CRM_TZ = TimeZone.of("Africa/Cairo")
+
+/**
+ * Best-effort delete of a previously-uploaded file. Accepts the same URL format
+ * we store in DB columns — either a relative `/uploads/...` path or an absolute
+ * `http://host/uploads/...` URL leftover from before we switched to relative
+ * URLs. Anything that doesn't look like an upload from this server is silently
+ * ignored (we never want to nuke arbitrary paths).
+ *
+ * Why best-effort: the caller has already saved the new file and updated the
+ * row pointing at it; whether the old bytes are still on disk doesn't change
+ * correctness, only storage hygiene. A failure to delete (file already gone,
+ * permission glitch, race with a backup script) shouldn't 500 the request.
+ *
+ * Returns true on a clean delete, false on any failure / no-op.
+ */
+private fun deleteUploadFile(url: String?): Boolean {
+    if (url.isNullOrBlank()) return false
+    // Strip absolute prefix from legacy rows; we only operate on the path.
+    val path = url.removePrefix("http://").removePrefix("https://")
+        .substringAfter("/", "")  // drop host portion if any
+        .let { if (url.startsWith("/")) url else "/$it" }
+    // Double-defence: only allow paths under /uploads/. Refuses traversal
+    // (`..`) so even a malformed legacy URL can't escape the uploads dir.
+    if (!path.startsWith("/uploads/") || path.contains("..")) return false
+    val relative = path.removePrefix("/")  // "uploads/crm-photos/foo.png"
+    return runCatching {
+        val file = java.io.File(relative)
+        if (file.exists() && file.isFile) file.delete() else false
+    }.getOrDefault(false)
+}
 
 fun Route.crmRoutes() {
     val crmService by KoinJavaComponent.inject<CrmService>(clazz = CrmService::class.java)
@@ -74,8 +105,8 @@ fun Route.crmRoutes() {
         // ─── Dashboard ──────────────────────────────────────────
         get("/crm/dashboard") {
             val principal = call.principal<CrmPrincipal>()!!
-            val stats = crmService.getStats(principal.agentId, principal.canSeeAll)
-            val recentActivities = crmService.listActivities(principal.agentId, principal.canSeeAll, limit = 10)
+            val stats = crmService.getStats(principal.organizationId, principal.agentId, principal.canSeeAll)
+            val recentActivities = crmService.listActivities(principal.organizationId, principal.agentId, principal.canSeeAll, limit = 10)
 
             val content = if (principal.isOwner) {
                 buildOwnerDashboard(stats, recentActivities)
@@ -92,8 +123,8 @@ fun Route.crmRoutes() {
         // ─── Clients Page ───────────────────────────────────────
         get("/crm/clients") {
             val principal = call.principal<CrmPrincipal>()!!
-            val clients = crmService.listClients(principal.agentId, principal.canSeeAll)
-            val agents = if (principal.canSeeAll) crmService.listAgents() else emptyList()
+            val clients = crmService.listClients(principal.organizationId, principal.agentId, principal.canSeeAll)
+            val agents = if (principal.canSeeAll) crmService.listAgents(principal.organizationId) else emptyList()
 
             // Stable avatar palette — same name always maps to the same colour across
             // the list and the details page, making clients feel recognisable.
@@ -114,7 +145,34 @@ fun Route.crmRoutes() {
                         c.daysSinceLastContact!! < 7 -> """<span class="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>${c.daysSinceLastContact} يوم</span>"""
                         else -> """<span class="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>${c.daysSinceLastContact} يوم</span>"""
                     }
-                    append("""<tr class="$staleClass hover:bg-gray-50 cursor-pointer transition" data-id="${c.id}" onclick="goToClient(event, '${c.id}')">""")
+                    // data-* attributes power the smart filter panel: range filters read
+                    // epoch-ms integers; multi-selects match on exact attribute values.
+                    val lastContactMs = c.lastContactAt ?: 0L
+                    val nextActionMs = c.nextActionDate?.let {
+                        try { kotlinx.datetime.LocalDate.parse(it).atStartOfDayIn(CRM_TZ).toEpochMilliseconds() } catch (_: Throwable) { 0L }
+                    } ?: 0L
+                    val daysStaleAttr = c.daysSinceLastContact ?: -1L
+                    append("""<tr class="$staleClass hover:bg-gray-50 cursor-pointer transition"
+                        data-id="${c.id}"
+                        data-created-ms="${c.createdAt}"
+                        data-updated-ms="${c.updatedAt}"
+                        data-last-contact-ms="$lastContactMs"
+                        data-next-action-ms="$nextActionMs"
+                        data-days-stale="$daysStaleAttr"
+                        data-amount="${c.finalAmount}"
+                        data-monthly="${c.monthlyAmount}"
+                        data-discount="${c.discountPercent}"
+                        data-status="${c.status}"
+                        data-plan="${c.plan ?: ""}"
+                        data-business-type="${c.businessType ?: ""}"
+                        data-governorate="${c.governorate ?: ""}"
+                        data-source="${c.source ?: ""}"
+                        data-agent-id="${c.assignedTo ?: ""}"
+                        data-agent-name="${c.assignedName ?: ""}"
+                        data-whatsapp="${c.whatsapp}"
+                        data-phone="${c.phone}"
+                        data-client-name="${c.clientName}"
+                        onclick="goToClient(event, '${c.id}')">""")
                     // Column 0 — identity cell: avatar + name + phone + business (rich)
                     append("""<td class='p-3'>
                         <div class="flex items-center gap-3">
@@ -169,8 +227,8 @@ fun Route.crmRoutes() {
                 val bg = statusColor(s)
                 val txt = statusTextColor(s)
                 val count = statusCounts[s] ?: 0
-                // data-status-col matches the new Status column index (3)
-                """<button class="status-chip px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shadow-sm hover:scale-105" style="background:$bg;color:$txt" data-status-col="3" onclick="filterByStatusChip('$s', this)">$s <span class="opacity-70">· $count</span></button>"""
+                // Status chip → toggles the corresponding multi-select checkbox.
+                """<button class="status-chip px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shadow-sm hover:scale-105" style="background:$bg;color:$txt" data-ms-id="status" onclick="filterByStatusChip('$s', this)">$s <span class="opacity-70">· $count</span></button>"""
             }
             val agentNames = if (agents.isNotEmpty()) agents.map { it.name } else emptyList()
             val sourceList = listOf("واتساب", "فيسبوك", "انستجرام", "إحالة صديق", "زيارة للمحل", "الموقع", "جوجل", "تيك توك")
@@ -237,12 +295,29 @@ fun Route.crmRoutes() {
                 </div>
 
                 <div class="flex flex-wrap gap-2 mb-4">$statusChipsHtml</div>
-                ${filterBarHtml(listOf(
-                    Triple("الحالات", 3, allStatuses),
-                    Triple("أنواع النشاط", 1, businessTypes),
-                    Triple("الموظفين", 5, agentNames),
-                    Triple("المصادر", -1, sourceList)
-                ), "بحث بالاسم أو الرقم...")}
+                ${smartFilterPanelHtml(
+                    searchPlaceholder = "بحث بالاسم أو رقم الهاتف أو اسم النشاط...",
+                    primaryDateRange = SmartDateRange("data-created-ms", "تاريخ الإضافة", "clientsCreated"),
+                    secondaryDateRange = SmartDateRange("data-last-contact-ms", "آخر تواصل", "clientsLastContact"),
+                    numberRange = SmartNumberRange("data-amount", "المبلغ الشهري", "clientsAmount", "ج.م"),
+                    multiSelects = buildList {
+                        add(SmartMultiSelect("data-status", "الحالة", "status", allStatuses))
+                        add(SmartMultiSelect("data-business-type", "نوع النشاط", "businessType", businessTypes))
+                        add(SmartMultiSelect("data-governorate", "المحافظة", "governorate", clients.mapNotNull { it.governorate }.distinct()))
+                        add(SmartMultiSelect("data-plan", "الباقة", "plan", clients.mapNotNull { it.plan }.distinct()))
+                        add(SmartMultiSelect("data-source", "المصدر", "source", sourceList))
+                        if (principal.canSeeAll && agentNames.isNotEmpty()) {
+                            add(SmartMultiSelect("data-agent-name", "الموظف", "agentName", agentNames))
+                        }
+                    },
+                    presets = listOf(
+                        SmartPreset("today", "أُضيف اليوم", "presetRangeDays('data-created-ms', 1, true)", "📅"),
+                        SmartPreset("week", "آخر 7 أيام", "presetRangeDays('data-created-ms', 7, true)", "📆"),
+                        SmartPreset("month", "آخر 30 يوم", "presetRangeDays('data-created-ms', 30, true)", "🗓️"),
+                        SmartPreset("stale", "لم يُتواصل +7 أيام", "presetMinDaysAgo('data-last-contact-ms', 7)", "⏰"),
+                        SmartPreset("subscribed", "مشتركين فقط", "document.querySelector('.smart-ms-status[value=\"مشترك\"]').checked = true; updateMultiSelect('status'); applySmartFilters()", "✅"),
+                    )
+                )}
                 <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100">
                     <table id="dataTable" class="w-full text-sm">
                         <thead>
@@ -266,7 +341,7 @@ fun Route.crmRoutes() {
                         <button onclick="document.getElementById('addClientModal').showModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">أضف أول عميل</button>
                     </div>""" else ""}
                 </div>
-                ${filterScript()}
+                ${smartFilterScript()}
 
                 ${addClientModalHtml(agentOptions, principal.canSeeAll)}
                 ${editClientModalHtml(agentOptions, principal.canSeeAll)}
@@ -349,7 +424,7 @@ fun Route.crmRoutes() {
             val clientId = call.parameters["id"]
                 ?: return@get call.respondText("Missing id", status = HttpStatusCode.BadRequest)
 
-            val client = crmService.getClient(clientId)
+            val client = crmService.getClient(principal.organizationId, clientId)
             if (client == null) {
                 call.respondText(
                     crmLayout("غير موجود", principal.name, principal.role, principal, "clients",
@@ -365,7 +440,7 @@ fun Route.crmRoutes() {
             }
 
             // Agents may only open details for clients assigned to them.
-            if (!principal.canSeeAll && !crmService.isClientOwnedBy(clientId, principal.agentId)) {
+            if (!principal.canSeeAll && !crmService.isClientOwnedBy(principal.organizationId, clientId, principal.agentId)) {
                 call.respondText(
                     crmLayout("ممنوع", principal.name, principal.role, principal, "clients",
                         """<div class="bg-white rounded-2xl p-10 text-center">
@@ -378,9 +453,9 @@ fun Route.crmRoutes() {
                 return@get
             }
 
-            val activities = crmService.listActivitiesForClient(clientId)
-            val invoices = crmService.listInvoices(clientId)
-            val agents = if (principal.canSeeAll) crmService.listAgents() else emptyList()
+            val activities = crmService.listActivitiesForClient(principal.organizationId, clientId)
+            val invoices = crmService.listInvoices(principal.organizationId, clientId)
+            val agents = if (principal.canSeeAll) crmService.listAgents(principal.organizationId) else emptyList()
             val agentOptions = agents.joinToString("") { """<option value="${it.id}">${it.name}</option>""" }
 
             // Stats for the hero KPIs.
@@ -546,7 +621,17 @@ fun Route.crmRoutes() {
                 }
             }
 
-            val clientOptionsForActivity = """<option value="${client.id}" selected>${client.clientName} - ${client.phone}</option>"""
+            // For the client-details page, build a one-element JSON array so the combobox
+            // opens pre-filled with just this client. The search field is still active —
+            // if the user realises they're on the wrong page they can filter/retype, but
+            // with one entry that's effectively a no-op.
+            val clientsJsonForActivity = JsonArray(listOf(
+                buildJsonObject {
+                    put("id", client.id)
+                    put("name", client.clientName)
+                    put("phone", client.phone)
+                }
+            )).toString()
 
             val finalAmountFormatted = String.format("%,.0f", client.finalAmount)
             val monthlyFormatted = String.format("%,.0f", client.monthlyAmount)
@@ -692,7 +777,7 @@ fun Route.crmRoutes() {
                 </div>
 
                 ${if (canEdit) editClientModalHtml(agentOptions, principal.canSeeAll) else ""}
-                ${if (canEdit) addActivityModalHtml(clientOptionsForActivity) else ""}
+                ${if (canEdit) addActivityModalHtml(clientsJsonForActivity, preselectedClientId = client.id) else ""}
 
                 <script>
                 async function openEditClient(id) {
@@ -755,8 +840,8 @@ fun Route.crmRoutes() {
         // ─── Activities Page ────────────────────────────────────
         get("/crm/activities") {
             val principal = call.principal<CrmPrincipal>()!!
-            val activities = crmService.listActivities(principal.agentId, principal.canSeeAll)
-            val clients = crmService.listClients(principal.agentId, principal.canSeeAll)
+            val activities = crmService.listActivities(principal.organizationId, principal.agentId, principal.canSeeAll)
+            val clients = crmService.listClients(principal.organizationId, principal.agentId, principal.canSeeAll)
 
             // Consistent hashed avatar palette — same agent always gets the same color
             // across clients list, details page, activities, and their profile.
@@ -784,6 +869,12 @@ fun Route.crmRoutes() {
             val topChannel = activities.mapNotNull { it.channel }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
             val topResult = activities.mapNotNull { it.result }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
 
+            // Fast lookup from clientId → phone. Activities don't carry the phone
+            // themselves (the DTO has clientName only), so we derive it from the clients
+            // list we already fetched above. Used both for display and for the search
+            // filter (data-client-phone attribute below).
+            val phonesByClientId = clients.associate { it.id to it.phone }
+
             val tableRows = buildString {
                 activities.forEach { a ->
                     // Agent may act on their own activities; manager/owner may act on any.
@@ -803,8 +894,27 @@ fun Route.crmRoutes() {
                         else -> "border-r-gray-200"
                     }
 
-                    append("""<tr class="border-b border-gray-100 border-r-4 $railColor hover:bg-gray-50 transition">""")
-                    // 0. Date (formatted) — filter col for agents depends on this being index 0? old was 0.
+                    // Row data attributes feed the smart filter panel (date range, amount
+                    // range, multi-select on channel/action/result/agent).
+                    val nextMs = a.nextDate?.let {
+                        try { kotlinx.datetime.LocalDate.parse(it).atStartOfDayIn(CRM_TZ).toEpochMilliseconds() } catch (_: Throwable) { 0L }
+                    } ?: 0L
+                    val clientPhone = phonesByClientId[a.clientId].orEmpty()
+                    append("""<tr class="border-b border-gray-100 border-r-4 $railColor hover:bg-gray-50 transition"
+                        data-created-ms="${a.createdAt}"
+                        data-next-ms="$nextMs"
+                        data-amount="${a.amount ?: 0.0}"
+                        data-discount="${a.discountPercent ?: 0}"
+                        data-channel="${a.channel ?: ""}"
+                        data-action-type="${a.actionType ?: ""}"
+                        data-result="${a.result ?: ""}"
+                        data-new-status="${a.newStatus ?: ""}"
+                        data-agent-id="${a.agentId}"
+                        data-agent-name="${a.agentName}"
+                        data-client-id="${a.clientId}"
+                        data-client-name="${a.clientName}"
+                        data-client-phone="$clientPhone">""")
+                    // 0. Date (formatted)
                     append("""<td class='p-3 align-top'>
                         <div class="text-xs font-medium text-gray-700 whitespace-nowrap">${formatCrmDate(a.createdAt)}</div>
                     </td>""")
@@ -815,9 +925,11 @@ fun Route.crmRoutes() {
                             <span class="text-sm text-gray-800 group-hover:text-emerald-600 group-hover:underline">${a.agentName}</span>
                         </a>
                     </td>""")
-                    // 2. Client — link to details
+                    // 2. Client — link to details, with phone under the name so cashiers
+                    // and managers can scan by phone and the search filter matches on it.
                     append("""<td class='p-3 align-top'>
                         <a href="/crm/clients/${a.clientId}" class="text-sm font-medium text-gray-800 hover:text-emerald-600 hover:underline">${a.clientName}</a>
+                        ${if (clientPhone.isNotBlank()) """<div class="text-xs text-gray-500 whitespace-nowrap" dir="ltr">📞 $clientPhone</div>""" else ""}
                     </td>""")
                     // 3. Action type
                     append("""<td class='p-3 align-top'>
@@ -876,6 +988,18 @@ fun Route.crmRoutes() {
                 }
             }
 
+            // Two shapes of the clients list are needed here:
+            //  - A JSON array for the NEW searchable combobox in the add-activity modal
+            //    (lets the cashier filter by name or phone when there are hundreds of clients).
+            //  - The legacy `<option>` HTML for the edit-activity modal, whose client field
+            //    is disabled-and-locked so a searchable combobox would add no value.
+            val clientsJson = JsonArray(clients.map { c ->
+                buildJsonObject {
+                    put("id", c.id)
+                    put("name", c.clientName)
+                    put("phone", c.phone)
+                }
+            }).toString()
             val clientOptions = clients.joinToString("") { """<option value="${it.id}">${it.clientName} - ${it.phone}</option>""" }
 
             val actionTypes = listOf("أول اتصال", "متابعة", "عرض توضيحي", "تفاوض", "إغلاق صفقة", "إعادة تنشيط", "دعم فني", "شكوى")
@@ -936,12 +1060,29 @@ fun Route.crmRoutes() {
                     </div>
                 </div>
 
-                ${filterBarHtml(listOf(
-                    Triple("أنواع الإجراء", 3, actionTypes),
-                    Triple("القنوات", 4, channels),
-                    Triple("النتائج", 6, results),
-                    Triple("الموظفين", 1, activityAgents)
-                ), "بحث...")}
+                ${smartFilterPanelHtml(
+                    searchPlaceholder = "بحث بالاسم أو رقم الهاتف أو الموظف أو الملاحظات...",
+                    primaryDateRange = SmartDateRange("data-created-ms", "تاريخ النشاط", "actCreated"),
+                    secondaryDateRange = SmartDateRange("data-next-ms", "تاريخ الإجراء القادم", "actNext"),
+                    numberRange = SmartNumberRange("data-amount", "المبلغ", "actAmount", "ج.م"),
+                    multiSelects = buildList {
+                        add(SmartMultiSelect("data-action-type", "نوع الإجراء", "actionType", actionTypes))
+                        add(SmartMultiSelect("data-channel", "القناة", "channel", channels))
+                        add(SmartMultiSelect("data-result", "النتيجة", "result", results))
+                        add(SmartMultiSelect("data-new-status", "الحالة الجديدة", "newStatus",
+                            listOf("عميل جديد", "متابعة", "ديمو محجوز", "يحتاج مناقشة", "تجربة فعالة", "تجربة منتهية", "تفاوض", "مدفوع", "مشترك", "رفض", "نشاط غير مناسب", "توقف")))
+                        if (principal.canSeeAll && activityAgents.isNotEmpty()) {
+                            add(SmartMultiSelect("data-agent-name", "الموظف", "agentName", activityAgents))
+                        }
+                    },
+                    presets = listOf(
+                        SmartPreset("today", "اليوم", "presetRangeDays('data-created-ms', 1, true)", "📅"),
+                        SmartPreset("week", "آخر 7 أيام", "presetRangeDays('data-created-ms', 7, true)", "📆"),
+                        SmartPreset("month", "آخر 30 يوم", "presetRangeDays('data-created-ms', 30, true)", "🗓️"),
+                        SmartPreset("whatsapp", "واتساب فقط", "document.querySelector('.smart-ms-channel[value=\"واتساب\"]').checked = true; updateMultiSelect('channel'); applySmartFilters()", "💬"),
+                        SmartPreset("calls", "مكالمات فقط", "document.querySelector('.smart-ms-channel[value=\"مكالمة تليفون\"]').checked = true; updateMultiSelect('channel'); applySmartFilters()", "📞"),
+                    )
+                )}
                 <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100">
                     <table id="dataTable" class="w-full text-sm">
                         <thead>
@@ -966,9 +1107,9 @@ fun Route.crmRoutes() {
                         <button onclick="document.getElementById('addActivityModal').showModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">سجّل أول نشاط</button>
                     </div>""" else ""}
                 </div>
-                ${filterScript()}
+                ${smartFilterScript()}
 
-                ${addActivityModalHtml(clientOptions)}
+                ${addActivityModalHtml(clientsJson)}
                 ${editActivityModalHtml(clientOptions)}
 
                 <script>
@@ -1064,7 +1205,7 @@ fun Route.crmRoutes() {
                 call.respondRedirect("/crm/dashboard")
                 return@get
             }
-            val stats = crmService.getStats(null, true)
+            val stats = crmService.getStats(principal.organizationId, null, true)
 
             val agentTableRows = buildString {
                 stats.agentStats.forEach { a ->
@@ -1142,7 +1283,7 @@ fun Route.crmRoutes() {
                 call.respondRedirect("/crm/dashboard")
                 return@get
             }
-            val stats = crmService.getStats(null, true)
+            val stats = crmService.getStats(principal.organizationId, null, true)
 
             val agentCards = buildString {
                 stats.agentStats.forEach { a ->
@@ -1206,7 +1347,8 @@ fun Route.crmRoutes() {
                 call.respondRedirect("/crm/dashboard")
                 return@get
             }
-            val agents = crmService.listAgents()
+            val agents = crmService.listAgents(principal.organizationId)
+            val ownBranding = crmService.getOrgBranding(principal.organizationId)
 
             val agentRows = buildString {
                 agents.forEach { a ->
@@ -1232,7 +1374,62 @@ fun Route.crmRoutes() {
                 }
             }
 
+            // Branding card — same UX as the super-admin Edit modal but
+            // scoped to the caller's own org (POSTs to /crm/api/organization/logo
+            // which trusts principal.organizationId, so a manager can't switch
+            // someone else's logo by URL-tampering the form).
+            val currentLogo = ownBranding?.logoUrl?.takeIf { it.isNotBlank() }
+            val brandingCard = """
+                <div class="bg-white rounded-xl shadow p-5 mb-6">
+                    <h3 class="text-lg font-bold mb-3">شعار المنظمة</h3>
+                    <div class="flex items-center gap-4">
+                        ${if (currentLogo != null)
+                            """<img id="orgLogoPreview" src="${currentLogo}?v=${System.currentTimeMillis() / 60_000}" alt="logo" class="w-20 h-20 rounded-xl object-cover border border-gray-200">"""
+                        else
+                            """<div id="orgLogoPreview" class="w-20 h-20 rounded-xl flex items-center justify-center text-3xl bg-gray-100 text-gray-400">⌂</div>"""
+                        }
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-500 mb-2">يظهر الشعار في القائمة الجانبية لكل المستخدمين في منظمتك. PNG/JPG/SVG حتى 5MB.</p>
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <label class="inline-block bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg cursor-pointer">
+                                    📷 رفع شعار جديد
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadMyOrgLogo(this)">
+                                </label>
+                                ${if (currentLogo != null) """<button onclick="removeMyOrgLogo()" class="text-sm px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">إزالة الشعار</button>""" else ""}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <script>
+                async function uploadMyOrgLogo(input) {
+                    if (!input.files || !input.files[0]) return;
+                    const f = input.files[0];
+                    if (f.size > 5 * 1024 * 1024) { alert('الحجم أكبر من 5MB. اضغط الصورة قبل الرفع.'); input.value = ''; return; }
+                    const fd = new FormData(); fd.append('file', f);
+                    try {
+                        const res = await fetch('/crm/api/organization/logo', { method:'POST', body: fd });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            alert(err.error || ('فشل رفع الشعار (' + res.status + ')'));
+                            return;
+                        }
+                        // Reload so the sidebar header picks up the new logo too.
+                        location.reload();
+                    } catch (e) {
+                        alert('خطأ في الشبكة أثناء رفع الشعار');
+                    }
+                }
+                async function removeMyOrgLogo() {
+                    if (!confirm('إزالة شعار المنظمة والعودة للشعار الافتراضي؟')) return;
+                    const res = await fetch('/crm/api/organization/logo', { method:'DELETE' });
+                    if (res.ok) location.reload();
+                    else alert('حدث خطأ');
+                }
+                </script>
+            """.trimIndent()
+
             val content = """
+                $brandingCard
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold">الإعدادات - إدارة الموظفين</h2>
                     <button onclick="document.getElementById('addAgentModal').showModal()" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">+ إضافة موظف</button>
@@ -1376,9 +1573,9 @@ fun Route.crmRoutes() {
             val principal = call.principal<CrmPrincipal>()!!
             if (!principal.canSeeAnalytics) { call.respondRedirect("/crm/dashboard"); return@get }
 
-            val billingStats = crmService.getBillingStats()
-            val invoices = crmService.listInvoices(null, null)
-            val clients = crmService.listClients(null, true).filter { it.status in setOf("مشترك", "مدفوع") }
+            val billingStats = crmService.getBillingStats(principal.organizationId)
+            val invoices = crmService.listInvoices(principal.organizationId, null, null)
+            val clients = crmService.listClients(principal.organizationId, null, true).filter { it.status in setOf("مشترك", "مدفوع") }
 
             val clientOptions = clients.joinToString("") { """<option value="${it.id}">${it.clientName} - ${it.phone}</option>""" }
 
@@ -1694,7 +1891,7 @@ fun Route.crmRoutes() {
             }
             val now = Clock.System.now().toLocalDateTime(CRM_TZ)
             val currentMonth = call.request.queryParameters["month"] ?: "${now.year}-${now.monthNumber.toString().padStart(2, '0')}"
-            val agents = crmService.listAgents().filter { it.active }
+            val agents = crmService.listAgents(principal.organizationId).filter { it.active }
             val salaryRecords = crmService.listAllSalaryRecords(currentMonth)
 
             // KPI summary
@@ -1917,7 +2114,7 @@ fun Route.crmRoutes() {
                 return@get
             }
 
-            val profile = crmService.getAgentProfile(agentId) ?: run {
+            val profile = crmService.getAgentProfile(principal.organizationId, agentId) ?: run {
                 call.respondRedirect("/crm/dashboard")
                 return@get
             }
@@ -2657,10 +2854,725 @@ fun Route.crmRoutes() {
             )
         }
 
+        // ─── Super-admin: Organizations management ──────────────────
+        // The Waselak ops team manages every CRM tenant from this page. Hidden from
+        // every other role — every endpoint here checks `principal.isSuperAdmin`
+        // before doing anything.
+
+        get("/crm/super/organizations") {
+            val principal = call.principal<CrmPrincipal>()!!
+            if (!principal.isSuperAdmin) {
+                call.respondRedirect("/crm/dashboard")
+                return@get
+            }
+            val orgs = crmService.listAllOrganizations()
+            // KPI strip computes from the same list — one query, no extra DB hits.
+            val totalOrgs = orgs.size
+            val activeOrgs = orgs.count { it.active }
+            val totalAgents = orgs.sumOf { it.agentCount }
+            val totalClients = orgs.sumOf { it.clientCount }
+
+            val rows = buildString {
+                orgs.forEach { o ->
+                    val isWaselak = o.name == "Waselak"
+                    val statusBadge = if (o.active)
+                        """<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700">نشط</span>"""
+                    else
+                        """<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">معلّق</span>"""
+                    val deleteBtn = if (isWaselak) {
+                        """<span class="text-xs text-gray-400" title="لا يمكن حذف منظمة Waselak الافتراضية">🔒</span>"""
+                    } else {
+                        """<button onclick="deleteOrg('${o.id}', '${o.name.replace("'", "\\'")}', ${o.clientCount}, ${o.agentCount})"
+                                class="p-1.5 rounded hover:bg-red-50 text-red-600 transition" title="حذف نهائي">🗑️</button>"""
+                    }
+                    val toggleBtn = if (isWaselak) "" else if (o.active)
+                        """<button onclick="toggleActive('${o.id}', false)" class="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="تعليق">⏸️</button>"""
+                    else
+                        """<button onclick="toggleActive('${o.id}', true)" class="p-1.5 rounded hover:bg-emerald-50 text-emerald-600" title="تفعيل">▶️</button>"""
+                    // Logo / fallback initial avatar — same colour palette idea as the
+                    // clients list. Stable hash → consistent colour per org.
+                    val palette = listOf("#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316")
+                    val avatarColor = palette[(o.name.hashCode().let { if (it < 0) -it else it }) % palette.size]
+                    val initial = o.name.trim().firstOrNull()?.toString() ?: "؟"
+                    // Cache-bust the image URL keyed by org id + (now / 60s) so a
+                    // freshly-uploaded logo appears on the next page load even if the
+                    // browser cached the previous version of the same file path. The
+                    // resolution is one minute — fine for a UI refresh, doesn't bust
+                    // the cache for visitors who aren't editing logos.
+                    val cacheBust = System.currentTimeMillis() / 60_000
+                    val logoHtml = if (!o.logoUrl.isNullOrBlank())
+                        """<img src="${o.logoUrl}?v=$cacheBust" alt="${o.name}" class="w-9 h-9 rounded-lg object-cover border border-gray-200">"""
+                    else
+                        """<div class="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm" style="background:$avatarColor">$initial</div>"""
+                    val safeName = o.name.replace("'", "\\'").replace("\"", "&quot;")
+                    val safeEmail = (o.contactEmail ?: "").replace("'", "\\'").replace("\"", "&quot;")
+                    val safePhone = (o.contactPhone ?: "").replace("'", "\\'").replace("\"", "&quot;")
+                    val safeLogo  = (o.logoUrl ?: "").replace("'", "\\'").replace("\"", "&quot;")
+                    val ownerEmailDisplay = o.ownerEmail?.let {
+                        """<div class="text-xs text-sky-600 mt-0.5" dir="ltr">👤 $it</div>"""
+                    } ?: ""
+                    // Edit + reset-password — disabled for Waselak (we don't reset our
+                    // own super-admin from this UI; we own the database directly).
+                    val detailsBtn = """<a href="/crm/super/organizations/${o.id}"
+                            class="p-1.5 rounded hover:bg-indigo-50 text-indigo-600" title="عرض التفاصيل والموظفين">👁️</a>"""
+                    val editBtn = """<button onclick="openEditOrg('${o.id}','$safeName','$safeEmail','$safePhone','${o.planTier}','$safeLogo')"
+                            class="p-1.5 rounded hover:bg-sky-50 text-sky-600" title="تعديل">✏️</button>"""
+                    val resetBtn = if (isWaselak) "" else
+                        """<button onclick="openResetPwd('${o.id}','$safeName','${o.ownerEmail ?: ""}')"
+                            class="p-1.5 rounded hover:bg-purple-50 text-purple-600" title="تغيير كلمة سر صاحب الحساب">🔑</button>"""
+                    append("""<tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class='p-3'>
+                            <div class="flex items-center gap-3">
+                                $logoHtml
+                                <div>
+                                    <div class="font-semibold text-gray-800">${o.name}</div>
+                                    ${o.contactEmail?.let { """<div class="text-xs text-gray-500" dir="ltr">$it</div>""" } ?: ""}
+                                    ${o.contactPhone?.let { """<div class="text-xs text-gray-500" dir="ltr">📞 $it</div>""" } ?: ""}
+                                    $ownerEmailDisplay
+                                </div>
+                            </div>
+                        </td>
+                        <td class='p-3'><span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700">${o.planTier}</span></td>
+                        <td class='p-3'>$statusBadge</td>
+                        <td class='p-3 text-sm text-gray-700'>${o.agentCount} موظف</td>
+                        <td class='p-3 text-sm text-gray-700'>${o.clientCount} عميل</td>
+                        <td class='p-3 text-xs text-gray-600 whitespace-nowrap'>${formatCrmDate(o.createdAt)}</td>
+                        <td class='p-3'>
+                            <div class="flex items-center gap-1 justify-end">$detailsBtn $editBtn $resetBtn $toggleBtn $deleteBtn</div>
+                        </td>
+                    </tr>""")
+                }
+            }
+
+            val content = """
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">المنظمات (Tenants)</h2>
+                        <p class="text-sm text-gray-500 mt-1">إدارة كل منظمات الـ CRM وحساباتها</p>
+                    </div>
+                    <button onclick="document.getElementById('createOrgModal').showModal()"
+                            class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl shadow-sm font-medium">
+                        <span class="text-lg">＋</span><span>منظمة جديدة</span>
+                    </button>
+                </div>
+
+                <!-- KPI strip -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">إجمالي المنظمات</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1">$totalOrgs</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">منظمات نشطة</p>
+                        <p class="text-2xl font-bold text-emerald-600 mt-1">$activeOrgs</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">إجمالي الموظفين</p>
+                        <p class="text-2xl font-bold text-sky-600 mt-1">$totalAgents</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">إجمالي العملاء</p>
+                        <p class="text-2xl font-bold text-amber-600 mt-1">$totalClients</p>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">المنظمة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الباقة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الحالة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الموظفين</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">العملاء</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">تاريخ الإضافة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium"></th>
+                            </tr>
+                        </thead>
+                        <tbody>$rows</tbody>
+                    </table>
+                </div>
+
+                <!-- Create Modal -->
+                <dialog id="createOrgModal" class="rounded-2xl">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">إنشاء منظمة جديدة</h3>
+                            <button onclick="document.getElementById('createOrgModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <form onsubmit="submitNewOrg(event)" class="space-y-3 max-h-[75vh] overflow-y-auto">
+                            <!-- Logo upload — happens BEFORE the org is created via
+                                 a pre-creation upload endpoint. The returned URL is
+                                 stashed in the hidden #createLogoUrl input and sent
+                                 as part of the create JSON. Cancelling the dialog
+                                 leaves the orphan file under uploads/crm-photos/
+                                 (named pending-*.png) — a tiny known leak that's
+                                 fine until we add a periodic janitor. -->
+                            <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                                <img id="createLogoPreview" src="" alt="logo" class="w-16 h-16 rounded-lg object-cover border border-gray-200 hidden">
+                                <div id="createLogoFallback" class="w-16 h-16 rounded-lg flex items-center justify-center text-gray-400 bg-gray-200 text-2xl">⌂</div>
+                                <div class="flex-1">
+                                    <label class="block text-xs text-gray-600 mb-1">شعار المنظمة (اختياري)</label>
+                                    <input type="file" id="createLogoFile" accept="image/*" class="text-xs" onchange="uploadPendingLogo(this)">
+                                    <input type="hidden" id="createLogoUrl" name="logoUrl">
+                                    <p class="text-xs text-gray-400 mt-1">PNG/JPG/SVG حتى 5MB</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم المنظمة *</label>
+                                    <input type="text" name="name" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">إيميل المنظمة</label>
+                                    <input type="email" name="contactEmail" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم المنظمة</label>
+                                    <input type="text" name="contactPhone" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">الباقة</label>
+                                    <select name="planTier" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        <option value="starter">Starter</option>
+                                        <option value="pro">Pro</option>
+                                        <option value="enterprise">Enterprise</option>
+                                        <option value="internal">Internal</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-2 mt-2 border-t pt-3">
+                                    <h4 class="text-sm font-bold text-gray-700 mb-2">صاحب الحساب</h4>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم صاحب الحساب *</label>
+                                    <input type="text" name="ownerName" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم صاحب الحساب</label>
+                                    <input type="text" name="ownerPhone" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">إيميل صاحب الحساب *</label>
+                                    <input type="email" name="ownerEmail" required class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr" autocomplete="off" autocapitalize="none">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">كلمة سر مبدئية * (6 حروف على الأقل)</label>
+                                    <input type="text" name="ownerPassword" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm font-mono" dir="ltr" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-3">
+                                <button type="button" onclick="document.getElementById('createOrgModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">إنشاء</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                <!-- Edit Modal -->
+                <dialog id="editOrgModal" class="rounded-2xl">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">تعديل المنظمة</h3>
+                            <button onclick="document.getElementById('editOrgModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <form onsubmit="submitEditOrg(event)" class="space-y-3 max-h-[75vh] overflow-y-auto">
+                            <input type="hidden" id="editOrgId" name="id">
+                            <!-- Logo preview + upload -->
+                            <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                                <img id="editLogoPreview" src="" alt="logo" class="w-16 h-16 rounded-lg object-cover border border-gray-200 hidden">
+                                <div id="editLogoFallback" class="w-16 h-16 rounded-lg flex items-center justify-center text-white font-bold text-xl bg-gray-300">⌂</div>
+                                <div class="flex-1">
+                                    <label class="block text-xs text-gray-600 mb-1">شعار المنظمة (اختياري)</label>
+                                    <input type="file" id="editLogoFile" accept="image/*" class="text-xs" onchange="uploadOrgLogo(this)">
+                                    <input type="hidden" id="editLogoUrl" name="logoUrl">
+                                    <p class="text-xs text-gray-400 mt-1">PNG/JPG/SVG حتى 2MB</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم المنظمة *</label>
+                                    <input type="text" id="editOrgName" name="name" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">إيميل التواصل</label>
+                                    <input type="email" id="editOrgContactEmail" name="contactEmail" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم التواصل</label>
+                                    <input type="text" id="editOrgContactPhone" name="contactPhone" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">الباقة</label>
+                                    <select id="editOrgPlanTier" name="planTier" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        <option value="starter">Starter</option>
+                                        <option value="pro">Pro</option>
+                                        <option value="enterprise">Enterprise</option>
+                                        <option value="internal">Internal</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-3">
+                                <button type="button" onclick="document.getElementById('editOrgModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-sky-600 hover:bg-sky-700">حفظ التعديلات</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                <!-- Reset password modal -->
+                <dialog id="resetPwdModal" class="rounded-2xl">
+                    <div class="p-6 max-w-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">تغيير كلمة سر صاحب الحساب</h3>
+                            <button onclick="document.getElementById('resetPwdModal').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <form onsubmit="submitResetPwd(event)" class="space-y-3">
+                            <input type="hidden" id="resetOrgId">
+                            <div class="text-sm text-gray-600 bg-purple-50 p-3 rounded-lg">
+                                <div>المنظمة: <span id="resetOrgName" class="font-bold"></span></div>
+                                <div class="mt-1">إيميل صاحب الحساب: <span id="resetOwnerEmail" class="font-mono text-xs" dir="ltr"></span></div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">كلمة السر الجديدة (6 حروف على الأقل)</label>
+                                <input type="text" id="resetNewPwd" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm font-mono" dir="ltr" autocomplete="off">
+                                <p class="text-xs text-gray-500 mt-1">سيُسجَّل صاحب الحساب بالكلمة الجديدة بعد الحفظ مباشرة. أرسلها له بشكل آمن.</p>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-2">
+                                <button type="button" onclick="document.getElementById('resetPwdModal').close()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">إلغاء</button>
+                                <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg bg-purple-600 hover:bg-purple-700">حفظ كلمة السر الجديدة</button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+
+                <!-- Success modal: shows the freshly-created credentials with a copy
+                     button. Replaces the cramped browser alert() that some users
+                     dismiss before reading. -->
+                <dialog id="newOrgSuccessModal" class="rounded-2xl">
+                    <div class="p-6 max-w-md">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">✅</div>
+                            <h3 class="text-lg font-bold text-gray-800">تم إنشاء المنظمة بنجاح</h3>
+                            <p class="text-sm text-gray-500 mt-1">أرسل بيانات الدخول للعميل بشكل آمن</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-emerald-50 to-sky-50 border border-emerald-100 rounded-xl p-4 mt-4 space-y-2">
+                            <div>
+                                <div class="text-xs text-gray-500">اسم المنظمة</div>
+                                <div id="successOrgName" class="font-bold text-gray-800"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500">اسم صاحب الحساب</div>
+                                <div id="successOwnerName" class="font-bold text-gray-800"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500">الإيميل</div>
+                                <div id="successOwnerEmail" class="font-mono text-sm text-sky-700" dir="ltr"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500">كلمة السر</div>
+                                <div id="successOwnerPassword" class="font-mono text-sm text-purple-700" dir="ltr"></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-4">
+                            <button onclick="copySuccessCredentials()" class="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">📋 نسخ البيانات</button>
+                            <button onclick="closeSuccessModal()" class="px-4 py-2 text-sm text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">تم</button>
+                        </div>
+                    </div>
+                </dialog>
+
+                <script>
+                // ── Create ────────────────────────────────────────────
+                async function uploadPendingLogo(input) {
+                    if (!input.files || !input.files[0]) return;
+                    const file = input.files[0];
+                    if (file.size > 5 * 1024 * 1024) { alert('الحجم أكبر من 5MB. اضغط الصورة قبل الرفع.'); input.value = ''; return; }
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    try {
+                        const res = await fetch('/crm/api/super/uploads/logo', { method:'POST', body: fd });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            alert(err.error || ('فشل رفع الشعار (' + res.status + ')'));
+                            input.value = '';
+                            return;
+                        }
+                        const body = await res.json();
+                        document.getElementById('createLogoUrl').value = body.url;
+                        const preview = document.getElementById('createLogoPreview');
+                        preview.src = body.url + '?t=' + Date.now();
+                        preview.classList.remove('hidden');
+                        document.getElementById('createLogoFallback').classList.add('hidden');
+                    } catch (e) {
+                        alert('خطأ في الشبكة أثناء رفع الشعار');
+                        input.value = '';
+                    }
+                }
+                async function submitNewOrg(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const data = Object.fromEntries(new FormData(form));
+                    // Normalise the email client-side so what the operator sees in
+                    // the success modal is exactly what the server stored.
+                    if (data.ownerEmail) data.ownerEmail = data.ownerEmail.trim().toLowerCase();
+                    const submitted = data.ownerPassword;
+                    const res = await fetch('/crm/api/super/organizations', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+                    });
+                    if (res.ok) {
+                        const body = await res.json();
+                        document.getElementById('createOrgModal').close();
+                        document.getElementById('successOrgName').textContent = body.organization_name || data.name;
+                        document.getElementById('successOwnerName').textContent = body.owner_name || data.ownerName;
+                        document.getElementById('successOwnerEmail').textContent = body.owner_email || data.ownerEmail;
+                        document.getElementById('successOwnerPassword').textContent = submitted;
+                        document.getElementById('newOrgSuccessModal').showModal();
+                        form.reset();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || err.message || 'حدث خطأ أثناء إنشاء المنظمة');
+                    }
+                }
+                function closeSuccessModal() {
+                    document.getElementById('newOrgSuccessModal').close();
+                    location.reload();
+                }
+                function copySuccessCredentials() {
+                    const txt = 'منظمة: ' + document.getElementById('successOrgName').textContent +
+                        '\n' + 'اسم صاحب الحساب: ' + document.getElementById('successOwnerName').textContent +
+                        '\n' + 'الإيميل: ' + document.getElementById('successOwnerEmail').textContent +
+                        '\n' + 'كلمة السر: ' + document.getElementById('successOwnerPassword').textContent +
+                        '\n' + 'رابط الدخول: ' + window.location.origin + '/crm/login';
+                    navigator.clipboard.writeText(txt).then(
+                        () => { alert('تم النسخ ✅'); },
+                        () => { alert('فشل النسخ — انسخ يدويًا'); }
+                    );
+                }
+
+                // ── Edit ──────────────────────────────────────────────
+                function openEditOrg(id, name, contactEmail, contactPhone, planTier, logoUrl) {
+                    document.getElementById('editOrgId').value = id;
+                    document.getElementById('editOrgName').value = name || '';
+                    document.getElementById('editOrgContactEmail').value = contactEmail || '';
+                    document.getElementById('editOrgContactPhone').value = contactPhone || '';
+                    document.getElementById('editOrgPlanTier').value = planTier || 'starter';
+                    document.getElementById('editLogoUrl').value = logoUrl || '';
+                    const preview = document.getElementById('editLogoPreview');
+                    const fallback = document.getElementById('editLogoFallback');
+                    if (logoUrl) {
+                        preview.src = logoUrl;
+                        preview.classList.remove('hidden');
+                        fallback.classList.add('hidden');
+                    } else {
+                        preview.classList.add('hidden');
+                        fallback.classList.remove('hidden');
+                        fallback.textContent = (name || '؟').trim().charAt(0);
+                    }
+                    document.getElementById('editLogoFile').value = '';
+                    document.getElementById('editOrgModal').showModal();
+                }
+                async function uploadOrgLogo(input) {
+                    if (!input.files || !input.files[0]) return;
+                    const file = input.files[0];
+                    if (file.size > 5 * 1024 * 1024) { alert('الحجم أكبر من 5MB. اضغط الصورة قبل الرفع.'); input.value = ''; return; }
+                    const orgId = document.getElementById('editOrgId').value;
+                    if (!orgId) { alert('برجاء فتح المنظمة من زر التعديل أولاً'); return; }
+                    const btn = document.querySelector('#editOrgModal button[type=submit]');
+                    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الرفع...'; }
+                    try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await fetch('/crm/api/super/organizations/' + orgId + '/logo', { method:'POST', body: fd });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            alert(err.error || ('فشل رفع الشعار (' + res.status + ')'));
+                            return;
+                        }
+                        const body = await res.json();
+                        document.getElementById('editLogoUrl').value = body.url;
+                        const preview = document.getElementById('editLogoPreview');
+                        // Cache-buster (?t=...) so the browser refetches even if it
+                        // cached an earlier version of the same path.
+                        preview.src = body.url + '?t=' + Date.now();
+                        preview.classList.remove('hidden');
+                        document.getElementById('editLogoFallback').classList.add('hidden');
+                    } catch (e) {
+                        alert('خطأ في الشبكة أثناء رفع الشعار');
+                    } finally {
+                        if (btn) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
+                    }
+                }
+                async function submitEditOrg(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const data = Object.fromEntries(new FormData(form));
+                    const id = data.id;
+                    delete data.id;
+                    const res = await fetch('/crm/api/super/organizations/' + id, {
+                        method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+                    });
+                    if (res.ok) { document.getElementById('editOrgModal').close(); location.reload(); }
+                    else { const err = await res.json().catch(()=>({})); alert(err.error || 'حدث خطأ'); }
+                }
+
+                // ── Reset owner password ─────────────────────────────
+                function openResetPwd(id, name, ownerEmail) {
+                    document.getElementById('resetOrgId').value = id;
+                    document.getElementById('resetOrgName').textContent = name;
+                    document.getElementById('resetOwnerEmail').textContent = ownerEmail || '(لا يوجد)';
+                    document.getElementById('resetNewPwd').value = '';
+                    document.getElementById('resetPwdModal').showModal();
+                }
+                async function submitResetPwd(e) {
+                    e.preventDefault();
+                    const id = document.getElementById('resetOrgId').value;
+                    const pwd = document.getElementById('resetNewPwd').value.trim();
+                    if (pwd.length < 6) { alert('كلمة السر يجب أن تكون 6 حروف على الأقل'); return; }
+                    const res = await fetch('/crm/api/super/organizations/' + id + '/reset-password', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pwd})
+                    });
+                    if (res.ok) {
+                        const body = await res.json();
+                        document.getElementById('resetPwdModal').close();
+                        alert('تم تحديث كلمة السر ✅\n\nالإيميل: ' + body.owner_email + '\nكلمة السر الجديدة: ' + pwd + '\n\nأرسلها للعميل بشكل آمن.');
+                    } else {
+                        const err = await res.json().catch(()=>({}));
+                        alert(err.error || 'حدث خطأ');
+                    }
+                }
+
+                // ── Active toggle / Delete (unchanged) ────────────────
+                async function toggleActive(id, makeActive) {
+                    const verb = makeActive ? 'تفعيل' : 'تعليق';
+                    if (!confirm(verb + ' هذه المنظمة؟')) return;
+                    const res = await fetch('/crm/api/super/organizations/' + id + '/active', {
+                        method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({active: makeActive})
+                    });
+                    if (res.ok) location.reload();
+                    else alert('حدث خطأ');
+                }
+                async function deleteOrg(id, name, clientCount, agentCount) {
+                    if (!confirm('⚠️ حذف نهائي للمنظمة "' + name + '"؟\n\nسيتم مسح:\n• ' + agentCount + ' موظف\n• ' + clientCount + ' عميل\n• كل الأنشطة والفواتير والمدفوعات والرواتب\n\nهذا الإجراء لا يمكن التراجع عنه.')) return;
+                    const typed = prompt('للتأكيد، اكتب اسم المنظمة:\n\n' + name);
+                    if (typed !== name) { alert('الاسم غير مطابق - تم الإلغاء'); return; }
+                    const res = await fetch('/crm/api/super/organizations/' + id, {method:'DELETE'});
+                    if (res.ok) { alert('تم الحذف'); location.reload(); }
+                    else { const err = await res.json().catch(()=>({})); alert(err.error || err.message || 'حدث خطأ'); }
+                }
+                </script>
+            """.trimIndent()
+
+            call.respondText(
+                crmLayout("المنظمات", principal.name, principal.role, principal, "super_orgs", content),
+                ContentType.Text.Html,
+            )
+        }
+
+        // ─── Super-admin: single-org detail page ────────────────
+        // A focused dashboard for one tenant org. Shows the org metadata,
+        // KPI strip, every agent with per-row actions (reset password,
+        // suspend/activate, delete), and a billing summary. Reachable from
+        // an "تفاصيل" link on the main organizations table.
+        get("/crm/super/organizations/{id}") {
+            val principal = call.principal<CrmPrincipal>()!!
+            if (!principal.isSuperAdmin) {
+                call.respondRedirect("/crm/dashboard")
+                return@get
+            }
+            val orgId = call.parameters["id"] ?: return@get call.respondRedirect("/crm/super/organizations")
+            val detail = crmService.getOrganizationDetail(orgId)
+            if (detail == null) {
+                call.respondRedirect("/crm/super/organizations")
+                return@get
+            }
+
+            val cacheBust = System.currentTimeMillis() / 60_000
+            val palette = listOf("#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316")
+            val initialColor = palette[(detail.name.hashCode().let { if (it < 0) -it else it }) % palette.size]
+            val initial = detail.name.trim().firstOrNull()?.toString() ?: "؟"
+            val orgLogoHtml = if (!detail.logoUrl.isNullOrBlank())
+                """<img src="${detail.logoUrl}?v=$cacheBust" alt="${detail.name}" class="w-20 h-20 rounded-2xl object-cover border border-gray-200">"""
+            else
+                """<div class="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-3xl" style="background:$initialColor">$initial</div>"""
+
+            val statusBadge = if (detail.active)
+                """<span class="px-3 py-1 rounded-full text-xs bg-emerald-50 text-emerald-700 font-medium">نشط</span>"""
+            else
+                """<span class="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600 font-medium">معلّق</span>"""
+
+            // Currency formatter — Egyptian pounds, no fractional digits for
+            // the dashboard chrome (we still keep cents internally; the user
+            // doesn't need sub-pound precision in the KPI strip).
+            fun money(v: Double) = "${"%,d".format(v.toLong())} ج.م"
+
+            // Agents block
+            val agentRows = buildString {
+                detail.agents.forEach { a ->
+                    val isOwner = a.role == "owner" || a.role == "super_admin"
+                    val photo = agentPhotoHtml(a.photoUrl, a.name, 36)
+                    val activeBadge = if (a.active)
+                        """<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700">نشط</span>"""
+                    else
+                        """<span class="px-2 py-0.5 rounded-full text-xs bg-red-50 text-red-700">معطل</span>"""
+                    val ownerBadge = if (isOwner)
+                        """<span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-700 font-medium">${if (a.role == "super_admin") "مدير عام" else "مالك"}</span>"""
+                    else ""
+                    val safeName = a.name.replace("'", "\\'").replace("\"", "&quot;")
+                    val resetBtn = """<button onclick="resetAgentPwd('${a.id}','$safeName')"
+                            class="p-1.5 rounded hover:bg-purple-50 text-purple-600" title="تغيير كلمة السر">🔑</button>"""
+                    val toggleBtn = if (isOwner) "" else if (a.active)
+                        """<button onclick="toggleAgentActive('${a.id}', false)" class="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="تعطيل">⏸️</button>"""
+                    else
+                        """<button onclick="toggleAgentActive('${a.id}', true)" class="p-1.5 rounded hover:bg-emerald-50 text-emerald-600" title="تفعيل">▶️</button>"""
+                    val deleteBtn = if (isOwner)
+                        """<span class="p-1.5 text-gray-300" title="لا يمكن حذف المالك من هنا — احذف المنظمة كاملة">🔒</span>"""
+                    else
+                        """<button onclick="deleteAgent('${a.id}','$safeName')" class="p-1.5 rounded hover:bg-red-50 text-red-600" title="حذف الموظف">🗑️</button>"""
+                    val phoneLine = a.phone?.let { """<div class="text-xs text-gray-500" dir="ltr">📞 $it</div>""" } ?: ""
+                    append("""<tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class='p-3'>
+                            <div class="flex items-center gap-3">
+                                $photo
+                                <div>
+                                    <div class="font-semibold text-gray-800">${a.name}$ownerBadge</div>
+                                    <div class="text-xs text-gray-500" dir="ltr">${a.email}</div>
+                                    $phoneLine
+                                </div>
+                            </div>
+                        </td>
+                        <td class='p-3 text-sm text-gray-700'>${roleDisplayName(a.role)}</td>
+                        <td class='p-3'>$activeBadge</td>
+                        <td class='p-3 text-xs text-gray-500 whitespace-nowrap'>${formatCrmDate(a.createdAt)}</td>
+                        <td class='p-3'>
+                            <div class="flex items-center gap-1 justify-end">$resetBtn $toggleBtn $deleteBtn</div>
+                        </td>
+                    </tr>""")
+                }
+            }
+
+            val content = """
+                <!-- Back link -->
+                <a href="/crm/super/organizations" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4">
+                    <span>→</span><span>كل المنظمات</span>
+                </a>
+
+                <!-- Org header card -->
+                <div class="bg-white rounded-2xl shadow-sm p-6 mb-5 border border-gray-100">
+                    <div class="flex items-start gap-5 flex-wrap">
+                        $orgLogoHtml
+                        <div class="flex-1 min-w-[260px]">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h2 class="text-2xl font-bold text-gray-800">${detail.name}</h2>
+                                $statusBadge
+                                <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">${detail.planTier}</span>
+                            </div>
+                            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                ${detail.contactEmail?.let { """<div class="text-gray-600"><span class="text-gray-400">إيميل المنظمة:</span> <span dir="ltr">$it</span></div>""" } ?: ""}
+                                ${detail.contactPhone?.let { """<div class="text-gray-600"><span class="text-gray-400">رقم المنظمة:</span> <span dir="ltr">$it</span></div>""" } ?: ""}
+                                <div class="text-gray-600"><span class="text-gray-400">تاريخ الإنشاء:</span> ${formatCrmDate(detail.createdAt)}</div>
+                                <div class="text-gray-600"><span class="text-gray-400">آخر تعديل:</span> ${formatCrmDate(detail.updatedAt)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI strip -->
+                <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">الموظفين</p>
+                        <p class="text-2xl font-bold text-sky-600 mt-1">${detail.agents.size}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">العملاء</p>
+                        <p class="text-2xl font-bold text-amber-600 mt-1">${detail.clientCount}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">الأنشطة</p>
+                        <p class="text-2xl font-bold text-purple-600 mt-1">${detail.activityCount}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">عدد الفواتير</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1">${detail.invoiceCount}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">إجمالي الفواتير</p>
+                        <p class="text-lg font-bold text-emerald-600 mt-1">${money(detail.invoiceTotal)}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                        <p class="text-xs text-gray-500">المتأخرات</p>
+                        <p class="text-lg font-bold ${if (detail.outstandingBalance > 0) "text-red-600" else "text-emerald-600"} mt-1">${money(detail.outstandingBalance)}</p>
+                    </div>
+                </div>
+
+                <!-- Agents table -->
+                <div class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-100 mb-5">
+                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <h3 class="font-bold text-gray-800">موظفي المنظمة</h3>
+                        <span class="text-xs text-gray-500">${detail.agents.size} موظف</span>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الموظف</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الدور</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">الحالة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium">تاريخ الإضافة</th>
+                                <th class="p-3 text-right text-xs text-gray-500 uppercase tracking-wider font-medium"></th>
+                            </tr>
+                        </thead>
+                        <tbody>${if (agentRows.isBlank()) "<tr><td colspan='5' class='p-6 text-center text-gray-400'>لا يوجد موظفين</td></tr>" else agentRows}</tbody>
+                    </table>
+                </div>
+
+                <script>
+                async function resetAgentPwd(agentId, name) {
+                    const pwd = prompt('كلمة سر جديدة لـ ' + name + ' (6 حروف على الأقل):');
+                    if (!pwd) return;
+                    if (pwd.length < 6) { alert('كلمة السر يجب أن تكون 6 حروف على الأقل'); return; }
+                    const res = await fetch('/crm/api/super/organizations/${detail.id}/agents/' + agentId + '/reset-password', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pwd})
+                    });
+                    if (res.ok) {
+                        const body = await res.json();
+                        alert('تم تحديث كلمة السر ✅\n\nإيميل الموظف: ' + body.agent_email + '\nكلمة السر الجديدة: ' + pwd + '\n\nأرسلها له بشكل آمن.');
+                    } else {
+                        const err = await res.json().catch(()=>({}));
+                        alert(err.error || 'حدث خطأ');
+                    }
+                }
+                async function toggleAgentActive(agentId, makeActive) {
+                    const verb = makeActive ? 'تفعيل' : 'تعطيل';
+                    if (!confirm(verb + ' هذا الموظف؟')) return;
+                    const res = await fetch('/crm/api/super/organizations/${detail.id}/agents/' + agentId + '/active', {
+                        method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({active: makeActive})
+                    });
+                    if (res.ok) location.reload();
+                    else alert('حدث خطأ');
+                }
+                async function deleteAgent(agentId, name) {
+                    if (!confirm('⚠️ حذف الموظف "' + name + '" نهائيًا؟\n\nسيتم مسح كل أنشطته وعمولاته ومرتباته. هذا الإجراء لا يمكن التراجع عنه.')) return;
+                    const res = await fetch('/crm/api/super/organizations/${detail.id}/agents/' + agentId, { method:'DELETE' });
+                    if (res.ok) { alert('تم الحذف'); location.reload(); }
+                    else { const err = await res.json().catch(()=>({})); alert(err.error || 'حدث خطأ'); }
+                }
+                </script>
+            """.trimIndent()
+
+            call.respondText(
+                crmLayout("تفاصيل ${detail.name}", principal.name, principal.role, principal, "super_orgs", content),
+                ContentType.Text.Html,
+            )
+        }
+
         // ─── JSON API Endpoints ─────────────────────────────────
         route("/crm/api") {
 
-            // Photo upload for CRM agents
+            // Photo upload for CRM agents. Same Netty-event-loop trap as the
+            // /super/organizations/{id}/logo endpoint above — file copy on the
+            // event loop blocks every other request and leaks Netty channels
+            // when the client disconnects mid-upload. Push the I/O onto
+            // Dispatchers.IO so the event loop stays free.
             post("/upload") {
                 val principal = call.principal<CrmPrincipal>()!!
                 val multipart = call.receiveMultipart()
@@ -2668,14 +3580,16 @@ fun Route.crmRoutes() {
                 multipart.forEachPart { part ->
                     if (part is PartData.FileItem) {
                         val ext = (part.originalFileName ?: "image.jpg").substringAfterLast('.', "jpg").lowercase().takeIf { it in listOf("jpg","jpeg","png","webp","gif") } ?: "jpg"
-                        val dir = java.io.File("uploads/crm-photos")
-                        if (!dir.exists()) dir.mkdirs()
                         val fileName = "${java.util.UUID.randomUUID()}.$ext"
-                        val file = java.io.File(dir, fileName)
-                        part.streamProvider().use { input -> file.outputStream().buffered().use { output -> input.copyTo(output) } }
-                        val host = call.request.header("Host") ?: "localhost:8080"
-                        val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
-                        uploadedUrl = "$scheme://$host/uploads/crm-photos/$fileName"
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val dir = java.io.File("uploads/crm-photos")
+                            if (!dir.exists()) dir.mkdirs()
+                            val file = java.io.File(dir, fileName)
+                            part.streamProvider().use { input -> file.outputStream().buffered().use { output -> input.copyTo(output) } }
+                        }
+                        // Relative URL — see the org-logo endpoint for why we
+                        // dropped the Host-header prefix.
+                        uploadedUrl = "/uploads/crm-photos/$fileName"
                     }
                     part.dispose()
                 }
@@ -2689,7 +3603,7 @@ fun Route.crmRoutes() {
             // GET /crm/api/clients
             get("/clients") {
                 val principal = call.principal<CrmPrincipal>()!!
-                val clients = crmService.listClients(principal.agentId, principal.canSeeAll)
+                val clients = crmService.listClients(principal.organizationId, principal.agentId, principal.canSeeAll)
                 val json = buildJsonArray {
                     clients.forEach { c ->
                         add(buildJsonObject {
@@ -2725,6 +3639,7 @@ fun Route.crmRoutes() {
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val client = crmService.createClient(
+                    orgId = principal.organizationId,
                     clientName = obj["clientName"]?.jsonPrimitive?.content ?: "",
                     phone = obj["phone"]?.jsonPrimitive?.content ?: "",
                     whatsapp = obj["whatsapp"]?.jsonPrimitive?.booleanOrNull ?: false,
@@ -2751,13 +3666,14 @@ fun Route.crmRoutes() {
                 val principal = call.principal<CrmPrincipal>()!!
                 val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
                 // Agents may only edit clients they own. Managers/owners edit anyone.
-                if (!principal.canSeeAll && !crmService.isClientOwnedBy(id, principal.agentId)) {
+                if (!principal.canSeeAll && !crmService.isClientOwnedBy(principal.organizationId, id, principal.agentId)) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@put
                 }
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val ok = crmService.updateClient(
+                    orgId = principal.organizationId,
                     id = id,
                     clientName = obj["clientName"]?.jsonPrimitive?.contentOrNull,
                     phone = obj["phone"]?.jsonPrimitive?.contentOrNull,
@@ -2787,11 +3703,11 @@ fun Route.crmRoutes() {
                 val principal = call.principal<CrmPrincipal>()!!
                 val id = call.parameters["id"] ?: return@delete
                 // Agents may delete only clients assigned to them. Managers/owners delete anyone.
-                if (!principal.canSeeAll && !crmService.isClientOwnedBy(id, principal.agentId)) {
+                if (!principal.canSeeAll && !crmService.isClientOwnedBy(principal.organizationId, id, principal.agentId)) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@delete
                 }
-                if (crmService.deleteClient(id)) {
+                if (crmService.deleteClient(principal.organizationId, id)) {
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -2801,7 +3717,7 @@ fun Route.crmRoutes() {
             // GET /crm/api/activities
             get("/activities") {
                 val principal = call.principal<CrmPrincipal>()!!
-                val activities = crmService.listActivities(principal.agentId, principal.canSeeAll)
+                val activities = crmService.listActivities(principal.organizationId, principal.agentId, principal.canSeeAll)
                 val json = buildJsonArray {
                     activities.forEach { a ->
                         add(buildJsonObject {
@@ -2830,6 +3746,7 @@ fun Route.crmRoutes() {
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val id = crmService.createActivity(
+                    orgId = principal.organizationId,
                     agentId = principal.agentId,
                     clientId = obj["clientId"]?.jsonPrimitive?.content ?: "",
                     actionType = obj["actionType"]?.jsonPrimitive?.contentOrNull,
@@ -2854,13 +3771,14 @@ fun Route.crmRoutes() {
                 val principal = call.principal<CrmPrincipal>()!!
                 val id = call.parameters["id"] ?: return@put call.respondText("{\"error\":\"missing id\"}", ContentType.Application.Json, HttpStatusCode.BadRequest)
                 // Agents may only edit activities they recorded. Managers/owners edit anyone's.
-                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(id, principal.agentId)) {
+                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(principal.organizationId, id, principal.agentId)) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@put
                 }
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val ok = crmService.updateActivity(
+                    orgId = principal.organizationId,
                     id = id,
                     actionType = obj["actionType"]?.jsonPrimitive?.contentOrNull,
                     channel = obj["channel"]?.jsonPrimitive?.contentOrNull,
@@ -2887,11 +3805,11 @@ fun Route.crmRoutes() {
                 val principal = call.principal<CrmPrincipal>()!!
                 val id = call.parameters["id"] ?: return@delete
                 // Agents may only delete activities they recorded. Managers/owners delete anyone's.
-                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(id, principal.agentId)) {
+                if (!principal.canSeeAll && !crmService.isActivityOwnedBy(principal.organizationId, id, principal.agentId)) {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@delete
                 }
-                if (crmService.deleteActivity(id)) {
+                if (crmService.deleteActivity(principal.organizationId, id)) {
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -2901,7 +3819,7 @@ fun Route.crmRoutes() {
             // GET /crm/api/stats
             get("/stats") {
                 val principal = call.principal<CrmPrincipal>()!!
-                val stats = crmService.getStats(principal.agentId, principal.canSeeAll)
+                val stats = crmService.getStats(principal.organizationId, principal.agentId, principal.canSeeAll)
                 val json = buildJsonObject {
                     put("totalClients", stats.totalClients)
                     put("totalActivities", stats.totalActivities)
@@ -2914,6 +3832,443 @@ fun Route.crmRoutes() {
                 call.respondText(json.toString(), ContentType.Application.Json)
             }
 
+            // ─── Super-admin: Organizations API ─────────────────
+            // Cookie-authed parallels of the admin-jwt endpoints in CrmSuperAdminRoutes.kt.
+            // Lets the CRM dashboard's /crm/super/organizations page manage tenants
+            // without requiring a separate admin login. Every endpoint enforces
+            // `principal.isSuperAdmin` — ordinary org owners and agents get 403.
+
+            post("/super/organizations") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val result = crmService.provisionOrganization(
+                    name = obj["name"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing name"),
+                    contactEmail = obj["contactEmail"]?.jsonPrimitive?.contentOrNull,
+                    contactPhone = obj["contactPhone"]?.jsonPrimitive?.contentOrNull,
+                    planTier = obj["planTier"]?.jsonPrimitive?.contentOrNull ?: "starter",
+                    // Optional logo URL captured by the create-org modal: the
+                    // file was already POSTed to /crm/api/super/uploads/logo
+                    // (a pre-creation upload that doesn't need an orgId yet),
+                    // and the client passes back the resulting URL here so
+                    // we persist it atomically with the org row instead of
+                    // requiring a follow-up PATCH.
+                    logoUrl = obj["logoUrl"]?.jsonPrimitive?.contentOrNull,
+                    ownerName = obj["ownerName"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing ownerName"),
+                    ownerEmail = obj["ownerEmail"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing ownerEmail"),
+                    ownerPhone = obj["ownerPhone"]?.jsonPrimitive?.contentOrNull,
+                    ownerPassword = obj["ownerPassword"]?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing ownerPassword"),
+                )
+                val response = buildJsonObject {
+                    put("organization_id", result.organizationId)
+                    put("organization_name", result.organizationName)
+                    put("owner_agent_id", result.ownerAgentId)
+                    put("owner_email", result.ownerEmail)
+                    put("owner_name", result.ownerName)
+                }
+                call.respondText(response.toString(), ContentType.Application.Json, HttpStatusCode.Created)
+            }
+
+            patch("/super/organizations/{id}/active") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@patch
+                }
+                val id = call.parameters["id"] ?: return@patch call.respondText(
+                    """{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val body = call.receiveText()
+                val active = Json.parseToJsonElement(body).jsonObject["active"]?.jsonPrimitive?.boolean ?: true
+                val ok = crmService.setOrganizationActive(id, active)
+                if (ok) call.respondText("""{"status":"ok","active":$active}""", ContentType.Application.Json)
+                else call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+            }
+
+            // Edit org metadata (name / contact / plan tier / logo). Each field is
+            // optional — null leaves the column untouched, an empty string clears
+            // the optional ones (email/phone/logo).
+            patch("/super/organizations/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@patch
+                }
+                val id = call.parameters["id"] ?: return@patch call.respondText(
+                    """{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val body = call.receiveText()
+                val obj = Json.parseToJsonElement(body).jsonObject
+                val ok = crmService.updateOrganization(
+                    orgId = id,
+                    name = obj["name"]?.jsonPrimitive?.contentOrNull,
+                    contactEmail = obj["contactEmail"]?.jsonPrimitive?.contentOrNull,
+                    contactPhone = obj["contactPhone"]?.jsonPrimitive?.contentOrNull,
+                    planTier = obj["planTier"]?.jsonPrimitive?.contentOrNull,
+                    logoUrl = obj["logoUrl"]?.jsonPrimitive?.contentOrNull,
+                )
+                if (ok) call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                else call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+            }
+
+            // Reset the org owner's password. Returns the owner email so the
+            // operator can re-deliver it to the customer alongside the new
+            // password they typed in the modal.
+            post("/super/organizations/{id}/reset-password") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val id = call.parameters["id"] ?: return@post call.respondText(
+                    """{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val body = call.receiveText()
+                val newPassword = Json.parseToJsonElement(body).jsonObject["password"]?.jsonPrimitive?.contentOrNull
+                if (newPassword == null || newPassword.length < 6) {
+                    call.respondText(
+                        """{"error":"كلمة السر يجب أن تكون 6 حروف على الأقل"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.BadRequest,
+                    )
+                    return@post
+                }
+                val ownerEmail = try {
+                    crmService.resetOwnerPassword(id, newPassword)
+                } catch (e: IllegalArgumentException) {
+                    call.respondText(
+                        """{"error":"${e.message ?: "bad request"}"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.BadRequest,
+                    )
+                    return@post
+                }
+                if (ownerEmail != null) {
+                    val resp = buildJsonObject {
+                        put("status", "ok")
+                        put("owner_email", ownerEmail)
+                    }
+                    call.respondText(resp.toString(), ContentType.Application.Json)
+                } else {
+                    call.respondText(
+                        """{"error":"المنظمة لا تحتوي على حساب مالك"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.NotFound,
+                    )
+                }
+            }
+
+            // Logo upload — accepts multipart, saves to uploads/crm-photos/, returns
+            // a public URL. Same storage layout as the agent-photo upload above so
+            // the static file route already serves it. Caller writes the URL back
+            // via the PATCH /super/organizations/{id} endpoint.
+            //
+            // Threading: Netty's event-loop thread runs route handlers, and blocking
+            // I/O on it freezes the whole server. We learned this the hard way —
+            // a 1MB file copy + a JDBC transaction in the same handler made the
+            // event loop go quiet for 5+ seconds; if the browser's fetch() timed
+            // out and dropped the connection during that window, Netty raised
+            // ChannelWriteException and (worst of all) leaked the channel slot.
+            // After half a dozen such uploads the loop was full of zombie channels
+            // and the instance stopped accepting any new requests. Both halves of
+            // the work — file write and DB update — now run on Dispatchers.IO so
+            // the event loop stays responsive throughout.
+            post("/super/organizations/{id}/logo") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val id = call.parameters["id"] ?: return@post call.respondText(
+                    """{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                // Capture the previous logo URL so we can delete the file
+                // after the new one is committed. Doing it before write means
+                // a failed upload would leave the org with no logo at all;
+                // doing it after means we never orphan files when the new
+                // upload succeeds.
+                val previousLogoUrl = crmService.getOrgBranding(id)?.logoUrl
+                val multipart = call.receiveMultipart()
+                var uploadedUrl: String? = null
+                multipart.forEachPart { part ->
+                    if (part is PartData.FileItem) {
+                        val ext = (part.originalFileName ?: "logo.png")
+                            .substringAfterLast('.', "png")
+                            .lowercase()
+                            .takeIf { it in listOf("jpg", "jpeg", "png", "webp", "gif", "svg") } ?: "png"
+                        val fileName = "org-${id}-${System.currentTimeMillis()}.$ext"
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val dir = java.io.File("uploads/crm-photos")
+                            if (!dir.exists()) dir.mkdirs()
+                            val file = java.io.File(dir, fileName)
+                            part.streamProvider().use { input -> file.outputStream().buffered().use { out -> input.copyTo(out) } }
+                        }
+                        // Relative URL — the browser resolves it against whatever
+                        // port loaded the page, so the same DB row renders on both
+                        // 8080 (release) and 8081 (debug) without us hard-coding a
+                        // host that will go stale the moment the operator switches
+                        // instances.
+                        uploadedUrl = "/uploads/crm-photos/$fileName"
+                    }
+                    part.dispose()
+                }
+                if (uploadedUrl != null) {
+                    // The DB call also blocks (synchronous JDBC), so push it onto
+                    // the IO pool too — this is on the same handler that the event
+                    // loop is waiting to flush a response from.
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        crmService.updateOrganization(orgId = id, name = null, contactEmail = null, contactPhone = null, planTier = null, logoUrl = uploadedUrl)
+                        // Now that the new logo is the source of truth, garbage-collect
+                        // the previous file. We compare paths so a no-op re-upload of
+                        // the same URL never deletes the file that's still referenced.
+                        if (!previousLogoUrl.isNullOrBlank() && previousLogoUrl != uploadedUrl) {
+                            deleteUploadFile(previousLogoUrl)
+                        }
+                    }
+                    call.respondText("""{"url":"$uploadedUrl"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"no file"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+            }
+
+            delete("/super/organizations/{id}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                val id = call.parameters["id"] ?: return@delete call.respondText(
+                    """{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                // Capture the logo URL before the row is gone so we can delete
+                // the file on disk too — the DB cascade only takes care of
+                // table rows, not uploaded bytes.
+                val orgLogoUrl = crmService.getOrgBranding(id)?.logoUrl
+                val ok = crmService.deleteOrganization(id)
+                if (ok) {
+                    if (!orgLogoUrl.isNullOrBlank()) deleteUploadFile(orgLogoUrl)
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+            }
+
+            // Pre-creation logo upload — used by the create-org modal so the
+            // operator can pick a logo BEFORE the org exists. We don't have an
+            // orgId yet so the file is named with a `pending-<random>` prefix;
+            // the URL is then passed back to the POST /super/organizations
+            // request as `logoUrl` and persisted alongside the new org row.
+            // No DB write here.
+            post("/super/uploads/logo") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val multipart = call.receiveMultipart()
+                var uploadedUrl: String? = null
+                multipart.forEachPart { part ->
+                    if (part is PartData.FileItem) {
+                        val ext = (part.originalFileName ?: "logo.png")
+                            .substringAfterLast('.', "png")
+                            .lowercase()
+                            .takeIf { it in listOf("jpg", "jpeg", "png", "webp", "gif", "svg") } ?: "png"
+                        val fileName = "pending-${java.util.UUID.randomUUID()}.$ext"
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val dir = java.io.File("uploads/crm-photos")
+                            if (!dir.exists()) dir.mkdirs()
+                            val file = java.io.File(dir, fileName)
+                            part.streamProvider().use { input -> file.outputStream().buffered().use { out -> input.copyTo(out) } }
+                        }
+                        uploadedUrl = "/uploads/crm-photos/$fileName"
+                    }
+                    part.dispose()
+                }
+                if (uploadedUrl != null) {
+                    call.respondText("""{"url":"$uploadedUrl"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"no file"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+            }
+
+            // ─── Super-admin: agent management inside any org ─────
+            // These three endpoints let the platform super-admin reset, suspend,
+            // or delete any agent under any tenant org. The service-layer
+            // methods all verify (orgId, agentId) belong together so a typo
+            // can never operate on a different tenant by accident.
+
+            post("/super/organizations/{orgId}/agents/{agentId}/reset-password") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val orgId = call.parameters["orgId"] ?: return@post call.respondText(
+                    """{"error":"missing orgId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val agentId = call.parameters["agentId"] ?: return@post call.respondText(
+                    """{"error":"missing agentId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val body = call.receiveText()
+                val newPassword = Json.parseToJsonElement(body).jsonObject["password"]?.jsonPrimitive?.contentOrNull
+                if (newPassword == null || newPassword.length < 6) {
+                    call.respondText(
+                        """{"error":"كلمة السر يجب أن تكون 6 حروف على الأقل"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.BadRequest,
+                    )
+                    return@post
+                }
+                val email = try {
+                    crmService.resetAgentPasswordInOrg(orgId, agentId, newPassword)
+                } catch (e: IllegalArgumentException) {
+                    call.respondText(
+                        """{"error":"${e.message ?: "bad request"}"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.BadRequest,
+                    )
+                    return@post
+                }
+                if (email != null) {
+                    val resp = buildJsonObject {
+                        put("status", "ok")
+                        put("agent_email", email)
+                    }
+                    call.respondText(resp.toString(), ContentType.Application.Json)
+                } else {
+                    call.respondText(
+                        """{"error":"الموظف غير موجود في هذه المنظمة"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.NotFound,
+                    )
+                }
+            }
+
+            patch("/super/organizations/{orgId}/agents/{agentId}/active") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@patch
+                }
+                val orgId = call.parameters["orgId"] ?: return@patch call.respondText(
+                    """{"error":"missing orgId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val agentId = call.parameters["agentId"] ?: return@patch call.respondText(
+                    """{"error":"missing agentId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val body = call.receiveText()
+                val active = Json.parseToJsonElement(body).jsonObject["active"]?.jsonPrimitive?.boolean ?: true
+                val ok = crmService.setAgentActiveInOrg(orgId, agentId, active)
+                if (ok) call.respondText("""{"status":"ok","active":$active}""", ContentType.Application.Json)
+                else call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+            }
+
+            delete("/super/organizations/{orgId}/agents/{agentId}") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                val orgId = call.parameters["orgId"] ?: return@delete call.respondText(
+                    """{"error":"missing orgId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val agentId = call.parameters["agentId"] ?: return@delete call.respondText(
+                    """{"error":"missing agentId"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val photoUrl = crmService.getAgentPhotoUrl(agentId)
+                val ok = try {
+                    crmService.deleteAgentInOrg(orgId, agentId)
+                } catch (e: IllegalStateException) {
+                    call.respondText(
+                        """{"error":"${e.message ?: "cannot delete"}"}""",
+                        ContentType.Application.Json,
+                        HttpStatusCode.BadRequest,
+                    )
+                    return@delete
+                }
+                if (ok) {
+                    if (!photoUrl.isNullOrBlank()) deleteUploadFile(photoUrl)
+                    call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
+                }
+            }
+
+            // Tenant-owner-scoped logo upload. The org's owner — not the
+            // platform super-admin — can change THEIR OWN logo from the
+            // settings page. We trust principal.organizationId as the only
+            // org id this request can touch (verified in the service via
+            // resolveOrgId so a manipulated request body still can't leak).
+            // canManageAgents is the same gate that protects /crm/settings.
+            post("/organization/logo") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.canManageAgents) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@post
+                }
+                val orgId = principal.organizationId
+                if (orgId == null) {
+                    call.respondText("""{"error":"missing organization on session"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                    return@post
+                }
+                // Stash the existing logo URL — we'll delete the file *after* the
+                // new one is committed, so a failed upload leaves the previous
+                // logo intact. (Same belt-and-suspenders order as the super-admin
+                // endpoint above — see comments there.)
+                val previousLogoUrl = crmService.getOrgBranding(orgId)?.logoUrl
+                val multipart = call.receiveMultipart()
+                var uploadedUrl: String? = null
+                multipart.forEachPart { part ->
+                    if (part is PartData.FileItem) {
+                        val ext = (part.originalFileName ?: "logo.png")
+                            .substringAfterLast('.', "png")
+                            .lowercase()
+                            .takeIf { it in listOf("jpg", "jpeg", "png", "webp", "gif", "svg") } ?: "png"
+                        val fileName = "org-${orgId}-${System.currentTimeMillis()}.$ext"
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val dir = java.io.File("uploads/crm-photos")
+                            if (!dir.exists()) dir.mkdirs()
+                            val file = java.io.File(dir, fileName)
+                            part.streamProvider().use { input -> file.outputStream().buffered().use { out -> input.copyTo(out) } }
+                        }
+                        uploadedUrl = "/uploads/crm-photos/$fileName"
+                    }
+                    part.dispose()
+                }
+                if (uploadedUrl != null) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        crmService.updateOwnOrgLogo(orgId, uploadedUrl)
+                        if (!previousLogoUrl.isNullOrBlank() && previousLogoUrl != uploadedUrl) {
+                            deleteUploadFile(previousLogoUrl)
+                        }
+                    }
+                    call.respondText("""{"url":"$uploadedUrl"}""", ContentType.Application.Json)
+                } else {
+                    call.respondText("""{"error":"no file"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
+                }
+            }
+
+            // Tenant-owner removes their own org logo (sets to NULL) and
+            // garbage-collects the file so we don't leave bytes on disk that
+            // nothing in the DB refers to. Falls back to the default Waselak
+            // art on the next page load.
+            delete("/organization/logo") {
+                val principal = call.principal<CrmPrincipal>()!!
+                if (!principal.canManageAgents) {
+                    call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
+                    return@delete
+                }
+                val orgId = principal.organizationId ?: return@delete call.respondText(
+                    """{"error":"missing organization on session"}""", ContentType.Application.Json, HttpStatusCode.BadRequest
+                )
+                val previousLogoUrl = crmService.getOrgBranding(orgId)?.logoUrl
+                crmService.updateOwnOrgLogo(orgId, null)
+                if (!previousLogoUrl.isNullOrBlank()) deleteUploadFile(previousLogoUrl)
+                call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
+            }
+
             // GET /crm/api/agents (owner only)
             get("/agents") {
                 val principal = call.principal<CrmPrincipal>()!!
@@ -2921,7 +4276,7 @@ fun Route.crmRoutes() {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@get
                 }
-                val agents = crmService.listAgents()
+                val agents = crmService.listAgents(principal.organizationId)
                 val json = buildJsonArray {
                     agents.forEach { a ->
                         add(buildJsonObject {
@@ -2950,6 +4305,7 @@ fun Route.crmRoutes() {
                 // Prevent creating owner role via API
                 val safeRole = if (role == "owner") "مندوب مبيعات" else role
                 val agent = crmService.createAgent(
+                    orgId = principal.organizationId,
                     name = obj["name"]?.jsonPrimitive?.content ?: "",
                     email = obj["email"]?.jsonPrimitive?.content ?: "",
                     password = obj["password"]?.jsonPrimitive?.content ?: "",
@@ -2973,15 +4329,25 @@ fun Route.crmRoutes() {
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val role = obj["role"]?.jsonPrimitive?.contentOrNull
                 val safeRole = if (role == "owner") null else role
+                val newPhotoUrl = obj["photoUrl"]?.jsonPrimitive?.contentOrNull
+                // Snapshot the existing photo so we can garbage-collect it once
+                // the new one is committed. Only relevant when the caller is
+                // actually changing the photo — leaving photoUrl absent in the
+                // PATCH body skips both the DB write and the file delete.
+                val previousPhotoUrl = if (newPhotoUrl != null) crmService.getAgentPhotoUrl(id) else null
                 val ok = crmService.updateAgent(
+                    orgId = principal.organizationId,
                     id = id,
                     name = if (principal.canManageAgents) obj["name"]?.jsonPrimitive?.contentOrNull else null,
                     role = if (principal.canManageAgents) safeRole else null,
                     active = if (principal.canManageAgents) obj["active"]?.jsonPrimitive?.booleanOrNull else null,
                     password = if (principal.canManageAgents || isSelf) obj["password"]?.jsonPrimitive?.contentOrNull else null,
-                    photoUrl = obj["photoUrl"]?.jsonPrimitive?.contentOrNull,
+                    photoUrl = newPhotoUrl,
                 )
                 if (ok) {
+                    if (newPhotoUrl != null && !previousPhotoUrl.isNullOrBlank() && previousPhotoUrl != newPhotoUrl) {
+                        deleteUploadFile(previousPhotoUrl)
+                    }
                     call.respondText("""{"status":"ok"}""", ContentType.Application.Json)
                 } else {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -3015,7 +4381,7 @@ fun Route.crmRoutes() {
                 }
                 val clientId = call.request.queryParameters["clientId"]
                 val status = call.request.queryParameters["status"]
-                val invoices = crmService.listInvoices(clientId, status)
+                val invoices = crmService.listInvoices(principal.organizationId, clientId, status)
                 val json = buildJsonArray {
                     invoices.forEach { inv ->
                         add(buildJsonObject {
@@ -3054,6 +4420,7 @@ fun Route.crmRoutes() {
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val invoice = crmService.createInvoice(
+                    orgId = principal.organizationId,
                     clientId = obj["clientId"]?.jsonPrimitive?.content ?: "",
                     plan = obj["plan"]?.jsonPrimitive?.content ?: "",
                     period = obj["period"]?.jsonPrimitive?.content ?: "",
@@ -3078,6 +4445,7 @@ fun Route.crmRoutes() {
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val ok = crmService.recordPayment(
+                    orgId = principal.organizationId,
                     invoiceId = invoiceId,
                     amount = obj["amount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                     paymentMethod = obj["paymentMethod"]?.jsonPrimitive?.content ?: "",
@@ -3098,7 +4466,7 @@ fun Route.crmRoutes() {
                     return@get
                 }
                 val invoiceId = call.parameters["id"] ?: return@get call.respondText("""{"error":"missing id"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
-                val payments = crmService.getPaymentsForInvoice(invoiceId)
+                val payments = crmService.getPaymentsForInvoice(principal.organizationId, invoiceId)
                 val json = buildJsonArray {
                     payments.forEach { p ->
                         add(buildJsonObject {
@@ -3122,7 +4490,7 @@ fun Route.crmRoutes() {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@get
                 }
-                val stats = crmService.getBillingStats()
+                val stats = crmService.getBillingStats(principal.organizationId)
                 val json = buildJsonObject {
                     put("totalInvoices", stats.totalInvoices)
                     put("totalRevenue", stats.totalRevenue)
@@ -3141,7 +4509,7 @@ fun Route.crmRoutes() {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@get
                 }
-                val clients = crmService.listClients(null, true)
+                val clients = crmService.listClients(principal.organizationId, null, true)
                 // CSV export
                 val csv = buildString {
                     append("الاسم,الهاتف,النشاط,النوع,المحافظة,الحالة,الباقة,المبلغ,المندوب\n")
@@ -3161,7 +4529,7 @@ fun Route.crmRoutes() {
                     call.respondText("""{"error":"forbidden"}""", ContentType.Application.Json, HttpStatusCode.Forbidden)
                     return@get
                 }
-                val profile = crmService.getAgentProfile(id)
+                val profile = crmService.getAgentProfile(principal.organizationId, id)
                 if (profile == null) {
                     call.respondText("""{"error":"not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
                     return@get
@@ -3431,7 +4799,7 @@ fun Route.crmRoutes() {
                 val body = call.receiveText()
                 val obj = Json.parseToJsonElement(body).jsonObject
                 val month = obj["month"]?.jsonPrimitive?.content ?: return@post call.respondText("""{"error":"missing month"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
-                val agents = crmService.listAgents().filter { it.active }
+                val agents = crmService.listAgents(principal.organizationId).filter { it.active }
                 val results = agents.map { agent ->
                     crmService.calculateMonthlySalary(agent.id, month, principal.agentId)
                 }
@@ -3466,7 +4834,7 @@ fun Route.crmRoutes() {
 // ════════════════════════════════════════════════════════════════
 
 private fun roleDisplayName(role: String) = when (role) {
-    "owner" -> "المالك"
+    "owner" -> "صاحب الحساب"
     else -> role
 }
 
@@ -3771,6 +5139,25 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
     val myPhotoUrl = crmService.getAgentPhotoUrl(principal.agentId)
     val sidebarPhotoHtml = agentPhotoHtml(myPhotoUrl, agentName, 36)
 
+    // Tenant branding — every CRM tenant sees their own logo + name in the
+    // sidebar header. Logic:
+    //   • If the org has a custom logo set → use it (for ALL orgs including
+    //     Waselak; the super-admin uploading a Waselak logo expects it to
+    //     replace the default art too).
+    //   • Otherwise → fall back to the bundled Waselak art so brand-new orgs
+    //     still get a sensible image instead of a broken `<img>`.
+    // The brand *name* still falls back to "وصلك" for the Waselak org so we
+    // don't redundantly write "Waselak CRM" — but a tenant org always shows
+    // its own name. Sub-line "نظام إدارة المبيعات" describes the product so
+    // it's the same for everyone.
+    val branding = crmService.getOrgBranding(principal.organizationId)
+    val isWaselakOrg = branding == null || branding.name == "Waselak"
+    val brandLogoUrl = branding?.logoUrl?.takeIf { it.isNotBlank() }
+        ?: "/landing/waslek_logo_sm.png"
+    val brandName = if (isWaselakOrg) "وصلك" else (branding?.name ?: "وصلك")
+    val brandFullName = if (isWaselakOrg) "وصلك CRM" else "${branding!!.name} CRM"
+    val pageTitleSuffix = if (isWaselakOrg) " - وصلك CRM" else " - ${branding!!.name} CRM"
+
     fun navLink(tab: String, label: String, icon: String, href: String): String {
         val active = if (tab == activeTab) "bg-emerald-500/10 text-emerald-400 font-medium" else "text-zinc-400 hover:text-white hover:bg-white/5"
         return """<a href="$href" class="flex items-center gap-3 px-3 py-2 rounded-md $active transition-all text-sm">
@@ -3805,6 +5192,11 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         if (principal.canManageAgents) {
             append(navLink("settings", "الإعدادات", "⚙️", "/crm/settings"))
         }
+        // Super-admin: organization (tenant) management. Only the Waselak ops team
+        // sees this — any normal org owner has isSuperAdmin = false.
+        if (principal.isSuperAdmin) {
+            append(navLink("super_orgs", "المنظمات", "🏢", "/crm/super/organizations"))
+        }
         // Profile - everyone can see their own profile
         append(navLink("profile", "ملفي", "👤", "/crm/profile"))
         // System docs - everyone
@@ -3816,7 +5208,7 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$title - وصلك CRM</title>
+    <title>$title$pageTitleSuffix</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -3865,11 +5257,12 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
     </style>
 </head>
 <body class="min-h-screen transition-colors">
+    ${productivityBannerHtml()}
     <!-- Mobile header -->
     <div class="md:hidden fixed top-0 right-0 left-0 z-50 sidebar flex items-center justify-between p-3">
         <div class="flex items-center gap-2">
-            <img src="/landing/waslek_logo_sm.png" class="w-7 h-7 rounded-lg bg-white p-0.5">
-            <span class="text-white font-bold text-sm">وصلك</span>
+            <img src="$brandLogoUrl?v=${System.currentTimeMillis() / 60_000}" class="w-7 h-7 rounded-lg bg-white p-0.5 object-cover">
+            <span class="text-white font-bold text-sm">$brandName</span>
         </div>
         <a href="/crm/profile" class="flex items-center gap-2">
             $sidebarPhotoHtml
@@ -3885,9 +5278,9 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         <div class="absolute inset-0 bg-black/50" onclick="this.parentElement.classList.add('hidden')"></div>
         <aside class="sidebar absolute right-0 top-0 bottom-0 w-64 text-white flex flex-col">
             <div class="p-6 border-b border-white/10 flex items-center gap-3">
-                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-lg bg-white p-1">
+                <img src="$brandLogoUrl?v=${System.currentTimeMillis() / 60_000}" alt="$brandName" class="w-10 h-10 rounded-lg bg-white p-1 object-cover">
                 <div>
-                    <h1 class="text-xl font-bold">وصلك CRM</h1>
+                    <h1 class="text-xl font-bold">$brandFullName</h1>
                     <p class="text-sm text-white/60">نظام إدارة المبيعات</p>
                 </div>
             </div>
@@ -3913,9 +5306,9 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         <!-- Desktop Sidebar -->
         <aside class="sidebar w-64 min-h-screen text-white hidden md:flex flex-col flex-shrink-0">
             <div class="p-6 border-b border-white/10 flex items-center gap-3">
-                <img src="/landing/waslek_logo_sm.png" alt="وصلك" class="w-10 h-10 rounded-lg bg-white p-1">
+                <img src="$brandLogoUrl?v=${System.currentTimeMillis() / 60_000}" alt="$brandName" class="w-10 h-10 rounded-lg bg-white p-1 object-cover">
                 <div>
-                    <h1 class="text-xl font-bold">وصلك CRM</h1>
+                    <h1 class="text-xl font-bold">$brandFullName</h1>
                     <p class="text-sm text-white/60">نظام إدارة المبيعات</p>
                 </div>
             </div>
@@ -3988,7 +5381,7 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         'واتساب':'WhatsApp','لديه واتساب':'Has WhatsApp',
         'كل الحالات':'All Statuses','أنواع النشاط':'Business Types',
         'الموظفين':'Agents','المصادر':'Sources','مسح الفلاتر':'Clear Filters',
-        'المالك':'Owner','مدير مبيعات':'Sales Manager',
+        'صاحب الحساب':'Owner','مدير مبيعات':'Sales Manager',
         'مندوب مبيعات':'Sales Agent','كول سنتر':'Call Center',
         'عميل جديد':'New Lead','متابعة':'Following Up',
         'ديمو محجوز':'Demo Scheduled','يحتاج مناقشة':'Needs Discussion',
@@ -4307,7 +5700,21 @@ private fun editClientModalHtml(agentOptions: String, canSeeAll: Boolean): Strin
     """
 }
 
-private fun addActivityModalHtml(clientOptions: String): String = """
+/**
+ * Searchable client combobox for the add-activity modal. Replaces the plain native
+ * `<select>` which was unusable once a vendor had more than a dozen clients:
+ *  - Type in the visible search input to filter by name OR phone number
+ *  - Arabic-Indic digits (٠-٩) are normalised to Western so `٠١٠١٢٣٤` matches `01012345`
+ *  - Partial matches on both name and phone; non-digit characters in the phone are
+ *    ignored (so spaces/dashes in typed input don't break the match)
+ *  - Click an item to select; the hidden `clientId` input carries the UUID the backend
+ *    expects while the visible field shows a human-readable "Name · Phone" line
+ *  - Click outside, press Escape, or clear the input to close the dropdown
+ *
+ * Drop-in: existing flows like `onClientSelected(...)` still fire on selection, so
+ * the "auto-prefill status/plan/amount from client data" side-effect keeps working.
+ */
+private fun addActivityModalHtml(clientsJson: String, preselectedClientId: String? = null): String = """
     <dialog id="addActivityModal" class="rounded-2xl">
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
@@ -4316,12 +5723,22 @@ private fun addActivityModalHtml(clientOptions: String): String = """
             </div>
             <form onsubmit="submitNewActivity(event)" class="space-y-3 max-h-[70vh] overflow-y-auto">
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="col-span-2">
+                    <div class="col-span-2 relative">
                         <label class="block text-sm font-medium text-gray-700 mb-1">العميل *</label>
-                        <select name="clientId" required onchange="onClientSelected(this)" class="w-full px-3 py-2 border rounded-lg text-sm">
-                            <option value="">-- اختر العميل --</option>
-                            $clientOptions
-                        </select>
+                        <!-- Searchable client combobox. The visible <input> carries the search
+                             string only; the real UUID goes into the hidden <input name="clientId">
+                             so the form POST contract with the backend is unchanged. -->
+                        <input type="hidden" name="clientId" id="addActivityClientId" required value="${preselectedClientId ?: ""}">
+                        <input type="text" id="addActivityClientSearch"
+                               placeholder="ابحث بالاسم أو رقم الهاتف..."
+                               autocomplete="off"
+                               oninput="crmFilterClientCombo('addActivity')"
+                               onfocus="crmOpenClientCombo('addActivity')"
+                               class="w-full px-3 py-2 border rounded-lg text-sm pr-8">
+                        <span class="absolute left-3 top-9 text-gray-400 pointer-events-none">🔍</span>
+                        <div id="addActivityClientList"
+                             class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white border rounded-lg shadow-lg"></div>
+                        <div id="addActivityClientEmpty" class="hidden mt-1 text-xs text-gray-500">لا يوجد عميل مطابق</div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">نوع الإجراء</label>
@@ -4394,6 +5811,146 @@ private fun addActivityModalHtml(clientOptions: String): String = """
             </form>
         </div>
     </dialog>
+    <script>
+    // One-time setup per page load. We scope everything under a namespace so multiple
+    // modals on the same page (rare, but possible) don't collide.
+    (function() {
+        if (window.__crmClientCombos) { return; }
+        window.__crmClientCombos = {};
+        // Map Arabic-Indic digits 0-9 to their Western equivalents so searches match
+        // regardless of keyboard layout.
+        var AR_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' };
+        function digitsOnly(s) {
+            if (!s) return '';
+            var out = '';
+            for (var i = 0; i < s.length; i++) {
+                var c = s[i];
+                if (AR_DIGITS[c] !== undefined) out += AR_DIGITS[c];
+                else if (c >= '0' && c <= '9') out += c;
+            }
+            return out;
+        }
+        function lowerNormalized(s) { return (s || '').toString().toLowerCase(); }
+
+        /** Render filtered items into the dropdown for `prefix` using its clients list. */
+        function renderCombo(prefix) {
+            var state = window.__crmClientCombos[prefix];
+            if (!state) return;
+            var searchRaw = state.search.value || '';
+            var searchLower = lowerNormalized(searchRaw);
+            var searchDigits = digitsOnly(searchRaw);
+            var matches = state.clients.filter(function(c) {
+                if (!searchLower) return true;
+                if (lowerNormalized(c.name).indexOf(searchLower) !== -1) return true;
+                if (searchDigits && digitsOnly(c.phone).indexOf(searchDigits) !== -1) return true;
+                return false;
+            });
+            // Cap the visible list so a huge vendor (thousands of clients) doesn't blow
+            // up the DOM. Users narrow with the search anyway.
+            var capped = matches.slice(0, 50);
+            state.list.innerHTML = '';
+            capped.forEach(function(c) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full text-right p-2.5 hover:bg-emerald-50 border-b border-gray-100 last:border-0 flex items-center justify-between gap-3';
+                btn.setAttribute('data-id', c.id);
+                btn.onclick = function() { selectClientInCombo(prefix, c); };
+                var left = document.createElement('div');
+                left.className = 'min-w-0';
+                var name = document.createElement('div');
+                name.className = 'text-sm font-medium text-gray-800 truncate';
+                name.textContent = c.name;
+                var phone = document.createElement('div');
+                phone.className = 'text-xs text-gray-500 font-mono';
+                phone.textContent = c.phone;
+                phone.setAttribute('dir', 'ltr');
+                left.appendChild(name); left.appendChild(phone);
+                btn.appendChild(left);
+                state.list.appendChild(btn);
+            });
+            state.empty.classList.toggle('hidden', matches.length > 0);
+            state.list.classList.toggle('hidden', capped.length === 0);
+            // Show a soft "and N more" hint when we cap the list so users know there's more.
+            if (matches.length > capped.length) {
+                var more = document.createElement('div');
+                more.className = 'p-2 text-xs text-gray-400 text-center bg-gray-50';
+                more.textContent = '… و ' + (matches.length - capped.length) + ' نتيجة أخرى — اكتب المزيد للتضييق';
+                state.list.appendChild(more);
+            }
+        }
+
+        window.crmFilterClientCombo = function(prefix) { renderCombo(prefix); };
+        window.crmOpenClientCombo = function(prefix) {
+            renderCombo(prefix);
+        };
+        window.crmCloseClientCombos = function() {
+            Object.keys(window.__crmClientCombos).forEach(function(p) {
+                var state = window.__crmClientCombos[p];
+                if (state && state.list) state.list.classList.add('hidden');
+            });
+        };
+
+        /** Commit a selection: fill hidden ID + visible text, close list, fire prefill callback. */
+        function selectClientInCombo(prefix, client) {
+            var state = window.__crmClientCombos[prefix];
+            if (!state) return;
+            state.hidden.value = client.id;
+            state.search.value = client.name + ' · ' + client.phone;
+            state.list.classList.add('hidden');
+            state.empty.classList.add('hidden');
+            // Preserve the side-effect the old <select onchange="onClientSelected(this)">
+            // had: prefill status/plan/amount from the selected client's current values.
+            if (typeof window.onClientSelected === 'function') {
+                // Fake a <select>-like object that onClientSelected understands.
+                window.onClientSelected({ value: client.id, closest: function() { return document.getElementById('addActivityModal'); } });
+            }
+        }
+        window.crmSelectClientInCombo = selectClientInCombo;
+
+        /** Register + optionally pre-select a client. Called inline after the dialog is in the DOM. */
+        window.crmRegisterClientCombo = function(prefix, clients, preselectedId) {
+            var state = {
+                clients: clients,
+                hidden: document.getElementById(prefix + 'ClientId'),
+                search: document.getElementById(prefix + 'ClientSearch'),
+                list: document.getElementById(prefix + 'ClientList'),
+                empty: document.getElementById(prefix + 'ClientEmpty'),
+            };
+            window.__crmClientCombos[prefix] = state;
+            if (preselectedId) {
+                var pre = clients.find(function(c) { return c.id === preselectedId; });
+                if (pre) {
+                    state.hidden.value = pre.id;
+                    state.search.value = pre.name + ' · ' + pre.phone;
+                }
+            }
+        };
+
+        // Clicking anywhere outside an open combo closes it.
+        document.addEventListener('click', function(e) {
+            Object.keys(window.__crmClientCombos).forEach(function(p) {
+                var state = window.__crmClientCombos[p];
+                if (!state) return;
+                if (state.search && !state.search.parentElement.contains(e.target)) {
+                    state.list.classList.add('hidden');
+                }
+            });
+        });
+        // Escape closes all combos.
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') window.crmCloseClientCombos();
+        });
+    })();
+    // Register this modal's combo with its clients list. Runs immediately since the
+    // <input>/<div> elements are already in the DOM by the time this <script> executes.
+    (function() {
+        var CLIENTS = $clientsJson;
+        var PRESELECTED = ${preselectedClientId?.let { "\"$it\"" } ?: "null"};
+        if (document.getElementById('addActivityClientSearch')) {
+            window.crmRegisterClientCombo('addActivity', CLIENTS, PRESELECTED);
+        }
+    })();
+    </script>
 """
 
 private fun editActivityModalHtml(clientOptions: String): String = """
@@ -4632,6 +6189,357 @@ private fun filterScript(): String = """
         applyCardFilters();
     }
     </script>
+"""
+
+/**
+ * Config objects for the smart filter panel. Rows in the filtered table must expose
+ * the referenced data attributes (e.g. `data-created-ms="1713600000000"`) so we can
+ * filter on real values rather than parsed text.
+ */
+internal data class SmartDateRange(val dataAttr: String, val label: String, val idPrefix: String)
+internal data class SmartNumberRange(val dataAttr: String, val label: String, val idPrefix: String, val suffix: String = "")
+internal data class SmartMultiSelect(
+    val dataAttr: String,
+    val label: String,
+    val id: String,
+    val options: List<String>,
+)
+internal data class SmartPreset(
+    val id: String,
+    val label: String,
+    /** Raw JS snippet that mutates panel inputs then calls applySmartFilters(). */
+    val onClickJs: String,
+    val emoji: String = "",
+)
+
+/**
+ * Smart filter panel: full-text search + quick presets + optional date ranges +
+ * optional numeric range + multi-select dropdowns + active-filter chips + clear-all.
+ * Works with `smartFilterScript()` which reads each row's `data-*` attributes.
+ */
+internal fun smartFilterPanelHtml(
+    searchPlaceholder: String,
+    primaryDateRange: SmartDateRange? = null,
+    secondaryDateRange: SmartDateRange? = null,
+    numberRange: SmartNumberRange? = null,
+    multiSelects: List<SmartMultiSelect> = emptyList(),
+    presets: List<SmartPreset> = emptyList(),
+): String {
+    fun dateRangeHtml(r: SmartDateRange): String = """
+        <div class="flex flex-col gap-1 min-w-[220px]">
+            <label class="text-xs text-gray-500">${r.label}</label>
+            <div class="flex items-center gap-1">
+                <input type="date" id="${r.idPrefix}From" data-attr="${r.dataAttr}" oninput="applySmartFilters()"
+                       class="smart-range-from px-2 py-1.5 border rounded-lg text-xs flex-1">
+                <span class="text-gray-400 text-xs">←</span>
+                <input type="date" id="${r.idPrefix}To" data-attr="${r.dataAttr}" oninput="applySmartFilters()"
+                       class="smart-range-to px-2 py-1.5 border rounded-lg text-xs flex-1">
+            </div>
+        </div>
+    """
+
+    fun numberRangeHtml(r: SmartNumberRange): String = """
+        <div class="flex flex-col gap-1 min-w-[180px]">
+            <label class="text-xs text-gray-500">${r.label}</label>
+            <div class="flex items-center gap-1">
+                <input type="number" id="${r.idPrefix}Min" data-attr="${r.dataAttr}" oninput="applySmartFilters()"
+                       placeholder="من" class="smart-number-min px-2 py-1.5 border rounded-lg text-xs w-24">
+                <span class="text-gray-400 text-xs">←</span>
+                <input type="number" id="${r.idPrefix}Max" data-attr="${r.dataAttr}" oninput="applySmartFilters()"
+                       placeholder="إلى" class="smart-number-max px-2 py-1.5 border rounded-lg text-xs w-24">
+                ${if (r.suffix.isNotBlank()) """<span class="text-xs text-gray-500">${r.suffix}</span>""" else ""}
+            </div>
+        </div>
+    """
+
+    fun multiSelectHtml(ms: SmartMultiSelect): String {
+        val checkboxes = ms.options.joinToString("") { opt ->
+            """<label class="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                <input type="checkbox" value="${opt.replace("\"", "&quot;")}" onchange="updateMultiSelect('${ms.id}'); applySmartFilters()"
+                       class="rounded text-emerald-600 focus:ring-emerald-500 smart-ms-${ms.id}">
+                <span class="text-xs">${opt}</span>
+            </label>"""
+        }
+        return """
+            <div class="flex flex-col gap-1 min-w-[180px] relative">
+                <label class="text-xs text-gray-500">${ms.label}</label>
+                <button type="button" onclick="toggleMultiSelect('${ms.id}')"
+                        class="px-3 py-1.5 border rounded-lg text-xs text-right bg-white hover:bg-gray-50 flex items-center justify-between gap-2">
+                    <span id="${ms.id}Label" class="truncate">الكل</span>
+                    <span class="text-gray-400 text-xs">▾</span>
+                </button>
+                <div id="${ms.id}Panel" data-attr="${ms.dataAttr}" data-field="${ms.id}"
+                     class="smart-ms-panel hidden absolute top-full right-0 mt-1 w-56 max-h-64 overflow-y-auto bg-white border rounded-lg shadow-lg p-2 z-20">
+                    $checkboxes
+                </div>
+            </div>
+        """
+    }
+
+    val presetButtons = presets.joinToString("") { p ->
+        """<button type="button" id="preset_${p.id}" onclick="${p.onClickJs}"
+               class="smart-preset px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition whitespace-nowrap">
+            ${if (p.emoji.isNotEmpty()) p.emoji + " " else ""}${p.label}
+        </button>"""
+    }
+
+    return """
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+            <!-- Search row -->
+            <div class="flex items-center gap-3 mb-3">
+                <div class="flex-1 relative">
+                    <span class="absolute right-3 top-2.5 text-gray-400 text-sm">🔍</span>
+                    <input id="searchInput" oninput="applySmartFilters()" type="text" placeholder="$searchPlaceholder"
+                           class="pr-9 pl-3 py-2 border rounded-lg text-sm w-full">
+                </div>
+                <button type="button" onclick="clearSmartFilters()"
+                        class="flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition whitespace-nowrap">
+                    <span>✕</span><span>مسح الكل</span>
+                </button>
+            </div>
+
+            <!-- Quick presets -->
+            ${if (presets.isNotEmpty()) """<div class="flex flex-wrap gap-2 mb-3 pb-3 border-b border-gray-100">$presetButtons</div>""" else ""}
+
+            <!-- Filter inputs row -->
+            <div class="flex flex-wrap gap-3 items-start">
+                ${primaryDateRange?.let { dateRangeHtml(it) } ?: ""}
+                ${secondaryDateRange?.let { dateRangeHtml(it) } ?: ""}
+                ${numberRange?.let { numberRangeHtml(it) } ?: ""}
+                ${multiSelects.joinToString("") { multiSelectHtml(it) }}
+            </div>
+
+            <!-- Active filter chips (populated by JS) -->
+            <div id="activeFilterChips" class="flex flex-wrap gap-2 mt-3 empty:hidden"></div>
+        </div>
+    """
+}
+
+/**
+ * JS engine for the smart filter panel. Works by reading `data-*` attributes on each
+ * row. Supports: text search, date ranges, number ranges, multi-select checkbox
+ * groups, and preset-driven programmatic filter mutation.
+ */
+internal fun smartFilterScript(): String = """
+<script>
+(function() {
+    // Global functions exposed on window for inline onclick handlers.
+    window.toggleMultiSelect = function(id) {
+        document.querySelectorAll('.smart-ms-panel').forEach(p => {
+            if (p.id !== id + 'Panel') p.classList.add('hidden');
+        });
+        document.getElementById(id + 'Panel').classList.toggle('hidden');
+    };
+
+    window.updateMultiSelect = function(id) {
+        const checked = Array.from(document.querySelectorAll('.smart-ms-' + id + ':checked')).map(x => x.value);
+        const label = document.getElementById(id + 'Label');
+        if (checked.length === 0) label.textContent = 'الكل';
+        else if (checked.length === 1) label.textContent = checked[0];
+        else label.textContent = checked.length + ' محدد';
+    };
+
+    // Close open panels when clicking outside.
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.smart-ms-panel') && !e.target.closest('[onclick^="toggleMultiSelect"]')) {
+            document.querySelectorAll('.smart-ms-panel').forEach(p => p.classList.add('hidden'));
+        }
+    });
+
+    function dateInputToEpoch(v, endOfDay) {
+        if (!v) return null;
+        // Interpret the date input as Cairo local time. Add 00:00 or 23:59:59.999.
+        const [y, m, d] = v.split('-').map(Number);
+        const suffix = endOfDay ? 'T23:59:59.999' : 'T00:00:00.000';
+        return new Date(y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0') + suffix + '+02:00').getTime();
+    }
+
+    window.applySmartFilters = function() {
+        const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+
+        // Gather active filters.
+        const dateRanges = [];
+        document.querySelectorAll('.smart-range-from').forEach(from => {
+            const attr = from.dataset.attr;
+            const to = document.querySelector('.smart-range-to[data-attr="' + attr + '"]');
+            const fromMs = dateInputToEpoch(from.value, false);
+            const toMs = dateInputToEpoch(to?.value, true);
+            if (fromMs || toMs) dateRanges.push({ attr, fromMs, toMs });
+        });
+
+        const numberRanges = [];
+        document.querySelectorAll('.smart-number-min').forEach(min => {
+            const attr = min.dataset.attr;
+            const max = document.querySelector('.smart-number-max[data-attr="' + attr + '"]');
+            const minV = min.value !== '' ? Number(min.value) : null;
+            const maxV = max && max.value !== '' ? Number(max.value) : null;
+            if (minV !== null || maxV !== null) numberRanges.push({ attr, minV, maxV });
+        });
+
+        const multiSelects = [];
+        document.querySelectorAll('.smart-ms-panel').forEach(panel => {
+            const id = panel.dataset.field;
+            const attr = panel.dataset.attr;
+            const checked = Array.from(panel.querySelectorAll('input:checked')).map(x => x.value);
+            if (checked.length > 0) multiSelects.push({ attr, checked });
+        });
+
+        // Digit-only normalisation lets "010 1234" match "01012345" and Eastern-Arabic
+        // digits match Western ones. Strip everything except [0-9] and map Arabic-Indic.
+        const arabicDigits = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' };
+        function normalizeDigits(s) {
+            if (!s) return '';
+            let out = '';
+            for (const ch of s) {
+                if (arabicDigits[ch] !== undefined) out += arabicDigits[ch];
+                else if (ch >= '0' && ch <= '9') out += ch;
+            }
+            return out;
+        }
+        const searchDigits = normalizeDigits(search);
+
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            if (!row.dataset) { row.style.display = ''; return; }
+            const text = row.textContent.toLowerCase();
+            // Phone matching: if the query has any digits, also try digits-only match
+            // against data-phone / data-client-phone so "010 1234" finds "01012345"
+            // (and vice versa) even when the UI shows phones with spaces/emojis.
+            let matchesSearch = !search || text.includes(search);
+            if (!matchesSearch && searchDigits.length >= 3) {
+                const phoneFields = [row.dataset.phone, row.dataset.clientPhone].filter(Boolean);
+                for (const p of phoneFields) {
+                    if (normalizeDigits(p).includes(searchDigits)) { matchesSearch = true; break; }
+                }
+            }
+            if (!matchesSearch) { row.style.display = 'none'; return; }
+
+            // Row's data-* attributes are accessed via dataset. Each HTML `data-foo-bar`
+            // becomes dataset.fooBar; we convert the `data-foo-bar` attribute name back.
+            const getAttr = (attr) => {
+                const key = attr.replace(/^data-/, '').replace(/-([a-z])/g, (m, c) => c.toUpperCase());
+                return row.dataset[key];
+            };
+
+            let ok = true;
+            for (const { attr, fromMs, toMs } of dateRanges) {
+                const v = Number(getAttr(attr));
+                if (!v) { ok = false; break; }
+                if (fromMs && v < fromMs) { ok = false; break; }
+                if (toMs && v > toMs) { ok = false; break; }
+            }
+            if (ok) for (const { attr, minV, maxV } of numberRanges) {
+                const v = Number(getAttr(attr));
+                if (minV !== null && v < minV) { ok = false; break; }
+                if (maxV !== null && v > maxV) { ok = false; break; }
+            }
+            if (ok) for (const { attr, checked } of multiSelects) {
+                const v = getAttr(attr) || '';
+                if (!checked.includes(v)) { ok = false; break; }
+            }
+            row.style.display = ok ? '' : 'none';
+        });
+
+        updateVisibleCount();
+        renderActiveFilterChips();
+    };
+
+    function renderActiveFilterChips() {
+        const container = document.getElementById('activeFilterChips');
+        if (!container) return;
+        container.innerHTML = '';
+        function chip(label, onClickJs) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs hover:bg-emerald-100 transition';
+            b.innerHTML = label + ' <span>✕</span>';
+            b.onclick = () => { eval(onClickJs); applySmartFilters(); };
+            container.appendChild(b);
+        }
+        const search = document.getElementById('searchInput');
+        if (search && search.value) chip('بحث: ' + search.value, "document.getElementById('searchInput').value = ''");
+        document.querySelectorAll('.smart-range-from').forEach(from => {
+            const to = document.querySelector('.smart-range-to[data-attr="' + from.dataset.attr + '"]');
+            if (from.value || (to && to.value)) {
+                const label = (from.value || '...') + ' ← ' + (to?.value || '...');
+                chip(label, "document.getElementById('" + from.id + "').value = ''; document.getElementById('" + (to?.id||'') + "').value = ''");
+            }
+        });
+        document.querySelectorAll('.smart-number-min').forEach(min => {
+            const max = document.querySelector('.smart-number-max[data-attr="' + min.dataset.attr + '"]');
+            if (min.value || (max && max.value)) {
+                const label = (min.value || '...') + ' ← ' + (max?.value || '...');
+                chip(label, "document.getElementById('" + min.id + "').value = ''; document.getElementById('" + (max?.id||'') + "').value = ''");
+            }
+        });
+        document.querySelectorAll('.smart-ms-panel').forEach(panel => {
+            const id = panel.dataset.field;
+            const checked = Array.from(panel.querySelectorAll('input:checked')).map(x => x.value);
+            checked.forEach(v => {
+                chip(v, "document.querySelector('.smart-ms-" + id + "[value=\"' + " + JSON.stringify(v) + " + '\"]').checked = false; updateMultiSelect('" + id + "')");
+            });
+        });
+    }
+
+    window.clearSmartFilters = function() {
+        const si = document.getElementById('searchInput'); if (si) si.value = '';
+        document.querySelectorAll('.smart-range-from, .smart-range-to, .smart-number-min, .smart-number-max').forEach(i => i.value = '');
+        document.querySelectorAll('.smart-ms-panel input:checked').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.smart-ms-panel').forEach(p => {
+            const id = p.dataset.field;
+            if (id) updateMultiSelect(id);
+        });
+        document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('ring-2', 'ring-offset-1'));
+        applySmartFilters();
+    };
+
+    // Preset helpers — set a relative date range on the named attr.
+    window.presetRangeDays = function(attr, days, inclusiveToday) {
+        const now = new Date();
+        const to = now.toISOString().slice(0, 10);
+        const start = new Date(now.getTime() - (days - (inclusiveToday ? 1 : 0)) * 86400000);
+        const from = start.toISOString().slice(0, 10);
+        const fromEl = document.querySelector('.smart-range-from[data-attr="' + attr + '"]');
+        const toEl = document.querySelector('.smart-range-to[data-attr="' + attr + '"]');
+        if (fromEl) fromEl.value = from;
+        if (toEl) toEl.value = to;
+        applySmartFilters();
+    };
+
+    window.presetMinDaysAgo = function(attr, days) {
+        const now = new Date();
+        const to = new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+        const toEl = document.querySelector('.smart-range-to[data-attr="' + attr + '"]');
+        if (toEl) toEl.value = to;
+        applySmartFilters();
+    };
+
+    window.updateVisibleCount = function() {
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+        const rows = table.querySelectorAll('tbody tr');
+        let visible = 0;
+        rows.forEach(r => { if (r.style.display !== 'none') visible++; });
+        const counter = document.getElementById('visibleCount');
+        if (counter) counter.textContent = visible;
+    };
+
+    // Status chip (existing helper repurposed for multi-select)
+    window.filterByStatusChip = function(status, el) {
+        const id = el.dataset.msId || 'status';
+        const cb = document.querySelector('.smart-ms-' + id + '[value="' + status + '"]');
+        if (cb) {
+            cb.checked = !cb.checked;
+            updateMultiSelect(id);
+        }
+        document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('ring-2', 'ring-offset-1'));
+        if (cb && cb.checked) el.classList.add('ring-2', 'ring-offset-1');
+        applySmartFilters();
+    };
+})();
+</script>
 """
 
 private fun businessTypeOptions(): String = listOf(

@@ -60,6 +60,15 @@ class OrdersViewModel constructor(
         // Delivery assignment dialog
         val showAssignDeliveryDialog: Boolean = false,
         val assignOrderId: String? = null,
+        /**
+         * True while we're pulling a fresh delivery-user list from the API right before
+         * showing the assign dialog. Ensures users added from another device (e.g. the
+         * manager app on a different phone) show up without needing to leave+re-open
+         * the orders screen.
+         */
+        val isRefreshingDeliveryUsers: Boolean = false,
+        /** Non-null if the most recent refresh failed — surfaced as a "retry" link. */
+        val refreshDeliveryUsersError: String? = null,
         // Edit order dialog
         val showEditOrderDialog: Boolean = false,
         val editingOrder: Order? = null,
@@ -136,6 +145,29 @@ class OrdersViewModel constructor(
         viewModelScope.launch {
             userRepository.getUsers(UserRole.DELIVERY).collect { deliveryUsers ->
                 _uiState.update { it.copy(deliveryUsers = deliveryUsers) }
+            }
+        }
+    }
+
+    /**
+     * Pulls the latest user list from the backend and saves to the local DB. The Flow
+     * subscription in `loadUsers()` picks up the new rows automatically. Called
+     * automatically when the assign-delivery dialog opens, and also exposed publicly
+     * so the UI can surface a "retry" action if the initial refresh failed.
+     *
+     * Safe to call repeatedly — the UI debounces by checking `isRefreshingDeliveryUsers`
+     * and short-circuits if a refresh is already in flight.
+     */
+    fun refreshDeliveryUsers() {
+        if (_uiState.value.isRefreshingDeliveryUsers) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshingDeliveryUsers = true, refreshDeliveryUsersError = null) }
+            val result = userRepository.refreshUsers()
+            _uiState.update {
+                it.copy(
+                    isRefreshingDeliveryUsers = false,
+                    refreshDeliveryUsersError = result.exceptionOrNull()?.message,
+                )
             }
         }
     }
@@ -293,6 +325,10 @@ class OrdersViewModel constructor(
                 _uiState.update {
                     it.copy(showAssignDeliveryDialog = true, assignOrderId = orderId)
                 }
+                // Pull a fresh delivery-user list before the user picks. Covers the case
+                // where a new delivery worker was added elsewhere (manager app on another
+                // device, another cashier terminal) after this ViewModel was initialised.
+                refreshDeliveryUsers()
                 return
             }
         }

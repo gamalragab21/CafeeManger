@@ -54,6 +54,12 @@ interface OrderRepository {
         doctorName: String? = null,
         diagnosis: String? = null,
         deliveryUserId: String? = null,
+        /**
+         * Short-lived manager PIN approval token (from `verifyOverridePin`). Required
+         * when `discount > 0` and the cashier is not themselves a manager; otherwise
+         * the server returns 403 DISCOUNT_REQUIRES_MANAGER.
+         */
+        managerOverrideToken: String? = null,
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrder(

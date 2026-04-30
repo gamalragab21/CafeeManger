@@ -16,6 +16,7 @@ import net.marllex.waselak.core.domain.repository.WorkerRepository
 import net.marllex.waselak.core.model.*
 import net.marllex.waselak.core.network.WaselakApiClient
 import net.marllex.waselak.core.network.connectivity.NetworkMonitor
+import net.marllex.waselak.core.network.isNetworkError
 import net.marllex.waselak.core.network.datasource.WorkerNetworkDataSource
 import net.marllex.waselak.core.network.dto.*
 import net.marllex.waselak.core.network.mapper.toDomain
@@ -258,8 +259,9 @@ class WorkerRepositoryImpl constructor(
             AppLogger.e("WorkerRepo", "Check-in with PIN failed online", error)
             // Only fall through to offline if it's a network/connectivity error
             // Business logic errors (wrong PIN, etc.) should be returned directly
-            val isNetworkError = error is java.io.IOException ||
-                error?.cause is java.io.IOException
+            // Multi-platform check — used to be a JVM-only `is java.io.IOException`
+            // pair; the helper now handles iOS too via NetworkErrorClassifier.
+            val isNetworkError = error?.isNetworkError() == true
             if (!isNetworkError) return onlineResult
             val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
             if (vendor?.enableOfflineMode != true) return onlineResult
@@ -340,8 +342,9 @@ class WorkerRepositoryImpl constructor(
             if (onlineResult.isSuccess) return onlineResult
             val error = onlineResult.exceptionOrNull()
             AppLogger.e("WorkerRepo", "Check-out with PIN failed online", error)
-            val isNetworkError = error is java.io.IOException ||
-                error?.cause is java.io.IOException
+            // Multi-platform check — used to be a JVM-only `is java.io.IOException`
+            // pair; the helper now handles iOS too via NetworkErrorClassifier.
+            val isNetworkError = error?.isNetworkError() == true
             if (!isNetworkError) return onlineResult
             val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
             if (vendor?.enableOfflineMode != true) return onlineResult

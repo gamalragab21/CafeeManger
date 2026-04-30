@@ -181,6 +181,7 @@ class OrderRepositoryImpl constructor(
         offerId: String?, pointsRedeemed: Int, discountReason: String?,
         doctorName: String?, diagnosis: String?,
         deliveryUserId: String?,
+        managerOverrideToken: String?,
     ): Result<Order> = runCatching {
         AppLogger.d("OrderRepo", "Creating order: channel=${channel.name}, items=${items.size}")
         val request = CreateOrderRequest(
@@ -211,7 +212,7 @@ class OrderRepositoryImpl constructor(
                 clientAddress, customerId, geoLat, geoLng, paymentMethod, paymentTiming, notes, items)
         } else {
             try {
-                val response = api.createOrder(request)
+                val response = api.createOrder(request, managerOverrideToken = managerOverrideToken)
                 val order = response.toDomain()
                 AppLogger.i("OrderRepo", "Order created: id=${order.id}, status=${order.status}, channel=${order.channel}, total=${order.total}, items=${order.items.size}")
                 AppLogger.d("OrderRepo", "DB: inserting created order ${order.id}")

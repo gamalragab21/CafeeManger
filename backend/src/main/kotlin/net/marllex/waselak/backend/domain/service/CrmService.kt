@@ -24,20 +24,69 @@ private val CRM_TZ = TimeZone.of("Africa/Cairo")
 
 class CrmService(private val jwtConfig: AdminJwtConfig) {
 
+    // ── Multi-tenant scope helpers ────────────────────────────────
+    //
+    // Every public read/write method takes `orgId: String?` (the caller's organisation
+    // UUID, sourced from `CrmPrincipal.organizationId`). We resolve it through this
+    // helper which falls back to the seeded "Waselak" organisation when null — that
+    // covers two cases:
+    //   1. Legacy CRM tokens minted before v1.9 multi-tenancy (no org_id claim).
+    //   2. Internal background jobs that don't have a session.
+    // For external API calls the route layer should always have an `organizationId`
+    // on the principal, so the fallback is mainly defensive.
+
+    @Volatile private var cachedDefaultOrgId: UUID? = null
+
+    /**
+     * Resolves the organisation UUID to filter every query by. NEVER returns null —
+     * a missing/legacy token transparently falls back to the Waselak default org.
+     * Cached after first lookup so we don't hit the DB on every request.
+     */
+    private fun resolveOrgId(orgId: String?): UUID {
+        // 1. Prefer the explicit value from the caller (the common path).
+        orgId?.let {
+            runCatching { return UUID.fromString(it) }
+        }
+        // 2. Fall back to the cached default.
+        cachedDefaultOrgId?.let { return it }
+        // 3. Look it up once — assumes the v1.9 startup migration created the row.
+        val resolved = transaction {
+            CrmOrganizationsTable.selectAll()
+                .where { CrmOrganizationsTable.name eq "Waselak" }
+                .firstOrNull()
+                ?.get(CrmOrganizationsTable.id)
+                ?.value
+                ?: throw IllegalStateException(
+                    "Default 'Waselak' CRM organisation not found — did the v1.9 backfill run?"
+                )
+        }
+        cachedDefaultOrgId = resolved
+        return resolved
+    }
+
     // ── Auth ──────────────────────────────────────────────────────
 
     data class CrmLoginResult(val agentId: String, val name: String, val email: String, val role: String, val token: String)
 
     fun login(email: String, password: String): CrmLoginResult? = transaction {
+        // Lowercase + trim before lookup so a stray capitalisation from a mobile
+        // keyboard ("Owner@…") still matches a row stored as "owner@…". Without
+        // this the query returns nothing and the user sees "invalid password" —
+        // which is what tripped the first super-admin-provisioned tenant.
+        val normalizedEmail = email.trim().lowercase()
         val agent = SalesAgentsTable.selectAll()
-            .where { SalesAgentsTable.email eq email }
+            .where { SalesAgentsTable.email.lowerCase() eq normalizedEmail }
             .firstOrNull() ?: return@transaction null
 
         if (!agent[SalesAgentsTable.active]) return@transaction null
         if (!BCrypt.checkpw(password, agent[SalesAgentsTable.passwordHash])) return@transaction null
 
         val id = agent[SalesAgentsTable.id].value.toString()
-        val token = JWT.create()
+        // organization_id is the multi-tenant scope. After the v1.9 migration every
+        // agent row has one (Waselak's team is in the seeded "Waselak" org); future
+        // bought-out customers get their own org via the super-admin endpoint.
+        val organizationId = agent[SalesAgentsTable.organizationId]?.value?.toString()
+        val tokenBuilder = JWT.create()
             .withSubject(id)
             .withIssuer(jwtConfig.issuer)
             .withAudience(jwtConfig.audience)
@@ -45,6 +94,8 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             .withClaim("role", agent[SalesAgentsTable.role])
             .withClaim("name", agent[SalesAgentsTable.name])
             .withClaim("type", "crm")
+        if (organizationId != null) tokenBuilder.withClaim("organization_id", organizationId)
+        val token = tokenBuilder
             .withIssuedAt(Date())
             .withExpiresAt(Date(System.currentTimeMillis() + 86_400_000)) // 24h
             .sign(Algorithm.HMAC256(jwtConfig.secret))
@@ -52,28 +103,473 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         CrmLoginResult(id, agent[SalesAgentsTable.name], agent[SalesAgentsTable.email], agent[SalesAgentsTable.role], token)
     }
 
+    // ── Super-admin: tenant management ───────────────────────────
+
+    data class OrganizationDto(
+        val id: String,
+        val name: String,
+        val contactEmail: String?,
+        val contactPhone: String?,
+        val planTier: String,
+        val active: Boolean,
+        val logoUrl: String?,
+        val ownerAgentId: String?,   // primary owner agent — what the password-reset endpoint targets
+        val ownerEmail: String?,
+        val agentCount: Long,
+        val clientCount: Long,
+        val createdAt: Long,
+    )
+
+    data class ProvisionOrganizationResult(
+        val organizationId: String,
+        val organizationName: String,
+        val ownerAgentId: String,
+        val ownerEmail: String,
+        val ownerName: String,
+    )
+
+    /**
+     * Lists every CRM organization in the system. Caller must already be an authenticated
+     * super-admin (the route layer enforces that — there's no per-org filtering here on
+     * purpose since super-admins manage the whole platform).
+     */
+    fun listAllOrganizations(): List<OrganizationDto> = transaction {
+        CrmOrganizationsTable.selectAll().orderBy(CrmOrganizationsTable.createdAt, SortOrder.DESC).map { row ->
+            val orgId = row[CrmOrganizationsTable.id].value
+            val agentCount = SalesAgentsTable.selectAll()
+                .where { SalesAgentsTable.organizationId eq orgId }
+                .count()
+            val clientCount = CrmClientsTable.selectAll()
+                .where { CrmClientsTable.organizationId eq orgId }
+                .count()
+            // Pick the primary owner so the super-admin UI can target a password
+            // reset at "the org owner" without needing the operator to know the
+            // exact agent UUID. Falls back to super_admin if no plain owner exists
+            // (Waselak's own org carries super_admin instead of owner).
+            val owner = SalesAgentsTable.selectAll()
+                .where {
+                    (SalesAgentsTable.organizationId eq orgId) and
+                        (SalesAgentsTable.role inList listOf("owner", "super_admin"))
+                }
+                .orderBy(SalesAgentsTable.createdAt, SortOrder.ASC)
+                .firstOrNull()
+            OrganizationDto(
+                id = orgId.toString(),
+                name = row[CrmOrganizationsTable.name],
+                contactEmail = row[CrmOrganizationsTable.contactEmail],
+                contactPhone = row[CrmOrganizationsTable.contactPhone],
+                planTier = row[CrmOrganizationsTable.planTier],
+                active = row[CrmOrganizationsTable.active],
+                logoUrl = row[CrmOrganizationsTable.logoUrl],
+                ownerAgentId = owner?.get(SalesAgentsTable.id)?.value?.toString(),
+                ownerEmail = owner?.get(SalesAgentsTable.email),
+                agentCount = agentCount,
+                clientCount = clientCount,
+                createdAt = row[CrmOrganizationsTable.createdAt].toEpochMilliseconds(),
+            )
+        }
+    }
+
+    /**
+     * Branding for the CRM header — name + optional logo. Returned by getOrgBranding()
+     * and consumed by the layout helper to swap the Waselak logo for the tenant's own
+     * once a non-Waselak owner is signed in.
+     */
+    data class OrgBrandingDto(val name: String, val logoUrl: String?)
+
+    /**
+     * Lightweight read-only fetch used on every dashboard page load to look up
+     * the current user's org branding. Returns null when orgId is null/invalid
+     * or when the row doesn't exist — callers fall back to the Waselak default.
+     */
+    fun getOrgBranding(orgId: String?): OrgBrandingDto? = transaction {
+        val orgUuid = orgId?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return@transaction null
+        CrmOrganizationsTable.selectAll()
+            .where { CrmOrganizationsTable.id eq orgUuid }
+            .firstOrNull()
+            ?.let { OrgBrandingDto(it[CrmOrganizationsTable.name], it[CrmOrganizationsTable.logoUrl]) }
+    }
+
+    /**
+     * Edits a tenant organization. Every field is optional — pass null to leave
+     * it untouched. Used by the super-admin Edit modal. Returns false when the
+     * org id doesn't exist so the route can produce a 404.
+     */
+    fun updateOrganization(
+        orgId: String,
+        name: String?,
+        contactEmail: String?,
+        contactPhone: String?,
+        planTier: String?,
+        logoUrl: String?,
+    ): Boolean = transaction {
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction false
+        val updated = CrmOrganizationsTable.update({ CrmOrganizationsTable.id eq orgUuid }) {
+            if (name != null && name.isNotBlank()) it[CrmOrganizationsTable.name] = name.trim()
+            // contactEmail / contactPhone / logoUrl: empty string == clear it. We
+            // only treat *null* as "leave unchanged" — the UI sends an empty
+            // string when the field is intentionally cleared.
+            if (contactEmail != null) it[CrmOrganizationsTable.contactEmail] = contactEmail.trim().ifBlank { null }
+            if (contactPhone != null) it[CrmOrganizationsTable.contactPhone] = contactPhone.trim().ifBlank { null }
+            if (planTier != null && planTier.isNotBlank()) it[CrmOrganizationsTable.planTier] = planTier.trim()
+            if (logoUrl != null) it[CrmOrganizationsTable.logoUrl] = logoUrl.trim().ifBlank { null }
+            it[updatedAt] = Clock.System.now()
+        }
+        updated > 0
+    }
+
+    /**
+     * Tenant-owner-scoped logo setter. Used by the /crm/api/organization/logo
+     * endpoint so org owners can change *their own* logo without going through
+     * the super-admin route. The route layer guarantees orgId == the caller's
+     * organizationId, so we don't have to re-verify ownership here.
+     * Returns true on success, false if the orgId is malformed or unknown.
+     */
+    fun updateOwnOrgLogo(orgId: String, logoUrl: String?): Boolean = transaction {
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction false
+        CrmOrganizationsTable.update({ CrmOrganizationsTable.id eq orgUuid }) {
+            it[CrmOrganizationsTable.logoUrl] = logoUrl?.trim()?.ifBlank { null }
+            it[updatedAt] = Clock.System.now()
+        } > 0
+    }
+
+    /**
+     * Super-admin: reset the password of *any* agent in a given org. Differs
+     * from resetOwnerPassword (which targets the org's primary owner) and
+     * from updateAgent (which is scoped to the agent's own org via the JWT —
+     * a super-admin needs to operate on tenants other than their own).
+     *
+     * Verifies the agent actually belongs to `orgId` before writing — a
+     * mismatched (orgId, agentId) returns null instead of leaking writes
+     * across tenants. Returns the agent's email on success so the operator
+     * can hand it back to the customer alongside the new password.
+     */
+    fun resetAgentPasswordInOrg(orgId: String, agentId: String, newPassword: String): String? = transaction {
+        require(newPassword.length >= 6) { "Password must be ≥ 6 characters" }
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction null
+        val agentUuid = runCatching { UUID.fromString(agentId) }.getOrNull() ?: return@transaction null
+        val agent = SalesAgentsTable.selectAll()
+            .where { (SalesAgentsTable.id eq agentUuid) and (SalesAgentsTable.organizationId eq orgUuid) }
+            .firstOrNull() ?: return@transaction null
+        SalesAgentsTable.update({ SalesAgentsTable.id eq agentUuid }) {
+            it[passwordHash] = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+            it[updatedAt] = Clock.System.now()
+        }
+        agent[SalesAgentsTable.email]
+    }
+
+    /**
+     * Super-admin: toggle an agent's active flag, scoped to the agent's org.
+     * An inactive agent can't log in (see `login()` which checks `active`).
+     * Returns false on (orgId, agentId) mismatch instead of silently
+     * succeeding on a different agent.
+     */
+    fun setAgentActiveInOrg(orgId: String, agentId: String, active: Boolean): Boolean = transaction {
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction false
+        val agentUuid = runCatching { UUID.fromString(agentId) }.getOrNull() ?: return@transaction false
+        SalesAgentsTable.update({
+            (SalesAgentsTable.id eq agentUuid) and (SalesAgentsTable.organizationId eq orgUuid)
+        }) {
+            it[SalesAgentsTable.active] = active
+            it[updatedAt] = Clock.System.now()
+        } > 0
+    }
+
+    /**
+     * Super-admin: hard-delete an agent in any org, with the same FK cleanup
+     * the existing deleteAgent does (clients reassigned to null, salary +
+     * commission rows removed). Refuses to delete the org's primary owner —
+     * losing the owner would orphan the entire tenant. Returns false on
+     * (orgId, agentId) mismatch or on owner-deletion attempt; the route
+     * surfaces these as 404 / 400.
+     */
+    fun deleteAgentInOrg(orgId: String, agentId: String): Boolean = transaction {
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction false
+        val agentUuid = runCatching { UUID.fromString(agentId) }.getOrNull() ?: return@transaction false
+        val row = SalesAgentsTable.selectAll()
+            .where { (SalesAgentsTable.id eq agentUuid) and (SalesAgentsTable.organizationId eq orgUuid) }
+            .firstOrNull() ?: return@transaction false
+        val role = row[SalesAgentsTable.role]
+        if (role == "owner" || role == "super_admin") {
+            // Don't let the super-admin accidentally orphan a tenant. To
+            // remove an owner you delete the whole org (cascade) — a
+            // separate, two-confirmation flow.
+            throw IllegalStateException("Cannot delete the org owner via this endpoint")
+        }
+        // Same cascade as existing deleteAgent — duplicated rather than
+        // calling deleteAgent() so we keep this transaction atomic.
+        CrmClientsTable.update({ CrmClientsTable.assignedTo eq agentUuid }) { it[assignedTo] = null }
+        CrmCommissionDetailsTable.deleteWhere { CrmCommissionDetailsTable.agentId eq agentUuid }
+        CrmSalaryRecordsTable.deleteWhere { CrmSalaryRecordsTable.agentId eq agentUuid }
+        CrmSalaryConfigsTable.deleteWhere { CrmSalaryConfigsTable.agentId eq agentUuid }
+        CrmActivitiesTable.deleteWhere { CrmActivitiesTable.agentId eq agentUuid }
+        CrmAgentReviewsTable.deleteWhere { CrmAgentReviewsTable.agentId eq agentUuid }
+        CrmAgentTargetsTable.deleteWhere { CrmAgentTargetsTable.agentId eq agentUuid }
+        SalesAgentsTable.deleteWhere { SalesAgentsTable.id eq agentUuid } > 0
+    }
+
+    /**
+     * Super-admin: load every detail needed to render the org-detail page
+     * in a single round-trip. Cheaper than firing five separate queries
+     * from the route layer.
+     */
+    data class AgentSummaryDto(
+        val id: String,
+        val name: String,
+        val email: String,
+        val phone: String?,
+        val role: String,
+        val photoUrl: String?,
+        val active: Boolean,
+        val createdAt: Long,
+    )
+
+    data class OrgDetailDto(
+        val id: String,
+        val name: String,
+        val contactEmail: String?,
+        val contactPhone: String?,
+        val planTier: String,
+        val active: Boolean,
+        val logoUrl: String?,
+        val createdAt: Long,
+        val updatedAt: Long,
+        val agents: List<AgentSummaryDto>,
+        val clientCount: Long,
+        val activityCount: Long,
+        val invoiceCount: Long,
+        val invoiceTotal: Double,
+        val paymentTotal: Double,
+        val outstandingBalance: Double,
+    )
+
+    fun getOrganizationDetail(orgId: String): OrgDetailDto? = transaction {
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction null
+        val row = CrmOrganizationsTable.selectAll()
+            .where { CrmOrganizationsTable.id eq orgUuid }
+            .firstOrNull() ?: return@transaction null
+
+        val agents = SalesAgentsTable.selectAll()
+            .where { SalesAgentsTable.organizationId eq orgUuid }
+            .orderBy(SalesAgentsTable.createdAt, SortOrder.ASC)
+            .map {
+                AgentSummaryDto(
+                    id = it[SalesAgentsTable.id].value.toString(),
+                    name = it[SalesAgentsTable.name],
+                    email = it[SalesAgentsTable.email],
+                    phone = it[SalesAgentsTable.phone],
+                    role = it[SalesAgentsTable.role],
+                    photoUrl = it[SalesAgentsTable.photoUrl],
+                    active = it[SalesAgentsTable.active],
+                    createdAt = it[SalesAgentsTable.createdAt].toEpochMilliseconds(),
+                )
+            }
+
+        val clientCount = CrmClientsTable.selectAll().where { CrmClientsTable.organizationId eq orgUuid }.count()
+        val activityCount = CrmActivitiesTable.selectAll().where { CrmActivitiesTable.organizationId eq orgUuid }.count()
+        val invoiceCount = CrmInvoicesTable.selectAll().where { CrmInvoicesTable.organizationId eq orgUuid }.count()
+
+        // Sum of final_amount (post-discount, what the customer actually owes)
+        // across the org's invoices, and sum of amounts across the
+        // corresponding payments. Outstanding = invoiced minus paid.
+        val invoiceTotal = CrmInvoicesTable.selectAll()
+            .where { CrmInvoicesTable.organizationId eq orgUuid }
+            .sumOf { it[CrmInvoicesTable.finalAmount].toDouble() }
+        val paymentTotal = CrmPaymentsTable.selectAll()
+            .where { CrmPaymentsTable.organizationId eq orgUuid }
+            .sumOf { it[CrmPaymentsTable.amount].toDouble() }
+
+        OrgDetailDto(
+            id = orgUuid.toString(),
+            name = row[CrmOrganizationsTable.name],
+            contactEmail = row[CrmOrganizationsTable.contactEmail],
+            contactPhone = row[CrmOrganizationsTable.contactPhone],
+            planTier = row[CrmOrganizationsTable.planTier],
+            active = row[CrmOrganizationsTable.active],
+            logoUrl = row[CrmOrganizationsTable.logoUrl],
+            createdAt = row[CrmOrganizationsTable.createdAt].toEpochMilliseconds(),
+            updatedAt = row[CrmOrganizationsTable.updatedAt].toEpochMilliseconds(),
+            agents = agents,
+            clientCount = clientCount,
+            activityCount = activityCount,
+            invoiceCount = invoiceCount,
+            invoiceTotal = invoiceTotal,
+            paymentTotal = paymentTotal,
+            outstandingBalance = invoiceTotal - paymentTotal,
+        )
+    }
+
+    /**
+     * Resets the password of the org's primary owner agent. Used by the super-admin
+     * "🔑 Reset password" button when a tenant has lost their credentials. Returns
+     * the owner email on success so the operator can hand it back to the customer
+     * along with the new password; returns null when the org has no owner row
+     * (e.g., it's empty after the migration backfill failed) so the route can 404.
+     *
+     * Refuses passwords shorter than 6 characters — same minimum as provisioning.
+     */
+    fun resetOwnerPassword(orgId: String, newPassword: String): String? = transaction {
+        require(newPassword.length >= 6) { "Password must be ≥ 6 characters" }
+        val orgUuid = runCatching { UUID.fromString(orgId) }.getOrNull() ?: return@transaction null
+        val owner = SalesAgentsTable.selectAll()
+            .where {
+                (SalesAgentsTable.organizationId eq orgUuid) and
+                    (SalesAgentsTable.role inList listOf("owner", "super_admin"))
+            }
+            .orderBy(SalesAgentsTable.createdAt, SortOrder.ASC)
+            .firstOrNull() ?: return@transaction null
+        val ownerId = owner[SalesAgentsTable.id].value
+        SalesAgentsTable.update({ SalesAgentsTable.id eq ownerId }) {
+            it[passwordHash] = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+            it[updatedAt] = Clock.System.now()
+        }
+        owner[SalesAgentsTable.email]
+    }
+
+    /**
+     * Creates a new tenant organisation **and** its first owner agent atomically. The
+     * buyer can immediately log in with `ownerEmail`/`ownerPassword` and see an empty
+     * dashboard isolated from every other tenant. Throws on duplicate email or duplicate
+     * org name so the caller can surface a meaningful error.
+     */
+    fun provisionOrganization(
+        name: String,
+        contactEmail: String?,
+        contactPhone: String?,
+        planTier: String,
+        logoUrl: String?,
+        ownerName: String,
+        ownerEmail: String,
+        ownerPhone: String?,
+        ownerPassword: String,
+    ): ProvisionOrganizationResult = transaction {
+        require(name.isNotBlank()) { "Organisation name is required" }
+        require(ownerName.isNotBlank()) { "Owner name is required" }
+        require(ownerEmail.isNotBlank()) { "Owner email is required" }
+        require(ownerPassword.length >= 6) { "Owner password must be ≥ 6 characters" }
+
+        // Normalise email — store lowercased so the case-insensitive login lookup
+        // (see CrmService.login()) finds it regardless of how the user types it
+        // back. Two stores using "Owner@x.com" and "owner@x.com" should still hit
+        // the same row, hence the `lowerCase()` filter on the uniqueness check too.
+        val normalizedEmail = ownerEmail.trim().lowercase()
+        val emailAlreadyTaken = !SalesAgentsTable.selectAll()
+            .where { SalesAgentsTable.email.lowerCase() eq normalizedEmail }
+            .empty()
+        if (emailAlreadyTaken) throw IllegalStateException("An agent with email '$normalizedEmail' already exists")
+
+        val orgId = CrmOrganizationsTable.insertAndGetId {
+            it[CrmOrganizationsTable.name] = name.trim()
+            it[CrmOrganizationsTable.contactEmail] = contactEmail?.trim()?.ifBlank { null }
+            it[CrmOrganizationsTable.contactPhone] = contactPhone?.trim()?.ifBlank { null }
+            it[CrmOrganizationsTable.planTier] = planTier.ifBlank { "starter" }
+            it[CrmOrganizationsTable.active] = true
+            it[CrmOrganizationsTable.logoUrl] = logoUrl?.trim()?.ifBlank { null }
+            it[createdAt] = Clock.System.now()
+            it[updatedAt] = Clock.System.now()
+        }
+        val agentId = SalesAgentsTable.insertAndGetId {
+            it[SalesAgentsTable.name] = ownerName.trim()
+            it[SalesAgentsTable.email] = normalizedEmail
+            it[SalesAgentsTable.passwordHash] = BCrypt.hashpw(ownerPassword, BCrypt.gensalt())
+            it[SalesAgentsTable.role] = "owner"
+            it[SalesAgentsTable.active] = true
+            it[SalesAgentsTable.phone] = ownerPhone?.trim()?.ifBlank { null }
+            it[SalesAgentsTable.organizationId] = orgId.value
+            it[createdAt] = Clock.System.now()
+            it[updatedAt] = Clock.System.now()
+        }
+        ProvisionOrganizationResult(
+            organizationId = orgId.value.toString(),
+            organizationName = name,
+            ownerAgentId = agentId.value.toString(),
+            ownerEmail = normalizedEmail,
+            ownerName = ownerName,
+        )
+    }
+
+    /**
+     * Toggles an organization's active flag. Inactive orgs can't log in (the login flow
+     * already gates on the agent's active flag, but we toggle the org-level flag too so
+     * a future "all my agents are active but the org is suspended" state works cleanly).
+     */
+    fun setOrganizationActive(orgId: String, active: Boolean): Boolean = transaction {
+        CrmOrganizationsTable.update({ CrmOrganizationsTable.id eq UUID.fromString(orgId) }) {
+            it[CrmOrganizationsTable.active] = active
+            it[updatedAt] = Clock.System.now()
+        } > 0
+    }
+
+    /**
+     * Hard-delete an entire tenant: every CRM table is purged of rows belonging to
+     * this org_id, then the organisation row itself goes. Order matters because of
+     * FKs — children first, parents last.
+     *
+     * Refuses to delete the seeded "Waselak" organisation; that one is the home of
+     * your team's data and the fallback for legacy tokens, so vaporising it would be
+     * catastrophic. Caller (the route layer) must have super-admin auth.
+     *
+     * Returns `true` on success, `false` if the org doesn't exist or is the protected
+     * Waselak org. Throws on unexpected DB errors.
+     */
+    fun deleteOrganization(orgId: String): Boolean = transaction {
+        val orgUuid = UUID.fromString(orgId)
+        val row = CrmOrganizationsTable.selectAll()
+            .where { CrmOrganizationsTable.id eq orgUuid }
+            .firstOrNull() ?: return@transaction false
+        if (row[CrmOrganizationsTable.name] == "Waselak") {
+            // Refuse — refuse hard. Soft-delete via setOrganizationActive(false) is
+            // what the operator wants if they ever want to "disable" their own data.
+            throw IllegalStateException("Cannot hard-delete the Waselak organisation")
+        }
+        // Order = leaves first, root last. Each table has organization_id (added in
+        // v1.9 multi-tenancy) so we can purge directly without traversing FKs.
+        CrmCommissionDetailsTable.deleteWhere { organizationId eq orgUuid }
+        CrmSalaryRecordsTable.deleteWhere { organizationId eq orgUuid }
+        CrmSalaryConfigsTable.deleteWhere { organizationId eq orgUuid }
+        CrmAgentReviewsTable.deleteWhere { organizationId eq orgUuid }
+        CrmAgentTargetsTable.deleteWhere { organizationId eq orgUuid }
+        CrmPaymentsTable.deleteWhere { organizationId eq orgUuid }
+        CrmInvoicesTable.deleteWhere { organizationId eq orgUuid }
+        CrmActivitiesTable.deleteWhere { organizationId eq orgUuid }
+        CrmClientsTable.deleteWhere { organizationId eq orgUuid }
+        SalesAgentsTable.deleteWhere { organizationId eq orgUuid }
+        CrmOrganizationsTable.deleteWhere { CrmOrganizationsTable.id eq orgUuid } > 0
+    }
+
     // ── Agents CRUD ───────────────────────────────────────────────
 
     data class AgentDto(val id: String, val name: String, val email: String, val role: String, val photoUrl: String?, val active: Boolean)
 
-    fun listAgents(): List<AgentDto> = transaction {
-        SalesAgentsTable.selectAll().orderBy(SalesAgentsTable.name).map {
-            AgentDto(it[SalesAgentsTable.id].value.toString(), it[SalesAgentsTable.name], it[SalesAgentsTable.email], it[SalesAgentsTable.role], it[SalesAgentsTable.photoUrl], it[SalesAgentsTable.active])
-        }
+    fun listAgents(orgId: String?): List<AgentDto> = transaction {
+        val org = resolveOrgId(orgId)
+        SalesAgentsTable.selectAll()
+            .where { SalesAgentsTable.organizationId eq org }
+            .orderBy(SalesAgentsTable.name)
+            .map {
+                AgentDto(it[SalesAgentsTable.id].value.toString(), it[SalesAgentsTable.name], it[SalesAgentsTable.email], it[SalesAgentsTable.role], it[SalesAgentsTable.photoUrl], it[SalesAgentsTable.active])
+            }
     }
 
-    fun createAgent(name: String, email: String, password: String, role: String): AgentDto = transaction {
+    fun createAgent(orgId: String?, name: String, email: String, password: String, role: String): AgentDto = transaction {
+        val org = resolveOrgId(orgId)
+        // Match the login flow's case-insensitive lookup — store lowercased.
+        val normalizedEmail = email.trim().lowercase()
         val id = SalesAgentsTable.insertAndGetId {
-            it[SalesAgentsTable.name] = name
-            it[SalesAgentsTable.email] = email
+            it[SalesAgentsTable.name] = name.trim()
+            it[SalesAgentsTable.email] = normalizedEmail
             it[SalesAgentsTable.passwordHash] = BCrypt.hashpw(password, BCrypt.gensalt())
             it[SalesAgentsTable.role] = role
+            it[SalesAgentsTable.organizationId] = org
         }
-        AgentDto(id.value.toString(), name, email, role, null, true)
+        AgentDto(id.value.toString(), name, normalizedEmail, role, null, true)
     }
 
-    fun updateAgent(id: String, name: String?, role: String?, active: Boolean?, password: String?, photoUrl: String?): Boolean = transaction {
-        SalesAgentsTable.update({ SalesAgentsTable.id eq UUID.fromString(id) }) {
+    fun updateAgent(orgId: String?, id: String, name: String?, role: String?, active: Boolean?, password: String?, photoUrl: String?): Boolean = transaction {
+        val org = resolveOrgId(orgId)
+        SalesAgentsTable.update({
+            (SalesAgentsTable.id eq UUID.fromString(id)) and (SalesAgentsTable.organizationId eq org)
+        }) {
             if (name != null) it[SalesAgentsTable.name] = name
             if (role != null) it[SalesAgentsTable.role] = role
             if (active != null) it[SalesAgentsTable.active] = active
@@ -121,9 +617,11 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val createdAt: Long, val updatedAt: Long,
     )
 
-    fun listClients(agentId: String?, isManager: Boolean): List<ClientDto> = transaction {
+    fun listClients(orgId: String?, agentId: String?, isManager: Boolean): List<ClientDto> = transaction {
+        val org = resolveOrgId(orgId)
         val query = CrmClientsTable.leftJoin(SalesAgentsTable, { CrmClientsTable.assignedTo }, { SalesAgentsTable.id })
             .selectAll()
+            .where { CrmClientsTable.organizationId eq org }
             .orderBy(CrmClientsTable.updatedAt, SortOrder.DESC)
 
         if (!isManager && agentId != null) {
@@ -133,18 +631,25 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         query.map { it.toClientDto() }
     }
 
-    fun getClient(id: String): ClientDto? = transaction {
+    fun getClient(orgId: String?, id: String): ClientDto? = transaction {
+        val org = resolveOrgId(orgId)
+        // Defense in depth: even though `id` is a UUID an attacker would have to guess,
+        // we still scope by org so a token from organisation A can't fetch records from
+        // organisation B by guessing.
         CrmClientsTable.leftJoin(SalesAgentsTable, { CrmClientsTable.assignedTo }, { SalesAgentsTable.id })
-            .selectAll().where { CrmClientsTable.id eq UUID.fromString(id) }
+            .selectAll()
+            .where { (CrmClientsTable.id eq UUID.fromString(id)) and (CrmClientsTable.organizationId eq org) }
             .firstOrNull()?.toClientDto()
     }
 
     fun createClient(
+        orgId: String?,
         clientName: String, phone: String, whatsapp: Boolean, businessName: String?, businessType: String?,
         city: String?, governorate: String?, status: String, plan: String?, monthlyAmount: Double,
         discountPercent: Int, paymentMethod: String?, assignedTo: String?, source: String?, notes: String?,
         nextActionDate: String?,
     ): ClientDto = transaction {
+        val org = resolveOrgId(orgId)
         // Treat blank strings as missing so UUID/date parsers never see empty input.
         val assignedToClean = assignedTo?.takeIf { it.isNotBlank() }
         val nextActionDateClean = nextActionDate?.takeIf { it.isNotBlank() }
@@ -168,26 +673,36 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             it[lastContactAt] = Clock.System.now()
             if (nextActionDateClean != null) it[CrmClientsTable.nextActionDate] = LocalDate.parse(nextActionDateClean)
             it[interactionCount] = 1
+            // Multi-tenant scope: stamp every new client with the caller's organisation
+            // so it's visible only to their CRM session. Without this the row would
+            // land in NULL and the org-scoped list queries wouldn't return it.
+            it[CrmClientsTable.organizationId] = org
             // Exposed's column default (Clock.System.now()) is frozen at JVM start, so old
             // rows ended up sharing one timestamp. Set these explicitly on every insert.
             it[createdAt] = Clock.System.now()
             it[updatedAt] = Clock.System.now()
         }
-        getClient(id.value.toString())!!
+        getClient(orgId, id.value.toString())!!
     }
 
     fun updateClient(
+        orgId: String?,
         id: String, clientName: String?, phone: String?, whatsapp: Boolean?, businessName: String?,
         businessType: String?, city: String?, governorate: String?, status: String?, plan: String?,
         monthlyAmount: Double?, discountPercent: Int?, paymentMethod: String?, assignedTo: String?,
         source: String?, notes: String?, nextActionDate: String?,
     ): Boolean = transaction {
+        val org = resolveOrgId(orgId)
         // Treat blank strings as "field not provided" so the front-end's empty form fields
         // don't blow up UUID.fromString / LocalDate.parse (which would surface as 400 Bad
         // Request via StatusPages' IllegalArgumentException handler).
         val assignedToClean = assignedTo?.takeIf { it.isNotBlank() }
         val nextActionDateClean = nextActionDate?.takeIf { it.isNotBlank() }
-        CrmClientsTable.update({ CrmClientsTable.id eq UUID.fromString(id) }) {
+        // Scope by org so a token from organisation A can't update a row in organisation B
+        // by guessing its UUID. UPDATE returns 0 if the WHERE matches no row.
+        CrmClientsTable.update({
+            (CrmClientsTable.id eq UUID.fromString(id)) and (CrmClientsTable.organizationId eq org)
+        }) {
             if (clientName != null) it[CrmClientsTable.clientName] = clientName
             if (phone != null) it[CrmClientsTable.phone] = phone
             if (whatsapp != null) it[CrmClientsTable.whatsapp] = whatsapp
@@ -208,13 +723,23 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         } > 0
     }
 
-    fun deleteClient(id: String): Boolean = transaction {
+    fun deleteClient(orgId: String?, id: String): Boolean = transaction {
+        val org = resolveOrgId(orgId)
         val cid = UUID.fromString(id)
+        // Verify the client is in the caller's org before cascading delete. Otherwise
+        // a token from organisation A could destroy client+invoices+activities in B
+        // by guessing the UUID — silent and catastrophic.
+        val belongsToOrg = !CrmClientsTable.selectAll()
+            .where { (CrmClientsTable.id eq cid) and (CrmClientsTable.organizationId eq org) }
+            .empty()
+        if (!belongsToOrg) return@transaction false
         CrmCommissionDetailsTable.deleteWhere { clientId eq cid }
         CrmActivitiesTable.deleteWhere { clientId eq cid }
         CrmPaymentsTable.deleteWhere { clientId eq cid }
         CrmInvoicesTable.deleteWhere { CrmInvoicesTable.clientId eq cid }
-        CrmClientsTable.deleteWhere { CrmClientsTable.id eq cid } > 0
+        CrmClientsTable.deleteWhere {
+            (CrmClientsTable.id eq cid) and (CrmClientsTable.organizationId eq org)
+        } > 0
     }
 
     /**
@@ -222,10 +747,11 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
      * Used to authorise agent-level edits/deletes on their own clients while letting
      * owners/managers act on anyone's.
      */
-    fun isClientOwnedBy(clientId: String, agentId: String): Boolean = transaction {
+    fun isClientOwnedBy(orgId: String?, clientId: String, agentId: String): Boolean = transaction {
+        val org = resolveOrgId(orgId)
         CrmClientsTable
             .select(CrmClientsTable.assignedTo)
-            .where { CrmClientsTable.id eq UUID.fromString(clientId) }
+            .where { (CrmClientsTable.id eq UUID.fromString(clientId)) and (CrmClientsTable.organizationId eq org) }
             .firstOrNull()
             ?.get(CrmClientsTable.assignedTo)
             ?.value
@@ -246,12 +772,16 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
      * to render the per-client timeline. No ownership filtering here — the caller
      * is expected to have already authorised access to the client record.
      */
-    fun listActivitiesForClient(clientId: String): List<ActivityDto> = transaction {
+    fun listActivitiesForClient(orgId: String?, clientId: String): List<ActivityDto> = transaction {
+        val org = resolveOrgId(orgId)
         CrmActivitiesTable
             .innerJoin(SalesAgentsTable, { CrmActivitiesTable.agentId }, { SalesAgentsTable.id })
             .innerJoin(CrmClientsTable, { CrmActivitiesTable.clientId }, { CrmClientsTable.id })
             .selectAll()
-            .where { CrmActivitiesTable.clientId eq UUID.fromString(clientId) }
+            .where {
+                (CrmActivitiesTable.clientId eq UUID.fromString(clientId)) and
+                    (CrmActivitiesTable.organizationId eq org)
+            }
             .orderBy(CrmActivitiesTable.createdAt, SortOrder.DESC)
             .map {
                 ActivityDto(
@@ -277,11 +807,13 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             }
     }
 
-    fun listActivities(agentId: String?, isManager: Boolean, limit: Int = 100): List<ActivityDto> = transaction {
+    fun listActivities(orgId: String?, agentId: String?, isManager: Boolean, limit: Int = 100): List<ActivityDto> = transaction {
+        val org = resolveOrgId(orgId)
         val query = CrmActivitiesTable
             .innerJoin(SalesAgentsTable, { CrmActivitiesTable.agentId }, { SalesAgentsTable.id })
             .innerJoin(CrmClientsTable, { CrmActivitiesTable.clientId }, { CrmClientsTable.id })
             .selectAll()
+            .where { CrmActivitiesTable.organizationId eq org }
             .orderBy(CrmActivitiesTable.createdAt, SortOrder.DESC)
             .limit(limit)
 
@@ -314,19 +846,28 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
     }
 
     fun createActivity(
+        orgId: String?,
         agentId: String, clientId: String, actionType: String?, channel: String?,
         previousStatus: String?, newStatus: String?, planOffered: String?,
         amount: Double?, discountPercent: Int?, callDuration: String?,
         result: String?, nextStep: String?, nextDate: String?, notes: String?,
     ): String = transaction {
+        val org = resolveOrgId(orgId)
         // Blank-in-form ↔ missing-in-API: treat "" as null so we don't feed bogus values
         // into UUID.fromString / LocalDate.parse (which would fail as a confusing 400).
         val clientIdClean = clientId.takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("Missing clientId")
         val nextDateClean = nextDate?.takeIf { it.isNotBlank() }
+        // Verify the client belongs to the same organisation as the activity. Without
+        // this an attacker could log activities against another org's clients.
+        val clientUuid = UUID.fromString(clientIdClean)
+        val clientInOrg = !CrmClientsTable.selectAll()
+            .where { (CrmClientsTable.id eq clientUuid) and (CrmClientsTable.organizationId eq org) }
+            .empty()
+        if (!clientInOrg) throw IllegalArgumentException("Client not in this organisation")
         val id = CrmActivitiesTable.insertAndGetId {
             it[CrmActivitiesTable.agentId] = UUID.fromString(agentId)
-            it[CrmActivitiesTable.clientId] = UUID.fromString(clientIdClean)
+            it[CrmActivitiesTable.clientId] = clientUuid
             it[CrmActivitiesTable.actionType] = actionType
             it[CrmActivitiesTable.channel] = channel
             it[CrmActivitiesTable.previousStatus] = previousStatus
@@ -339,12 +880,16 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             it[CrmActivitiesTable.nextStep] = nextStep
             if (nextDateClean != null) it[CrmActivitiesTable.nextDate] = LocalDate.parse(nextDateClean)
             it[CrmActivitiesTable.notes] = notes
+            it[CrmActivitiesTable.organizationId] = org
             // Same reason as createClient: don't rely on the frozen JVM-start default.
             it[createdAt] = Clock.System.now()
         }
 
-        // Update client status + last contact + interaction count
-        CrmClientsTable.update({ CrmClientsTable.id eq UUID.fromString(clientIdClean) }) {
+        // Update client status + last contact + interaction count. The org check on the
+        // UPDATE keeps it consistent with the insert above — same belt-and-braces.
+        CrmClientsTable.update({
+            (CrmClientsTable.id eq clientUuid) and (CrmClientsTable.organizationId eq org)
+        }) {
             if (newStatus != null) it[status] = newStatus
             it[lastContactAt] = Clock.System.now()
             if (nextDateClean != null) it[nextActionDate] = LocalDate.parse(nextDateClean)
@@ -361,10 +906,14 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
      * Returns true if the given agent created this activity. Used for agent-level
      * authorisation when editing/deleting — owners and managers bypass this check.
      */
-    fun isActivityOwnedBy(activityId: String, agentId: String): Boolean = transaction {
+    fun isActivityOwnedBy(orgId: String?, activityId: String, agentId: String): Boolean = transaction {
+        val org = resolveOrgId(orgId)
         CrmActivitiesTable
             .select(CrmActivitiesTable.agentId)
-            .where { CrmActivitiesTable.id eq UUID.fromString(activityId) }
+            .where {
+                (CrmActivitiesTable.id eq UUID.fromString(activityId)) and
+                    (CrmActivitiesTable.organizationId eq org)
+            }
             .firstOrNull()
             ?.get(CrmActivitiesTable.agentId)
             ?.value
@@ -372,15 +921,19 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
     }
 
     fun updateActivity(
+        orgId: String?,
         id: String, actionType: String?, channel: String?,
         previousStatus: String?, newStatus: String?, planOffered: String?,
         amount: Double?, discountPercent: Int?, callDuration: String?,
         result: String?, nextStep: String?, nextDate: String?, notes: String?,
     ): Boolean = transaction {
+        val org = resolveOrgId(orgId)
         val aid = UUID.fromString(id)
         // Blank strings from HTML forms should behave as "unset", not "invalid date".
         val nextDateClean = nextDate?.takeIf { it.isNotBlank() }
-        val updated = CrmActivitiesTable.update({ CrmActivitiesTable.id eq aid }) {
+        val updated = CrmActivitiesTable.update({
+            (CrmActivitiesTable.id eq aid) and (CrmActivitiesTable.organizationId eq org)
+        }) {
             if (actionType != null) it[CrmActivitiesTable.actionType] = actionType
             if (channel != null) it[CrmActivitiesTable.channel] = channel
             if (previousStatus != null) it[CrmActivitiesTable.previousStatus] = previousStatus
@@ -412,8 +965,12 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         updated > 0
     }
 
-    fun deleteActivity(id: String): Boolean = transaction {
-        CrmActivitiesTable.deleteWhere { CrmActivitiesTable.id eq UUID.fromString(id) } > 0
+    fun deleteActivity(orgId: String?, id: String): Boolean = transaction {
+        val org = resolveOrgId(orgId)
+        CrmActivitiesTable.deleteWhere {
+            (CrmActivitiesTable.id eq UUID.fromString(id)) and
+                (CrmActivitiesTable.organizationId eq org)
+        } > 0
     }
 
     // ── Stats ─────────────────────────────────────────────────────
@@ -431,16 +988,19 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val subscribed: Long, val paid: Long, val revenue: Double,
     )
 
-    fun getStats(agentId: String?, isManager: Boolean): CrmStats = transaction {
+    fun getStats(orgId: String?, agentId: String?, isManager: Boolean): CrmStats = transaction {
+        val org = resolveOrgId(orgId)
+        // Every aggregation here is org-scoped. The base filters always include
+        // `organization_id = ?`; agent-scoped filters layer on top for non-manager users.
         val clientFilter: Op<Boolean> = if (!isManager && agentId != null)
-            CrmClientsTable.assignedTo eq UUID.fromString(agentId)
-        else Op.TRUE
+            (CrmClientsTable.organizationId eq org) and (CrmClientsTable.assignedTo eq UUID.fromString(agentId))
+        else CrmClientsTable.organizationId eq org
 
         val totalClients = CrmClientsTable.selectAll().where { clientFilter }.count()
 
         val activityFilter: Op<Boolean> = if (!isManager && agentId != null)
-            CrmActivitiesTable.agentId eq UUID.fromString(agentId)
-        else Op.TRUE
+            (CrmActivitiesTable.organizationId eq org) and (CrmActivitiesTable.agentId eq UUID.fromString(agentId))
+        else CrmActivitiesTable.organizationId eq org
 
         val totalActivities = CrmActivitiesTable.selectAll().where { activityFilter }.count()
 
@@ -466,15 +1026,35 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             }
 
         val agentStats = if (isManager) {
-            SalesAgentsTable.selectAll().where { SalesAgentsTable.active eq true }.map { agent ->
+            // Per-agent stats: only count agents in the same org so a manager from
+            // org A doesn't see anyone from org B.
+            SalesAgentsTable.selectAll().where {
+                (SalesAgentsTable.active eq true) and (SalesAgentsTable.organizationId eq org)
+            }.map { agent ->
                 val aid = agent[SalesAgentsTable.id].value
                 val aidStr = aid.toString()
-                val clientCount = CrmClientsTable.selectAll().where { CrmClientsTable.assignedTo eq aid }.count()
-                val actCount = CrmActivitiesTable.selectAll().where { CrmActivitiesTable.agentId eq aid }.count()
-                val sub = CrmClientsTable.selectAll().where { (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.status eq "مشترك") }.count()
-                val pd = CrmClientsTable.selectAll().where { (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.status eq "مدفوع") }.count()
+                val clientCount = CrmClientsTable.selectAll()
+                    .where { (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.organizationId eq org) }
+                    .count()
+                val actCount = CrmActivitiesTable.selectAll()
+                    .where { (CrmActivitiesTable.agentId eq aid) and (CrmActivitiesTable.organizationId eq org) }
+                    .count()
+                val sub = CrmClientsTable.selectAll().where {
+                    (CrmClientsTable.assignedTo eq aid) and
+                        (CrmClientsTable.organizationId eq org) and
+                        (CrmClientsTable.status eq "مشترك")
+                }.count()
+                val pd = CrmClientsTable.selectAll().where {
+                    (CrmClientsTable.assignedTo eq aid) and
+                        (CrmClientsTable.organizationId eq org) and
+                        (CrmClientsTable.status eq "مدفوع")
+                }.count()
                 val rev = CrmClientsTable.selectAll()
-                    .where { (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.status inList listOf("مشترك", "مدفوع")) }
+                    .where {
+                        (CrmClientsTable.assignedTo eq aid) and
+                            (CrmClientsTable.organizationId eq org) and
+                            (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
+                    }
                     .sumOf { it[CrmClientsTable.monthlyAmount].toDouble() * (1 - it[CrmClientsTable.discountPercent] / 100.0) }
                 AgentStat(aidStr, agent[SalesAgentsTable.name], agent[SalesAgentsTable.role], agent[SalesAgentsTable.photoUrl], actCount, clientCount, sub, pd, rev)
             }
@@ -539,16 +1119,24 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val receivedBy: String?, val createdAt: Long,
     )
 
-    fun nextInvoiceNumber(): String = transaction {
-        val count = CrmInvoicesTable.selectAll().count()
+    fun nextInvoiceNumber(orgId: String?): String = transaction {
+        val org = resolveOrgId(orgId)
+        // Per-org invoice numbering — each tenant gets its own INV-YYYY-NNNN sequence,
+        // restarting at 0001 each year. Without scoping by org, two tenants would share
+        // a counter and an invoice number could clash.
+        val count = CrmInvoicesTable.selectAll()
+            .where { CrmInvoicesTable.organizationId eq org }
+            .count()
         val year = Clock.System.now().toLocalDateTime(CRM_TZ).year
         "INV-$year-${(count + 1).toString().padStart(4, '0')}"
     }
 
-    fun listInvoices(clientId: String? = null, status: String? = null): List<InvoiceDto> = transaction {
+    fun listInvoices(orgId: String?, clientId: String? = null, status: String? = null): List<InvoiceDto> = transaction {
+        val org = resolveOrgId(orgId)
         val query = CrmInvoicesTable
             .innerJoin(CrmClientsTable, { CrmInvoicesTable.clientId }, { CrmClientsTable.id })
             .selectAll()
+            .where { CrmInvoicesTable.organizationId eq org }
             .orderBy(CrmInvoicesTable.createdAt, SortOrder.DESC)
 
         if (clientId != null) query.andWhere { CrmInvoicesTable.clientId eq UUID.fromString(clientId) }
@@ -586,14 +1174,23 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
     }
 
     fun createInvoice(
+        orgId: String?,
         clientId: String, plan: String, period: String, amount: Double,
         discountPercent: Int, dueDate: String, paymentMethod: String?,
         notes: String?, createdBy: String?,
     ): InvoiceDto = transaction {
+        val org = resolveOrgId(orgId)
         val final = amount * (1 - discountPercent / 100.0)
-        val invNum = nextInvoiceNumber()
+        val invNum = nextInvoiceNumber(orgId)
+        // Verify the client lives in the same org as the invoice we're creating.
+        // Without this you could craft an invoice against another tenant's client.
+        val clientUuid = UUID.fromString(clientId)
+        val clientInOrg = !CrmClientsTable.selectAll()
+            .where { (CrmClientsTable.id eq clientUuid) and (CrmClientsTable.organizationId eq org) }
+            .empty()
+        if (!clientInOrg) throw IllegalArgumentException("Client not in this organisation")
         CrmInvoicesTable.insertAndGetId {
-            it[CrmInvoicesTable.clientId] = UUID.fromString(clientId)
+            it[CrmInvoicesTable.clientId] = clientUuid
             it[invoiceNumber] = invNum
             it[CrmInvoicesTable.plan] = plan
             it[CrmInvoicesTable.period] = period
@@ -604,35 +1201,41 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
             it[CrmInvoicesTable.paymentMethod] = paymentMethod
             it[CrmInvoicesTable.notes] = notes
             if (createdBy != null) it[CrmInvoicesTable.createdBy] = UUID.fromString(createdBy)
+            it[CrmInvoicesTable.organizationId] = org
         }
 
-        // Auto-mark overdue invoices for this client
+        // Auto-mark overdue invoices for this client (also scoped to the same org).
         val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
         CrmInvoicesTable.update({
-            (CrmInvoicesTable.clientId eq UUID.fromString(clientId)) and
+            (CrmInvoicesTable.clientId eq clientUuid) and
+            (CrmInvoicesTable.organizationId eq org) and
             (CrmInvoicesTable.status eq "غير مدفوع") and
             (CrmInvoicesTable.dueDate less today)
         }) {
             it[status] = "متأخر"
         }
 
-        listInvoices(clientId).first()
+        listInvoices(orgId, clientId).first()
     }
 
     fun recordPayment(
+        orgId: String?,
         invoiceId: String, amount: Double, paymentMethod: String, notes: String?, receivedBy: String?,
     ): Boolean = transaction {
+        val org = resolveOrgId(orgId)
+        val invoiceUuid = UUID.fromString(invoiceId)
         val invoice = CrmInvoicesTable.selectAll()
-            .where { CrmInvoicesTable.id eq UUID.fromString(invoiceId) }
+            .where { (CrmInvoicesTable.id eq invoiceUuid) and (CrmInvoicesTable.organizationId eq org) }
             .firstOrNull() ?: return@transaction false
 
         CrmPaymentsTable.insert {
-            it[CrmPaymentsTable.invoiceId] = UUID.fromString(invoiceId)
+            it[CrmPaymentsTable.invoiceId] = invoiceUuid
             it[clientId] = invoice[CrmInvoicesTable.clientId]
             it[CrmPaymentsTable.amount] = java.math.BigDecimal.valueOf(amount)
             it[CrmPaymentsTable.paymentMethod] = paymentMethod
             it[CrmPaymentsTable.notes] = notes
             if (receivedBy != null) it[CrmPaymentsTable.receivedBy] = UUID.fromString(receivedBy)
+            it[CrmPaymentsTable.organizationId] = org
         }
 
         val totalPaid = invoice[CrmInvoicesTable.paidAmount].toDouble() + amount
@@ -640,7 +1243,9 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
 
         val today = Clock.System.now().toLocalDateTime(CRM_TZ).date
 
-        CrmInvoicesTable.update({ CrmInvoicesTable.id eq UUID.fromString(invoiceId) }) {
+        CrmInvoicesTable.update({
+            (CrmInvoicesTable.id eq invoiceUuid) and (CrmInvoicesTable.organizationId eq org)
+        }) {
             it[paidAmount] = java.math.BigDecimal.valueOf(totalPaid)
             if (totalPaid >= finalAmt) {
                 it[status] = "مدفوع"
@@ -653,11 +1258,15 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         true
     }
 
-    fun getPaymentsForInvoice(invoiceId: String): List<PaymentDto> = transaction {
+    fun getPaymentsForInvoice(orgId: String?, invoiceId: String): List<PaymentDto> = transaction {
+        val org = resolveOrgId(orgId)
         CrmPaymentsTable
             .innerJoin(CrmClientsTable, { CrmPaymentsTable.clientId }, { CrmClientsTable.id })
             .selectAll()
-            .where { CrmPaymentsTable.invoiceId eq UUID.fromString(invoiceId) }
+            .where {
+                (CrmPaymentsTable.invoiceId eq UUID.fromString(invoiceId)) and
+                    (CrmPaymentsTable.organizationId eq org)
+            }
             .orderBy(CrmPaymentsTable.createdAt, SortOrder.DESC)
             .map {
                 PaymentDto(
@@ -678,8 +1287,13 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val totalOverdue: Double, val overdueCount: Long, val unpaidCount: Long,
     )
 
-    fun getBillingStats(): BillingStats = transaction {
-        val all = CrmInvoicesTable.selectAll().where { CrmInvoicesTable.status neq "ملغي" }.toList()
+    fun getBillingStats(orgId: String?): BillingStats = transaction {
+        val org = resolveOrgId(orgId)
+        val all = CrmInvoicesTable.selectAll()
+            .where {
+                (CrmInvoicesTable.status neq "ملغي") and (CrmInvoicesTable.organizationId eq org)
+            }
+            .toList()
         val totalRevenue = all.sumOf { it[CrmInvoicesTable.finalAmount].toDouble() }
         val totalPaid = all.sumOf { it[CrmInvoicesTable.paidAmount].toDouble() }
         val overdue = all.filter { it[CrmInvoicesTable.status] == "متأخر" }
@@ -851,9 +1465,16 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val recentActivities: List<ActivityDto>,
     )
 
-    fun getAgentProfile(agentId: String): AgentProfileDto? = transaction {
+    fun getAgentProfile(orgId: String?, agentId: String): AgentProfileDto? = transaction {
+        val org = resolveOrgId(orgId)
+        // Verify the agent belongs to the caller's org before returning anything.
+        // Otherwise an authenticated user from org A could request the profile of an
+        // agent in org B by guessing their UUID.
         val agent = SalesAgentsTable.selectAll()
-            .where { SalesAgentsTable.id eq UUID.fromString(agentId) }
+            .where {
+                (SalesAgentsTable.id eq UUID.fromString(agentId)) and
+                    (SalesAgentsTable.organizationId eq org)
+            }
             .firstOrNull() ?: return@transaction null
 
         val agentDto = AgentDto(
@@ -870,16 +1491,26 @@ class CrmService(private val jwtConfig: AdminJwtConfig) {
         val reviews = listReviews(agentId)
         val pinnedReviews = reviews.filter { it.pinned }
 
-        val totalClients = CrmClientsTable.selectAll().where { CrmClientsTable.assignedTo eq aid }.count()
+        // Per-agent stats — clients/activities are already scoped by agentId, but layer
+        // org_id on top so a stray cross-org agent UUID can't leak counts.
+        val totalClients = CrmClientsTable.selectAll().where {
+            (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.organizationId eq org)
+        }.count()
         val totalSubs = CrmClientsTable.selectAll().where {
-            (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
+            (CrmClientsTable.assignedTo eq aid) and
+                (CrmClientsTable.organizationId eq org) and
+                (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
         }.count()
         val totalRevenue = CrmClientsTable.selectAll().where {
-            (CrmClientsTable.assignedTo eq aid) and (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
+            (CrmClientsTable.assignedTo eq aid) and
+                (CrmClientsTable.organizationId eq org) and
+                (CrmClientsTable.status inList listOf("مشترك", "مدفوع"))
         }.sumOf { it[CrmClientsTable.monthlyAmount].toDouble() * (1 - it[CrmClientsTable.discountPercent] / 100.0) }
-        val totalActivities = CrmActivitiesTable.selectAll().where { CrmActivitiesTable.agentId eq aid }.count()
+        val totalActivities = CrmActivitiesTable.selectAll().where {
+            (CrmActivitiesTable.agentId eq aid) and (CrmActivitiesTable.organizationId eq org)
+        }.count()
 
-        val recentActivities = listActivities(agentId, isManager = false, limit = 10)
+        val recentActivities = listActivities(orgId, agentId, isManager = false, limit = 10)
 
         AgentProfileDto(
             agent = agentDto, currentMonth = currentMonth,

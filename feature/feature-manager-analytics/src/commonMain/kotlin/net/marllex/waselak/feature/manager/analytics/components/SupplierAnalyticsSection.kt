@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory
@@ -162,7 +163,7 @@ fun SupplierAnalyticsSection(
                     )
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            "${String.format(java.util.Locale.US, "%.1f", item.totalQuantity)} ${item.unit}",
+                            "${kFormat("%.1f", item.totalQuantity)} ${item.unit}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

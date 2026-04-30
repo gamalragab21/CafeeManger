@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -77,13 +78,13 @@ private fun InstallmentAnalyticsContent(data: InstallmentAnalytics) {
         ) {
             InstallmentKpiCard(
                 label = stringResource(CoreRes.string.total_installment_revenue),
-                value = "%.2f".format(data.totalRevenue),
+                value = kFormat("%.2f", data.totalRevenue),
                 color = Color(0xFF2196F3),
                 modifier = Modifier.weight(1f),
             )
             InstallmentKpiCard(
                 label = stringResource(CoreRes.string.collected_revenue),
-                value = "%.2f".format(data.collectedRevenue),
+                value = kFormat("%.2f", data.collectedRevenue),
                 color = Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f),
             )
@@ -95,13 +96,13 @@ private fun InstallmentAnalyticsContent(data: InstallmentAnalytics) {
         ) {
             InstallmentKpiCard(
                 label = stringResource(CoreRes.string.pending_revenue),
-                value = "%.2f".format(data.pendingRevenue),
+                value = kFormat("%.2f", data.pendingRevenue),
                 color = Color(0xFFFF9800),
                 modifier = Modifier.weight(1f),
             )
             InstallmentKpiCard(
                 label = stringResource(CoreRes.string.overdue_revenue),
-                value = "%.2f".format(data.overdueRevenue),
+                value = kFormat("%.2f", data.overdueRevenue),
                 color = if (data.overdueRevenue > 0) Color(0xFFF44336) else Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f),
             )
@@ -110,7 +111,7 @@ private fun InstallmentAnalyticsContent(data: InstallmentAnalytics) {
         // Late fees
         InstallmentKpiCard(
             label = stringResource(CoreRes.string.late_fees_collected),
-            value = "%.2f".format(data.lateFeesCollected),
+            value = kFormat("%.2f", data.lateFeesCollected),
             color = if (data.lateFeesCollected > 0) Color(0xFFFF9800) else Color(0xFF4CAF50),
             modifier = Modifier.fillMaxWidth(),
         )

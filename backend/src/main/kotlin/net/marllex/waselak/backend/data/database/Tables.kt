@@ -85,6 +85,12 @@ object UsersTable : UUIDTable("users") {
     val passwordHash = varchar("password_hash", 255)
     val photoUrl = text("photo_url").nullable()
     val active = bool("active").default(true)
+    // Manager POS-override PIN. Used by cashier terminals to authorise discounts:
+    // the cashier asks a manager for their 4-6 digit PIN, we verify it here and issue
+    // a short-lived token that gets attached to the next create-order request. Nullable
+    // because only managers set it; non-managers never need one.
+    val overridePinHash = varchar("override_pin_hash", 255).nullable()
+    val overridePinSetAt = timestamp("override_pin_set_at").nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 
@@ -221,6 +227,9 @@ object OrdersTable : UUIDTable("orders") {
     val pointsEarned = integer("points_earned").default(0)
     val pointsRedeemed = integer("points_redeemed").default(0)
     val discountReason = varchar("discount_reason", 100).nullable()
+    // Records which manager authorised the discount on this order (POS override flow).
+    // Null when the order has no discount, or when the cashier themselves is a manager.
+    val discountApprovedBy = reference("discount_approved_by", UsersTable).nullable()
     val doctorName = varchar("doctor_name", 255).nullable()
     val diagnosis = varchar("diagnosis", 500).nullable()
 }
@@ -951,14 +960,57 @@ object AppSettingsTable : UUIDTable("app_settings") {
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
 
+// ─── CRM: Organizations (multi-tenant root) ─────────────────────
+// One row per CRM customer. The Waselak team's own data lives under a single seeded
+// "Waselak" organization; sold/licensed copies of the CRM each get their own row, and
+// every CRM record (agents, clients, activities, invoices …) is scoped to it via
+// `organization_id`. Deleting an organization is intentionally not exposed via API —
+// soft-delete with `active = false` to preserve history.
+object CrmOrganizationsTable : UUIDTable("crm_organizations") {
+    val name = varchar("name", 255)
+    val contactEmail = varchar("contact_email", 255).nullable()
+    val contactPhone = varchar("contact_phone", 30).nullable()
+    /** Free-text plan tier for our own bookkeeping ("internal", "starter", "pro", …). */
+    val planTier = varchar("plan_tier", 50).default("internal")
+    val active = bool("active").default(true)
+    // Optional logo URL. Uploaded via the super-admin Edit modal — stored in
+    // uploads/crm-photos/ and served from the same /uploads/ static route used
+    // for agent photos. Shown next to the org name in the super-admin table and
+    // (eventually) on the tenant's own login page.
+    // (Use line comments rather than KDoc here — the path contains a `/` followed
+    // by `*` which Kotlin parses as a nested block-comment opener inside KDoc and
+    // would silently swallow the rest of the file.)
+    val logoUrl = text("logo_url").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}
+
 // ─── CRM: Sales Agents ─────────────────────────────────────────
 object SalesAgentsTable : UUIDTable("sales_agents") {
     val name = varchar("name", 255)
+    // NOTE: this used to be globally unique. With multi-tenancy, two organisations
+    // legitimately want different `owner@example.com` agents. Exposed migrations
+    // can't easily drop a unique index, so we keep the column itself non-unique here
+    // and rely on the lookup-by-email login flow scoping by org once we know which
+    // org the request is for. For Waselak's own data the index is already in place
+    // and harmless. NEW orgs are only created via the super-admin endpoint which
+    // generates a unique email per agent (the operator picks one).
     val email = varchar("email", 255).uniqueIndex()
     val passwordHash = varchar("password_hash", 255)
     val role = varchar("role", 50) // owner, مدير مبيعات, مندوب مبيعات, كول سنتر
     val photoUrl = text("photo_url").nullable()
+    // Optional phone — captured at provisioning time so the super-admin who
+    // sells the CRM has a contact channel for the customer's primary owner
+    // without needing to dig through the customer's own clients table. Org
+    // owners can later edit their own from the profile page. Nullable for
+    // backwards-compat with rows created before v1.10.
+    val phone = varchar("phone", 30).nullable()
     val active = bool("active").default(true)
+    // Multi-tenant scope. Nullable while the migration backfills, but every row in
+    // production carries a value pointing at CrmOrganizationsTable. New rows always
+    // receive `principal.organizationId`. NULL is safe to read but should never be
+    // returned to a CRM session — service queries filter on it.
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -984,6 +1036,8 @@ object CrmClientsTable : UUIDTable("crm_clients") {
     val lastContactAt = timestamp("last_contact_at").nullable()
     val nextActionDate = date("next_action_date").nullable()
     val interactionCount = integer("interaction_count").default(0)
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -1004,6 +1058,8 @@ object CrmActivitiesTable : UUIDTable("crm_activities") {
     val nextStep = text("next_step").nullable()
     val nextDate = date("next_date").nullable()
     val notes = text("notes").nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
@@ -1023,6 +1079,8 @@ object CrmInvoicesTable : UUIDTable("crm_invoices") {
     val paymentMethod = varchar("payment_method", 50).nullable()
     val notes = text("notes").nullable()
     val createdBy = reference("created_by", SalesAgentsTable).nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -1035,6 +1093,8 @@ object CrmPaymentsTable : UUIDTable("crm_payments") {
     val paymentMethod = varchar("payment_method", 50)
     val notes = text("notes").nullable()
     val receivedBy = reference("received_by", SalesAgentsTable).nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
 
@@ -1046,6 +1106,8 @@ object CrmAgentTargetsTable : UUIDTable("crm_agent_targets") {
     val targetSubscriptions = integer("target_subscriptions").default(0)
     val targetRevenue = decimal("target_revenue", 10, 2).default(java.math.BigDecimal.ZERO)
     val notes = text("notes").nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 
     init {
@@ -1061,6 +1123,8 @@ object CrmAgentReviewsTable : UUIDTable("crm_agent_reviews") {
     val review = text("review")
     val pinned = bool("pinned").default(false)
     val createdBy = reference("created_by", SalesAgentsTable)
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -1074,6 +1138,8 @@ object CrmSalaryConfigsTable : UUIDTable("crm_salary_configs") {
     val commissionMonths = integer("commission_months").default(0)
     val commissionBase = varchar("commission_base", 20).default("FINAL") // FINAL, ORIGINAL
     val notes = text("notes").nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 }
@@ -1093,6 +1159,8 @@ object CrmSalaryRecordsTable : UUIDTable("crm_salary_records") {
     val paidDate = date("paid_date").nullable()
     val notes = text("notes").nullable()
     val createdBy = reference("created_by", SalesAgentsTable).nullable()
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
     val updatedAt = timestamp("updated_at").default(Clock.System.now())
 
@@ -1114,5 +1182,7 @@ object CrmCommissionDetailsTable : UUIDTable("crm_commission_details") {
     val commissionType = varchar("commission_type", 30)
     val monthNumber = integer("month_number") // الشهر رقم كام من الاشتراك
     val isActive = bool("is_active").default(true)
+    /** Multi-tenant scope. See CrmOrganizationsTable. */
+    val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }

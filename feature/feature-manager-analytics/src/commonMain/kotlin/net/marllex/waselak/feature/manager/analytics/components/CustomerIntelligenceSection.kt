@@ -1,5 +1,6 @@
 package net.marllex.waselak.feature.manager.analytics.components
 
+import net.marllex.waselak.core.common.format.kFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -32,8 +33,8 @@ fun CustomerIntelligenceSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             KpiCard(label = stringResource(Res.string.total), value = formatNumber(data.totalCustomers), modifier = Modifier.weight(1f))
-            KpiCard(label = stringResource(Res.string.new_percent), value = "${String.format(java.util.Locale.US, "%.1f", data.newCustomersPercent)}%", modifier = Modifier.weight(1f))
-            KpiCard(label = stringResource(Res.string.returning_percent), value = "${String.format(java.util.Locale.US, "%.1f", data.returningCustomersPercent)}%", modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.new_percent), value = "${kFormat("%.1f", data.newCustomersPercent)}%", modifier = Modifier.weight(1f))
+            KpiCard(label = stringResource(Res.string.returning_percent), value = "${kFormat("%.1f", data.returningCustomersPercent)}%", modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(

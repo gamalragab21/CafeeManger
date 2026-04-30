@@ -1491,6 +1491,26 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
 
     // Shift summary state
     val apiClient: WaselakApiClient = koinInject()
+
+    // Suspension watchdog: without this, a cashier whose vendor just got suspended
+    // could keep scrolling/creating orders indefinitely because the app only checks
+    // auth when a request happens to fire. We ping /api/v1/auth/ping every 60s while
+    // the NavHost is in the foreground — the backend's global suspension interceptor
+    // will throw 403 + ACCOUNT_SUSPENDED, NetworkModule's error handler clears the
+    // tokens, isLoggedIn flips false, and the observer above navigates to login.
+    // When the Composable leaves the composition (app backgrounded / killed), the
+    // LaunchedEffect is cancelled — no battery drain.
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000L)
+            if (isLoggedIn) {
+                runCatching { apiClient.pingAuth() }
+                // We don't care about the return value — NetworkModule handles the 403.
+                // Any other error (network flap, etc.) is ignored so a bad wifi moment
+                // doesn't log the user out.
+            }
+        }
+    }
     val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
     var showShiftSummary by remember { mutableStateOf(false) }
     var shiftSummaryWithSignOut by remember { mutableStateOf(false) }
