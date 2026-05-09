@@ -12,6 +12,16 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
+    # Apple Developer team for automatic code-signing on physical devices.
+    # Without this, every fresh xcodegen output errors with
+    #   "Signing for 'WaselakManager' requires a development team."
+    # because xcodegen doesn't carry over the team selection that Xcode
+    # otherwise stashes in xcuserdata. 263CJ2VCYS = personal team for
+    # gamalragab21@icloud.com — the same team the prior successful device
+    # build used. To switch teams, change this value AND swap the cert in
+    # `security find-identity -v -p codesigning`.
+    DEVELOPMENT_TEAM: "263CJ2VCYS"
+    CODE_SIGN_STYLE: Automatic
 
 # Sentry-Cocoa (Swift Package). Sentry KMP's iOS layer auto-links to the
 # `Sentry` and `UIUtilities` frameworks at compile time; without the SPM
@@ -37,6 +47,53 @@ targets:
       - Manager
     info:
       path: Manager/Info.plist
+      # xcodegen owns this plist — every `xcodegen generate` rewrites the
+      # file from this spec and drops anything not listed here. Hand-editing
+      # Manager/Info.plist is a trap (it'll silently revert on the next
+      # regen, which is exactly how PlistSanityCheck started crashing the
+      # app at launch). Declare CMP-required keys here instead.
+      properties:
+        # Compose Multiplatform aborts at startup unless this is true.
+        # Without it: "Info.plist doesn't have a valid
+        # CADisableMinimumFrameDurationOnPhone entry" → SIGABRT.
+        CADisableMinimumFrameDurationOnPhone: true
+        # Empty UILaunchScreen dict = "use the blank default launch
+        # surface". Avoids needing a launch storyboard asset.
+        UILaunchScreen: {}
+        # Modern UIScene lifecycle. CMP's ComposeUIViewController
+        # integrates with the scene-based path; without this manifest
+        # some CMP versions fall back to legacy app-delegate and lose
+        # touch input on the simulator.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # ATS exception so Ktor on iOS can hit the staging backend over
+        # plain HTTP (187.124.47.222:8080 release / :8081 debug). Without
+        # this every API call fails with -1022 "App Transport Security
+        # policy requires the use of a secure connection".
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        # Face ID usage description. iOS REQUIRES this key when the app
+        # links LocalAuthentication.framework and calls LAContext's
+        # `evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` with
+        # Face ID. Missing → the OS terminates the process with
+        # `__abort_with_payload` the moment LAContext is invoked (no
+        # crash log, just a hard kill on the FaceID code path). Required
+        # for the post-login biometric gate. Touch ID does NOT need a
+        # separate key — `NSFaceIDUsageDescription` covers both because
+        # iOS only enforces the privacy prompt for Face ID. The string
+        # is shown verbatim in the system dialog.
+        NSFaceIDUsageDescription: "Authenticate to unlock the Manager Panel."
     dependencies:
       - package: Sentry
     settings:
@@ -56,15 +113,19 @@ targets:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager.debug
           PRODUCT_NAME: "Waselak Manager Debug"
-          FRAMEWORK_SEARCH_PATHS:
-            - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework"
-            - "$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework"
+          # SDK-conditional paths so the linker pulls the matching klib:
+          #   iphoneos*       → iosArm64/debugFramework  (real device)
+          #   iphonesimulator → iosSimulatorArm64/debugFramework
+          # Without this both paths were searched in order and the device
+          # build picked the simulator framework first, hitting:
+          #   "Building for 'iOS', but linking in object file built for 'iOS-simulator'"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework"
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: net.marllex.waselak.manager
           PRODUCT_NAME: "Waselak Manager"
-          FRAMEWORK_SEARCH_PATHS:
-            - "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework"
-            - "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework"
     preBuildScripts:
       - name: "Build Kotlin Framework"
         # Run in a login shell so PATH includes /usr/local/bin, /opt/homebrew/bin
@@ -95,20 +156,27 @@ targets:
 
           cd "$SRCROOT/.."
 
-          # Pick simulator vs device based on the SDK Xcode is targeting
-          # (iphonesimulator vs iphoneos), and Debug vs Release from Xcode's
-          # CONFIGURATION env var. -PBUILD_ENV bakes the matching BASE_URL
-          # into BuildConfig (debug → 187.124.47.222:8081, release → 8080).
-          case "$SDK_NAME" in
-            *simulator*) ARCH="IosSimulatorArm64" ;;
-            *)           ARCH="IosArm64" ;;
-          esac
-
-          if [ "$CONFIGURATION" = "Release" ]; then
-            ./gradlew :app-manager:linkReleaseFramework${ARCH} -PBUILD_ENV=release --no-daemon
-          else
-            ./gradlew :app-manager:linkDebugFramework${ARCH} -PBUILD_ENV=debug --no-daemon
-          fi
+          # `embedAndSignAppleFrameworkForXcode` is Compose Multiplatform's
+          # official Xcode-integration task. It reads $CONFIGURATION, $SDK_NAME,
+          # $ARCHS, $BUILT_PRODUCTS_DIR, $TARGET_BUILD_DIR, $FRAMEWORKS_FOLDER_PATH
+          # from Xcode's env, and on a single invocation:
+          #   1. Builds the right framework variant (linkDebug/Release × IosArm64/IosSimulatorArm64)
+          #   2. Embeds the framework into the .app
+          #   3. **Syncs `compose-resources/` into the .app bundle** ← this was the missing piece
+          #   4. Code-signs
+          #
+          # Without (3), Compose's stringResource() crashes at first frame with
+          #   org.jetbrains.compose.resources.MissingResourceException:
+          #     Missing resource with path: <App>.app/compose-resources/composeResources/<module>/values/strings.commonMain.cvr
+          # because the .cvr files generated under
+          #   <module>/build/generated/compose/resourceGenerator/preparedResources/...
+          # never made it into the bundle. The previous script invoked only
+          # `linkDebugFramework${ARCH}` which produces the framework but not
+          # the resource tree the runtime expects.
+          BUILD_ENV=$([ "$CONFIGURATION" = "Release" ] && echo release || echo debug)
+          ./gradlew :app-manager:embedAndSignAppleFrameworkForXcode \
+            -PBUILD_ENV=$BUILD_ENV \
+            --no-daemon
         basedOnDependencyAnalysis: false
 
   WaselakCashier:

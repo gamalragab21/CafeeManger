@@ -1,6 +1,7 @@
 package net.marllex.waselak.core.database.di
 
 import app.cash.sqldelight.ColumnAdapter
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import net.marllex.waselak.core.database.*
 import net.marllex.waselak.core.database.dao.*
@@ -17,11 +18,51 @@ private val booleanAdapter = object : ColumnAdapter<Boolean, Long> {
 }
 
 /**
+ * Cheap fresh-DB detector: does the LAST column added by [migrateIfNeeded]
+ * already exist? If yes, SqlDelight's `Schema.create()` already produced
+ * the latest schema (fresh install, since the .sq files declare every
+ * column up-front) and we can skip the entire migration loop.
+ *
+ * The probe column is `vendors.enable_offers`, the very last `ALTER TABLE`
+ * in the migrations list. Bump this to whatever the newest column is
+ * whenever you append to the list — if you forget, the worst case is one
+ * extra slow migration pass on next launch (already-idempotent).
+ *
+ * NOTE: deliberately does NOT touch `PRAGMA user_version` — that field
+ * is owned by SqlDelight's NativeSqliteDriver to track *its* schema
+ * version. Stamping it ourselves makes sqliter throw
+ * "Database version N newer than config version 1" on the next launch,
+ * because the driver thinks the DB has migrated past what the code knows
+ * about and refuses to open it.
+ */
+private fun latestSchemaPresent(driver: SqlDriver): Boolean = try {
+    driver.executeQuery(
+        identifier = null,
+        sql = "SELECT enable_offers FROM vendors LIMIT 0",
+        mapper = { QueryResult.Value(true) },
+        parameters = 0,
+    ).value
+} catch (_: Exception) {
+    false
+}
+
+/**
  * Run safe ALTER TABLE migrations for schema changes.
- * Each statement is wrapped in try-catch so it's idempotent
- * (no-op if column/table already exists).
+ *
+ * Short-circuits when [latestSchemaPresent] returns true — i.e. the DB
+ * already has the newest column. This covers fresh installs (SqlDelight's
+ * Schema.create() writes the latest schema in one go) and any DB that
+ * has been migrated once before. On a stale DB we fall through and run
+ * every statement in a try-catch (idempotent — no-op if the column /
+ * table already exists). Without this short-circuit, on iOS the ~100
+ * ALTER TABLEs each fail with "duplicate column" at ~180 ms apiece
+ * (libsqlite3 logging + Kotlin/Native stack capture), blowing past the
+ * launch watchdog and getting the app killed silently before it draws
+ * a frame.
  */
 private fun migrateIfNeeded(driver: SqlDriver) {
+    if (latestSchemaPresent(driver)) return
+
     val migrations = listOf(
         // v2: add enable_takeaway to vendors
         "ALTER TABLE vendors ADD COLUMN enable_takeaway INTEGER NOT NULL DEFAULT 1",

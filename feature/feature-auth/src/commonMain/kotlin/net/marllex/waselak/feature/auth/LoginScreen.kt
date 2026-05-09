@@ -195,6 +195,9 @@ private fun LoginContent(
                 .fillMaxSize()
                 .background(gradientBrush)
                 .padding(innerPadding),
+            // Tap-to-dismiss-keyboard is now app-wide via WaselakTheme →
+            // DismissKeyboardOnOutsideTap, so no per-screen handler needed
+            // here.
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(

@@ -164,6 +164,18 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					08827DA1B8EA160E86062A18 = {
+						DevelopmentTeam = 263CJ2VCYS;
+						ProvisioningStyle = Automatic;
+					};
+					307CCC81CC2AD0250F686F16 = {
+						DevelopmentTeam = 263CJ2VCYS;
+						ProvisioningStyle = Automatic;
+					};
+					AD69F7D59870537B6BC2AC28 = {
+						DevelopmentTeam = 263CJ2VCYS;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 87521A84F22809C57700263E /* Build configuration list for PBXProject "Waselak" */;
@@ -254,7 +266,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -l";
-			shellScript = "set -e\nset -x  # echo each command into the build log so a failure is debuggable\n\n# Pin to JDK 17. The system default (`/usr/libexec/java_home`)\n# currently resolves to OpenJDK 25.0.1, which Kotlin Gradle Plugin\n# 2.1.20 + AGP 8.9.1 don't recognise — gradle aborts with the cryptic\n# `* What went wrong: 25.0.1` and the Xcode build phase crashes with\n# \"Command PhaseScriptExecution failed with a nonzero exit code\".\n# Switching to 17 (any flavour — Corretto / Temurin / Homebrew) keeps\n# us aligned with the toolchain Android already uses.\nexport JAVA_HOME=\"$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home -v 21 2>/dev/null)\"\nif [ -z \"$JAVA_HOME\" ]; then\n  echo \"❌ No JDK 17 or 21 installed. brew install openjdk@21 or download Corretto 17.\" >&2\n  exit 1\nfi\nexport PATH=\"$JAVA_HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\necho \"Using JAVA_HOME=$JAVA_HOME\"\n\ncd \"$SRCROOT/..\"\n\n# Pick simulator vs device based on the SDK Xcode is targeting\n# (iphonesimulator vs iphoneos), and Debug vs Release from Xcode's\n# CONFIGURATION env var. -PBUILD_ENV bakes the matching BASE_URL\n# into BuildConfig (debug → 187.124.47.222:8081, release → 8080).\ncase \"$SDK_NAME\" in\n  *simulator*) ARCH=\"IosSimulatorArm64\" ;;\n  *)           ARCH=\"IosArm64\" ;;\nesac\n\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  ./gradlew :app-manager:linkReleaseFramework${ARCH} -PBUILD_ENV=release --no-daemon\nelse\n  ./gradlew :app-manager:linkDebugFramework${ARCH} -PBUILD_ENV=debug --no-daemon\nfi\n";
+			shellScript = "set -e\nset -x  # echo each command into the build log so a failure is debuggable\n\n# Pin to JDK 17. The system default (`/usr/libexec/java_home`)\n# currently resolves to OpenJDK 25.0.1, which Kotlin Gradle Plugin\n# 2.1.20 + AGP 8.9.1 don't recognise — gradle aborts with the cryptic\n# `* What went wrong: 25.0.1` and the Xcode build phase crashes with\n# \"Command PhaseScriptExecution failed with a nonzero exit code\".\n# Switching to 17 (any flavour — Corretto / Temurin / Homebrew) keeps\n# us aligned with the toolchain Android already uses.\nexport JAVA_HOME=\"$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home -v 21 2>/dev/null)\"\nif [ -z \"$JAVA_HOME\" ]; then\n  echo \"❌ No JDK 17 or 21 installed. brew install openjdk@21 or download Corretto 17.\" >&2\n  exit 1\nfi\nexport PATH=\"$JAVA_HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\necho \"Using JAVA_HOME=$JAVA_HOME\"\n\ncd \"$SRCROOT/..\"\n\n# `embedAndSignAppleFrameworkForXcode` is Compose Multiplatform's\n# official Xcode-integration task. It reads $CONFIGURATION, $SDK_NAME,\n# $ARCHS, $BUILT_PRODUCTS_DIR, $TARGET_BUILD_DIR, $FRAMEWORKS_FOLDER_PATH\n# from Xcode's env, and on a single invocation:\n#   1. Builds the right framework variant (linkDebug/Release × IosArm64/IosSimulatorArm64)\n#   2. Embeds the framework into the .app\n#   3. **Syncs `compose-resources/` into the .app bundle** ← this was the missing piece\n#   4. Code-signs\n#\n# Without (3), Compose's stringResource() crashes at first frame with\n#   org.jetbrains.compose.resources.MissingResourceException:\n#     Missing resource with path: <App>.app/compose-resources/composeResources/<module>/values/strings.commonMain.cvr\n# because the .cvr files generated under\n#   <module>/build/generated/compose/resourceGenerator/preparedResources/...\n# never made it into the bundle. The previous script invoked only\n# `linkDebugFramework${ARCH}` which produces the framework but not\n# the resource tree the runtime expects.\nBUILD_ENV=$([ \"$CONFIGURATION\" = \"Release\" ] && echo release || echo debug)\n./gradlew :app-manager:embedAndSignAppleFrameworkForXcode \\\n  -PBUILD_ENV=$BUILD_ENV \\\n  --no-daemon\n";
 		};
 		E0AEB358BDC06B747FD1E47B /* Build Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -359,8 +371,10 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 263CJ2VCYS;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -387,10 +401,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework",
-					"$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework",
-				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/../app-manager/build/bin/iosArm64/releaseFramework";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/releaseFramework";
 				INFOPLIST_FILE = Manager/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -459,8 +471,10 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 263CJ2VCYS;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -515,10 +529,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework",
-					"$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework",
-				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/../app-manager/build/bin/iosArm64/debugFramework";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/../app-manager/build/bin/iosSimulatorArm64/debugFramework";
 				INFOPLIST_FILE = Manager/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

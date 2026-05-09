@@ -1,6 +1,8 @@
 package net.marllex.waselak.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -9,7 +11,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 
 // ═══════════════════════════════════════════════════════════════════
@@ -139,7 +147,72 @@ fun WaselakTheme(
             colorScheme = colorScheme,
             typography = WaselakTypography,
             shapes = WaselakShapes,
-            content = content
-        )
+        ) {
+            DismissKeyboardOnOutsideTap { content() }
+        }
+    }
+}
+
+/**
+ * Wraps content in a full-screen tap region that dismisses the soft
+ * keyboard when the user taps anywhere not handled by another widget.
+ *
+ * Why it lives in WaselakTheme: applied here, the behaviour is global —
+ * every screen across Manager / Cashier / Delivery / KDS gets it for
+ * free, on both Android and iOS. `focusManager.clearFocus()` is the
+ * cross-platform Compose call that:
+ *   • Android: clears the focused TextField → the system IME hides
+ *   • iOS: triggers `resignFirstResponder` on the focused input view →
+ *     the iOS keyboard slides down
+ *
+ * Why it matters especially on iOS: `KeyboardType.Phone` shows the
+ * number-pad keyboard which has NO Done / Return key by design, so
+ * without this gesture there is literally no way to dismiss the
+ * keyboard from the phone field.
+ *
+ * Implementation note — why `awaitPointerEvent(Final)` and NOT
+ * `detectTapGestures`:
+ *
+ * `detectTapGestures` runs in the Main pass (default), which means it
+ * competes with `verticalScroll` / `LazyColumn` / nested scrollables for
+ * the down event. In several Compose Multiplatform versions this
+ * subtly breaks scrolling on screens where this composable wraps the
+ * scrollable content — reported as "I can't scroll the login screen".
+ *
+ * Switching to `awaitPointerEvent(PointerEventPass.Final)` makes us
+ * observe the press AFTER children. By that pass, `verticalScroll` has
+ * already claimed the down event for itself when the user is starting
+ * a drag, and `event.changes.any { it.isConsumed }` reports true → we
+ * skip the focus-clear, the scroll continues uninterrupted. We don't
+ * consume anything here, so children always get full event delivery.
+ *
+ * Effect by gesture:
+ *   • Tap on TextField   — TextField consumes → we skip → focus moves there ✓
+ *   • Tap on Button      — Button consumes → we skip → onClick runs ✓
+ *   • Tap on background  — nobody consumes → we clear focus → keyboard hides ✓
+ *   • Drag (scroll)      — scroll consumes the press → we skip → scroll works ✓
+ */
+@Composable
+private fun DismissKeyboardOnOutsideTap(content: @Composable () -> Unit) {
+    val focusManager = LocalFocusManager.current
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Final)
+                        if (event.type == PointerEventType.Press) {
+                            val hasFreshDown = event.changes.any { it.changedToDownIgnoreConsumed() }
+                            val anyConsumed = event.changes.any { it.isConsumed }
+                            if (hasFreshDown && !anyConsumed) {
+                                focusManager.clearFocus()
+                            }
+                        }
+                    }
+                }
+            },
+    ) {
+        content()
     }
 }
