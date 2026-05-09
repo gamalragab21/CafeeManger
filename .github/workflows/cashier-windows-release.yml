@@ -1,0 +1,125 @@
+# Fast cashier-only Windows release MSI build.
+#
+# Why a separate workflow when ci.yml already builds Windows MSIs on tag-push:
+#   - ci.yml is the full release pipeline — lint + tests + Android + backend +
+#     all 4 desktop apps × 3 OSes + GitHub Release + Telegram notify. End-to-end
+#     ~45-60 min on a tag push.
+#   - For an urgent client install we don't need any of that. We just need
+#     Cashier-Windows-Release.msi, signed with the production secrets, ASAP.
+#   - This workflow trims to JUST that one MSI on a single Windows runner,
+#     skipping the other 3 desktop apps and the 2 other OSes. Wall time ~10-15 min.
+#
+# Trigger: workflow_dispatch only — manually fired from the Actions tab
+# (or `gh workflow run cashier-windows-release.yml`). Doesn't conflict with
+# ci.yml when a tag is pushed; both can run in parallel.
+
+name: Cashier Windows Release (hotfix)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_suffix:
+        description: "Optional suffix for the artifact filename (e.g. 'hotfix1'). Leave empty to use just the gradle.properties version."
+        required: false
+        default: ""
+
+concurrency:
+  # Cancel any earlier in-progress hotfix run if a new one is dispatched.
+  group: cashier-windows-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Read-only cache — same convention as ci.yml's non-tag runs. The
+          # release pipeline (tag push) writes to the cache; hotfix runs only
+          # consume it so they don't compete.
+          cache-read-only: true
+
+      # Same release-secrets pattern ci.yml's build-desktop job uses, so the
+      # produced MSI matches the official release MSI byte-for-byte modulo
+      # build timestamp. BASE_URL / HMAC_SECRET / SENTRY_DSN come from the
+      # repo's RELEASE_* secrets.
+      - name: Create env/release.properties from secrets
+        shell: bash
+        env:
+          R_BASE_URL: ${{ secrets.RELEASE_BASE_URL }}
+          R_HMAC: ${{ secrets.RELEASE_HMAC_SECRET }}
+          R_SENTRY: ${{ secrets.RELEASE_SENTRY_DSN }}
+        run: |
+          printf "BASE_URL=%s\nHMAC_SECRET=%s\nSENTRY_DSN=%s\n" \
+            "$R_BASE_URL" "$R_HMAC" "$R_SENTRY" > env/release.properties
+          echo "=== Release config check (last 6 chars only) ==="
+          echo "BASE_URL: ${R_BASE_URL:0:6}...${R_BASE_URL: -6}"
+          echo "HMAC:     ${R_HMAC:0:6}...${R_HMAC: -6}"
+          echo "SENTRY:   ${R_SENTRY:0:6}...${R_SENTRY: -6}"
+
+      - name: Compute version + date
+        id: vars
+        shell: bash
+        run: |
+          VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          DATE=$(date +'%d%m%y')
+          SUFFIX="${{ github.event.inputs.version_suffix }}"
+          if [ -n "$SUFFIX" ]; then
+            FILENAME="Cashier-v${VERSION}-${DATE}-${SUFFIX}-release-windows.msi"
+          else
+            FILENAME="Cashier-v${VERSION}-${DATE}-release-windows.msi"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+
+      # Just app-cashier:packageMsi. The convention plugin's resolveBuildEnv()
+      # auto-detects "package*" tasks as release mode (no -PBUILD_ENV=debug),
+      # so this produces the production MSI.
+      - name: Build cashier release MSI
+        shell: bash
+        run: ./gradlew :app-cashier:packageMsi -PtargetOs=windows --no-daemon
+
+      - name: Locate produced MSI
+        id: msi
+        shell: bash
+        run: |
+          MSI=$(find app-cashier/build/compose/binaries/main/msi -name "*.msi" -type f | head -1)
+          if [ -z "$MSI" ]; then
+            echo "❌ No MSI was produced. Listing build dir for debugging:" >&2
+            find app-cashier/build/compose/binaries -type f >&2 || true
+            exit 1
+          fi
+          echo "Found: $MSI"
+          echo "path=$MSI" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Cashier Windows release MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.filename }}
+          path: ${{ steps.msi.outputs.path }}
+          retention-days: 30
+
+      - name: Summary
+        shell: bash
+        run: |
+          echo "### Cashier Windows Release Built ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** ${{ steps.vars.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Build date:** ${{ steps.vars.outputs.date }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Artifact:** \`${{ steps.vars.outputs.filename }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **MSI path on runner:** \`${{ steps.msi.outputs.path }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download from the **Artifacts** section at the top of this run page." >> "$GITHUB_STEP_SUMMARY"
