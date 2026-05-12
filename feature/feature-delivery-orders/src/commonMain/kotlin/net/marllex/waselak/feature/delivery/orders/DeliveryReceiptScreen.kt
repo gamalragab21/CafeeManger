@@ -80,7 +80,6 @@ import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
 import net.marllex.waselak.core.ui.theme.LocalReceiptColors
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import qrgenerator.qrkitpainter.rememberQrKitPainter
 import net.marllex.waselak.feature.delivery.orders.generated.resources.*
 
 @Composable
@@ -360,7 +359,7 @@ fun DeliveryReceiptScreen(
                                 DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(12.dp))
                                 Image(
-                                    painter = rememberQrKitPainter(data = uiState.shareUrl ?: order.id),
+                                    painter = rememberQrKitPainterMP(data = uiState.shareUrl ?: order.id),
                                     contentDescription = "Receipt QR Code",
                                     modifier = Modifier.size(100.dp),
                                 )
@@ -490,7 +489,7 @@ fun DeliveryReceiptScreen(
                         tonalElevation = 2.dp,
                     ) {
                         Image(
-                            painter = rememberQrKitPainter(data = uiState.shareUrl ?: order.id),
+                            painter = rememberQrKitPainterMP(data = uiState.shareUrl ?: order.id),
                             contentDescription = "QR",
                             modifier = Modifier.fillMaxSize().padding(12.dp),
                         )
