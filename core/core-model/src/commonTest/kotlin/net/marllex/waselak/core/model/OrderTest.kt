@@ -38,9 +38,24 @@ class OrderStatusTest {
     }
 
     @Test
-    fun dineInCannotSkipStates() {
+    fun dineInCannotSkipToIntermediateStates() {
+        // Still illegal: skipping to a non-terminal intermediate state (SERVED
+        // or READY) without going through preparation. The kitchen still has
+        // to acknowledge the order before it can be "served."
         assertFalse(OrderStatus.CREATED.canTransitionTo(OrderStatus.SERVED, OrderChannel.DINE_IN))
-        assertFalse(OrderStatus.CREATED.canTransitionTo(OrderStatus.COMPLETED, OrderChannel.DINE_IN))
+        assertFalse(OrderStatus.CREATED.canTransitionTo(OrderStatus.READY, OrderChannel.DINE_IN))
+        assertFalse(OrderStatus.IN_PREPARATION.canTransitionTo(OrderStatus.SERVED, OrderChannel.DINE_IN))
+    }
+
+    @Test
+    fun dineInCanJumpDirectlyToCompleted() {
+        // Product decision (May 2026): fast-counter merchants need a one-tap
+        // "Mark Completed" CTA. Allowed from any pre-terminal status; paid-
+        // status gating happens at the UI layer.
+        assertTrue(OrderStatus.CREATED.canTransitionTo(OrderStatus.COMPLETED, OrderChannel.DINE_IN))
+        assertTrue(OrderStatus.IN_PREPARATION.canTransitionTo(OrderStatus.COMPLETED, OrderChannel.DINE_IN))
+        assertTrue(OrderStatus.READY.canTransitionTo(OrderStatus.COMPLETED, OrderChannel.DINE_IN))
+        assertTrue(OrderStatus.SERVED.canTransitionTo(OrderStatus.COMPLETED, OrderChannel.DINE_IN))
     }
 
     // ── DELIVERY transitions ───────────────────────────────────
