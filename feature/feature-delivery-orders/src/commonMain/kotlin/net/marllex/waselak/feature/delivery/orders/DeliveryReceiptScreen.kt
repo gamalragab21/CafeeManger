@@ -398,8 +398,15 @@ fun DeliveryReceiptScreen(
                                 onClick = {
                                     // Use printOrder for direct rendering on desktop
                                     // (HTML path was unreliable — see PrintReceipt.desktop.kt).
-                                    val qrUrl = uiState.shareUrl
-                                        ?.takeIf { uiState.digitalReceiptEnabled && it.isNotBlank() }
+                                    // shareUrl is only populated after a successful
+                                    // share call (which is itself plan-gated on the
+                                    // server), so a non-blank URL is sufficient
+                                    // signal that the digital-receipt QR should be
+                                    // embedded in the printout. The delivery
+                                    // ViewModel doesn't track a separate
+                                    // digitalReceiptEnabled flag the way the cashier
+                                    // ViewModel does.
+                                    val qrUrl = uiState.shareUrl?.takeIf { it.isNotBlank() }
                                     printer.printOrder(
                                         order = order,
                                         vendor = vendor,
