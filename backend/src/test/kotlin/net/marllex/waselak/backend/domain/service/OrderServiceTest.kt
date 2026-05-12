@@ -42,9 +42,24 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `dine-in cannot skip states`() {
+    fun `dine-in cannot skip to intermediate states`() {
+        // Still illegal: jumping past prep/ready to a non-terminal intermediate
+        // (SERVED) — that would mean "skip the kitchen and the wait". The
+        // staff has to walk the order through prep at minimum.
         assertFalse(service.validateStatusTransition("CREATED", "SERVED", "DINE_IN", "CASHIER"))
-        assertFalse(service.validateStatusTransition("CREATED", "COMPLETED", "DINE_IN", "CASHIER"))
+        assertFalse(service.validateStatusTransition("CREATED", "READY", "DINE_IN", "CASHIER"))
+        assertFalse(service.validateStatusTransition("IN_PREPARATION", "SERVED", "DINE_IN", "CASHIER"))
+    }
+
+    @Test
+    fun `dine-in can jump directly to COMPLETED (Mark Completed shortcut)`() {
+        // Product decision (May 2026): fast-counter merchants need a one-tap
+        // "Mark Completed" CTA on the orders screen. Allowed from any
+        // pre-terminal status. Paid-status gating happens at the UI layer.
+        assertTrue(service.validateStatusTransition("CREATED", "COMPLETED", "DINE_IN", "CASHIER"))
+        assertTrue(service.validateStatusTransition("IN_PREPARATION", "COMPLETED", "DINE_IN", "CASHIER"))
+        assertTrue(service.validateStatusTransition("READY", "COMPLETED", "DINE_IN", "CASHIER"))
+        assertTrue(service.validateStatusTransition("SERVED", "COMPLETED", "DINE_IN", "CASHIER"))
     }
 
     // ── DELIVERY channel ────────────────────────────────────────
