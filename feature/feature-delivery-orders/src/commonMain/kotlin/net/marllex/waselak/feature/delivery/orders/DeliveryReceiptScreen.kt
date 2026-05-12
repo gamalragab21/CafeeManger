@@ -74,6 +74,7 @@ import net.marllex.waselak.core.model.OrderChannel
 import net.marllex.waselak.core.model.PaymentMethod
 import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.platform.buildReceiptHtml
+import net.marllex.waselak.core.ui.platform.getReceiptLanguage
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
 import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
 import net.marllex.waselak.core.ui.theme.LocalReceiptColors
@@ -124,6 +125,9 @@ fun DeliveryReceiptScreen(
     val platformActions = rememberPlatformActions()
     var showQr by remember { mutableStateOf(false) }
     val receiptColors = LocalReceiptColors.current
+    // Receipt language — comes from the platform-specific persisted
+    // language selector (see PrintReceipt.kt's expect declaration).
+    val receiptLang = getReceiptLanguage()
 
     // Localized strings
     val receiptTitle = stringResource(Res.string.receipt)
@@ -184,7 +188,7 @@ fun DeliveryReceiptScreen(
                         ElevatedCard(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.elevatedCardColors(containerColor = receiptColors.surface),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
                             shape = RoundedCornerShape(16.dp),
                         ) {
                             Column(
@@ -241,7 +245,7 @@ fun DeliveryReceiptScreen(
 
                                 // Order Info
                                 ReceiptInfoSection(bgColor = receiptColors.sectionBg) {
-                                    ReceiptDataRow(orderNumLabel, "#${order.id.takeLast(8).uppercase()}", isBold = true, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(orderNumLabel, order.displayId, isBold = true, labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(dateLabel, formatDate(order.createdAt), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(channelLabel, localizedChannel(order.channel), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     ReceiptDataRow(paymentLabel, localizedPayment(order.paymentMethod), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
@@ -362,7 +366,7 @@ fun DeliveryReceiptScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "$orderNumLabel${order.id.takeLast(8).uppercase()}",
+                                    text = "$orderNumLabel${order.displayId}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = receiptColors.textSecondary,
                                     textAlign = TextAlign.Center,
@@ -392,8 +396,17 @@ fun DeliveryReceiptScreen(
                             val btnMod = Modifier.weight(1f).height(48.dp)
                             OutlinedButton(
                                 onClick = {
-                                    val html = buildReceiptHtml(order, vendor)
-                                    printer.printHtml(html, "Receipt-${order.id.takeLast(8)}")
+                                    // Use printOrder for direct rendering on desktop
+                                    // (HTML path was unreliable — see PrintReceipt.desktop.kt).
+                                    val qrUrl = uiState.shareUrl
+                                        ?.takeIf { uiState.digitalReceiptEnabled && it.isNotBlank() }
+                                    printer.printOrder(
+                                        order = order,
+                                        vendor = vendor,
+                                        language = receiptLang,
+                                        jobName = "Receipt-${order.id.takeLast(8)}",
+                                        qrCodeUrl = qrUrl,
+                                    )
                                 },
                                 modifier = btnMod,
                                 shape = RoundedCornerShape(12.dp),
@@ -415,7 +428,7 @@ fun DeliveryReceiptScreen(
                             }
                             OutlinedButton(
                                 onClick = {
-                                    val html = buildReceiptHtml(order, vendor)
+                                    val html = buildReceiptHtml(order, vendor, receiptLang)
                                     platformActions.shareHtmlAsImage(html, "receipt-${order.id.takeLast(8)}")
                                 },
                                 modifier = btnMod,

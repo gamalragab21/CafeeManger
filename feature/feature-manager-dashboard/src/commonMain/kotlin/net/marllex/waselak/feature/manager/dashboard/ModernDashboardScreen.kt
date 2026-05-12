@@ -251,18 +251,46 @@ private fun TodaySnapshotSection(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             maxItemsInEachRow = 2,
         ) {
+            // ── KPI 1: Today's Revenue (accounting-correct) ──────────
+            // Same definition the Shift Summary uses: PAID + COMPLETED.
+            // This is the figure that should match end-of-day cash drawer
+            // counts and tax reports. The legacy `totalRevenue` (which
+            // bundled in-flight PAID orders) is kept on the response so
+            // older code/analytics tabs don't break.
             KpiCard(
-                label = stringResource(Res.string.total_revenue),
-                value = "${formatCurrency(summary.current.totalRevenue)} EGP",
+                label = stringResource(Res.string.completed_revenue_today),
+                value = "${formatCurrency(summary.current.completedRevenue)} EGP",
                 changePercent = summary.revenueChangePercent,
                 modifier = Modifier.weight(1f),
             )
+            // ── KPI 2: Completed orders count ────────────────────────
+            // The "how many orders did we actually close today" number.
+            // Pairs with the revenue KPI so the merchant sees both
+            // the money and the count at a glance.
             KpiCard(
-                label = stringResource(Res.string.total_orders),
-                value = formatNumber(summary.current.totalOrders),
+                label = stringResource(Res.string.completed_orders_today),
+                value = formatNumber(summary.current.completedOrders),
                 changePercent = summary.ordersChangePercent,
                 modifier = Modifier.weight(1f),
             )
+            // ── KPI 3: In-progress orders ────────────────────────────
+            // Active = orders NOT in COMPLETED/CANCELED/REFUNDED. This is
+            // the "kitchen pipeline" — how many tickets are still moving.
+            KpiCard(
+                label = stringResource(Res.string.in_progress_orders),
+                value = formatNumber(summary.activeOrders),
+                modifier = Modifier.weight(1f),
+            )
+            // ── KPI 4: Pending payment ───────────────────────────────
+            // Money the merchant has sold but not yet collected — e.g.
+            // delivery on credit, PAY_LATER orders. Surfacing this
+            // prominently helps the merchant chase collections.
+            KpiCard(
+                label = stringResource(Res.string.pending_payment_today),
+                value = "${formatCurrency(summary.current.pendingRevenue)} EGP",
+                modifier = Modifier.weight(1f),
+            )
+            // ── Supplemental KPIs ───────────────────────────────────
             KpiCard(
                 label = stringResource(Res.string.avg_order_value),
                 value = "${formatCurrency(summary.current.averageOrderValue)} EGP",
@@ -276,11 +304,6 @@ private fun TodaySnapshotSection(
                     modifier = Modifier.weight(1f),
                 )
             }
-            KpiCard(
-                label = stringResource(Res.string.active_orders),
-                value = formatNumber(summary.activeOrders),
-                modifier = Modifier.weight(1f),
-            )
             KpiCard(
                 label = stringResource(Res.string.staff_present),
                 value = formatNumber(summary.attendanceToday),
@@ -332,7 +355,7 @@ private fun TopPerformanceSection(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -555,7 +578,7 @@ private fun ModernOrderCard(order: Order) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier

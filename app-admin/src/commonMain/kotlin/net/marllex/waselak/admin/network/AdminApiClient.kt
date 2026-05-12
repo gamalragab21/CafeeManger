@@ -22,6 +22,9 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.marllex.waselak.admin.session.AdminSessionManager
 import net.marllex.waselak.core.common.logging.AppLogger
 
@@ -875,6 +878,292 @@ class AdminApiClient(
         } catch (e: Exception) {
             Logger.e(TAG, e) { "deactivateVendorUser EXCEPTION" }
             false
+        }
+    }
+
+    /**
+     * Admin sets or clears an employee's manager-override PIN (4-6 digits).
+     * Pass [newPin] = null to clear an existing PIN; otherwise the PIN must
+     * be 4-6 digits — the backend rejects anything else with a 400.
+     */
+    suspend fun setVendorUserPin(vendorId: String, userId: String, newPin: String?): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/users/$userId/set-pin"
+        return try {
+            val body = if (newPin == null) {
+                mapOf("clear" to true)
+            } else {
+                mapOf("pin" to newPin)
+            }
+            val response: HttpResponse = client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "setVendorUserPin EXCEPTION" }
+            false
+        }
+    }
+
+    /**
+     * Result of attempting a permanent (hard) delete of a vendor user.
+     *
+     * The backend may refuse the delete when the user has historical orders
+     * or attendance entries — in that case [errorCode] is `ORDERS_ATTACHED`
+     * or `ATTENDANCE_ATTACHED` and the UI should prompt the operator to
+     * pick a replacement user and retry with [reassignToUserId] set.
+     */
+    data class HardDeleteResult(
+        val ok: Boolean,
+        val errorCode: String? = null,
+        val errorMessage: String? = null,
+    )
+
+    // ─── Vendor menu management (admin scope) ─────────────────────
+    // These methods drive the admin "Menu" tab — they hit JWT-auth-only
+    // CMS endpoints that operate on any vendor by URL parameter.
+
+    suspend fun getVendorMenu(vendorId: String): List<AdminCategoryDto> {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/menu"
+        return try {
+            client.get(url).body()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorMenu EXCEPTION" }
+            emptyList()
+        }
+    }
+
+    suspend fun createVendorCategory(
+        vendorId: String,
+        request: CreateAdminCategoryRequest,
+    ): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/categories"
+        return try {
+            client.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "createVendorCategory EXCEPTION" }; false
+        }
+    }
+
+    suspend fun updateVendorCategory(
+        vendorId: String,
+        categoryId: String,
+        request: UpdateAdminCategoryRequest,
+    ): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/categories/$categoryId"
+        return try {
+            client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "updateVendorCategory EXCEPTION" }; false
+        }
+    }
+
+    /**
+     * Result of a category-delete. Returns the failure code when present so
+     * the UI can offer the right remediation hint (e.g. "category has items
+     * — move them first").
+     */
+    data class CategoryDeleteResult(val ok: Boolean, val errorCode: String? = null)
+
+    suspend fun deleteVendorCategory(vendorId: String, categoryId: String): CategoryDeleteResult {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/categories/$categoryId"
+        return try {
+            val resp: HttpResponse = client.delete(url)
+            if (resp.status.isSuccess()) return CategoryDeleteResult(ok = true)
+            val txt = runCatching { resp.bodyAsText() }.getOrDefault("")
+            val parsed = runCatching { Json.parseToJsonElement(txt).jsonObject }.getOrNull()
+            CategoryDeleteResult(
+                ok = false,
+                errorCode = parsed?.get("code")?.jsonPrimitive?.contentOrNull,
+            )
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "deleteVendorCategory EXCEPTION" }
+            CategoryDeleteResult(ok = false)
+        }
+    }
+
+    suspend fun createVendorItem(
+        vendorId: String,
+        request: CreateAdminItemRequest,
+    ): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/items"
+        return try {
+            client.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "createVendorItem EXCEPTION" }; false
+        }
+    }
+
+    suspend fun updateVendorItem(
+        vendorId: String,
+        itemId: String,
+        request: UpdateAdminItemRequest,
+    ): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/items/$itemId"
+        return try {
+            client.put(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "updateVendorItem EXCEPTION" }; false
+        }
+    }
+
+    data class ItemDeleteResult(val ok: Boolean, val errorCode: String? = null)
+
+    suspend fun deleteVendorItem(vendorId: String, itemId: String): ItemDeleteResult {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/items/$itemId"
+        return try {
+            val resp: HttpResponse = client.delete(url)
+            if (resp.status.isSuccess()) return ItemDeleteResult(ok = true)
+            val txt = runCatching { resp.bodyAsText() }.getOrDefault("")
+            val parsed = runCatching { Json.parseToJsonElement(txt).jsonObject }.getOrNull()
+            ItemDeleteResult(
+                ok = false,
+                errorCode = parsed?.get("code")?.jsonPrimitive?.contentOrNull,
+            )
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "deleteVendorItem EXCEPTION" }
+            ItemDeleteResult(ok = false)
+        }
+    }
+
+    // ─── Vendor recipes (admin scope) ─────────────────────────────
+    suspend fun getVendorRecipes(vendorId: String): List<AdminRecipeDto> {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/recipes"
+        return try {
+            client.get(url).body()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getVendorRecipes EXCEPTION" }; emptyList()
+        }
+    }
+
+    suspend fun deleteVendorRecipe(vendorId: String, recipeId: String): Boolean {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/recipes/$recipeId"
+        return try {
+            client.delete(url).status.isSuccess()
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "deleteVendorRecipe EXCEPTION" }; false
+        }
+    }
+
+    suspend fun deleteAllVendorRecipes(vendorId: String): Int {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/recipes"
+        return try {
+            val resp = client.delete(url)
+            if (!resp.status.isSuccess()) return 0
+            val txt = resp.bodyAsText()
+            Json.parseToJsonElement(txt).jsonObject["deleted"]?.jsonPrimitive?.contentOrNull
+                ?.toIntOrNull() ?: 0
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "deleteAllVendorRecipes EXCEPTION" }; 0
+        }
+    }
+
+    /**
+     * Result of an "Open as Manager" admin impersonation.
+     *
+     * Once you have an [ImpersonationSession] you can call any manager-side
+     * endpoint (menu, recipes, stock, tables, offers, customers, orders,
+     * etc.) by attaching `Authorization: Bearer ${accessToken}` to the
+     * request. Tokens behave exactly like a real manager login: single-
+     * session enforced; the impersonated user's existing sessions are
+     * invalidated as a side effect.
+     */
+    data class ImpersonationSession(
+        val accessToken: String,
+        val refreshToken: String,
+        val userId: String,
+        val vendorId: String,
+        val role: String,
+        val name: String,
+        val phone: String,
+        val email: String,
+        val photoUrl: String,
+    )
+
+    /**
+     * Mint a manager-level auth session for a vendor. When [asUserId] is
+     * null the backend auto-picks the first active MANAGER (fall-back to
+     * any active user) — this is the common case ("open this vendor as
+     * the owner"). When you need to act as a specific employee, pass their
+     * user id.
+     */
+    suspend fun impersonateVendor(
+        vendorId: String,
+        asUserId: String? = null,
+    ): ImpersonationSession? {
+        val url = "$baseUrl/api/v1/cms/vendors/$vendorId/impersonate"
+        return try {
+            val response: HttpResponse = client.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(buildMap<String, String> {
+                    if (asUserId != null) put("user_id", asUserId)
+                })
+            }
+            if (!response.status.isSuccess()) {
+                Logger.e(TAG) { "impersonateVendor failed: ${response.status}" }
+                return null
+            }
+            val text = response.bodyAsText()
+            val j = Json.parseToJsonElement(text).jsonObject
+            ImpersonationSession(
+                accessToken = j["access_token"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                refreshToken = j["refresh_token"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                userId = j["user_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                vendorId = j["vendor_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                role = j["role"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                name = j["name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                phone = j["phone"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                email = j["email"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                photoUrl = j["photo_url"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            )
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "impersonateVendor EXCEPTION" }
+            null
+        }
+    }
+
+    suspend fun hardDeleteVendorUser(
+        vendorId: String,
+        userId: String,
+        reassignToUserId: String? = null,
+    ): HardDeleteResult {
+        val base = "$baseUrl/api/v1/cms/vendors/$vendorId/users/$userId/permanent"
+        val url = if (reassignToUserId != null) "$base?reassignTo=$reassignToUserId" else base
+        return try {
+            val response: HttpResponse = client.delete(url)
+            if (response.status.isSuccess()) {
+                HardDeleteResult(ok = true)
+            } else {
+                // Try to surface the structured error the backend returns
+                // (errorCode/error/message) so the UI can offer a guided fix.
+                val text = runCatching { response.bodyAsText() }.getOrDefault("")
+                val parsed = runCatching {
+                    kotlinx.serialization.json.Json.parseToJsonElement(text)
+                        .jsonObject
+                }.getOrNull()
+                HardDeleteResult(
+                    ok = false,
+                    errorCode = parsed?.get("code")?.jsonPrimitive?.contentOrNull,
+                    errorMessage = parsed?.get("error")?.jsonPrimitive?.contentOrNull
+                        ?: text.takeIf { it.isNotBlank() }
+                        ?: "HTTP ${response.status.value}",
+                )
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "hardDeleteVendorUser EXCEPTION" }
+            HardDeleteResult(ok = false, errorMessage = e.message)
         }
     }
 

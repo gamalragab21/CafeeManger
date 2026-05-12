@@ -5,16 +5,20 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.data.database.*
 import net.marllex.waselak.backend.domain.service.AdminAuthService
+import net.marllex.waselak.backend.domain.service.AuthService
+import net.marllex.waselak.backend.domain.service.PinService
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.RequestLogService
 import net.marllex.waselak.backend.plugins.AdminPrincipal
 import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.java.KoinJavaComponent
 import org.mindrot.jbcrypt.BCrypt
@@ -24,6 +28,8 @@ fun Route.adminDashboardRoutes() {
     val adminAuthService by KoinJavaComponent.inject<AdminAuthService>(clazz = AdminAuthService::class.java)
     val requestLogService by KoinJavaComponent.inject<RequestLogService>(clazz = RequestLogService::class.java)
     val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
+    val pinService by KoinJavaComponent.inject<PinService>(clazz = PinService::class.java)
+    val authService by KoinJavaComponent.inject<AuthService>(clazz = AuthService::class.java)
 
     // ─── Login Page ──────────────────────────────────────────────
     get("/admin/login") {
@@ -631,7 +637,15 @@ fun Route.adminDashboardRoutes() {
                 val managerPhone = obj["manager_phone"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "manager_phone required"))
                 val managerPassword = obj["manager_password"]?.jsonPrimitive?.content ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "manager_password required"))
                 val businessType = obj["business_type"]?.jsonPrimitive?.content ?: "RESTAURANT"
-                val plan = obj["plan"]?.jsonPrimitive?.content ?: "STARTER"
+                // Default plan after the 3→2 consolidation is PRO. If a legacy
+                // client still sends "STARTER" or "BUSINESS" we normalise to PRO
+                // so the assignment doesn't fail (those rows no longer exist in
+                // subscription_plans).
+                val rawPlan = obj["plan"]?.jsonPrimitive?.content ?: "PRO"
+                val plan = when (rawPlan.uppercase()) {
+                    "ENTERPRISE" -> "ENTERPRISE"
+                    else -> "PRO" // STARTER, BUSINESS, PRO, or anything else → PRO
+                }
 
                 val result = transaction {
                     val vendorId = VendorsTable.insertAndGetId {
@@ -838,12 +852,385 @@ fun Route.adminDashboardRoutes() {
                 val admin = call.principal<AdminPrincipal>()!!
                 if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
                 val userId = call.parameters["userId"] ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "userId required"))
+                val userUUID = UUID.fromString(userId)
                 transaction {
-                    UsersTable.update({ UsersTable.id eq UUID.fromString(userId) }) {
-                        it[active] = false; it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                    UsersTable.update({ UsersTable.id eq userUUID }) {
+                        it[active] = false; it[updatedAt] = Clock.System.now()
                     }
+                    // Revoke active sessions so the deactivated employee
+                    // can't keep using cached refresh tokens.
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
                 }
                 call.respond(HttpStatusCode.OK, mapOf("status" to "deactivated"))
+            }
+
+            // ─── Admin: reset an employee password (cookie-auth web dashboard) ──
+            // Mirrors the Bearer-auth CMS endpoint at /api/v1/cms/.../reset-password
+            // but takes admin-jwt cookie so it works from the web UI's fetch()
+            // calls without extra headers.
+            put("/vendors/{vendorId}/users/{userId}/reset-password") {
+                val vendorId = call.parameters["vendorId"] ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "vendorId required"))
+                val userId = call.parameters["userId"] ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "userId required"))
+                val body = call.receiveText()
+                val newPw = runCatching { Json.parseToJsonElement(body).jsonObject["new_password"]?.jsonPrimitive?.content }.getOrNull()
+                if (newPw.isNullOrBlank() || newPw.length < 6) {
+                    return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Password must be at least 6 characters"))
+                }
+                val userUUID = UUID.fromString(userId); val vendorUUID = UUID.fromString(vendorId)
+                val newHash = BCrypt.hashpw(newPw, BCrypt.gensalt())
+                val updated = transaction {
+                    val rows = UsersTable.update({ (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID) }) {
+                        it[passwordHash] = newHash; it[updatedAt] = Clock.System.now()
+                    }
+                    if (rows > 0) RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                    rows
+                }
+                if (updated == 0) call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found in this vendor"))
+                else call.respond(HttpStatusCode.OK, mapOf("success" to true))
+            }
+
+            // ─── Admin: set / clear an employee's override PIN ──────
+            put("/vendors/{vendorId}/users/{userId}/set-pin") {
+                val vendorId = call.parameters["vendorId"]!!; val userId = call.parameters["userId"]!!
+                val body = call.receiveText()
+                val obj = runCatching { Json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid body"))
+                val clear = obj["clear"]?.jsonPrimitive?.contentOrNull == "true" || obj["clear"]?.jsonPrimitive?.booleanOrNull == true
+                val pin = obj["pin"]?.jsonPrimitive?.contentOrNull
+                if (!clear && (pin.isNullOrBlank() || !pinService.isValidPin(pin))) {
+                    return@put call.respond(HttpStatusCode.BadRequest, mapOf("error" to "PIN must be 4-6 digits, or send {\"clear\":true}"))
+                }
+                val userUUID = UUID.fromString(userId); val vendorUUID = UUID.fromString(vendorId)
+                val newHash = if (clear) null else pinService.hashPin(pin!!)
+                val now = Clock.System.now()
+                val rows = transaction {
+                    UsersTable.update({ (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID) }) {
+                        it[overridePinHash] = newHash
+                        it[overridePinSetAt] = if (clear) null else now
+                        it[updatedAt] = now
+                    }
+                }
+                if (rows == 0) call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found in this vendor"))
+                else call.respond(HttpStatusCode.OK, mapOf("success" to true, "override_pin_set" to !clear))
+            }
+
+            // ─── Admin: permanent (hard) delete a user ──────────────
+            // Refuses by default if the user has historical orders attached.
+            // The UI can retry with ?reassignTo=<otherUserId> to inherit them.
+            delete("/vendors/{vendorId}/users/{userId}/permanent") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val vendorId = call.parameters["vendorId"]!!; val userId = call.parameters["userId"]!!
+                val vendorUUID = UUID.fromString(vendorId); val userUUID = UUID.fromString(userId)
+                val reassignTo = call.request.queryParameters["reassignTo"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+                val result = transaction {
+                    val exists = UsersTable.selectAll().where { (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID) }.count() > 0
+                    if (!exists) return@transaction "not_found"
+                    val hasOrders = OrdersTable.selectAll().where { OrdersTable.cashierId eq userUUID }.count() > 0
+                    val hasAttendance = AttendanceTable.selectAll().where { AttendanceTable.recordedBy eq userUUID }.count() > 0
+                    if ((hasOrders || hasAttendance) && reassignTo == null) {
+                        return@transaction if (hasOrders) "orders_attached" else "attendance_attached"
+                    }
+                    reassignTo?.let { newOwner ->
+                        val ok = UsersTable.selectAll().where { (UsersTable.id eq newOwner) and (UsersTable.vendorId eq vendorUUID) }.count() > 0
+                        if (!ok) return@transaction "bad_reassign_target"
+                        OrdersTable.update({ OrdersTable.cashierId eq userUUID }) { it[cashierId] = newOwner }
+                        AttendanceTable.update({ AttendanceTable.recordedBy eq userUUID }) { it[recordedBy] = newOwner }
+                    }
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                    ActivityLogsTable.deleteWhere { ActivityLogsTable.userId eq userUUID }
+                    WorkersTable.update({ WorkersTable.userId eq userUUID }) { it[WorkersTable.userId] = null }
+                    UsersTable.deleteWhere { (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID) }
+                    "deleted"
+                }
+                when (result) {
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found"))
+                    "orders_attached" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to "User has historical orders; pass ?reassignTo=<otherUserId>", "code" to "ORDERS_ATTACHED"))
+                    "attendance_attached" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to "User has attendance entries; pass ?reassignTo=<otherUserId>", "code" to "ATTENDANCE_ATTACHED"))
+                    "bad_reassign_target" -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to "reassignTo user is not in the same vendor"))
+                    "deleted" -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+
+            // ─── Admin: impersonate as the vendor's manager ─────────
+            // Returns a real auth session (access + refresh + user info) for
+            // the vendor's first active MANAGER (or a specific user if
+            // {"user_id":"..."} is passed). The web dashboard surfaces the
+            // resulting JWT for copy/paste into the manager app.
+            post("/vendors/{vendorId}/impersonate") {
+                val admin = call.principal<AdminPrincipal>()!!
+                if (!admin.isSuperAdmin) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                val vendorId = call.parameters["vendorId"]!!; val vendorUUID = UUID.fromString(vendorId)
+                val body = runCatching { call.receiveText() }.getOrDefault("")
+                val explicitUid = runCatching {
+                    Json.parseToJsonElement(body).jsonObject["user_id"]?.jsonPrimitive?.contentOrNull
+                }.getOrNull()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+                val targetUUID = transaction {
+                    if (explicitUid != null) {
+                        UsersTable.selectAll().where {
+                            (UsersTable.id eq explicitUid) and (UsersTable.vendorId eq vendorUUID) and (UsersTable.active eq true)
+                        }.firstOrNull()?.get(UsersTable.id)?.value
+                    } else {
+                        UsersTable.selectAll().where {
+                            (UsersTable.vendorId eq vendorUUID) and (UsersTable.role eq "MANAGER") and (UsersTable.active eq true)
+                        }.orderBy(UsersTable.createdAt, SortOrder.ASC).firstOrNull()?.get(UsersTable.id)?.value
+                            ?: UsersTable.selectAll().where {
+                                (UsersTable.vendorId eq vendorUUID) and (UsersTable.active eq true)
+                            }.orderBy(UsersTable.createdAt, SortOrder.ASC).firstOrNull()?.get(UsersTable.id)?.value
+                    }
+                } ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "No active user to impersonate"))
+
+                val auth = try { authService.adminImpersonate(targetUUID) } catch (e: Exception) {
+                    return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Impersonation failed")))
+                }
+                call.respond(HttpStatusCode.OK, buildJsonObject {
+                    put("access_token", auth.accessToken)
+                    put("refresh_token", auth.refreshToken)
+                    put("user_id", auth.userId)
+                    put("vendor_id", auth.vendorId)
+                    put("role", auth.role)
+                    put("name", auth.name)
+                    put("phone", auth.phone)
+                    put("email", auth.email ?: "")
+                }.toString())
+            }
+
+            // ─── Admin: Vendor Menu (Categories + Items) ────────────
+            get("/vendors/{vendorId}/menu") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val tree = transaction {
+                    CategoriesTable.selectAll()
+                        .where { CategoriesTable.vendorId eq vendorUUID }
+                        .orderBy(CategoriesTable.displayOrder to SortOrder.ASC, CategoriesTable.name to SortOrder.ASC)
+                        .map { catRow ->
+                            val catId = catRow[CategoriesTable.id].value
+                            val items = ItemsTable.selectAll()
+                                .where { (ItemsTable.vendorId eq vendorUUID) and (ItemsTable.categoryId eq catId) }
+                                .orderBy(ItemsTable.name).toList()
+                            buildJsonObject {
+                                put("id", catId.toString())
+                                put("name", catRow[CategoriesTable.name])
+                                put("display_order", catRow[CategoriesTable.displayOrder])
+                                put("item_count", items.size)
+                                putJsonArray("items") {
+                                    items.forEach { i ->
+                                        addJsonObject {
+                                            put("id", i[ItemsTable.id].value.toString())
+                                            put("category_id", catId.toString())
+                                            put("name", i[ItemsTable.name])
+                                            put("description", i[ItemsTable.description] ?: "")
+                                            put("price", i[ItemsTable.price].toPlainString())
+                                            put("cost_price", i[ItemsTable.costPrice]?.toPlainString() ?: "")
+                                            put("sku", i[ItemsTable.sku] ?: "")
+                                            put("barcode", i[ItemsTable.barcode] ?: "")
+                                            put("image_url", i[ItemsTable.imageUrl] ?: "")
+                                            put("available", i[ItemsTable.available])
+                                            put("stock_behavior", i[ItemsTable.stockBehavior])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                }
+                call.respondText(buildJsonArray { tree.forEach { add(it) } }.toString(), ContentType.Application.Json)
+            }
+
+            post("/vendors/{vendorId}/categories") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val obj = Json.parseToJsonElement(call.receiveText()).jsonObject
+                val nm = obj["name"]?.jsonPrimitive?.contentOrNull?.trim()
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                if (nm.isBlank()) return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                val displayOrderInt = obj["display_order"]?.jsonPrimitive?.intOrNull ?: 0
+                val now = Clock.System.now()
+                val result = transaction {
+                    val exists = CategoriesTable.selectAll()
+                        .where { (CategoriesTable.vendorId eq vendorUUID) and (CategoriesTable.name eq nm) }
+                        .count() > 0
+                    if (exists) null
+                    else CategoriesTable.insertAndGetId {
+                        it[CategoriesTable.vendorId] = vendorUUID
+                        it[name] = nm
+                        it[displayOrder] = displayOrderInt
+                        it[createdAt] = now; it[updatedAt] = now
+                    }.value
+                }
+                if (result == null) call.respond(HttpStatusCode.Conflict, mapOf("error" to "Category name already exists"))
+                else call.respond(HttpStatusCode.Created, mapOf("id" to result.toString(), "name" to nm))
+            }
+
+            put("/vendors/{vendorId}/categories/{catId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val catUUID = UUID.fromString(call.parameters["catId"]!!)
+                val obj = Json.parseToJsonElement(call.receiveText()).jsonObject
+                val rows = transaction {
+                    CategoriesTable.update({ (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID) }) { stmt ->
+                        obj["name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let { stmt[name] = it }
+                        obj["display_order"]?.jsonPrimitive?.intOrNull?.let { stmt[displayOrder] = it }
+                        stmt[updatedAt] = Clock.System.now()
+                    }
+                }
+                if (rows == 0) call.respond(HttpStatusCode.NotFound, mapOf("error" to "Category not found"))
+                else call.respond(HttpStatusCode.OK, mapOf("success" to true))
+            }
+
+            delete("/vendors/{vendorId}/categories/{catId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val catUUID = UUID.fromString(call.parameters["catId"]!!)
+                val result = transaction {
+                    val items = ItemsTable.selectAll()
+                        .where { (ItemsTable.categoryId eq catUUID) and (ItemsTable.vendorId eq vendorUUID) }
+                        .count()
+                    if (items > 0) "has_items"
+                    else if (CategoriesTable.deleteWhere { (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID) } == 0) "not_found"
+                    else "deleted"
+                }
+                when (result) {
+                    "deleted"   -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Category not found"))
+                    "has_items" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to "Category has items", "code" to "CATEGORY_NOT_EMPTY"))
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+
+            post("/vendors/{vendorId}/items") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val obj = Json.parseToJsonElement(call.receiveText()).jsonObject
+                val catId = obj["category_id"]?.jsonPrimitive?.contentOrNull ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "category_id required"))
+                val nm = obj["name"]?.jsonPrimitive?.contentOrNull?.trim() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                if (nm.isBlank()) return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "name required"))
+                val priceDouble = obj["price"]?.jsonPrimitive?.doubleOrNull ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "price required"))
+                if (priceDouble < 0) return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "price must be >= 0"))
+                val stockBeh = obj["stock_behavior"]?.jsonPrimitive?.contentOrNull ?: "NONE"
+                if (stockBeh !in listOf("NONE", "DIRECT", "RECIPE")) return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid stock_behavior"))
+
+                val catUUID = UUID.fromString(catId)
+                val now = Clock.System.now()
+                val newId = transaction {
+                    val catOk = CategoriesTable.selectAll().where { (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID) }.count() > 0
+                    if (!catOk) return@transaction null
+                    ItemsTable.insertAndGetId {
+                        it[ItemsTable.vendorId] = vendorUUID
+                        it[categoryId] = catUUID
+                        it[name] = nm
+                        it[description] = obj["description"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                        it[price] = java.math.BigDecimal.valueOf(priceDouble)
+                        it[costPrice] = obj["cost_price"]?.jsonPrimitive?.doubleOrNull?.let { c -> java.math.BigDecimal.valueOf(c) }
+                        it[sku] = obj["sku"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                        it[barcode] = obj["barcode"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                        it[imageUrl] = obj["image_url"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                        it[available] = obj["available"]?.jsonPrimitive?.booleanOrNull ?: true
+                        it[stockBehavior] = stockBeh
+                        it[createdAt] = now; it[updatedAt] = now
+                    }.value
+                }
+                if (newId == null) call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Category not found for this vendor"))
+                else call.respond(HttpStatusCode.Created, mapOf("id" to newId.toString(), "name" to nm))
+            }
+
+            put("/vendors/{vendorId}/items/{itemId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val itemUUID = UUID.fromString(call.parameters["itemId"]!!)
+                val obj = Json.parseToJsonElement(call.receiveText()).jsonObject
+                val rows = transaction {
+                    val newCat = obj["category_id"]?.jsonPrimitive?.contentOrNull?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    if (newCat != null) {
+                        val ok = CategoriesTable.selectAll().where { (CategoriesTable.id eq newCat) and (CategoriesTable.vendorId eq vendorUUID) }.count() > 0
+                        if (!ok) return@transaction -1
+                    }
+                    ItemsTable.update({ (ItemsTable.id eq itemUUID) and (ItemsTable.vendorId eq vendorUUID) }) { stmt ->
+                        newCat?.let { stmt[categoryId] = it }
+                        obj["name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let { stmt[name] = it }
+                        obj["description"]?.jsonPrimitive?.contentOrNull?.let { stmt[description] = it.takeIf(String::isNotBlank) }
+                        obj["price"]?.jsonPrimitive?.doubleOrNull?.let { stmt[price] = java.math.BigDecimal.valueOf(it) }
+                        obj["cost_price"]?.jsonPrimitive?.doubleOrNull?.let { stmt[costPrice] = java.math.BigDecimal.valueOf(it) }
+                        obj["sku"]?.jsonPrimitive?.contentOrNull?.let { stmt[sku] = it.takeIf(String::isNotBlank) }
+                        obj["barcode"]?.jsonPrimitive?.contentOrNull?.let { stmt[barcode] = it.takeIf(String::isNotBlank) }
+                        obj["image_url"]?.jsonPrimitive?.contentOrNull?.let { stmt[imageUrl] = it.takeIf(String::isNotBlank) }
+                        obj["available"]?.jsonPrimitive?.booleanOrNull?.let { stmt[available] = it }
+                        obj["stock_behavior"]?.jsonPrimitive?.contentOrNull?.takeIf { it in listOf("NONE","DIRECT","RECIPE") }?.let { stmt[stockBehavior] = it }
+                        stmt[updatedAt] = Clock.System.now()
+                    }
+                }
+                when {
+                    rows < 0  -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Category not found for this vendor"))
+                    rows == 0 -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Item not found"))
+                    else      -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                }
+            }
+
+            delete("/vendors/{vendorId}/items/{itemId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val itemUUID = UUID.fromString(call.parameters["itemId"]!!)
+                val result = transaction {
+                    val recipeIds = RecipesTable.selectAll().where {
+                        (RecipesTable.itemId eq itemUUID) and (RecipesTable.vendorId eq vendorUUID)
+                    }.map { it[RecipesTable.id].value }
+                    if (recipeIds.isNotEmpty()) {
+                        RecipeIngredientsTable.deleteWhere { RecipeIngredientsTable.recipeId inList recipeIds }
+                        RecipesTable.deleteWhere { RecipesTable.id inList recipeIds }
+                    }
+                    runCatching {
+                        ItemsTable.deleteWhere { (ItemsTable.id eq itemUUID) and (ItemsTable.vendorId eq vendorUUID) }
+                    }.fold(
+                        onSuccess = { if (it == 0) "not_found" else "deleted" },
+                        onFailure = { "fk_blocked" },
+                    )
+                }
+                when (result) {
+                    "deleted"    -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    "not_found"  -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Item not found"))
+                    "fk_blocked" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to "Item is referenced by historical orders. Mark it unavailable instead.", "code" to "ITEM_REFERENCED"))
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+
+            // ─── Admin: Vendor Recipes ──────────────────────────────
+            get("/vendors/{vendorId}/recipes") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val list = transaction {
+                    RecipesTable.selectAll().where { RecipesTable.vendorId eq vendorUUID }
+                        .orderBy(RecipesTable.name)
+                        .map { r ->
+                            val rId = r[RecipesTable.id].value
+                            val ingCount = RecipeIngredientsTable.selectAll()
+                                .where { RecipeIngredientsTable.recipeId eq rId }.count()
+                            buildJsonObject {
+                                put("id", rId.toString())
+                                put("name", r[RecipesTable.name])
+                                put("item_id", r[RecipesTable.itemId].toString())
+                                put("ingredient_count", ingCount)
+                            }
+                        }
+                }
+                call.respondText(buildJsonArray { list.forEach { add(it) } }.toString(), ContentType.Application.Json)
+            }
+
+            delete("/vendors/{vendorId}/recipes/{recipeId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val recipeUUID = UUID.fromString(call.parameters["recipeId"]!!)
+                val rows = transaction {
+                    StockTransactionsTable.update({ StockTransactionsTable.recipeId eq recipeUUID }) {
+                        it[recipeId] = null
+                    }
+                    RecipesTable.deleteWhere { (RecipesTable.id eq recipeUUID) and (RecipesTable.vendorId eq vendorUUID) }
+                }
+                if (rows == 0) call.respond(HttpStatusCode.NotFound, mapOf("error" to "Recipe not found"))
+                else call.respond(HttpStatusCode.OK, mapOf("success" to true))
+            }
+
+            delete("/vendors/{vendorId}/recipes") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val deleted = transaction {
+                    val recipeIds = RecipesTable.selectAll().where { RecipesTable.vendorId eq vendorUUID }
+                        .map { it[RecipesTable.id].value }
+                    if (recipeIds.isEmpty()) return@transaction 0
+                    StockTransactionsTable.update({ StockTransactionsTable.recipeId inList recipeIds }) { it[recipeId] = null }
+                    RecipesTable.deleteWhere { RecipesTable.vendorId eq vendorUUID }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("deleted" to deleted))
             }
 
             // ─── Team CRUD (cookie auth) ───────────────────────────
@@ -1382,8 +1769,7 @@ private fun vendorsContent(admin: AdminPrincipal): String {
         <label class="block text-xs font-medium text-gray-500 mb-1">الباقة</label>
         <select id="vendorPlanFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="filterVendors()">
             <option value="">الكل</option>
-            <option value="STARTER">STARTER</option>
-            <option value="BUSINESS">BUSINESS</option>
+            <option value="PRO">PRO</option>
             <option value="ENTERPRISE">ENTERPRISE</option>
         </select>
     </div>
@@ -1398,21 +1784,17 @@ private fun vendorsContent(admin: AdminPrincipal): String {
 </div>
 
 <!-- Stats -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
     <div class="bg-white rounded-lg shadow p-3 text-center">
         <p class="text-gray-500 text-xs">الإجمالي</p>
         <p class="text-2xl font-bold" id="vStatTotal">0</p>
     </div>
     <div class="bg-white rounded-lg shadow p-3 text-center">
-        <p class="text-gray-500 text-xs">Starter</p>
-        <p class="text-2xl font-bold text-gray-600" id="vStatStarter">0</p>
+        <p class="text-gray-500 text-xs">⚡ Pro</p>
+        <p class="text-2xl font-bold text-blue-600" id="vStatPro">0</p>
     </div>
     <div class="bg-white rounded-lg shadow p-3 text-center">
-        <p class="text-gray-500 text-xs">Business</p>
-        <p class="text-2xl font-bold text-blue-600" id="vStatBusiness">0</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-3 text-center">
-        <p class="text-gray-500 text-xs">Enterprise</p>
+        <p class="text-gray-500 text-xs">🏆 Enterprise</p>
         <p class="text-2xl font-bold text-orange-600" id="vStatEnterprise">0</p>
     </div>
 </div>
@@ -1475,9 +1857,8 @@ private fun vendorsContent(admin: AdminPrincipal): String {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">الباقة</label>
                     <select name="plan" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        <option value="STARTER">STARTER</option>
-                        <option value="BUSINESS">BUSINESS</option>
-                        <option value="ENTERPRISE">ENTERPRISE</option>
+                        <option value="PRO">PRO (699 ج.م/شهر)</option>
+                        <option value="ENTERPRISE">ENTERPRISE (1,299 ج.م/شهر)</option>
                     </select>
                 </div>
                 <div class="col-span-2 border-t pt-3 mt-2">
@@ -1515,8 +1896,12 @@ async function loadVendorsList() {
     allVendors = await res.json();
 
     document.getElementById('vStatTotal').textContent = allVendors.length;
-    document.getElementById('vStatStarter').textContent = allVendors.filter(v => v.planName === 'STARTER').length;
-    document.getElementById('vStatBusiness').textContent = allVendors.filter(v => v.planName === 'BUSINESS').length;
+    // After the 3→2 plan consolidation any legacy STARTER/BUSINESS rows in
+    // the API response are counted under PRO so the totals stay accurate
+    // for vendors mid-migration.
+    document.getElementById('vStatPro').textContent = allVendors.filter(v =>
+        v.planName === 'PRO' || v.planName === 'STARTER' || v.planName === 'BUSINESS'
+    ).length;
     document.getElementById('vStatEnterprise').textContent = allVendors.filter(v => v.planName === 'ENTERPRISE').length;
 
     renderVendors(allVendors);
@@ -1612,9 +1997,12 @@ async function createVendor(e) {
 // ════════════════════════════════════════════════════════════════
 
 private fun vendorDetailContent(vendorId: String, admin: AdminPrincipal): String = """
-<div class="flex justify-between items-center mb-4">
+<div class="flex justify-between items-center mb-4 gap-2">
     <a href="/admin/vendors" class="text-blue-600 hover:underline text-sm">&larr; العودة للقائمة</a>
-    <a href="/admin/vendors/$vendorId/edit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">تعديل البيانات</a>
+    <div class="flex gap-2">
+        ${if (admin.isSuperAdmin) """<button onclick="impersonateAsManager()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">🔑 دخول كمدير</button>""" else ""}
+        <a href="/admin/vendors/$vendorId/edit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">تعديل البيانات</a>
+    </div>
 </div>
 
 <div id="detailLoading" class="text-center py-12"><div class="spinner"></div><p class="text-gray-500 mt-3">جاري التحميل...</p></div>
@@ -1632,7 +2020,11 @@ private fun vendorDetailContent(vendorId: String, admin: AdminPrincipal): String
             <div><span class="text-gray-500">الهاتف:</span> <span id="vdPhone" dir="ltr"></span></div>
             <div><span class="text-gray-500">العنوان:</span> <span id="vdAddress"></span></div>
             <div><span class="text-gray-500">نوع النشاط:</span> <span id="vdType"></span></div>
-            <div><span class="text-gray-500">الباقة:</span> <span id="vdPlan"></span></div>
+            <div>
+                <span class="text-gray-500">الباقة:</span>
+                <span id="vdPlan"></span>
+                ${if (admin.isSuperAdmin) """ &nbsp;<button onclick="openChangePlan()" class="text-blue-600 hover:underline text-xs">✏️ تغيير</button>""" else ""}
+            </div>
             <div><span class="text-gray-500">تاريخ الإنشاء:</span> <span id="vdCreated"></span></div>
             <div><span class="text-gray-500">الأصناف:</span> <span id="vdItems"></span></div>
             <div><span class="text-gray-500">الطلبات/شهر:</span> <span id="vdOrders"></span></div>
@@ -1662,7 +2054,150 @@ private fun vendorDetailContent(vendorId: String, admin: AdminPrincipal): String
             </table>
         </div>
     </div>
+
+    <!-- Menu (Categories + Items) -->
+    <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">المنيو (الأقسام والأصناف)</h3>
+            <button onclick="openAddCategory()" class="bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-800">+ إضافة قسم</button>
+        </div>
+        <div id="vdMenuBody" class="p-4 space-y-3">
+            <p class="text-gray-400 text-center py-6">جاري التحميل...</p>
+        </div>
+    </div>
+
+    <!-- Recipes -->
+    <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">الوصفات</h3>
+            <button onclick="confirmDeleteAllRecipes()" class="text-red-600 hover:underline text-xs">🗑 حذف كل الوصفات</button>
+        </div>
+        <div id="vdRecipesBody" class="p-4">
+            <p class="text-gray-400 text-center py-6">جاري التحميل...</p>
+        </div>
+    </div>
 </div>
+
+<!-- Change Plan Modal — lets the admin switch the vendor's plan between PRO and ENTERPRISE -->
+<dialog id="changePlanModal" class="rounded-2xl shadow-2xl">
+    <div class="p-6 w-96">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">تغيير الباقة</h3>
+            <button onclick="this.closest('dialog').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form onsubmit="submitChangePlan(event)">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الباقة الجديدة *</label>
+                    <select id="cpPlan" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="PRO">⚡ PRO — 699 ج.م/شهر</option>
+                        <option value="ENTERPRISE">🏆 ENTERPRISE — 1,299 ج.م/شهر</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظة (اختياري)</label>
+                    <textarea id="cpNotes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="سبب التغيير، تاريخ الترقية..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="this.closest('dialog').close()" class="px-4 py-2 border rounded-lg text-sm">إلغاء</button>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">تطبيق التغيير</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Add/Edit Category Modal -->
+<dialog id="categoryModal" class="rounded-2xl shadow-2xl">
+    <div class="p-6 w-96">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold" id="categoryModalTitle">إضافة قسم</h3>
+            <button onclick="this.closest('dialog').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form onsubmit="submitCategory(event)">
+            <input type="hidden" id="cmEditId" value="">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم القسم *</label>
+                    <input id="cmName" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ترتيب العرض</label>
+                    <input id="cmOrder" type="number" value="0" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="this.closest('dialog').close()" class="px-4 py-2 border rounded-lg text-sm">إلغاء</button>
+                <button type="submit" class="bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-800">حفظ</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Add/Edit Item Modal -->
+<dialog id="itemModal" class="rounded-2xl shadow-2xl">
+    <div class="p-6 w-[32rem] max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold" id="itemModalTitle">إضافة صنف</h3>
+            <button onclick="this.closest('dialog').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form onsubmit="submitItem(event)">
+            <input type="hidden" id="imEditId" value="">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">القسم *</label>
+                    <select id="imCategoryId" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الصنف *</label>
+                    <input id="imName" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">السعر (جنيه) *</label>
+                    <input id="imPrice" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">سعر التكلفة</label>
+                    <input id="imCost" type="number" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الوصف</label>
+                    <textarea id="imDesc" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+                    <input id="imSku" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الباركود</label>
+                    <input id="imBarcode" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رابط الصورة</label>
+                    <input id="imImage" class="w-full px-3 py-2 border rounded-lg text-sm" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">المخزون</label>
+                    <select id="imStock" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="NONE">بدون</option>
+                        <option value="DIRECT">مباشر</option>
+                        <option value="RECIPE">عبر وصفة</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input id="imAvailable" type="checkbox" checked class="w-4 h-4">
+                        <span>متاح للبيع</span>
+                    </label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="this.closest('dialog').close()" class="px-4 py-2 border rounded-lg text-sm">إلغاء</button>
+                <button type="submit" class="bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-800">حفظ</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 
 <!-- Add User Modal -->
 <dialog id="addUserModal" class="rounded-2xl shadow-2xl">
@@ -1721,11 +2256,15 @@ const IS_SUPER_ADMIN = ${admin.isSuperAdmin};
 
 document.addEventListener('DOMContentLoaded', loadVendorDetail);
 
+let MENU_CACHE = []; // last fetched menu — used by item form to populate category select
+
 async function loadVendorDetail() {
     try {
-        const [v, usersRes] = await Promise.all([
+        const [v, usersRes, menuRes, recipesRes] = await Promise.all([
             fetch('/admin/api/vendors/full').then(r => r.json()).then(all => all.find(x => x.id === VENDOR_ID) || null),
-            fetch('/admin/api/vendors/' + VENDOR_ID + '/users')
+            fetch('/admin/api/vendors/' + VENDOR_ID + '/users'),
+            fetch('/admin/api/vendors/' + VENDOR_ID + '/menu'),
+            fetch('/admin/api/vendors/' + VENDOR_ID + '/recipes'),
         ]);
 
         if (v) {
@@ -1744,16 +2283,201 @@ async function loadVendorDetail() {
                 : '<span class="badge-active px-3 py-1 rounded-full text-sm font-medium">نشط</span>';
         }
 
-        if (usersRes && usersRes.ok) {
-            const users = await usersRes.json();
-            renderVendorUsers(users);
-        }
+        if (usersRes && usersRes.ok) renderVendorUsers(await usersRes.json());
+        if (menuRes && menuRes.ok) { MENU_CACHE = await menuRes.json(); renderMenu(MENU_CACHE); }
+        if (recipesRes && recipesRes.ok) renderRecipes(await recipesRes.json());
 
         document.getElementById('detailLoading').style.display = 'none';
         document.getElementById('detailContent').style.display = '';
     } catch(e) {
         document.getElementById('detailLoading').innerHTML = '<p class="text-red-500">حدث خطأ في تحميل البيانات</p>';
     }
+}
+
+// ─── Menu rendering ─────────────────────────────────────────────
+function renderMenu(categories) {
+    const root = document.getElementById('vdMenuBody');
+    if (!categories.length) {
+        root.innerHTML = '<p class="text-gray-400 text-center py-6">لا توجد أقسام بعد. ابدأ بإضافة قسم.</p>';
+        return;
+    }
+    root.innerHTML = categories.map(cat => {
+        const itemsHtml = (cat.items || []).map(it => {
+            const unavail = it.available === false || it.available === 'false';
+            const tag = unavail ? '<span class="badge-suspended px-2 py-0.5 rounded-full text-xs mr-2">غير متاح</span>' : '';
+            return '<div class="flex justify-between items-center py-1.5 border-b last:border-b-0">' +
+                '<div class="flex-1">' +
+                  '<div class="text-sm font-medium">' + escHtml(it.name) + tag + '</div>' +
+                  '<div class="text-xs text-gray-500">' + escHtml(it.price) + ' EGP' + (it.sku ? ' · ' + escHtml(it.sku) : '') + '</div>' +
+                '</div>' +
+                '<div class="flex gap-2 text-xs">' +
+                  '<button onclick="editItem(\'' + it.id + '\')" class="text-blue-600 hover:underline">تعديل</button>' +
+                  '<button onclick="deleteItem(\'' + it.id + '\',\'' + escHtml(it.name).replace(/\"/g, "&quot;") + '\')" class="text-red-600 hover:underline">حذف</button>' +
+                '</div>' +
+              '</div>';
+        }).join('');
+        return '<div class="border rounded-lg overflow-hidden">' +
+            '<div class="bg-gray-50 px-3 py-2 flex justify-between items-center">' +
+              '<div><span class="font-bold">' + escHtml(cat.name) + '</span>' +
+              '<span class="text-xs text-gray-500 ms-2">(' + cat.item_count + ')</span></div>' +
+              '<div class="flex gap-3 text-xs">' +
+                '<button onclick="openAddItem(\'' + cat.id + '\')" class="text-green-700 hover:underline">+ صنف</button>' +
+                '<button onclick="openEditCategory(\'' + cat.id + '\')" class="text-blue-600 hover:underline">تعديل</button>' +
+                '<button onclick="deleteCategory(\'' + cat.id + '\',\'' + escHtml(cat.name).replace(/\"/g, "&quot;") + '\')" class="text-red-600 hover:underline">حذف</button>' +
+              '</div>' +
+            '</div>' +
+            (itemsHtml ? '<div class="px-3 py-1">' + itemsHtml + '</div>' : '<div class="px-3 py-2 text-xs text-gray-400">لا أصناف بعد</div>') +
+          '</div>';
+    }).join('');
+}
+
+function renderRecipes(recipes) {
+    const root = document.getElementById('vdRecipesBody');
+    if (!recipes.length) {
+        root.innerHTML = '<p class="text-gray-400 text-center py-6">لا توجد وصفات.</p>';
+        return;
+    }
+    root.innerHTML = '<div class="divide-y">' + recipes.map(r =>
+        '<div class="flex justify-between items-center py-2">' +
+            '<div>' +
+                '<div class="text-sm font-medium">' + escHtml(r.name) + '</div>' +
+                '<div class="text-xs text-gray-500">' + r.ingredient_count + ' مكوّن</div>' +
+            '</div>' +
+            '<button onclick="deleteRecipe(\'' + r.id + '\',\'' + escHtml(r.name).replace(/\"/g, "&quot;") + '\')" class="text-red-600 hover:underline text-xs">🗑 حذف</button>' +
+        '</div>'
+    ).join('') + '</div>';
+}
+
+// ─── Category CRUD ─────────────────────────────────────────────
+function openAddCategory() {
+    document.getElementById('categoryModalTitle').textContent = 'إضافة قسم';
+    document.getElementById('cmEditId').value = '';
+    document.getElementById('cmName').value = '';
+    document.getElementById('cmOrder').value = '0';
+    document.getElementById('categoryModal').showModal();
+}
+function openEditCategory(catId) {
+    const c = MENU_CACHE.find(x => x.id === catId);
+    if (!c) return;
+    document.getElementById('categoryModalTitle').textContent = 'تعديل قسم';
+    document.getElementById('cmEditId').value = catId;
+    document.getElementById('cmName').value = c.name;
+    document.getElementById('cmOrder').value = c.display_order || 0;
+    document.getElementById('categoryModal').showModal();
+}
+async function submitCategory(e) {
+    e.preventDefault();
+    const id = document.getElementById('cmEditId').value;
+    const body = JSON.stringify({
+        name: document.getElementById('cmName').value.trim(),
+        display_order: parseInt(document.getElementById('cmOrder').value, 10) || 0
+    });
+    const url = id ? '/admin/api/vendors/' + VENDOR_ID + '/categories/' + id
+                   : '/admin/api/vendors/' + VENDOR_ID + '/categories';
+    const res = await fetch(url, { method: id ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body });
+    if (res.ok) { document.getElementById('categoryModal').close(); showToast(id ? 'تم تحديث القسم' : 'تم إضافة القسم', 'success'); loadVendorDetail(); }
+    else { const err = await res.json().catch(() => ({})); showToast(err.error || 'فشل', 'error'); }
+}
+async function deleteCategory(catId, name) {
+    if (!confirm('حذف القسم \"' + name + '\"؟')) return;
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/categories/' + catId, { method: 'DELETE' });
+    if (res.ok) { showToast('تم حذف القسم', 'success'); loadVendorDetail(); }
+    else {
+        const err = await res.json().catch(() => ({}));
+        if (err.code === 'CATEGORY_NOT_EMPTY') showToast('القسم به أصناف، انقلها أو احذفها أولاً', 'error');
+        else showToast(err.error || 'فشل الحذف', 'error');
+    }
+}
+
+// ─── Item CRUD ─────────────────────────────────────────────────
+function fillItemCategorySelect(currentId) {
+    const sel = document.getElementById('imCategoryId');
+    sel.innerHTML = MENU_CACHE.map(c =>
+        '<option value="' + c.id + '"' + (c.id === currentId ? ' selected' : '') + '>' + escHtml(c.name) + '</option>'
+    ).join('');
+}
+function openAddItem(catId) {
+    document.getElementById('itemModalTitle').textContent = 'إضافة صنف';
+    document.getElementById('imEditId').value = '';
+    fillItemCategorySelect(catId);
+    document.getElementById('imName').value = '';
+    document.getElementById('imPrice').value = '';
+    document.getElementById('imCost').value = '';
+    document.getElementById('imDesc').value = '';
+    document.getElementById('imSku').value = '';
+    document.getElementById('imBarcode').value = '';
+    document.getElementById('imImage').value = '';
+    document.getElementById('imStock').value = 'NONE';
+    document.getElementById('imAvailable').checked = true;
+    document.getElementById('itemModal').showModal();
+}
+function editItem(itemId) {
+    let foundItem = null, foundCat = null;
+    for (const c of MENU_CACHE) {
+        for (const i of (c.items || [])) {
+            if (i.id === itemId) { foundItem = i; foundCat = c; break; }
+        }
+        if (foundItem) break;
+    }
+    if (!foundItem) return;
+    document.getElementById('itemModalTitle').textContent = 'تعديل صنف';
+    document.getElementById('imEditId').value = itemId;
+    fillItemCategorySelect(foundCat.id);
+    document.getElementById('imName').value = foundItem.name;
+    document.getElementById('imPrice').value = foundItem.price;
+    document.getElementById('imCost').value = foundItem.cost_price || '';
+    document.getElementById('imDesc').value = foundItem.description || '';
+    document.getElementById('imSku').value = foundItem.sku || '';
+    document.getElementById('imBarcode').value = foundItem.barcode || '';
+    document.getElementById('imImage').value = foundItem.image_url || '';
+    document.getElementById('imStock').value = foundItem.stock_behavior || 'NONE';
+    document.getElementById('imAvailable').checked = foundItem.available !== false && foundItem.available !== 'false';
+    document.getElementById('itemModal').showModal();
+}
+async function submitItem(e) {
+    e.preventDefault();
+    const id = document.getElementById('imEditId').value;
+    const payload = {
+        category_id: document.getElementById('imCategoryId').value,
+        name: document.getElementById('imName').value.trim(),
+        price: parseFloat(document.getElementById('imPrice').value) || 0,
+        description: document.getElementById('imDesc').value.trim() || null,
+        cost_price: parseFloat(document.getElementById('imCost').value) || null,
+        sku: document.getElementById('imSku').value.trim() || null,
+        barcode: document.getElementById('imBarcode').value.trim() || null,
+        image_url: document.getElementById('imImage').value.trim() || null,
+        available: document.getElementById('imAvailable').checked,
+        stock_behavior: document.getElementById('imStock').value
+    };
+    const url = id ? '/admin/api/vendors/' + VENDOR_ID + '/items/' + id
+                   : '/admin/api/vendors/' + VENDOR_ID + '/items';
+    const res = await fetch(url, { method: id ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if (res.ok) { document.getElementById('itemModal').close(); showToast(id ? 'تم تحديث الصنف' : 'تم إضافة الصنف', 'success'); loadVendorDetail(); }
+    else { const err = await res.json().catch(() => ({})); showToast(err.error || 'فشل', 'error'); }
+}
+async function deleteItem(itemId, name) {
+    if (!confirm('حذف الصنف \"' + name + '\"؟')) return;
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/items/' + itemId, { method: 'DELETE' });
+    if (res.ok) { showToast('تم الحذف', 'success'); loadVendorDetail(); }
+    else {
+        const err = await res.json().catch(() => ({}));
+        if (err.code === 'ITEM_REFERENCED') showToast('الصنف مستخدم في طلبات قديمة. علّمه غير متاح بدلاً من الحذف.', 'error');
+        else showToast(err.error || 'فشل', 'error');
+    }
+}
+
+// ─── Recipes ────────────────────────────────────────────────────
+async function deleteRecipe(recipeId, name) {
+    if (!confirm('حذف الوصفة \"' + name + '\"؟')) return;
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/recipes/' + recipeId, { method: 'DELETE' });
+    if (res.ok) { showToast('تم الحذف', 'success'); loadVendorDetail(); }
+    else { const err = await res.json().catch(() => ({})); showToast(err.error || 'فشل', 'error'); }
+}
+async function confirmDeleteAllRecipes() {
+    if (!confirm('حذف كل الوصفات لهذا التاجر؟ لا يمكن التراجع.')) return;
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/recipes', { method: 'DELETE' });
+    if (res.ok) { const j = await res.json(); showToast('تم حذف ' + j.deleted + ' وصفة', 'success'); loadVendorDetail(); }
+    else { showToast('فشل', 'error'); }
 }
 
 function renderVendorUsers(users) {
@@ -1765,24 +2489,141 @@ function renderVendorUsers(users) {
     }
     const roleMap = { MANAGER: 'مدير', CASHIER: 'كاشير', DELIVERY: 'توصيل', KITCHEN: 'مطبخ' };
     tbody.innerHTML = list.map(u => {
-        const active = u.is_active !== false && u.isActive !== false;
+        const active = u.is_active !== false && u.isActive !== false && u.active !== false && u.active !== 'false';
         const statusBadge = active
             ? '<span class="badge-active px-2 py-1 rounded-full text-xs font-medium">نشط</span>'
             : '<span class="badge-suspended px-2 py-1 rounded-full text-xs font-medium">غير نشط</span>';
         const role = u.role || '-';
         const roleName = roleMap[role] || role;
+        const uid = u.id || u.user_id;
+        const uname = (u.name || '').replace(/'/g, '\\'+ "'");
         let actions = '';
-        if (IS_SUPER_ADMIN && active) {
-            actions = '<button onclick="deactivateUser(\'' + (u.id || u.user_id) + '\')" class="text-red-600 hover:underline text-xs">تعطيل</button>';
+        if (IS_SUPER_ADMIN) {
+            const actionParts = [];
+            if (active) {
+                actionParts.push('<button onclick="resetUserPassword(\'' + uid + '\',\'' + uname + '\')" class="text-blue-600 hover:underline text-xs">🔑 كلمة سر</button>');
+                if (role === 'MANAGER') {
+                    actionParts.push('<button onclick="setUserPin(\'' + uid + '\',\'' + uname + '\')" class="text-indigo-600 hover:underline text-xs">📌 PIN</button>');
+                }
+                actionParts.push('<button onclick="deactivateUser(\'' + uid + '\')" class="text-orange-600 hover:underline text-xs">🚫 تعطيل</button>');
+            }
+            actionParts.push('<button onclick="hardDeleteUser(\'' + uid + '\',\'' + uname + '\')" class="text-red-600 hover:underline text-xs">🗑 حذف نهائي</button>');
+            actions = actionParts.join(' &nbsp;|&nbsp; ');
         }
         return '<tr class="border-b hover:bg-gray-50">' +
             '<td class="p-3 font-medium">' + escHtml(u.name || '-') + '</td>' +
             '<td class="p-3" dir="ltr">' + escHtml(u.phone || '-') + '</td>' +
             '<td class="p-3">' + escHtml(roleName) + '</td>' +
             '<td class="p-3">' + statusBadge + '</td>' +
-            (IS_SUPER_ADMIN ? '<td class="p-3">' + actions + '</td>' : '') +
+            (IS_SUPER_ADMIN ? '<td class="p-3 whitespace-nowrap">' + actions + '</td>' : '') +
             '</tr>';
     }).join('');
+}
+
+// ─── Admin: reset password ─────────────────────────────────────
+async function resetUserPassword(userId, userName) {
+    const pw = prompt('كلمة المرور الجديدة لـ ' + userName + ' (6 أحرف على الأقل):');
+    if (!pw) return;
+    if (pw.length < 6) { showToast('كلمة المرور قصيرة', 'error'); return; }
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/users/' + userId + '/reset-password', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({new_password: pw})
+    });
+    if (res && res.ok) showToast('تم تغيير كلمة المرور وإلغاء جميع الجلسات', 'success');
+    else { const e = await res.json().catch(() => ({})); showToast(e.error || 'فشل', 'error'); }
+}
+
+// ─── Admin: set / clear override PIN ────────────────────────────
+async function setUserPin(userId, userName) {
+    const pin = prompt('PIN جديد لـ ' + userName + ' (4-6 أرقام)، اتركه فارغ لمسح الـ PIN:');
+    if (pin === null) return;
+    const body = pin.trim() === '' ? {clear: true} : {pin: pin.trim()};
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/users/' + userId + '/set-pin', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    if (res && res.ok) showToast(pin.trim() === '' ? 'تم مسح الـ PIN' : 'تم تحديث الـ PIN', 'success');
+    else { const e = await res.json().catch(() => ({})); showToast(e.error || 'فشل', 'error'); }
+}
+
+// ─── Admin: hard delete ────────────────────────────────────────
+async function hardDeleteUser(userId, userName) {
+    if (!confirm('حذف ' + userName + ' نهائياً من النظام؟ لا يمكن التراجع.')) return;
+    let url = '/admin/api/vendors/' + VENDOR_ID + '/users/' + userId + '/permanent';
+    let res = await fetch(url, { method: 'DELETE' });
+    if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        if (err.code === 'ORDERS_ATTACHED' || err.code === 'ATTENDANCE_ATTACHED') {
+            const replacement = prompt('المستخدم ده عليه أوردرات/حضور قديمة. اكتب ID موظف آخر يستلمها:');
+            if (!replacement) return;
+            res = await fetch(url + '?reassignTo=' + encodeURIComponent(replacement), { method: 'DELETE' });
+        }
+    }
+    if (res && res.ok) { showToast('تم حذف المستخدم', 'success'); loadVendorDetail(); }
+    else { const e = await res.json().catch(() => ({})); showToast(e.error || 'فشل', 'error'); }
+}
+
+// ─── Admin: change vendor plan ─────────────────────────────────
+// Hits PUT /admin/api/vendors/{id}/plan (existing endpoint that
+// re-points the vendor's subscription to the chosen plan). The
+// modal default-selects the vendor's current plan so swapping is
+// a single dropdown change.
+function openChangePlan() {
+    const cur = (document.getElementById('vdPlan').textContent || '').toUpperCase();
+    const normalised = cur.includes('ENTERPRISE') ? 'ENTERPRISE' : 'PRO';
+    document.getElementById('cpPlan').value = normalised;
+    document.getElementById('cpNotes').value = '';
+    document.getElementById('changePlanModal').showModal();
+}
+
+async function submitChangePlan(e) {
+    e.preventDefault();
+    const newPlan = document.getElementById('cpPlan').value;
+    const notes = document.getElementById('cpNotes').value.trim();
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/plan', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ plan: newPlan, notes: notes || null })
+    });
+    if (res.ok) {
+        document.getElementById('changePlanModal').close();
+        showToast('تم تغيير الباقة', 'success');
+        loadVendorDetail();
+    } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || err.message || 'فشل تغيير الباقة', 'error');
+    }
+}
+
+// ─── Admin: impersonate as manager ─────────────────────────────
+async function impersonateAsManager() {
+    const res = await fetch('/admin/api/vendors/' + VENDOR_ID + '/impersonate', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); showToast(e.error || 'فشل', 'error'); return; }
+    const data = await res.json();
+    const html = '<div class="space-y-3">' +
+        '<p class="text-sm text-gray-600">جلسة مدير لـ <strong>' + escHtml(data.name) + '</strong> (' + escHtml(data.role) + ')</p>' +
+        '<div><label class="text-xs font-medium text-gray-500">Access token</label>' +
+        '<textarea readonly class="w-full px-2 py-1 border rounded text-xs font-mono" rows="3" onclick="this.select()">' + escHtml(data.access_token) + '</textarea></div>' +
+        '<div><label class="text-xs font-medium text-gray-500">Refresh token</label>' +
+        '<textarea readonly class="w-full px-2 py-1 border rounded text-xs font-mono" rows="2" onclick="this.select()">' + escHtml(data.refresh_token) + '</textarea></div>' +
+        '<p class="text-xs text-gray-500">انسخ الـ access token وألصقه في تطبيق Manager. أي جلسة قديمة للمستخدم اتلغت.</p>' +
+        '</div>';
+    showModal('جلسة مدير', html);
+}
+function showModal(title, html) {
+    const existing = document.getElementById('genericModal'); if (existing) existing.remove();
+    const dlg = document.createElement('dialog');
+    dlg.id = 'genericModal';
+    dlg.className = 'rounded-2xl shadow-2xl';
+    dlg.innerHTML = '<div class="p-6 max-w-2xl">' +
+        '<div class="flex justify-between items-center mb-4">' +
+        '<h3 class="text-lg font-bold">' + title + '</h3>' +
+        '<button onclick="this.closest(\'dialog\').close()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>' +
+        '</div>' + html + '</div>';
+    document.body.appendChild(dlg);
+    dlg.showModal();
 }
 
 async function addVendorUser(e) {

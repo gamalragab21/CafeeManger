@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 data class Order(
     val id: String,
     val vendorId: String,
+    /**
+     * Per-vendor per-day order counter. Resets each calendar day. UI
+     * surfaces this as the primary human-readable identifier (Order #1,
+     * #2, #3…). UUID `id` is the canonical opaque identifier.
+     */
+    val dailySeq: Int = 0,
+    val dailySeqDate: String = "",
     val channel: OrderChannel,
     val status: OrderStatus,
     val tableId: String? = null,
@@ -51,6 +58,14 @@ data class Order(
 ) {
     val netTotal: Double get() = total - refundedAmount
     val hasReturns: Boolean get() = returnedItemCount > 0
+
+    /**
+     * The order's primary human-readable identifier as shown in the UI
+     * and on the printed receipt. Prefers the per-day counter set by the
+     * backend (`#1`, `#2`, `#3`...); falls back to the last 6 characters
+     * of the UUID for legacy orders that pre-date the daily_seq column.
+     */
+    val displayId: String get() = if (dailySeq > 0) "#$dailySeq" else "#${id.takeLast(6).uppercase()}"
 }
 
 @Serializable
@@ -89,11 +104,25 @@ enum class OrderStatus {
         }
     }
 
+    // ────────────────────────────────────────────────────────────────
+    // Per-channel transitions.
+    //
+    // COMPLETED is now reachable directly from every pre-terminal status
+    // (CREATED, IN_PREPARATION, READY, SERVED/DELIVERED/PICKED_UP). Some
+    // merchants run a "fast counter" flow where the cashier doesn't need
+    // to walk every order through prep → ready → served — they want one
+    // tap to mark the order done. Mid-flow statuses still exist for the
+    // merchants who DO use them; this just opens an extra direct edge.
+    //
+    // Backend OrderRoutes.kt enforces "payment must be PAID before
+    // COMPLETED" so the direct-complete path can't bypass payment.
+    // ────────────────────────────────────────────────────────────────
+
     private fun canTransitionDineIn(newStatus: OrderStatus): Boolean {
         return when (this) {
-            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
-            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(SERVED, CANCELED)
+            CREATED -> newStatus in listOf(IN_PREPARATION, COMPLETED, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, COMPLETED, CANCELED)
+            READY -> newStatus in listOf(SERVED, COMPLETED, CANCELED)
             SERVED -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
@@ -104,11 +133,11 @@ enum class OrderStatus {
 
     private fun canTransitionDelivery(newStatus: OrderStatus): Boolean {
         return when (this) {
-            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
-            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(ASSIGNED, CANCELED)
-            ASSIGNED -> newStatus in listOf(OUT_FOR_DELIVERY, CANCELED)
-            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, DELIVERY_FAILED, CANCELED)
+            CREATED -> newStatus in listOf(IN_PREPARATION, COMPLETED, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, COMPLETED, CANCELED)
+            READY -> newStatus in listOf(ASSIGNED, COMPLETED, CANCELED)
+            ASSIGNED -> newStatus in listOf(OUT_FOR_DELIVERY, COMPLETED, CANCELED)
+            OUT_FOR_DELIVERY -> newStatus in listOf(DELIVERED, DELIVERY_FAILED, COMPLETED, CANCELED)
             DELIVERY_FAILED -> newStatus in listOf(RETURNED, ASSIGNED, CANCELED)
             DELIVERED -> newStatus in listOf(COMPLETED, CANCELED)
             RETURNED -> false // terminal
@@ -121,9 +150,9 @@ enum class OrderStatus {
 
     private fun canTransitionTakeaway(newStatus: OrderStatus): Boolean {
         return when (this) {
-            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
-            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(PICKED_UP, CANCELED)
+            CREATED -> newStatus in listOf(IN_PREPARATION, COMPLETED, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, COMPLETED, CANCELED)
+            READY -> newStatus in listOf(PICKED_UP, COMPLETED, CANCELED)
             PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> newStatus == REFUNDED
             CANCELED -> false
@@ -144,9 +173,9 @@ enum class OrderStatus {
 
     private fun canTransitionPickupLater(newStatus: OrderStatus): Boolean {
         return when (this) {
-            CREATED -> newStatus in listOf(IN_PREPARATION, CANCELED)
-            IN_PREPARATION -> newStatus in listOf(READY, CANCELED)
-            READY -> newStatus in listOf(PICKED_UP, CANCELED)
+            CREATED -> newStatus in listOf(IN_PREPARATION, COMPLETED, CANCELED)
+            IN_PREPARATION -> newStatus in listOf(READY, COMPLETED, CANCELED)
+            READY -> newStatus in listOf(PICKED_UP, COMPLETED, CANCELED)
             PICKED_UP -> newStatus in listOf(COMPLETED, CANCELED)
             COMPLETED -> newStatus == REFUNDED
             CANCELED -> false

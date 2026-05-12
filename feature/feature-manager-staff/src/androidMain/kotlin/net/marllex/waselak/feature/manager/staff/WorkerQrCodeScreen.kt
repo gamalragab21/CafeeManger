@@ -138,7 +138,7 @@ fun WorkerQrCodeContent(
                     .aspectRatio(0.72f), // Slightly adjusted ratio for better centering
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp)
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
             ) {
                 BadgeCardInternal(worker, qrCodeBitmap, cafeDark, cafeGold)
             }

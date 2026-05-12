@@ -10,10 +10,28 @@ import app.cash.sqldelight.db.SqlDriver
  * Kept as DDL statements (no result rows) so they execute cleanly on every driver.
  */
 fun SqlDriver.applyPerformanceIndexes() {
+    // Runtime auto-migrations: add new columns to tables that exist on older
+    // installs (SQLDelight's CREATE TABLE IF NOT EXISTS doesn't touch the
+    // schema of pre-existing tables). Each statement uses runCatching so
+    // it's a no-op on installs where the column already exists. Add to
+    // this list whenever a new column is introduced via Order.sq /
+    // similar — that way every startup self-heals without needing a
+    // proper schemaVersion bump + .sqm migration.
+    for (sql in RUNTIME_COLUMN_ADDITIONS) {
+        runCatching { execute(null, sql, 0) }
+    }
     for (sql in PERFORMANCE_INDEXES) {
         runCatching { execute(null, sql, 0) }
     }
 }
+
+private val RUNTIME_COLUMN_ADDITIONS = listOf(
+    // orders.daily_seq — per-vendor per-day human-readable order counter.
+    // Added in May 2026; existing tablets must self-migrate or every
+    // INSERT throws "table orders has no column named daily_seq".
+    "ALTER TABLE orders ADD COLUMN daily_seq INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE orders ADD COLUMN daily_seq_date TEXT NOT NULL DEFAULT ''",
+)
 
 private val PERFORMANCE_INDEXES = listOf(
     // items — POS catalog filtering

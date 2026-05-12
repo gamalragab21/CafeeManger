@@ -90,7 +90,11 @@ fun PaymentScreen(
                                 Text(
                                     stringResource(
                                         Res.string.order_number,
-                                        order.id.takeLast(6).uppercase()
+                                        // Prefer human-friendly daily counter (#1, #2…)
+                                        // over the UUID tail. Strip the leading "#"
+                                        // since the string resource template already
+                                        // supplies the prefix.
+                                        order.displayId.removePrefix("#")
                                     ),
                                     style = MaterialTheme.typography.titleMedium,
                                 )

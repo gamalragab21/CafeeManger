@@ -179,6 +179,62 @@ class AuthService(private val jwtConfig: JwtConfig) {
         }
     }
 
+    /**
+     * Admin-only: mint an auth session for an arbitrary vendor user without
+     * requiring their password. Used by the CMS dashboard's "Open as
+     * Manager" workflow so the admin can directly manage menu / recipes /
+     * stock / tables / offers / customers etc. via the existing
+     * manager-side APIs.
+     *
+     * The flow is identical to a successful login (refresh token rotated,
+     * single-session enforced) so any session that was previously open for
+     * this employee is invalidated — that's the trade-off for impersonation
+     * cleanliness. The targeted user will need to log in again after the
+     * admin is done.
+     *
+     * Caller is responsible for authorising the admin (only super admins
+     * should be allowed); this method does not check.
+     */
+    fun adminImpersonate(userUUID: UUID): AuthResult {
+        return transaction {
+            val user = UsersTable.selectAll()
+                .where { UsersTable.id eq userUUID }
+                .firstOrNull() ?: throw NoSuchElementException("User not found")
+
+            if (!user[UsersTable.active]) {
+                throw IllegalStateException("Cannot impersonate a deactivated user")
+            }
+
+            // Suspension check is intentionally skipped — admins need to
+            // troubleshoot suspended vendors too. If you ever DO need to
+            // gate this, re-add the same VendorsTable check that login() uses.
+
+            val userIdStr = userUUID.toString()
+            val vendorId = user[UsersTable.vendorId].toString()
+            val role = user[UsersTable.role]
+
+            val photoUrl = user[UsersTable.photoUrl]
+                ?: WorkersTable.selectAll()
+                    .where { (WorkersTable.userId eq userUUID) and WorkersTable.photoUrl.isNotNull() }
+                    .firstOrNull()?.get(WorkersTable.photoUrl)
+
+            val refreshToken = jwtConfig.generateRefreshToken(userIdStr)
+            storeRefreshToken(userUUID, refreshToken)
+
+            AuthResult(
+                accessToken = jwtConfig.generateAccessToken(userIdStr, vendorId, role),
+                refreshToken = refreshToken,
+                userId = userIdStr,
+                vendorId = vendorId,
+                role = role,
+                name = user[UsersTable.name],
+                phone = user[UsersTable.phone],
+                email = user[UsersTable.email],
+                photoUrl = photoUrl,
+            )
+        }
+    }
+
     companion object {
         fun hashPassword(password: String): String = BCrypt.hashpw(password, BCrypt.gensalt(12))
     }

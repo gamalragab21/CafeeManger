@@ -283,8 +283,9 @@ fun Route.attendanceRoutes() {
                         val pinHash = worker[WorkersTable.pinHash]
                             ?: throw IllegalStateException("Worker has no PIN set")
 
-                        // Verify PIN
-                        if (!pinService.verifyPin(request.pin, pinHash)) {
+                        // Defensive PIN normalization — see /check-in/pin for rationale.
+                        val incomingPin = request.pin.trim().filter { it.isDigit() }
+                        if (!pinService.verifyPin(incomingPin, pinHash)) {
                             // Log failed attempt
                             AttendanceAuthLogsTable.insert {
                                 it[AttendanceAuthLogsTable.workerId] = workerUUID
@@ -541,8 +542,24 @@ fun Route.attendanceRoutes() {
                 val pinHash = worker[WorkersTable.pinHash]
                     ?: throw IllegalStateException("Worker has no PIN set")
 
-                // Verify PIN
-                if (!pinService.verifyPin(checkInRequest.pin!!, pinHash)) {
+                // Defensive PIN normalization mirror of the client: strip
+                // whitespace and non-digits before bcrypt verify. Cashiers
+                // reported a ~10% rate of false "Incorrect PIN" responses for
+                // valid PINs; this rules out the possibility that a stray
+                // character (e.g. trailing newline from a soft-keyboard) made
+                // it past JSON parsing and into the bcrypt compare.
+                val incomingPin = checkInRequest.pin!!.trim().filter { it.isDigit() }
+                val verified = pinService.verifyPin(incomingPin, pinHash)
+                if (!verified) {
+                    trace.step(
+                        "PIN verify failed",
+                        mapOf(
+                            "workerId" to workerUUID.toString(),
+                            "incomingPinLen" to incomingPin.length.toString(),
+                            "rawPinLen" to checkInRequest.pin!!.length.toString(),
+                            "hashPrefix" to pinHash.take(7),
+                        )
+                    )
                     // Log failed attempt
                     AttendanceAuthLogsTable.insert {
                         it[AttendanceAuthLogsTable.workerId] = workerUUID
@@ -888,7 +905,9 @@ fun Route.attendanceRoutes() {
                 val pinHash = worker[WorkersTable.pinHash]
                     ?: throw IllegalStateException("Worker has no PIN set")
 
-                if (!pinService.verifyPin(request.pin, pinHash)) {
+                // Defensive PIN normalization — see /check-in/pin for rationale.
+                val incomingPin = request.pin.trim().filter { it.isDigit() }
+                if (!pinService.verifyPin(incomingPin, pinHash)) {
                     throw IllegalArgumentException("Incorrect PIN")
                 }
 

@@ -1,5 +1,6 @@
 package net.marllex.waselak.admin.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -305,8 +306,18 @@ private fun VendorEditContent(
         // ─── Subscription Plan Section ───────────────
         EditSectionHeader("Subscription Plan")
 
-        val plans = listOf("STARTER" to "Starter (299 EGP)", "BUSINESS" to "Business (599 EGP)", "ENTERPRISE" to "Enterprise (999 EGP)")
-        var selectedPlan by remember(vendor) { mutableStateOf(vendor.plan_name ?: "STARTER") }
+        // Consolidated 2-plan catalog. Legacy vendor.plan_name values
+        // ('STARTER' / 'BUSINESS') were migrated to PRO server-side, but
+        // we still fall back to PRO if a stale row comes through.
+        val plans = listOf(
+            "PRO" to "Pro (699 EGP)",
+            "ENTERPRISE" to "Enterprise (1,299 EGP)",
+        )
+        var selectedPlan by remember(vendor) {
+            val raw = vendor.plan_name
+            val normalized = if (raw in listOf("PRO", "ENTERPRISE")) raw!! else "PRO"
+            mutableStateOf(normalized)
+        }
         var planExpanded by remember { mutableStateOf(false) }
         var showPlanConfirm by remember { mutableStateOf(false) }
         var pendingPlan by remember { mutableStateOf("") }
@@ -647,6 +658,10 @@ private fun VendorTabbedContent(
         stringResource(Res.string.tab_stock), stringResource(Res.string.tab_offers),
         stringResource(Res.string.tab_alerts), stringResource(Res.string.tab_orders),
         stringResource(Res.string.tab_workers),
+        // New management tabs — let the admin operate this vendor's catalog
+        // and recipes directly without leaving the admin app.
+        stringResource(Res.string.menu_tab),
+        stringResource(Res.string.recipes_tab),
     )
     val selectedTab by viewModel.selectedTab.collectAsState()
     val tabLoading by viewModel.tabLoading.collectAsState()
@@ -700,6 +715,8 @@ private fun VendorTabbedContent(
             8 -> AlertsTab(viewModel)
             9 -> OrdersListTab(vendorId, viewModel)
             10 -> WorkersTab(viewModel)
+            11 -> AdminMenuTab(vendorId, viewModel)
+            12 -> AdminRecipesTab(vendorId, viewModel)
         }
     }
 }
@@ -718,6 +735,15 @@ private fun VendorDetailContent(
     var showAddUserDialog by remember { mutableStateOf(false) }
     var showResetPasswordDialog by remember { mutableStateOf<VendorUserDto?>(null) }
     var showDeactivateDialog by remember { mutableStateOf<VendorUserDto?>(null) }
+    var showSetPinDialog by remember { mutableStateOf<VendorUserDto?>(null) }
+    var showDeletePermanentDialog by remember { mutableStateOf<VendorUserDto?>(null) }
+
+    // The active impersonation session (if any) is held by the ViewModel.
+    // We watch it so the dialog below can show whatever the most recent
+    // /impersonate call returned.
+    val impersonationSession by (viewModel?.impersonationSession
+        ?: kotlinx.coroutines.flow.MutableStateFlow(null))
+        .collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -729,6 +755,25 @@ private fun VendorDetailContent(
         // ─── Header Card ─────────────────────────
         item {
             VendorHeaderCard(vendor)
+        }
+
+        // ─── "Open as Manager" CTA ───────────────
+        // Single button that unlocks every manager-side action (menu,
+        // recipes, stock, tables, offers, customers, orders, etc.) for the
+        // selected vendor. Clicking mints a manager JWT and shows it in a
+        // dialog with copy buttons.
+        if (viewModel != null) {
+            item {
+                Button(
+                    onClick = { viewModel.impersonateVendor(vendorId) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Default.SwitchAccount, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.open_as_manager))
+                }
+            }
         }
 
         // ─── Info Card ───────────────────────────
@@ -789,7 +834,9 @@ private fun VendorDetailContent(
                 UserRowWithActions(
                     user = user,
                     onResetPassword = { showResetPasswordDialog = user },
+                    onSetPin = { showSetPinDialog = user },
                     onDeactivate = { showDeactivateDialog = user },
+                    onDeletePermanent = { showDeletePermanentDialog = user },
                     showActions = viewModel != null
                 )
             }
@@ -877,6 +924,214 @@ private fun VendorDetailContent(
             )
         }
     }
+
+    // ─── Set Override PIN Dialog ────────────────────────
+    showSetPinDialog?.let { user ->
+        if (viewModel != null) {
+            SetPinDialog(
+                userName = user.name,
+                onDismiss = { showSetPinDialog = null },
+                onConfirm = { newPinOrNull ->
+                    viewModel.setUserPin(vendorId, user.id, newPinOrNull)
+                    showSetPinDialog = null
+                },
+            )
+        }
+    }
+
+    // ─── Permanent Delete Dialog ────────────────────────
+    showDeletePermanentDialog?.let { user ->
+        if (viewModel != null) {
+            AlertDialog(
+                onDismissRequest = { showDeletePermanentDialog = null },
+                title = { Text(stringResource(Res.string.delete_user_permanent_title)) },
+                text = { Text(stringResource(Res.string.delete_user_permanent_warning, user.name)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.hardDeleteUser(vendorId, user.id)
+                            showDeletePermanentDialog = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text(stringResource(Res.string.delete_user_permanent_confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeletePermanentDialog = null }) { Text(stringResource(Res.string.cancel)) }
+                }
+            )
+        }
+    }
+
+    // ─── Manager Impersonation Dialog ─────────────────────
+    // Shown after the "Open as Manager" CTA succeeds. The dialog presents
+    // the freshly-minted access + refresh tokens with copy buttons so the
+    // operator can paste them into the manager app for full vendor access.
+    impersonationSession?.let { session ->
+        if (viewModel != null) {
+            ImpersonationResultDialog(
+                session = session,
+                vendorName = vendor.name,
+                onDismiss = { viewModel.dismissImpersonationSession() },
+            )
+        }
+    }
+}
+
+/**
+ * Result dialog for "Open as Manager". Displays both tokens with copy
+ * buttons. The user pastes the access token into the manager app's "manual
+ * session" entry (or whatever flow we add later) to operate as the vendor's
+ * manager — that unlocks every manager-side endpoint: menu, recipes,
+ * stock, tables, offers, customers, orders, suppliers, attendance, etc.
+ */
+@Composable
+private fun ImpersonationResultDialog(
+    session: AdminApiClient.ImpersonationSession,
+    vendorName: String,
+    onDismiss: () -> Unit,
+) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copiedFlash by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.impersonate_title, vendorName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(Res.string.impersonate_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "${session.name} · ${session.role} · ${session.phone}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                TokenRow(
+                    label = stringResource(Res.string.impersonate_access_token),
+                    token = session.accessToken,
+                    onCopy = {
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(session.accessToken))
+                        copiedFlash = true
+                    },
+                )
+                TokenRow(
+                    label = stringResource(Res.string.impersonate_refresh_token),
+                    token = session.refreshToken,
+                    onCopy = {
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(session.refreshToken))
+                        copiedFlash = true
+                    },
+                )
+                if (copiedFlash) {
+                    Text(
+                        stringResource(Res.string.copied),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.close)) }
+        },
+    )
+}
+
+@Composable
+private fun TokenRow(label: String, token: String, onCopy: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Show the token with a monospace-ish look so it's easy to
+            // spot truncation visually. We deliberately don't render it in
+            // a TextField — copy-by-button is faster than copy-by-select.
+            Text(
+                text = if (token.length > 60) token.take(56) + "…" else token,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .weight(1f)
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                maxLines = 2,
+            )
+            OutlinedButton(
+                onClick = onCopy,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(Res.string.copy_token), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+/**
+ * Set / clear the override PIN for a vendor user. Two terminal actions:
+ *
+ *  - "Save" with a 4-6 digit value     → set the PIN
+ *  - "Clear" button                    → clear the PIN (sends `clear=true`)
+ *
+ * Validation matches the backend's PinService — purely numeric, 4-6 chars.
+ */
+@Composable
+private fun SetPinDialog(
+    userName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (newPinOrNull: String?) -> Unit,
+) {
+    var pin by remember { mutableStateOf("") }
+    val trimmed = pin.filter { it.isDigit() }
+    val isValid = trimmed.length in 4..6
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.set_pin_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(Res.string.set_pin_description, userName))
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6) },
+                    label = { Text(stringResource(Res.string.new_pin)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (pin.isNotEmpty() && !isValid) {
+                    Text(
+                        stringResource(Res.string.pin_invalid),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(trimmed) },
+                enabled = isValid,
+            ) { Text(stringResource(Res.string.set_pin)) }
+        },
+        dismissButton = {
+            Row {
+                // "Clear" is a destructive-style secondary action — passes
+                // null to the caller so the ViewModel sends `clear=true`.
+                TextButton(
+                    onClick = { onConfirm(null) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.clear_pin)) }
+                Spacer(Modifier.width(4.dp))
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+            }
+        },
+    )
 }
 
 @Composable
@@ -989,7 +1244,9 @@ private fun ResetPasswordDialog(
 private fun UserRowWithActions(
     user: VendorUserDto,
     onResetPassword: () -> Unit,
+    onSetPin: () -> Unit,
     onDeactivate: () -> Unit,
+    onDeletePermanent: () -> Unit,
     showActions: Boolean = false,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -1056,25 +1313,61 @@ private fun UserRowWithActions(
                 }
             }
 
-            if (showActions && user.active) {
+            if (showActions) {
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onResetPassword,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(Res.string.reset_password), style = MaterialTheme.typography.labelSmall)
+                // Actions are wrapped in FlowRow so a narrow Vendor Detail
+                // pane stacks the 4 buttons across multiple lines instead of
+                // truncating the labels.
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (user.active) {
+                        OutlinedButton(
+                            onClick = onResetPassword,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(Res.string.reset_password), style = MaterialTheme.typography.labelSmall)
+                        }
+                        // PIN is meaningful only for MANAGER users (the
+                        // override-PIN system is manager-only) — gate the
+                        // button so we don't expose it for cashiers and
+                        // delivery drivers.
+                        if (user.role.equals("MANAGER", ignoreCase = true)) {
+                            OutlinedButton(
+                                onClick = onSetPin,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Pin, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(Res.string.set_pin), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onDeactivate,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(Res.string.deactivate), style = MaterialTheme.typography.labelSmall)
+                        }
                     }
+                    // Permanent delete is the most destructive — coloured
+                    // error and always at the end. Shown for both active and
+                    // inactive users so admins can clean up stale rows
+                    // without having to reactivate them first.
                     OutlinedButton(
-                        onClick = onDeactivate,
+                        onClick = onDeletePermanent,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(Res.string.deactivate), style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(Res.string.delete_user), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -1130,7 +1423,7 @@ private fun VendorHeaderCard(vendor: VendorDetailInfo) {
                     if (vendor.plan_display_name != null) {
                         val planColor = when (vendor.plan_name?.uppercase()) {
                             "ENTERPRISE" -> MaterialTheme.colorScheme.tertiary
-                            "BUSINESS" -> MaterialTheme.colorScheme.primary
+                            "PRO", "STARTER", "BUSINESS" -> MaterialTheme.colorScheme.primary
                             else -> MaterialTheme.colorScheme.secondary
                         }
                         Surface(
@@ -1693,6 +1986,575 @@ private fun StatItem(label: String, value: String) {
             text = label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Admin: Menu tab (Categories + Items CRUD)
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun AdminMenuTab(vendorId: String, viewModel: VendorDetailViewModel) {
+    val menu by viewModel.menu.collectAsState()
+    val loading by viewModel.menuLoading.collectAsState()
+
+    // Initial fetch when this tab first becomes visible
+    LaunchedEffect(vendorId) { viewModel.loadMenu(vendorId) }
+
+    var showAddCategory by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<AdminCategoryDto?>(null) }
+    var addingItemToCategory by remember { mutableStateOf<AdminCategoryDto?>(null) }
+    var editingItem by remember { mutableStateOf<Pair<AdminCategoryDto, AdminItemDto>?>(null) }
+    var deletingCategory by remember { mutableStateOf<AdminCategoryDto?>(null) }
+    var deletingItem by remember { mutableStateOf<AdminItemDto?>(null) }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "${menu.size} ${stringResource(Res.string.menu_tab).lowercase()}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Button(onClick = { showAddCategory = true }) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(Res.string.add_category))
+            }
+        }
+
+        if (loading && menu.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (menu.isEmpty()) {
+            Text(
+                stringResource(Res.string.menu_no_categories),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(menu, key = { it.id }) { category ->
+                    AdminCategoryCard(
+                        category = category,
+                        onEditCategory = { editingCategory = category },
+                        onDeleteCategory = { deletingCategory = category },
+                        onAddItem = { addingItemToCategory = category },
+                        onEditItem = { item -> editingItem = category to item },
+                        onDeleteItem = { item -> deletingItem = item },
+                    )
+                }
+            }
+        }
+    }
+
+    // ─── Dialogs ────────────────────────────────────────────
+    if (showAddCategory) {
+        CategoryFormDialog(
+            initial = null,
+            onDismiss = { showAddCategory = false },
+            onConfirm = { name, order ->
+                viewModel.createCategory(vendorId, name, order)
+                showAddCategory = false
+            },
+        )
+    }
+    editingCategory?.let { cat ->
+        CategoryFormDialog(
+            initial = cat,
+            onDismiss = { editingCategory = null },
+            onConfirm = { name, order ->
+                viewModel.updateCategory(vendorId, cat.id, name, order)
+                editingCategory = null
+            },
+        )
+    }
+    deletingCategory?.let { cat ->
+        AlertDialog(
+            onDismissRequest = { deletingCategory = null },
+            title = { Text(stringResource(Res.string.delete)) },
+            text = { Text("${stringResource(Res.string.delete)}: ${cat.name}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteCategory(vendorId, cat.id)
+                        deletingCategory = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingCategory = null }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+
+    addingItemToCategory?.let { cat ->
+        ItemFormDialog(
+            categories = menu,
+            preselectedCategoryId = cat.id,
+            initial = null,
+            onDismiss = { addingItemToCategory = null },
+            onConfirm = { req ->
+                viewModel.createItem(vendorId, req)
+                addingItemToCategory = null
+            },
+        )
+    }
+    editingItem?.let { (cat, item) ->
+        ItemFormDialog(
+            categories = menu,
+            preselectedCategoryId = cat.id,
+            initial = item,
+            onDismiss = { editingItem = null },
+            onConfirm = { req ->
+                viewModel.updateItem(
+                    vendorId,
+                    item.id,
+                    UpdateAdminItemRequest(
+                        category_id = req.category_id,
+                        name = req.name,
+                        description = req.description,
+                        price = req.price,
+                        cost_price = req.cost_price,
+                        sku = req.sku,
+                        barcode = req.barcode,
+                        image_url = req.image_url,
+                        available = req.available,
+                        stock_behavior = req.stock_behavior,
+                    ),
+                )
+                editingItem = null
+            },
+        )
+    }
+    deletingItem?.let { item ->
+        AlertDialog(
+            onDismissRequest = { deletingItem = null },
+            title = { Text(stringResource(Res.string.delete)) },
+            text = { Text("${stringResource(Res.string.delete)}: ${item.name}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteItem(vendorId, item.id)
+                        deletingItem = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingItem = null }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AdminCategoryCard(
+    category: AdminCategoryDto,
+    onEditCategory: () -> Unit,
+    onDeleteCategory: () -> Unit,
+    onAddItem: () -> Unit,
+    onEditItem: (AdminItemDto) -> Unit,
+    onDeleteItem: (AdminItemDto) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(true) }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    IconButton(onClick = { expanded = !expanded }) {
+                        Icon(
+                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                        )
+                    }
+                    Column {
+                        Text(category.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${category.item_count} items",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Row {
+                    IconButton(onClick = onAddItem) {
+                        Icon(Icons.Default.Add, contentDescription = "Add item", modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = onEditCategory) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit category", modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = onDeleteCategory) {
+                        Icon(
+                            Icons.Default.DeleteForever,
+                            contentDescription = "Delete category",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+
+            if (expanded && category.items.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                category.items.forEach { item ->
+                    AdminItemRow(item = item, onEdit = { onEditItem(item) }, onDelete = { onDeleteItem(item) })
+                    if (item != category.items.last()) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminItemRow(
+    item: AdminItemDto,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(item.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                if (item.available != "true") {
+                    Surface(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(
+                            "Unavailable",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+            Text(
+                "${item.price} EGP" + if (item.sku.isNotBlank()) "  ·  ${item.sku}" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Default.DeleteForever,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryFormDialog(
+    initial: AdminCategoryDto?,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, displayOrder: Int) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var orderText by remember { mutableStateOf(initial?.display_order ?: "0") }
+    val title = if (initial == null) stringResource(Res.string.add_category) else stringResource(Res.string.edit_category)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text(stringResource(Res.string.category_name)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = orderText,
+                    onValueChange = { orderText = it.filter { c -> c.isDigit() } },
+                    label = { Text(stringResource(Res.string.display_order)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim(), orderText.toIntOrNull() ?: 0) },
+                enabled = name.isNotBlank(),
+            ) { Text(if (initial == null) stringResource(Res.string.create) else stringResource(Res.string.save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun ItemFormDialog(
+    categories: List<AdminCategoryDto>,
+    preselectedCategoryId: String,
+    initial: AdminItemDto?,
+    onDismiss: () -> Unit,
+    onConfirm: (CreateAdminItemRequest) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var price by remember { mutableStateOf(initial?.price ?: "") }
+    var description by remember { mutableStateOf(initial?.description ?: "") }
+    var costPrice by remember { mutableStateOf(initial?.cost_price ?: "") }
+    var sku by remember { mutableStateOf(initial?.sku ?: "") }
+    var barcode by remember { mutableStateOf(initial?.barcode ?: "") }
+    var imageUrl by remember { mutableStateOf(initial?.image_url ?: "") }
+    var available by remember { mutableStateOf((initial?.available ?: "true") == "true") }
+    var stockBehavior by remember { mutableStateOf(initial?.stock_behavior ?: "NONE") }
+    var categoryId by remember { mutableStateOf(initial?.category_id ?: preselectedCategoryId) }
+
+    val priceValid = price.toDoubleOrNull() != null && price.toDouble() >= 0
+    val canSave = name.isNotBlank() && priceValid && categoryId.isNotBlank()
+    val title = if (initial == null) stringResource(Res.string.add_item) else stringResource(Res.string.edit_item)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Category picker — segmented row works well with the few
+                // categories most vendors have (< 10).
+                Text(stringResource(Res.string.category_name), style = MaterialTheme.typography.labelMedium)
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    categories.forEach { c ->
+                        FilterChip(
+                            selected = categoryId == c.id,
+                            onClick = { categoryId = c.id },
+                            label = { Text(c.name, maxLines = 1) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text(stringResource(Res.string.item_name)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = price, onValueChange = { price = it },
+                    label = { Text(stringResource(Res.string.item_price)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = description, onValueChange = { description = it },
+                    label = { Text(stringResource(Res.string.item_description)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = costPrice, onValueChange = { costPrice = it },
+                    label = { Text(stringResource(Res.string.item_cost_price)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = sku, onValueChange = { sku = it },
+                    label = { Text(stringResource(Res.string.item_sku)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = barcode, onValueChange = { barcode = it },
+                    label = { Text(stringResource(Res.string.item_barcode)) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = imageUrl, onValueChange = { imageUrl = it },
+                    label = { Text("Image URL (optional)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = available, onCheckedChange = { available = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.item_available))
+                }
+                Text(stringResource(Res.string.stock_behavior), style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "NONE" to stringResource(Res.string.stock_none),
+                        "DIRECT" to stringResource(Res.string.stock_direct),
+                        "RECIPE" to stringResource(Res.string.stock_recipe),
+                    ).forEach { (code, label) ->
+                        FilterChip(
+                            selected = stockBehavior == code,
+                            onClick = { stockBehavior = code },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = {
+                    onConfirm(
+                        CreateAdminItemRequest(
+                            category_id = categoryId,
+                            name = name.trim(),
+                            description = description.ifBlank { null },
+                            price = price.toDoubleOrNull() ?: 0.0,
+                            cost_price = costPrice.toDoubleOrNull(),
+                            sku = sku.ifBlank { null },
+                            barcode = barcode.ifBlank { null },
+                            image_url = imageUrl.ifBlank { null },
+                            available = available,
+                            stock_behavior = stockBehavior,
+                        ),
+                    )
+                },
+            ) { Text(if (initial == null) stringResource(Res.string.create) else stringResource(Res.string.save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+        },
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Admin: Recipes tab (list + delete)
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun AdminRecipesTab(vendorId: String, viewModel: VendorDetailViewModel) {
+    val recipes by viewModel.recipes.collectAsState()
+    val loading by viewModel.recipesLoading.collectAsState()
+
+    LaunchedEffect(vendorId) { viewModel.loadRecipes(vendorId) }
+
+    var deletingRecipe by remember { mutableStateOf<AdminRecipeDto?>(null) }
+    var showDeleteAll by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "${recipes.size} ${stringResource(Res.string.recipes_tab).lowercase()}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            if (recipes.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = { showDeleteAll = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(Res.string.delete_all_recipes))
+                }
+            }
+        }
+
+        if (loading && recipes.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (recipes.isEmpty()) {
+            Text(
+                stringResource(Res.string.menu_no_recipes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(recipes, key = { it.id }) { r ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(r.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(Res.string.recipe_ingredient_count, r.ingredient_count),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { deletingRecipe = r }) {
+                                Icon(
+                                    Icons.Default.DeleteForever,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    deletingRecipe?.let { r ->
+        AlertDialog(
+            onDismissRequest = { deletingRecipe = null },
+            title = { Text(stringResource(Res.string.delete)) },
+            text = { Text("${stringResource(Res.string.delete)}: ${r.name}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteRecipe(vendorId, r.id)
+                        deletingRecipe = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingRecipe = null }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+
+    if (showDeleteAll) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAll = false },
+            title = { Text(stringResource(Res.string.delete_all_recipes)) },
+            text = { Text(stringResource(Res.string.delete_all_recipes_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAllRecipes(vendorId)
+                        showDeleteAll = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.delete_all_recipes)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAll = false }) { Text(stringResource(Res.string.cancel)) }
+            },
         )
     }
 }

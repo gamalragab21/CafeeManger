@@ -212,24 +212,50 @@
         @media(max-width:768px){.analytics-grid{grid-template-columns:1fr}}
 
         /* === PRICING === */
-        .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1000px;margin:0 auto}
-        .price-card{background:var(--surface-2);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-lg);padding:36px;text-align:center;transition:all .4s;position:relative}
-        .price-card.featured{border-color:var(--primary);background:linear-gradient(180deg,rgba(37,99,235,.08),var(--surface-2));transform:scale(1.05)}
-        .price-card.featured .price-badge{display:inline-block;background:var(--primary);color:#fff;padding:4px 16px;border-radius:20px;font-size:.8rem;font-weight:700;position:absolute;top:-14px;right:50%;transform:translateX(50%)}
-        .price-card h4{font-size:1.3rem;font-weight:800;margin-bottom:12px}
-        .price-card .price{font-size:2.5rem;font-weight:900;color:var(--primary-light);margin-bottom:4px}
-        .price-card .price-period{color:var(--text-muted);font-size:.9rem;margin-bottom:24px}
-        .price-card ul{list-style:none;text-align:right;margin-bottom:28px}
-        .price-card ul li{padding:8px 0;font-size:.92rem;color:var(--text-muted);display:flex;align-items:center;gap:10px}
-        .price-card ul li i{color:var(--primary-light);font-size:.85rem}
-        .price-card .btn-price{width:100%;padding:14px;border-radius:var(--radius-sm);font-weight:700;font-size:1rem;cursor:pointer;border:none;transition:all .3s}
+        .pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px;max-width:1100px;margin:0 auto;align-items:stretch}
+        .price-card{background:var(--surface-2);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-lg);padding:40px 36px;text-align:center;transition:all .4s;position:relative;display:flex;flex-direction:column}
+        .price-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.12)}
+        /* Enterprise (featured) — premium gold accent */
+        .price-card.featured{
+            border:2px solid var(--accent);
+            background:
+                radial-gradient(120% 80% at 50% 0%, rgba(245,158,11,.12), transparent 60%),
+                linear-gradient(180deg, rgba(245,158,11,.04), var(--surface-2));
+            box-shadow:0 20px 60px -20px rgba(245,158,11,.35), 0 0 0 1px rgba(245,158,11,.15) inset;
+            transform:scale(1.03)
+        }
+        .price-card.featured:hover{transform:scale(1.03) translateY(-4px)}
+        .price-card.featured .price-badge{
+            display:inline-flex;align-items:center;gap:6px;
+            background:linear-gradient(135deg, var(--accent), var(--accent-light));
+            color:#0F172A;padding:6px 18px;border-radius:20px;font-size:.82rem;font-weight:800;
+            position:absolute;top:-16px;right:50%;transform:translateX(50%);
+            box-shadow:0 6px 20px rgba(245,158,11,.4);white-space:nowrap;letter-spacing:.2px
+        }
+        .price-card.featured h4{color:var(--accent-light)}
+        .price-card.featured .price{color:var(--accent-light)}
+        .price-card.featured ul li i{color:var(--accent-light)}
+        .price-card h4{font-size:1.35rem;font-weight:800;margin-bottom:12px}
+        .price-card .price{font-size:2.6rem;font-weight:900;color:var(--primary-light);margin-bottom:4px;letter-spacing:-.5px}
+        .price-card .price-period{color:var(--text-muted);font-size:.9rem;margin-bottom:28px}
+        .price-card ul{list-style:none;text-align:right;margin-bottom:28px;flex:1}
+        .price-card ul li{padding:9px 0;font-size:.93rem;color:var(--text-muted);display:flex;align-items:center;gap:10px;line-height:1.5}
+        .price-card ul li i{color:var(--primary-light);font-size:.85rem;min-width:14px}
+        .price-card .btn-price{width:100%;padding:15px;border-radius:var(--radius-sm);font-weight:700;font-size:1rem;cursor:pointer;border:none;transition:all .3s;margin-top:auto}
         .price-card .btn-price.primary{background:var(--primary);color:#fff}
-        .price-card .btn-price.primary:hover{background:var(--primary-dark)}
+        .price-card .btn-price.primary:hover{background:var(--primary-dark);transform:translateY(-2px)}
         .price-card .btn-price.outline{background:transparent;border:1px solid var(--surface-3);color:var(--text)}
         .price-card .btn-price.outline:hover{border-color:var(--primary);background:rgba(37,99,235,.08)}
+        .price-card .btn-price.gold{
+            background:linear-gradient(135deg, var(--accent), var(--accent-light));
+            color:#0F172A;font-weight:800;
+            box-shadow:0 8px 24px -8px rgba(245,158,11,.5)
+        }
+        .price-card .btn-price.gold:hover{transform:translateY(-2px);box-shadow:0 12px 32px -8px rgba(245,158,11,.6)}
         @media(max-width:768px){
-            .pricing-grid{grid-template-columns:1fr;max-width:400px}
+            .pricing-grid{grid-template-columns:1fr;max-width:420px;gap:36px}
             .price-card.featured{transform:none}
+            .price-card.featured:hover{transform:translateY(-4px)}
         }
 
         /* === CTA === */
@@ -705,69 +731,56 @@
             <p class="section-desc mx-auto" style="margin-bottom:48px">ابدأ مجانا وطور باقتك لما نشاطك يكبر.</p>
         </div>
         <div class="pricing-grid" data-aos="fade-up" data-aos-delay="100">
+            <!-- ⚡ Pro (entry plan after May 2026 consolidation — was BUSINESS + STARTER merged) -->
             <div class="price-card">
-                <h4>Starter</h4>
-                <div class="price">299 ج.م</div>
-                <div class="price-period">شهريا</div>
+                <h4>⚡ Pro</h4>
+                <div class="price">699 ج.م</div>
+                <div class="price-period">شهريا — أو 6,990 ج.م سنوياً (شهرين مجاناً)</div>
                 <ul>
-                    <li><i class="fas fa-check"></i> مدير 1 + كاشير 1</li>
-                    <li><i class="fas fa-check"></i> 750 طلب / شهر</li>
-                    <li><i class="fas fa-check"></i> 50 صنف في المنيو</li>
-                    <li><i class="fas fa-check"></i> نقطة بيع كاملة</li>
-                    <li><i class="fas fa-check"></i> نقاط ولاء</li>
-                    <li><i class="fas fa-check"></i> خصم يدوي</li>
-                    <li><i class="fas fa-check"></i> درج نقدية</li>
-                    <li><i class="fas fa-check"></i> إشعارات</li>
-                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون مخزون</li>
-                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون توصيل</li>
-                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون تحليلات</li>
-                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون KDS</li>
-                </ul>
-                <button class="btn-price outline" onclick="window.open('https://wa.me/201017026531','_blank')">ابدأ الآن</button>
-            </div>
-            <div class="price-card featured">
-                <span class="price-badge">الأكثر طلبا</span>
-                <h4>Business</h4>
-                <div class="price">599 ج.م</div>
-                <div class="price-period">شهريا</div>
-                <ul>
-                    <li><i class="fas fa-check"></i> 2 مدير + 3 كاشير + 3 توصيل</li>
-                    <li><i class="fas fa-check"></i> 3,500 طلب / شهر</li>
-                    <li><i class="fas fa-check"></i> 200 صنف في المنيو</li>
-                    <li><i class="fas fa-check"></i> كل مميزات Starter</li>
-                    <li><i class="fas fa-check"></i> إدارة مخزون كاملة</li>
-                    <li><i class="fas fa-check"></i> إدارة موظفين + حضور</li>
-                    <li><i class="fas fa-check"></i> رواتب + مرتجعات</li>
-                    <li><i class="fas fa-check"></i> ائتمان عملاء</li>
-                    <li><i class="fas fa-check"></i> تحليلات متقدمة</li>
+                    <li><i class="fas fa-check"></i> 3 مدير + 5 كاشير + 5 توصيل</li>
+                    <li><i class="fas fa-check"></i> 5,000 طلب / شهر</li>
+                    <li><i class="fas fa-check"></i> 500 صنف في المنيو</li>
+                    <li><i class="fas fa-check"></i> فرع واحد</li>
+                    <li><i class="fas fa-check"></i> نقطة بيع كاملة + دفع مقسّم</li>
                     <li><i class="fas fa-check"></i> KDS شاشة مطبخ</li>
-                    <li><i class="fas fa-check"></i> تطبيق توصيل</li>
-                    <li><i class="fas fa-check"></i> موردين + أوامر شراء</li>
-                    <li><i class="fas fa-check"></i> تقسيم مدفوعات</li>
-                    <li><i class="fas fa-check"></i> وصفات طبية + تداخلات</li>
-                </ul>
-                <button class="btn-price primary" onclick="window.open('https://wa.me/201017026531','_blank')">اشترك الآن</button>
-            </div>
-            <div class="price-card">
-                <h4>Enterprise</h4>
-                <div class="price">999 ج.م</div>
-                <div class="price-period">شهريا</div>
-                <ul>
-                    <li><i class="fas fa-check"></i> مستخدمين غير محدودين</li>
-                    <li><i class="fas fa-check"></i> طلبات غير محدودة</li>
-                    <li><i class="fas fa-check"></i> أصناف غير محدودة</li>
-                    <li><i class="fas fa-check"></i> حتى 5 فروع</li>
-                    <li><i class="fas fa-check"></i> كل مميزات Business</li>
-                    <li><i class="fas fa-check"></i> طلبات مجدولة</li>
+                    <li><i class="fas fa-check"></i> إدارة طاولات + توصيل + تيك أواي</li>
                     <li><i class="fas fa-check"></i> منيو رقمي + QR</li>
-                    <li><i class="fas fa-check"></i> إيصال رقمي</li>
-                    <li><i class="fas fa-check"></i> ساعات إضافية</li>
-                    <li><i class="fas fa-check"></i> QR كود للموظفين</li>
-                    <li><i class="fas fa-check"></i> عروض وخصومات</li>
-                    <li><i class="fas fa-check"></i> تخصيص كامل</li>
-                    <li><i class="fas fa-check"></i> دعم أولوية 24/7</li>
+                    <li><i class="fas fa-check"></i> إيصال رقمي + إرسال واتساب</li>
+                    <li><i class="fas fa-check"></i> طلبات مجدولة وحجوزات</li>
+                    <li><i class="fas fa-check"></i> إدارة مخزون كاملة + تنبيهات</li>
+                    <li><i class="fas fa-check"></i> موردين + أوامر شراء</li>
+                    <li><i class="fas fa-check"></i> موظفين + حضور + رواتب</li>
+                    <li><i class="fas fa-check"></i> تطبيق إدارة على الموبايل</li>
+                    <li><i class="fas fa-check"></i> ذكاء اصطناعي أساسي (توقعات + ترويج)</li>
+                    <li><i class="fas fa-check"></i> CRM + نقاط ولاء + كوبونات</li>
+                    <li><i class="fas fa-check"></i> دعم لمطاعم وصيدليات ومحلات</li>
+                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون تعدد فروع</li>
+                    <li><i class="fas fa-times" style="color:#ef4444"></i> بدون مدير حساب مخصص</li>
                 </ul>
-                <button class="btn-price outline" onclick="window.open('https://wa.me/201017026531','_blank')">تواصل معنا</button>
+                <button class="btn-price outline" onclick="window.open('https://wa.me/201017026531','_blank')">ابدأ تجربة 14 يوم مجاناً</button>
+            </div>
+
+            <!-- 🏆 Enterprise — most requested (rebranded May 2026) -->
+            <div class="price-card featured">
+                <span class="price-badge"><i class="fas fa-crown"></i> الأكثر طلباً</span>
+                <h4>🏆 Enterprise</h4>
+                <div class="price">1,299 ج.م</div>
+                <div class="price-period">شهريا — أو 12,990 ج.م سنوياً (شهرين مجاناً)</div>
+                <ul>
+                    <li><i class="fas fa-check"></i> كل مميزات Pro</li>
+                    <li><i class="fas fa-check"></i> فروع غير محدودة ∞</li>
+                    <li><i class="fas fa-check"></i> مستخدمين / طلبات / أصناف غير محدودة</li>
+                    <li><i class="fas fa-check"></i> ذكاء اصطناعي كامل (تنبؤ + تحليل موظفين)</li>
+                    <li><i class="fas fa-check"></i> API + Webhooks للتكامل</li>
+                    <li><i class="fas fa-check"></i> تخصيص كامل + White-label</li>
+                    <li><i class="fas fa-check"></i> مدير حساب مخصص</li>
+                    <li><i class="fas fa-check"></i> دعم أولوية 24/7 (واتساب + هاتف)</li>
+                    <li><i class="fas fa-check"></i> ضمان SLA مكتوب</li>
+                    <li><i class="fas fa-check"></i> تدريب فريق العمل</li>
+                    <li><i class="fas fa-check"></i> تقارير عبر الفروع + KPI مخصص</li>
+                    <li><i class="fas fa-check"></i> تحديثات وميزات مجانية طوال السنة</li>
+                </ul>
+                <button class="btn-price gold" onclick="window.open('https://wa.me/201017026531','_blank')">تواصل لإعداد حسابك</button>
             </div>
         </div>
     </div>

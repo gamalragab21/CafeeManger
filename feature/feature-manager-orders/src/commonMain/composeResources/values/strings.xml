@@ -53,6 +53,9 @@
     <string name="processing_refund">Processing refund…</string>
     <string name="no_orders">No orders found</string>
     <string name="pay_now">Pay Now</string>
+    <!-- "Mark Completed" quick action that skips intermediate prep/ready
+         statuses. Only shown when paymentStatus == PAID. -->
+    <string name="mark_completed">Mark Completed</string>
     <string name="split_payment">Split Payment</string>
     <string name="copy_order_id">Copy ID</string>
     <string name="processing_payment">Processing payment…</string>

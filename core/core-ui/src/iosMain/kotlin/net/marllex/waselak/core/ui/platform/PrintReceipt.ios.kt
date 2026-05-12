@@ -17,6 +17,20 @@ import platform.UIKit.UIMarkupTextPrintFormatter
 @OptIn(ExperimentalForeignApi::class)
 actual class ReceiptPrinter {
     actual fun printHtml(htmlContent: String, jobName: String) {
+        present(htmlContent, jobName)
+    }
+
+    actual fun printOrder(
+        order: net.marllex.waselak.core.model.Order,
+        vendor: net.marllex.waselak.core.model.Vendor?,
+        language: String,
+        jobName: String,
+        qrCodeUrl: String?,
+    ) {
+        present(buildReceiptHtml(order, vendor, language, qrCodeUrl), jobName)
+    }
+
+    private fun present(html: String, jobName: String) {
         val printController = UIPrintInteractionController.sharedPrintController()
 
         val printInfo = UIPrintInfo.printInfo()
@@ -24,12 +38,15 @@ actual class ReceiptPrinter {
         printInfo.outputType = UIPrintInfoOutputType.UIPrintInfoOutputGeneral
         printController.printInfo = printInfo
 
-        val formatter = UIMarkupTextPrintFormatter(markupText = htmlContent)
+        val formatter = UIMarkupTextPrintFormatter(markupText = html)
+        // Zero insets — let the receipt CSS @page rules + last-child trim
+        // determine the actual content area. Merchants complained that any
+        // padding shows as a blank strip at the bottom on 80mm thermal paper.
         formatter.perPageContentInsets = platform.UIKit.UIEdgeInsetsMake(
-            top = 20.0,
-            left = 20.0,
-            bottom = 20.0,
-            right = 20.0,
+            top = 0.0,
+            left = 0.0,
+            bottom = 0.0,
+            right = 0.0,
         )
         printController.printFormatter = formatter
 
@@ -40,4 +57,16 @@ actual class ReceiptPrinter {
 @Composable
 actual fun rememberReceiptPrinter(): ReceiptPrinter {
     return remember { ReceiptPrinter() }
+}
+
+/**
+ * Reads the active iOS app locale. iOS's first preferred locale follows
+ * the per-app language override that NSLocalizedString uses, so this
+ * matches whatever the user sees in the UI.
+ */
+actual fun getReceiptLanguage(): String {
+    val raw = (platform.Foundation.NSLocale.preferredLanguages.firstOrNull() as? String)
+        ?.take(2)
+        ?: "ar"
+    return if (raw == "en") "en" else "ar"
 }

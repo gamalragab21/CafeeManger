@@ -266,7 +266,7 @@ private fun DeliveryProfileScreen(
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
                 ) {
                     Column(
                         modifier = Modifier

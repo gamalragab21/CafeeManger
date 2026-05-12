@@ -87,7 +87,7 @@ fun DeliveryStatusScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text("#${order.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.titleMedium)
+                                Text(order.displayId, style = MaterialTheme.typography.titleMedium)
                                 OrderStatusChip(status = order.status)
                             }
                         }

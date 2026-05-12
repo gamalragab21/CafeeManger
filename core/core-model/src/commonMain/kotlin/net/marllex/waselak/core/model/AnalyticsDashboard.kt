@@ -11,6 +11,14 @@ data class PeriodMetrics(
     val averageOrderValue: Double,
     val totalDeliveryFees: Double,
     val totalDiscounts: Double,
+    /** Orders that are PAID but not yet completed — money owed total. */
+    val pendingRevenue: Double = 0.0,
+    /** PAID + COMPLETED revenue. The accounting-correct "today's earnings". */
+    val completedRevenue: Double = 0.0,
+    /** Count of orders with status = COMPLETED. */
+    val completedOrders: Int = 0,
+    /** Count of orders with paymentStatus = PENDING (money still to collect). */
+    val pendingOrders: Int = 0,
 )
 
 data class ExecutiveSummary(

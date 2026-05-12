@@ -358,7 +358,7 @@ private fun LoginContent(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ),
                 elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
+                    defaultElevation = 3.dp,
                     pressedElevation = 0.dp,
                 ),
             ) {

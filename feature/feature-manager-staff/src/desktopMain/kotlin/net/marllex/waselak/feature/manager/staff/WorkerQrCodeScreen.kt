@@ -126,7 +126,7 @@ private fun DesktopWorkerQrCodeContent(
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
             ) {
                 DesktopBadgeCardInternal(worker, qrCodeImage, cafeDark, cafeGold)
             }

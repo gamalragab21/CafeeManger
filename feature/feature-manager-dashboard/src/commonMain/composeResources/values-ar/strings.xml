@@ -24,6 +24,10 @@
     <string name="today_snapshot">لقطة النهارده</string>
     <string name="total_revenue">إجمالي الإيرادات</string>
     <string name="total_orders">إجمالي الطلبات</string>
+    <string name="completed_revenue_today">إيرادات اليوم (المكتملة)</string>
+    <string name="completed_orders_today">الطلبات المكتملة</string>
+    <string name="in_progress_orders">قيد التنفيذ</string>
+    <string name="pending_payment_today">دفع معلق</string>
     <string name="avg_order_value">متوسط قيمة الطلب</string>
     <string name="delivery_fees">مصاريف التوصيل</string>
     <string name="staff_present">الموظفين الحاضرين</string>

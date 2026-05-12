@@ -714,7 +714,7 @@ private fun CustomerDetailPane(
     Card(
         modifier = modifier.fillMaxSize(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier
@@ -1353,7 +1353,7 @@ private fun DiscountOrderCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(Res.string.order_number, order.id.takeLast(6)),
+                    text = stringResource(Res.string.order_number, order.displayId.removePrefix("#")),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -1564,7 +1564,7 @@ private fun OrderCompactCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(Res.string.order_number, order.id.takeLast(6)),
+                    text = stringResource(Res.string.order_number, order.displayId.removePrefix("#")),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )

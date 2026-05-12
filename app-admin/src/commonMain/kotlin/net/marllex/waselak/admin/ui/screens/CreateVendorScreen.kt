@@ -56,9 +56,10 @@ fun CreateVendorScreen(
     var managerEmail by remember { mutableStateOf("") }
     var managerPassword by remember { mutableStateOf("") }
 
-    // Plan
-    val planOptions = listOf("STARTER", "BUSINESS", "ENTERPRISE")
-    var selectedPlan by remember { mutableStateOf("STARTER") }
+    // Plan — consolidated to 2 plans (STARTER + BUSINESS merged into PRO).
+    // Default to PRO since that's the entry-level offering now.
+    val planOptions = listOf("PRO", "ENTERPRISE")
+    var selectedPlan by remember { mutableStateOf("PRO") }
     var planExpanded by remember { mutableStateOf(false) }
 
     // Channel Config — initialized from domain features, user can override

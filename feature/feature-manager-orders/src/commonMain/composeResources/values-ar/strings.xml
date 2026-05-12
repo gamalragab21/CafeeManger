@@ -53,6 +53,7 @@
     <string name="processing_refund">بيتعالج الاسترداد…</string>
     <string name="no_orders">مفيش طلبات</string>
     <string name="pay_now">ادفع دلوقتي</string>
+    <string name="mark_completed">إنهاء الطلب</string>
     <string name="split_payment">تقسيم الدفع</string>
     <string name="copy_order_id">نسخ الرقم</string>
     <string name="processing_payment">بيتعالج الدفع…</string>

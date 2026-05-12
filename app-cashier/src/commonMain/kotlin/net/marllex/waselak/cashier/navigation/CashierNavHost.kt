@@ -1,6 +1,8 @@
 package net.marllex.waselak.cashier.navigation
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -367,10 +370,17 @@ private fun CashierDrawerContent(
     ModalDrawerSheet(
         modifier = Modifier.width(300.dp),
     ) {
+        // ─── Header: store logo + names ─────────────────────────────────
+        // Tightened from padding(24.dp) + logo(56.dp) + spacer(12.dp) to
+        // padding(16.dp top, 12.dp bottom) + logo(44.dp) + spacer(8.dp).
+        // Saves ~32dp at the top of the drawer, which combined with the
+        // scrollable items list below means the bottom 3 drawer entries
+        // (which previously hid below the screen edge on the Tab A7 in
+        // landscape) are now reachable without truncation.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             // Store logo
             val drawerLogoPainter = waslekLogoPainter()
@@ -379,7 +389,7 @@ private fun CashierDrawerContent(
                     model = vendor?.logoUrl,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
                     contentScale = ContentScale.Crop,
@@ -389,55 +399,74 @@ private fun CashierDrawerContent(
             } else {
                 WaslekLogo(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(44.dp)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
                 )
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             // Store name
             Text(
                 text = vendor?.name ?: "",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
             // User name + role
             Text(
                 text = userName ?: "",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (userRole != null) {
                 Text(
                     text = userRole,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
-        visibleDrawerItems.forEach { item ->
-            val isSelected =
-                currentDestination?.hierarchy?.any { it.route == item.route } == true
+        // ─── Items list — scrollable via LazyColumn ───────────────────────
+        // Earlier `Column.weight(1f, fill=false).verticalScroll(...)` did NOT
+        // produce a scrollable list reliably inside ModalDrawerSheet — the
+        // `weight` allocation depended on the parent column reporting a
+        // bounded height, which it doesn't always when the drawer hasn't
+        // measured yet. Switched to LazyColumn which:
+        //   1. Handles its own scrolling natively (no `verticalScroll` glue).
+        //   2. Works when given `weight(1f)` in any ColumnScope-providing
+        //      parent (ModalDrawerSheet does provide one).
+        //   3. Uses item recycling — better with 15+ drawer entries.
+        // Header above stays pinned (it isn't inside the LazyColumn);
+        // only the items list scrolls.
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(bottom = 12.dp),
+        ) {
+            items(visibleDrawerItems, key = { it.name }) { item ->
+                val isSelected =
+                    currentDestination?.hierarchy?.any { it.route == item.route } == true
 
-            NavigationDrawerItem(
-                icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(localizedDrawerTitle(item)) },
-                selected = isSelected,
-                onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo(CashierTab.POS.route) {
-                            saveState = true
+                NavigationDrawerItem(
+                    icon = { Icon(item.icon, contentDescription = null) },
+                    label = { Text(localizedDrawerTitle(item)) },
+                    selected = isSelected,
+                    onClick = {
+                        navController.navigate(item.route) {
+                            popUpTo(CashierTab.POS.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                    onItemClick()
-                },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-            )
+                        onItemClick()
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+            }
         }
     }
 }
@@ -935,7 +964,7 @@ private fun CashierProfileScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         // Cashier header row
@@ -1914,12 +1943,18 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                         .weight(1f)
                         .fillMaxHeight()) {
                         if (showNav) {
+                            // Compact welcome bar: 48dp instead of M3's
+                            // default 64dp. Saves 16dp at the very top of
+                            // every screen on tablet — combined with the
+                            // PosScreen's own TopAppBar (still 64dp) the
+                            // total chrome above content goes from 128dp
+                            // down to 112dp. Bigger menu grid as a result.
                             TopAppBar(
                                 title = {
                                     currentUser?.name?.let { name ->
                                         Text(
                                             text = stringResource(CoreRes.string.welcome_name, name),
-                                            style = MaterialTheme.typography.titleMedium,
+                                            style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                         )
                                     }
@@ -1929,6 +1964,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                         Icon(Icons.Filled.Menu, contentDescription = stringResource(CoreRes.string.menu))
                                     }
                                 },
+                                expandedHeight = 48.dp,
                                 colors = TopAppBarDefaults.topAppBarColors(
                                     containerColor = MaterialTheme.colorScheme.surface,
                                 ),
@@ -1978,12 +2014,17 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 Scaffold(
                     topBar = {
                         if (showNav) {
+                            // Same 48dp compact bar as the tablet branch
+                            // (was 64dp default). Phone screen real-estate
+                            // matters even more here — the inner PosScreen
+                            // TopAppBar + this welcome bar would otherwise
+                            // eat ~30% of an iPhone-sized screen height.
                             TopAppBar(
                                 title = {
                                     currentUser?.name?.let { name ->
                                         Text(
                                             text = stringResource(CoreRes.string.welcome_name, name),
-                                            style = MaterialTheme.typography.titleMedium,
+                                            style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                         )
                                     }
@@ -1993,6 +2034,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                         Icon(Icons.Filled.Menu, contentDescription = stringResource(CoreRes.string.menu))
                                     }
                                 },
+                                expandedHeight = 48.dp,
                                 colors = TopAppBarDefaults.topAppBarColors(
                                     containerColor = MaterialTheme.colorScheme.surface,
                                 ),

@@ -496,6 +496,80 @@
     <string name="password_reset_failed">Failed to reset password</string>
     <string name="user_deactivated">User deactivated</string>
     <string name="user_deactivate_failed">Failed to deactivate user</string>
+
+    <!-- Admin: PIN management for vendor users -->
+    <string name="set_pin">Set PIN</string>
+    <string name="set_pin_dialog_title">Set Override PIN</string>
+    <string name="set_pin_description">Set or clear the 4-6 digit override PIN for %1$s.</string>
+    <string name="new_pin">New PIN (4-6 digits)</string>
+    <string name="clear_pin">Clear PIN</string>
+    <string name="pin_invalid">PIN must be 4 to 6 digits</string>
+    <string name="pin_updated_success">PIN updated</string>
+    <string name="pin_cleared_success">PIN cleared</string>
+    <string name="pin_update_failed">Failed to update PIN</string>
+
+    <!-- Admin: Menu management -->
+    <string name="menu_tab">Menu</string>
+    <string name="recipes_tab">Recipes</string>
+    <string name="menu_no_categories">No categories yet. Create the first category to start building this vendor\'s menu.</string>
+    <string name="menu_no_recipes">No recipes for this vendor yet.</string>
+    <string name="add_category">Add Category</string>
+    <string name="add_item">Add Item</string>
+    <string name="edit_category">Edit Category</string>
+    <string name="edit_item">Edit Item</string>
+    <string name="category_name">Category name</string>
+    <string name="display_order">Display order</string>
+    <string name="item_name">Item name</string>
+    <string name="item_description">Description (optional)</string>
+    <string name="item_price">Price (EGP)</string>
+    <string name="item_cost_price">Cost price (optional)</string>
+    <string name="item_sku">SKU (optional)</string>
+    <string name="item_barcode">Barcode (optional)</string>
+    <string name="item_available">Available for sale</string>
+    <string name="stock_behavior">Stock behaviour</string>
+    <string name="stock_none">None</string>
+    <string name="stock_direct">Direct (consumes one unit per sale)</string>
+    <string name="stock_recipe">Recipe (deducts via recipe ingredients)</string>
+    <string name="menu_category_created">Category created</string>
+    <string name="menu_category_create_failed">Failed to create category (name may already exist)</string>
+    <string name="menu_category_updated">Category updated</string>
+    <string name="menu_category_update_failed">Failed to update category</string>
+    <string name="menu_category_deleted">Category deleted</string>
+    <string name="menu_category_delete_failed">Failed to delete category</string>
+    <string name="menu_category_has_items">Category still has items. Move or delete them first.</string>
+    <string name="menu_item_created">Item created</string>
+    <string name="menu_item_create_failed">Failed to create item</string>
+    <string name="menu_item_updated">Item updated</string>
+    <string name="menu_item_update_failed">Failed to update item</string>
+    <string name="menu_item_deleted">Item deleted</string>
+    <string name="menu_item_delete_failed">Failed to delete item</string>
+    <string name="menu_item_referenced">Item is used by historical orders. Mark it unavailable instead of deleting.</string>
+    <string name="recipe_deleted">Recipe deleted</string>
+    <string name="recipe_delete_failed">Failed to delete recipe</string>
+    <string name="recipes_all_deleted">All recipes deleted</string>
+    <string name="recipe_ingredient_count">%1$s ingredients</string>
+    <string name="delete_all_recipes">Delete all recipes</string>
+    <string name="delete_all_recipes_confirm">Permanently delete every recipe for this vendor? This cannot be undone.</string>
+
+    <!-- Admin: Impersonate vendor as manager -->
+    <string name="open_as_manager">Open as Manager</string>
+    <string name="impersonate_title">Manager session for %1$s</string>
+    <string name="impersonate_description">Use this access token to log into the Manager app for this vendor. The token expires automatically and the employee\'s existing sessions have been signed out.</string>
+    <string name="impersonate_access_token">Access token</string>
+    <string name="impersonate_refresh_token">Refresh token</string>
+    <string name="copy_token">Copy</string>
+    <string name="copied">Copied!</string>
+    <string name="impersonate_failed">Failed to start manager session for this vendor</string>
+
+    <!-- Admin: Permanent delete of vendor users -->
+    <string name="delete_user">Delete User</string>
+    <string name="delete_user_permanent_title">Permanently delete user</string>
+    <string name="delete_user_permanent_warning">This will erase %1$s permanently from the system. Their sessions will be revoked. Continue?</string>
+    <string name="delete_user_permanent_confirm">Delete permanently</string>
+    <string name="delete_user_permanent_success">User deleted</string>
+    <string name="delete_user_permanent_failed">Failed to delete user</string>
+    <string name="delete_user_has_orders">This user has historical orders attached. Choose another employee to inherit the orders, then retry.</string>
+    <string name="delete_user_pick_reassign">Reassign orders to…</string>
     <string name="unknown_error">Unknown error</string>
     <string name="plan_updated_format">Plan \'%1$s\' updated</string>
     <string name="plan_update_failed">Failed to update plan</string>

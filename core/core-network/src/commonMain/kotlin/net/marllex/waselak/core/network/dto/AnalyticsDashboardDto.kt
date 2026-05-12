@@ -15,6 +15,12 @@ data class PeriodMetricsResponse(
     @SerialName("average_order_value") val averageOrderValue: Double,
     @SerialName("total_delivery_fees") val totalDeliveryFees: Double,
     @SerialName("total_discounts") val totalDiscounts: Double,
+    @SerialName("pending_revenue") val pendingRevenue: Double = 0.0,
+    // Accounting-correct counterparts (PAID + COMPLETED). Match the
+    // shift summary's numbers.
+    @SerialName("completed_revenue") val completedRevenue: Double = 0.0,
+    @SerialName("completed_orders") val completedOrders: Int = 0,
+    @SerialName("pending_orders") val pendingOrders: Int = 0,
 )
 
 @Serializable

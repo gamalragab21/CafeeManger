@@ -496,6 +496,81 @@
     <string name="password_reset_failed">فشل اعادة تعيين كلمة السر</string>
     <string name="user_deactivated">المستخدم اتعطل</string>
     <string name="user_deactivate_failed">فشل تعطيل المستخدم</string>
+
+    <!-- Admin: PIN management for vendor users -->
+    <string name="set_pin">تعيين PIN</string>
+    <string name="set_pin_dialog_title">تعيين رقم PIN للتجاوز</string>
+    <string name="set_pin_description">حدد أو امسح رقم PIN المكوّن من 4 إلى 6 أرقام للمستخدم %1$s.</string>
+    <string name="new_pin">PIN جديد (4-6 أرقام)</string>
+    <string name="clear_pin">مسح الـ PIN</string>
+    <string name="pin_invalid">يجب أن يكون الـ PIN من 4 إلى 6 أرقام</string>
+    <string name="pin_updated_success">تم تحديث الـ PIN</string>
+    <string name="pin_cleared_success">تم مسح الـ PIN</string>
+    <string name="pin_update_failed">فشل تحديث الـ PIN</string>
+
+    <!-- Admin: Menu management -->
+    <string name="menu_tab">المنيو</string>
+    <string name="recipes_tab">الوصفات</string>
+    <string name="menu_no_categories">لا توجد أقسام بعد. ابدأ بإنشاء قسم لبناء منيو هذا التاجر.</string>
+    <string name="menu_no_recipes">لا توجد وصفات لهذا التاجر بعد.</string>
+    <string name="add_category">إضافة قسم</string>
+    <string name="add_item">إضافة صنف</string>
+    <string name="edit_category">تعديل القسم</string>
+    <string name="edit_item">تعديل الصنف</string>
+    <string name="category_name">اسم القسم</string>
+    <string name="display_order">ترتيب العرض</string>
+    <string name="item_name">اسم الصنف</string>
+    <string name="item_description">الوصف (اختياري)</string>
+    <string name="item_price">السعر (جنيه)</string>
+    <string name="item_cost_price">سعر التكلفة (اختياري)</string>
+    <string name="item_sku">رمز المنتج SKU (اختياري)</string>
+    <string name="item_barcode">الباركود (اختياري)</string>
+    <string name="item_available">متاح للبيع</string>
+    <string name="stock_behavior">طريقة احتساب المخزون</string>
+    <string name="stock_none">لا يستهلك مخزون</string>
+    <string name="stock_direct">مباشر (يخصم وحدة لكل عملية بيع)</string>
+    <string name="stock_recipe">عبر وصفة (يخصم مكونات الوصفة)</string>
+    <string name="menu_category_created">تم إنشاء القسم</string>
+    <string name="menu_category_create_failed">فشل إنشاء القسم (الاسم قد يكون موجوداً)</string>
+    <string name="menu_category_updated">تم تحديث القسم</string>
+    <string name="menu_category_update_failed">فشل تحديث القسم</string>
+    <string name="menu_category_deleted">تم حذف القسم</string>
+    <string name="menu_category_delete_failed">فشل حذف القسم</string>
+    <string name="menu_category_has_items">القسم لسه فيه أصناف. انقلها أو احذفها الأول.</string>
+    <string name="menu_item_created">تم إنشاء الصنف</string>
+    <string name="menu_item_create_failed">فشل إنشاء الصنف</string>
+    <string name="menu_item_updated">تم تحديث الصنف</string>
+    <string name="menu_item_update_failed">فشل تحديث الصنف</string>
+    <string name="menu_item_deleted">تم حذف الصنف</string>
+    <string name="menu_item_delete_failed">فشل حذف الصنف</string>
+    <string name="menu_item_referenced">الصنف ده مستخدم في طلبات قديمة. علّمه غير متاح بدلاً من حذفه.</string>
+    <string name="recipe_deleted">تم حذف الوصفة</string>
+    <string name="recipe_delete_failed">فشل حذف الوصفة</string>
+    <string name="recipes_all_deleted">تم حذف كل الوصفات</string>
+    <string name="recipe_ingredient_count">%1$s مكوّن</string>
+    <string name="delete_all_recipes">حذف كل الوصفات</string>
+    <string name="delete_all_recipes_confirm">هل تريد حذف كل وصفات هذا التاجر نهائياً؟ لا يمكن التراجع.</string>
+
+    <!-- Admin: Impersonate vendor as manager -->
+    <string name="open_as_manager">دخول بصلاحيات المدير</string>
+    <string name="impersonate_title">جلسة مدير لـ %1$s</string>
+    <string name="impersonate_description">استخدم رمز الدخول ده لتسجيل الدخول في تطبيق Manager لهذا التاجر. الرمز ينتهي تلقائياً وأي جلسة قديمة للموظف اتلغت.</string>
+    <string name="impersonate_access_token">Access token</string>
+    <string name="impersonate_refresh_token">Refresh token</string>
+    <string name="copy_token">نسخ</string>
+    <string name="copied">تم النسخ!</string>
+    <string name="impersonate_failed">فشل بدء جلسة المدير لهذا التاجر</string>
+
+    <!-- Admin: Permanent delete of vendor users -->
+    <string name="delete_user">حذف المستخدم</string>
+    <string name="delete_user_permanent_title">حذف المستخدم نهائياً</string>
+    <string name="delete_user_permanent_warning">هذا سيحذف %1$s نهائياً من النظام، وكل جلساته هتتلغي. متأكد؟</string>
+    <string name="delete_user_permanent_confirm">احذف نهائياً</string>
+    <string name="delete_user_permanent_success">تم حذف المستخدم</string>
+    <string name="delete_user_permanent_failed">فشل حذف المستخدم</string>
+    <string name="delete_user_has_orders">المستخدم ده عليه أوردرات قديمة. اختار موظف يستلمها وحاول تاني.</string>
+    <string name="delete_user_pick_reassign">انقل الأوردرات لـ…</string>
+
     <string name="unknown_error">خطأ غير معروف</string>
     <string name="plan_updated_format">الباقه \'%1$s\' اتحدثت</string>
     <string name="plan_update_failed">فشل تحديث الباقه</string>

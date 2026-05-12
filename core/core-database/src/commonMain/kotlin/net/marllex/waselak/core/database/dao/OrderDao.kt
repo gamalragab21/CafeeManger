@@ -45,6 +45,8 @@ class OrderDao(private val db: WaselakDatabase) {
         orderQueries.insertOrder(
             id = order.id,
             vendor_id = order.vendor_id,
+            daily_seq = order.daily_seq,
+            daily_seq_date = order.daily_seq_date,
             channel = order.channel,
             status = order.status,
             table_id = order.table_id,

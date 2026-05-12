@@ -104,6 +104,11 @@ class OrdersViewModel constructor(
         val totalCount: Int = 0,
         val hasMore: Boolean = false,
         val isLoadingMore: Boolean = false,
+        // Set of order IDs that have an in-flight status update so we can
+        // both (1) debounce double-taps on the "Mark Completed" button and
+        // (2) optionally surface a per-card spinner in the future. Used
+        // by updateOrderStatus to ignore re-entrant calls.
+        val statusUpdatesInFlight: Set<String> = emptySet(),
     ) {
         val hasActiveFilters: Boolean
             get() = selectedStatus != null || selectedChannel != null ||
@@ -172,11 +177,22 @@ class OrdersViewModel constructor(
         }
     }
 
-    fun loadOrders() {
+    /**
+     * Load (or reload) the orders list.
+     *
+     * @param silent When true, skip the `isLoading=true` toggle so the
+     *   screen doesn't flicker into a loading state. Use this for the
+     *   background polling loop in OrdersScreen — that loop runs every
+     *   10s and would otherwise flash a loading indicator on top of any
+     *   ongoing optimistic update.
+     */
+    fun loadOrders(silent: Boolean = false) {
         viewModelScope.launch {
             val s = _uiState.value
-            AppLogger.d("Orders", "Loading orders: status=${s.selectedStatus}, channel=${s.selectedChannel}")
-            _uiState.update { it.copy(isLoading = true, error = null, currentOffset = 0) }
+            AppLogger.d("Orders", "Loading orders: silent=$silent status=${s.selectedStatus}, channel=${s.selectedChannel}")
+            if (!silent) {
+                _uiState.update { it.copy(isLoading = true, error = null, currentOffset = 0) }
+            }
             orderRepository.refreshOrders(
                 status = s.selectedStatus,
                 channel = s.selectedChannel,
@@ -188,11 +204,32 @@ class OrdersViewModel constructor(
                 limit = PAGE_SIZE,
                 offset = 0,
             ).onSuccess { result ->
-                _uiState.update {
-                    it.copy(
-                        orders = result.data,
+                _uiState.update { state ->
+                    // ── Preserve optimistic in-flight rows ─────────────
+                    // If an order has a status update in flight (cashier
+                    // tapped "Mark Completed" seconds ago, request not
+                    // yet acknowledged), keep the LOCAL optimistic copy.
+                    // Without this, the polling refresh would clobber
+                    // the optimistic state and the merchant sees the
+                    // button reappear briefly until the original PATCH
+                    // lands — the exact "flicker" complaint.
+                    val inFlight = state.statusUpdatesInFlight
+                    val merged = if (inFlight.isEmpty()) {
+                        result.data
+                    } else {
+                        // Map by id for O(1) lookup of the optimistic
+                        // version, then walk the server's list.
+                        val optimisticById = state.orders
+                            .filter { it.id in inFlight }
+                            .associateBy { it.id }
+                        result.data.map { serverOrder ->
+                            optimisticById[serverOrder.id] ?: serverOrder
+                        }
+                    }
+                    state.copy(
+                        orders = merged,
                         isLoading = false,
-                        currentOffset = result.data.size,
+                        currentOffset = merged.size,
                         totalCount = result.total,
                         hasMore = result.hasMore,
                     )
@@ -200,7 +237,11 @@ class OrdersViewModel constructor(
             }.onFailure { e ->
                 CrashReporter.captureException(e)
                 AppLogger.e("Orders", "loadOrders failed: ${e::class.simpleName}: ${e.message}", e)
-                _uiState.update { it.copy(isLoading = false, error = e.userFriendlyMessage()) }
+                // Silent polling failures shouldn't show error UI either.
+                _uiState.update {
+                    if (silent) it.copy(isLoading = false)
+                    else it.copy(isLoading = false, error = e.userFriendlyMessage())
+                }
             }
         }
     }
@@ -325,21 +366,57 @@ class OrdersViewModel constructor(
                 _uiState.update {
                     it.copy(showAssignDeliveryDialog = true, assignOrderId = orderId)
                 }
-                // Pull a fresh delivery-user list before the user picks. Covers the case
-                // where a new delivery worker was added elsewhere (manager app on another
-                // device, another cashier terminal) after this ViewModel was initialised.
                 refreshDeliveryUsers()
                 return
             }
         }
+
+        // ── Optimistic UI update ──────────────────────────────────────
+        //
+        // Old flow waited for the server round-trip (1–3 s on hotspot)
+        // before updating the local state, so the cashier saw NO visual
+        // feedback for seconds. On failure it called `loadOrders()`
+        // which full-screen-refreshed the list, causing the merchant's
+        // complaint: button hidden for 3s, then reappears.
+        //
+        // New flow:
+        //   1. Immediately swap the order's status in `state.orders` so
+        //      the button disappears the instant the cashier taps.
+        //   2. Mark the order as in-flight so a second tap is ignored
+        //      (prevents duplicate API calls).
+        //   3. Fire the network call in the background.
+        //   4. On success, replace the optimistic copy with the server's
+        //      response (which carries `updated_at`, etc.).
+        //   5. On failure, ROLL BACK the local copy and surface the
+        //      error — do NOT trigger a full reload. The list stays put;
+        //      only the one row reverts.
+        if (currentOrder == null) {
+            AppLogger.w("Orders", "updateOrderStatus called for unknown orderId=$orderId — skipping")
+            return
+        }
+        // Debounce double-taps.
+        if (orderId in _uiState.value.statusUpdatesInFlight) {
+            AppLogger.d("Orders", "Ignoring re-entrant status update for $orderId — already in flight")
+            return
+        }
+        val previousStatus = currentOrder.status
+        val optimisticOrder = currentOrder.copy(status = newStatus)
+
+        _uiState.update { state ->
+            state.copy(
+                orders = state.orders.map { if (it.id == orderId) optimisticOrder else it },
+                statusUpdatesInFlight = state.statusUpdatesInFlight + orderId,
+            )
+        }
+
         viewModelScope.launch {
             orderRepository.updateOrderStatus(orderId, newStatus)
                 .onSuccess { updatedOrder ->
                     AppLogger.i("Orders", "Order status updated: orderId=$orderId, newStatus=${updatedOrder.status.name}")
-                    // Update the order in the local list immediately for instant UI feedback
                     _uiState.update { state ->
                         state.copy(
-                            orders = state.orders.map { if (it.id == orderId) updatedOrder else it }
+                            orders = state.orders.map { if (it.id == orderId) updatedOrder else it },
+                            statusUpdatesInFlight = state.statusUpdatesInFlight - orderId,
                         )
                     }
                     // Refresh tables so DINE_IN table goes back to AVAILABLE after COMPLETED/CANCELLED
@@ -350,9 +427,19 @@ class OrdersViewModel constructor(
                 .onFailure { e ->
                     CrashReporter.captureException(e)
                     AppLogger.e("Orders", "Order status update failed: orderId=$orderId, target=${newStatus.name}", e)
-                    _uiState.update { it.copy(error = e.message) }
-                    // Auto-refresh orders to get the latest status from server
-                    loadOrders()
+                    // Roll the row back to the previous status — DON'T call
+                    // loadOrders(). The merchant flagged the full-screen
+                    // refresh as the source of the "button flickers back
+                    // for 3 sec" behaviour.
+                    _uiState.update { state ->
+                        state.copy(
+                            orders = state.orders.map {
+                                if (it.id == orderId) it.copy(status = previousStatus) else it
+                            },
+                            statusUpdatesInFlight = state.statusUpdatesInFlight - orderId,
+                            error = e.message,
+                        )
+                    }
                 }
         }
     }

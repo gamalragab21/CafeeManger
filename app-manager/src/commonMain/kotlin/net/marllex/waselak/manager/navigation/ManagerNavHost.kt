@@ -727,7 +727,7 @@ private fun DigitalMenuSection(vendorId: String?, customMenuUrl: String?) {
                         Card(
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp, MaterialTheme.colorScheme.outlineVariant
                             ),
@@ -1364,7 +1364,7 @@ private fun MoreGridCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier

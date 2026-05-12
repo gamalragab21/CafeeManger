@@ -312,7 +312,11 @@ private fun PlatformTab(
                             platform.plan_revenue.forEach { plan ->
                                 val planColor = when (plan.plan.uppercase()) {
                                     "ENTERPRISE" -> MaterialTheme.colorScheme.tertiary
-                                    "BUSINESS" -> MaterialTheme.colorScheme.primary
+                                    "PRO" -> MaterialTheme.colorScheme.primary
+                                    // Legacy STARTER / BUSINESS values still appear in
+                                    // historical analytics rows; treat them as PRO so
+                                    // colors stay coherent after the consolidation.
+                                    "STARTER", "BUSINESS" -> MaterialTheme.colorScheme.primary
                                     else -> MaterialTheme.colorScheme.secondary
                                 }
                                 ElevatedCard(modifier = Modifier.weight(1f)) {

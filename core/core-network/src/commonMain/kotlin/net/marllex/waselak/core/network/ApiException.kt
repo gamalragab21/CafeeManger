@@ -25,11 +25,24 @@ fun Throwable.isPlanLimitExceeded(): Boolean =
     this is ApiException && statusCode == 403 && errorType == "PLAN_LIMIT_EXCEEDED"
 
 /**
- * Returns true if the error is either a plan-gated feature (403) OR a network/connection error.
- * When offline, plan-gated features cannot be verified, so they should be treated as unavailable.
+ * Returns true ONLY when the server has confirmed the feature is plan-
+ * gated (HTTP 403 + FEATURE_NOT_AVAILABLE). The previous implementation
+ * also returned true for ANY non-ApiException — meaning a transient
+ * network blip would surface "Feature Not Available" to the user even
+ * when the feature is actually included in their plan. Merchant
+ * feedback: attendance/overtime screens flickered between "available"
+ * and "feature unavailable" depending on momentary connectivity.
+ *
+ * We now distinguish:
+ *   • Confirmed plan gate (server response) → this function returns true
+ *   • Network / offline error → fall through to the screen's generic
+ *     error handling (show retry, NOT "feature unavailable")
+ *
+ * The name is kept to avoid churning the 29 call sites; the semantics
+ * are now strictly "the server explicitly said this feature is gated."
  */
 fun Throwable.isFeatureNotAvailableOrOffline(): Boolean =
-    isFeatureNotAvailable() || this !is ApiException
+    isFeatureNotAvailable()
 
 /**
  * Returns true if this exception represents a suspended vendor account (HTTP 403 + ACCOUNT_SUSPENDED).

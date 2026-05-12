@@ -411,6 +411,7 @@ val databaseModule = module {
             ordersAdapter = Orders.Adapter(
                 points_earnedAdapter = intAdapter,
                 points_redeemedAdapter = intAdapter,
+                daily_seqAdapter = intAdapter,
             ),
             order_itemsAdapter = Order_items.Adapter(
                 quantityAdapter = intAdapter,

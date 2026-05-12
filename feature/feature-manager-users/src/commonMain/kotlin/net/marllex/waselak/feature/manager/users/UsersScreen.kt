@@ -250,7 +250,7 @@ private fun UserPermissionCard(
             containerColor = if (user.active) MaterialTheme.colorScheme.surface
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         border = BorderStroke(
             width = 1.dp,
             color = if (user.active) roleColor.copy(alpha = 0.2f)

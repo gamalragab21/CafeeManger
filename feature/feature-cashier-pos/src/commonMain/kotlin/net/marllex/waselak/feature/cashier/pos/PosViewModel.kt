@@ -195,10 +195,19 @@ class PosViewModel constructor(
         val canSubmit: Boolean get() {
             if (cart.isEmpty() || isSubmitting) return false
             return when (channel) {
+                // Delivery still requires phone + address — without them
+                // we have no way to dispatch the order.
                 OrderChannel.DELIVERY -> clientPhone.isNotBlank() && clientAddress.isNotBlank()
-                OrderChannel.TAKEAWAY -> clientPhone.isNotBlank()
+                // TAKEAWAY now has NO required client fields. The merchant
+                // flagged this because most takeaway customers walk up to
+                // the counter with no need to leave a phone — forcing one
+                // slowed every walk-up sale. Phone/name/address are all
+                // optional and free to leave blank.
+                OrderChannel.TAKEAWAY -> true
                 OrderChannel.DINE_IN -> true
                 OrderChannel.IN_STORE -> true
+                // Pickup-later still needs a phone — the cashier calls the
+                // customer when the order is ready.
                 OrderChannel.PICKUP_LATER -> clientPhone.isNotBlank() && scheduledFor != null
             }
         }

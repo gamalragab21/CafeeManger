@@ -198,7 +198,7 @@ private fun LoyaltyPointsCard(
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             // Section Header with icon
@@ -312,7 +312,7 @@ private fun ManualDiscountCard(
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             // Section Header with icon

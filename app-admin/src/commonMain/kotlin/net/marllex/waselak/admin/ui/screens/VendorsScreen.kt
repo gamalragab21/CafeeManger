@@ -523,7 +523,10 @@ private fun VendorCard(
                     val planDisplay = vendor.plan_display_name ?: vendor.plan_name ?: noPlanText
                     val planColor = when (vendor.plan_name?.uppercase()) {
                         "ENTERPRISE" -> MaterialTheme.colorScheme.tertiary
-                        "BUSINESS" -> MaterialTheme.colorScheme.primary
+                        // PRO is the new entry plan after the 3→2 consolidation.
+                        // Legacy STARTER / BUSINESS rows are still color-mapped
+                        // here for historical vendors that haven't refreshed.
+                        "PRO", "STARTER", "BUSINESS" -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.secondary
                     }
                     Surface(

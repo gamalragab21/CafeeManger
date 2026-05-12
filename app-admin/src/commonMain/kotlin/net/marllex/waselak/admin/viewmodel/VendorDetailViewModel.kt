@@ -302,6 +302,217 @@ class VendorDetailViewModel(private val apiClient: AdminApiClient) : ViewModel()
         }
     }
 
+    /**
+     * Admin sets (or clears with [newPin]==null) an employee's override PIN.
+     * Reloads the vendor detail on success so any future PIN-status indicator
+     * on the row reflects the new state immediately.
+     */
+    fun setUserPin(vendorId: String, userId: String, newPin: String?) {
+        viewModelScope.launch {
+            val success = apiClient.setVendorUserPin(vendorId, userId, newPin)
+            _message.value = when {
+                success && newPin == null -> UiMessage.Resource(Res.string.pin_cleared_success, isSuccess = true)
+                success                   -> UiMessage.Resource(Res.string.pin_updated_success, isSuccess = true)
+                else                      -> UiMessage.Resource(Res.string.pin_update_failed)
+            }
+            if (success) loadVendorDetail(vendorId)
+        }
+    }
+
+    /**
+     * Permanently deletes a vendor user. If the backend returns `ORDERS_ATTACHED`
+     * we surface a friendlier message that prompts the operator to choose a
+     * replacement user to inherit the orders — the UI will then retry via
+     * [hardDeleteUserReassigning].
+     */
+    fun hardDeleteUser(vendorId: String, userId: String) {
+        viewModelScope.launch {
+            val result = apiClient.hardDeleteVendorUser(vendorId, userId)
+            if (result.ok) {
+                _message.value = UiMessage.Resource(Res.string.delete_user_permanent_success, isSuccess = true)
+                loadVendorDetail(vendorId)
+            } else when (result.errorCode) {
+                "ORDERS_ATTACHED", "ATTENDANCE_ATTACHED" ->
+                    _message.value = UiMessage.Resource(Res.string.delete_user_has_orders)
+                else ->
+                    _message.value = UiMessage.Resource(Res.string.delete_user_permanent_failed)
+            }
+        }
+    }
+
+    /**
+     * Retry-flow for the "user has orders" branch: pass [reassignToUserId]
+     * (any other active employee in the same vendor) and the backend will
+     * rewrite the historical orders to that owner before deleting the user.
+     */
+    fun hardDeleteUserReassigning(vendorId: String, userId: String, reassignToUserId: String) {
+        viewModelScope.launch {
+            val result = apiClient.hardDeleteVendorUser(vendorId, userId, reassignToUserId)
+            if (result.ok) {
+                _message.value = UiMessage.Resource(Res.string.delete_user_permanent_success, isSuccess = true)
+                loadVendorDetail(vendorId)
+            } else {
+                _message.value = UiMessage.Resource(Res.string.delete_user_permanent_failed)
+            }
+        }
+    }
+
+    // ── Menu (categories + items) ────────────────────────────────────────
+    private val _menu = MutableStateFlow<List<AdminCategoryDto>>(emptyList())
+    val menu: StateFlow<List<AdminCategoryDto>> = _menu.asStateFlow()
+    private val _menuLoading = MutableStateFlow(false)
+    val menuLoading: StateFlow<Boolean> = _menuLoading.asStateFlow()
+
+    /**
+     * Loads (or reloads) the vendor's full menu tree. Idempotent — safe to
+     * call repeatedly e.g. after creates/updates.
+     */
+    fun loadMenu(vendorId: String) {
+        viewModelScope.launch {
+            _menuLoading.value = true
+            _menu.value = apiClient.getVendorMenu(vendorId)
+            _menuLoading.value = false
+        }
+    }
+
+    fun createCategory(vendorId: String, name: String, displayOrder: Int = 0) {
+        viewModelScope.launch {
+            val ok = apiClient.createVendorCategory(
+                vendorId,
+                CreateAdminCategoryRequest(name = name.trim(), display_order = displayOrder),
+            )
+            _message.value = if (ok)
+                UiMessage.Resource(Res.string.menu_category_created, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.menu_category_create_failed)
+            if (ok) loadMenu(vendorId)
+        }
+    }
+
+    fun updateCategory(vendorId: String, categoryId: String, name: String?, displayOrder: Int? = null) {
+        viewModelScope.launch {
+            val ok = apiClient.updateVendorCategory(
+                vendorId, categoryId,
+                UpdateAdminCategoryRequest(name = name?.trim(), display_order = displayOrder),
+            )
+            _message.value = if (ok)
+                UiMessage.Resource(Res.string.menu_category_updated, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.menu_category_update_failed)
+            if (ok) loadMenu(vendorId)
+        }
+    }
+
+    fun deleteCategory(vendorId: String, categoryId: String) {
+        viewModelScope.launch {
+            val r = apiClient.deleteVendorCategory(vendorId, categoryId)
+            _message.value = when {
+                r.ok                                  -> UiMessage.Resource(Res.string.menu_category_deleted, isSuccess = true)
+                r.errorCode == "CATEGORY_NOT_EMPTY"   -> UiMessage.Resource(Res.string.menu_category_has_items)
+                else                                   -> UiMessage.Resource(Res.string.menu_category_delete_failed)
+            }
+            if (r.ok) loadMenu(vendorId)
+        }
+    }
+
+    fun createItem(vendorId: String, request: CreateAdminItemRequest) {
+        viewModelScope.launch {
+            val ok = apiClient.createVendorItem(vendorId, request)
+            _message.value = if (ok)
+                UiMessage.Resource(Res.string.menu_item_created, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.menu_item_create_failed)
+            if (ok) loadMenu(vendorId)
+        }
+    }
+
+    fun updateItem(vendorId: String, itemId: String, request: UpdateAdminItemRequest) {
+        viewModelScope.launch {
+            val ok = apiClient.updateVendorItem(vendorId, itemId, request)
+            _message.value = if (ok)
+                UiMessage.Resource(Res.string.menu_item_updated, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.menu_item_update_failed)
+            if (ok) loadMenu(vendorId)
+        }
+    }
+
+    fun deleteItem(vendorId: String, itemId: String) {
+        viewModelScope.launch {
+            val r = apiClient.deleteVendorItem(vendorId, itemId)
+            _message.value = when {
+                r.ok                              -> UiMessage.Resource(Res.string.menu_item_deleted, isSuccess = true)
+                r.errorCode == "ITEM_REFERENCED"  -> UiMessage.Resource(Res.string.menu_item_referenced)
+                else                              -> UiMessage.Resource(Res.string.menu_item_delete_failed)
+            }
+            if (r.ok) loadMenu(vendorId)
+        }
+    }
+
+    // ── Recipes ──────────────────────────────────────────────────────────
+    private val _recipes = MutableStateFlow<List<AdminRecipeDto>>(emptyList())
+    val recipes: StateFlow<List<AdminRecipeDto>> = _recipes.asStateFlow()
+    private val _recipesLoading = MutableStateFlow(false)
+    val recipesLoading: StateFlow<Boolean> = _recipesLoading.asStateFlow()
+
+    fun loadRecipes(vendorId: String) {
+        viewModelScope.launch {
+            _recipesLoading.value = true
+            _recipes.value = apiClient.getVendorRecipes(vendorId)
+            _recipesLoading.value = false
+        }
+    }
+
+    fun deleteRecipe(vendorId: String, recipeId: String) {
+        viewModelScope.launch {
+            val ok = apiClient.deleteVendorRecipe(vendorId, recipeId)
+            _message.value = if (ok)
+                UiMessage.Resource(Res.string.recipe_deleted, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.recipe_delete_failed)
+            if (ok) loadRecipes(vendorId)
+        }
+    }
+
+    fun deleteAllRecipes(vendorId: String) {
+        viewModelScope.launch {
+            val n = apiClient.deleteAllVendorRecipes(vendorId)
+            _message.value = if (n > 0)
+                UiMessage.Resource(Res.string.recipes_all_deleted, isSuccess = true)
+            else
+                UiMessage.Resource(Res.string.recipe_delete_failed)
+            loadRecipes(vendorId)
+        }
+    }
+
+    // ── Impersonation ────────────────────────────────────────────────────
+    private val _impersonationSession =
+        MutableStateFlow<AdminApiClient.ImpersonationSession?>(null)
+    val impersonationSession: StateFlow<AdminApiClient.ImpersonationSession?> =
+        _impersonationSession.asStateFlow()
+
+    /**
+     * Mint a manager-scoped JWT for [vendorId] so the admin can act as one
+     * of the vendor's employees (defaults to the first active MANAGER). On
+     * success the [impersonationSession] StateFlow is populated; the UI
+     * surfaces the token in a dialog with a "Copy" button so it can be
+     * pasted into the manager app for full access.
+     */
+    fun impersonateVendor(vendorId: String, asUserId: String? = null) {
+        viewModelScope.launch {
+            val session = apiClient.impersonateVendor(vendorId, asUserId)
+            if (session != null) {
+                _impersonationSession.value = session
+            } else {
+                _message.value = UiMessage.Resource(Res.string.impersonate_failed)
+            }
+        }
+    }
+
+    fun dismissImpersonationSession() {
+        _impersonationSession.value = null
+    }
+
     fun retry(vendorId: String) {
         loadedTabs.clear()
         loadVendorDetail(vendorId)

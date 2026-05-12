@@ -3,6 +3,7 @@ package net.marllex.waselak.core.network
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
@@ -777,13 +778,25 @@ class WaselakApiClient(private val client: HttpClient) {
             setBody(request)
         }.body()
 
+    // PIN/QR auth endpoints get a longer timeout: the default 15s was firing
+    // on slow restaurant WiFi during bcrypt verification + DB roundtrip, and
+    // the cashier saw a generic error that they read as "wrong PIN". 35s
+    // gives the link breathing room without making the UI feel frozen.
     suspend fun checkInWithPin(request: CheckInWithPinRequest): AttendanceResponse =
         client.post("api/v1/attendance/check-in/pin") {
+            timeout {
+                requestTimeoutMillis = 35_000
+                socketTimeoutMillis = 35_000
+            }
             setBody(request)
         }.body()
 
     suspend fun checkInWithQr(request: CheckInWithQrRequest): AttendanceResponse =
         client.post("api/v1/attendance/check-in/qr") {
+            timeout {
+                requestTimeoutMillis = 35_000
+                socketTimeoutMillis = 35_000
+            }
             setBody(request)
         }.body()
 
@@ -797,11 +810,19 @@ class WaselakApiClient(private val client: HttpClient) {
         request: CheckOutWithPinRequest
     ): AttendanceResponse =
         client.post("api/v1/attendance/check-out/$attendanceId/pin") {
+            timeout {
+                requestTimeoutMillis = 35_000
+                socketTimeoutMillis = 35_000
+            }
             setBody(request)
         }.body()
 
     suspend fun checkOutWithQr(request: CheckOutWithQrRequest): AttendanceResponse =
         client.post("api/v1/attendance/check-out/qr") {
+            timeout {
+                requestTimeoutMillis = 35_000
+                socketTimeoutMillis = 35_000
+            }
             setBody(request)
         }.body()
 

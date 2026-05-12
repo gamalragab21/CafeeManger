@@ -95,7 +95,7 @@ fun AboutScreen(
                 // Logo with shadow
                 Card(
                     shape = RoundedCornerShape(24.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier.size(100.dp),
                 ) {
@@ -436,7 +436,7 @@ fun MandatoryUpdateScreen(
     ) {
         ElevatedCard(
             shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
             Column(
                 modifier = Modifier.padding(32.dp).widthIn(max = 400.dp),
@@ -445,7 +445,7 @@ fun MandatoryUpdateScreen(
                 // Logo
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier.size(80.dp),
                 ) {

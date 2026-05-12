@@ -88,7 +88,7 @@ fun ModernFilterSection(
                 else
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Row(
                 modifier = Modifier

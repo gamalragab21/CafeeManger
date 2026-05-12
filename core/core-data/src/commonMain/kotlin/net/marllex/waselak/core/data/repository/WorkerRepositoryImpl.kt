@@ -245,26 +245,51 @@ class WorkerRepositoryImpl constructor(
 
     @OptIn(ExperimentalUuidApi::class)
     override suspend fun checkInWithPin(workerId: String, pin: String): Result<Attendance> {
-        AppLogger.d("WorkerRepo", "Check-in with PIN: workerId=$workerId")
+        // Normalize PIN: strip whitespace/control chars that may leak from
+        // soft-keyboard autocomplete or paste. BCrypt is a binary compare,
+        // so a single trailing newline silently breaks auth.
+        val cleanPin = pin.trim().filter { it.isDigit() }
+        AppLogger.d("WorkerRepo", "Check-in with PIN: workerId=$workerId pinLen=${cleanPin.length}")
         if (networkMonitor.isOnline.value) {
-            val onlineResult = runCatching {
-                val response = api.checkInWithPin(CheckInWithPinRequest(workerId, pin))
-                val attendance = response.toDomain()
-                workerDao.insertAttendance(attendance.toDbEntity())
-                AppLogger.i("WorkerRepo", "Check-in with PIN successful")
-                attendance
+            // Online attempt with ONE silent retry on transient network errors.
+            // Cashiers reported a ~10% rate of "PIN invalid" on valid PINs that
+            // succeeded immediately on the next tap — the symptom of a 15s
+            // request timeout on a slow link, where the second tap caught a
+            // faster connection. Retry once before surfacing a network error.
+            var onlineResult: Result<Attendance> = Result.failure(IllegalStateException("no attempt"))
+            repeat(2) { attempt ->
+                onlineResult = runCatching {
+                    val response = api.checkInWithPin(CheckInWithPinRequest(workerId, cleanPin))
+                    val attendance = response.toDomain()
+                    workerDao.insertAttendance(attendance.toDbEntity())
+                    AppLogger.i("WorkerRepo", "Check-in with PIN successful (attempt=${attempt + 1})")
+                    attendance
+                }
+                if (onlineResult.isSuccess) return onlineResult
+                val err = onlineResult.exceptionOrNull()
+                val transient = err?.isNetworkError() == true
+                if (!transient) return onlineResult  // business error → don't retry
+                AppLogger.w("WorkerRepo", "PIN check-in network error on attempt ${attempt + 1}, retrying=${attempt == 0}: ${err?.message}")
+                // small backoff before the single retry
+                if (attempt == 0) kotlinx.coroutines.delay(400)
             }
-            if (onlineResult.isSuccess) return onlineResult
             val error = onlineResult.exceptionOrNull()
-            AppLogger.e("WorkerRepo", "Check-in with PIN failed online", error)
+            AppLogger.e("WorkerRepo", "Check-in with PIN failed online after retry", error)
             // Only fall through to offline if it's a network/connectivity error
             // Business logic errors (wrong PIN, etc.) should be returned directly
-            // Multi-platform check — used to be a JVM-only `is java.io.IOException`
-            // pair; the helper now handles iOS too via NetworkErrorClassifier.
             val isNetworkError = error?.isNetworkError() == true
             if (!isNetworkError) return onlineResult
             val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
             if (vendor?.enableOfflineMode != true) return onlineResult
+            // Offline fallback is only safe when the worker has a local SHA-256
+            // PIN hash. Without it, we'd throw "Worker PIN not available offline"
+            // and the cashier would see a generic error suggesting the PIN was
+            // wrong — far worse than just propagating the network error.
+            val localWorker = workerDao.getWorkerById(workerId).firstOrNull()?.toDomain()
+            if (localWorker?.pinSha256.isNullOrBlank()) {
+                AppLogger.w("WorkerRepo", "Skipping offline PIN fallback: pinSha256 missing for worker=$workerId")
+                return onlineResult
+            }
             AppLogger.i("WorkerRepo", "Falling back to offline check-in with PIN")
         }
 
@@ -281,7 +306,7 @@ class WorkerRepositoryImpl constructor(
             val storedHash = worker.pinSha256
                 ?: throw IllegalStateException("Worker PIN not available offline")
 
-            val inputHash = HmacSigner.sha256(pin)
+            val inputHash = HmacSigner.sha256(cleanPin)
             if (inputHash != storedHash) {
                 throw IllegalStateException("Incorrect PIN")
             }
@@ -330,24 +355,45 @@ class WorkerRepositoryImpl constructor(
 
     @OptIn(ExperimentalUuidApi::class)
     override suspend fun checkOutWithPin(attendanceId: String, pin: String): Result<Attendance> {
-        AppLogger.d("WorkerRepo", "Check-out with PIN: attendanceId=$attendanceId")
+        // Same defensive normalization as check-in — strip whitespace + non-digits
+        val cleanPin = pin.trim().filter { it.isDigit() }
+        AppLogger.d("WorkerRepo", "Check-out with PIN: attendanceId=$attendanceId pinLen=${cleanPin.length}")
         if (networkMonitor.isOnline.value) {
-            val onlineResult = runCatching {
-                val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(pin))
-                val attendance = response.toDomain()
-                workerDao.insertAttendance(attendance.toDbEntity())
-                AppLogger.i("WorkerRepo", "Check-out with PIN successful")
-                attendance
+            // Online attempt with ONE silent retry on transient network errors.
+            var onlineResult: Result<Attendance> = Result.failure(IllegalStateException("no attempt"))
+            repeat(2) { attempt ->
+                onlineResult = runCatching {
+                    val response = api.checkOutWithPin(attendanceId, CheckOutWithPinRequest(cleanPin))
+                    val attendance = response.toDomain()
+                    workerDao.insertAttendance(attendance.toDbEntity())
+                    AppLogger.i("WorkerRepo", "Check-out with PIN successful (attempt=${attempt + 1})")
+                    attendance
+                }
+                if (onlineResult.isSuccess) return onlineResult
+                val err = onlineResult.exceptionOrNull()
+                val transient = err?.isNetworkError() == true
+                if (!transient) return onlineResult
+                AppLogger.w("WorkerRepo", "PIN check-out network error on attempt ${attempt + 1}, retrying=${attempt == 0}: ${err?.message}")
+                if (attempt == 0) kotlinx.coroutines.delay(400)
             }
-            if (onlineResult.isSuccess) return onlineResult
             val error = onlineResult.exceptionOrNull()
-            AppLogger.e("WorkerRepo", "Check-out with PIN failed online", error)
-            // Multi-platform check — used to be a JVM-only `is java.io.IOException`
-            // pair; the helper now handles iOS too via NetworkErrorClassifier.
+            AppLogger.e("WorkerRepo", "Check-out with PIN failed online after retry", error)
             val isNetworkError = error?.isNetworkError() == true
             if (!isNetworkError) return onlineResult
             val vendor = vendorDao.getVendorById(vendorId).firstOrNull()?.toDomain()
             if (vendor?.enableOfflineMode != true) return onlineResult
+            // Skip offline fallback when the local PIN hash is missing — otherwise
+            // we surface "Worker PIN not available offline" as a generic error that
+            // the cashier reads as "PIN was wrong" (see check-in for context).
+            val record = workerDao.getAttendanceByDate(
+                vendorId,
+                Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+            ).firstOrNull()?.find { it.id == attendanceId }?.toDomain()
+            val localWorker = record?.workerId?.let { workerDao.getWorkerById(it).firstOrNull()?.toDomain() }
+            if (localWorker?.pinSha256.isNullOrBlank()) {
+                AppLogger.w("WorkerRepo", "Skipping offline PIN check-out fallback: pinSha256 missing")
+                return onlineResult
+            }
             AppLogger.i("WorkerRepo", "Falling back to offline check-out with PIN")
         }
 
@@ -369,7 +415,7 @@ class WorkerRepositoryImpl constructor(
             val storedHash = worker.pinSha256
                 ?: throw IllegalStateException("Worker PIN not available offline")
 
-            val inputHash = HmacSigner.sha256(pin)
+            val inputHash = HmacSigner.sha256(cleanPin)
             if (inputHash != storedHash) {
                 throw IllegalStateException("Incorrect PIN")
             }

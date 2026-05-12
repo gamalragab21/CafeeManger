@@ -140,7 +140,7 @@ private fun IosWorkerQrCodeContent(
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),

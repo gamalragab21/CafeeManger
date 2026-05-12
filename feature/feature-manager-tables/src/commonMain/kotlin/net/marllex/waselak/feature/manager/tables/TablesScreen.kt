@@ -610,7 +610,7 @@ private fun ReservationBottomSheet(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     ) {
                         Column {
                             customerSearchResults.take(5).forEach { customer ->

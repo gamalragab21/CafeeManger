@@ -40,27 +40,50 @@ class AnalyticsQueryService {
                             (OrdersTable.status notInList excludedStatuses)
                 }.toList()
                 val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
-                val totalRevenue = paidOrders.sumOf { it[OrdersTable.total].toDouble() }
-                val pendingRevenue = orders
-                    .filter { it[OrdersTable.paymentStatus] == "PENDING" }
-                    .sumOf { it[OrdersTable.total].toDouble() }
-                val totalOrders = orders.size
-                val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
-                val totalDeliveryFees = paidOrders
+                val pendingPaymentOrders = orders.filter { it[OrdersTable.paymentStatus] == "PENDING" }
+                // "Completed + paid" — the accounting truth, same definition
+                // the shift summary uses. The dashboard now surfaces THIS
+                // value as `total_revenue` so that:
+                //   • Already-deployed manager apps (which only know the
+                //     legacy `total_revenue` / `total_orders` field names)
+                //     immediately start displaying the correct, accounting-
+                //     consistent figures without any client rebuild.
+                //   • New clients that use the dedicated `completed_revenue`
+                //     / `completed_orders` fields keep working — they get
+                //     the same value through the explicit alias.
+                // If you need the "all paid orders, including in-flight" set
+                // (the old semantic) it's still exposed inside
+                // `RevenueProfit` and `Settlements` queries below.
+                val completedPaidOrders = paidOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+
+                val completedRevenue = completedPaidOrders.sumOf { it[OrdersTable.total].toDouble() }
+                val pendingRevenue = pendingPaymentOrders.sumOf { it[OrdersTable.total].toDouble() }
+                val completedOrders = completedPaidOrders.size
+                val pendingOrders = pendingPaymentOrders.size
+                // AOV based on completed orders so it reads consistently
+                // against the headline revenue figure.
+                val aov = if (completedOrders > 0) completedRevenue / completedOrders else 0.0
+                val totalDeliveryFees = completedPaidOrders
                     .filter { it[OrdersTable.channel] == "DELIVERY" }
                     .sumOf { it[OrdersTable.deliveryFee].toDouble() }
-                val totalDiscounts = paidOrders.sumOf { it[OrdersTable.discount].toDouble() }
-                val totalTax = paidOrders.sumOf { it[OrdersTable.tax].toDouble() }
-                val netRevenue = totalRevenue - totalDeliveryFees
+                val totalDiscounts = completedPaidOrders.sumOf { it[OrdersTable.discount].toDouble() }
+                val totalTax = completedPaidOrders.sumOf { it[OrdersTable.tax].toDouble() }
+                val netRevenue = completedRevenue - totalDeliveryFees
                 return PeriodMetricsDto(
-                    total_revenue = totalRevenue,
+                    // Legacy field names now carry the completed-only
+                    // semantic — this is what makes the old manager app
+                    // suddenly start showing real numbers.
+                    total_revenue = completedRevenue,
                     net_revenue = netRevenue,
                     pending_revenue = pendingRevenue,
-                    total_orders = totalOrders,
+                    total_orders = completedOrders,
                     average_order_value = aov,
                     total_delivery_fees = totalDeliveryFees,
                     total_discounts = totalDiscounts,
                     total_tax = totalTax,
+                    completed_revenue = completedRevenue,
+                    completed_orders = completedOrders,
+                    pending_orders = pendingOrders,
                 )
             }
 

@@ -428,38 +428,55 @@
 
         .plans-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 32px;
-            max-width: 1100px;
+            max-width: 1180px;
             margin: 0 auto;
+            align-items: stretch;
         }
 
         .plan-card {
             background: #fff;
             border-radius: var(--radius-lg);
-            padding: 40px 32px;
+            padding: 44px 36px;
             border: 2px solid var(--gray-light);
             position: relative;
             transition: all 0.4s ease;
+            display: flex;
+            flex-direction: column;
         }
 
+        /* Enterprise (popular) — premium gold/teal hybrid */
         .plan-card.popular {
-            border-color: var(--primary);
-            transform: scale(1.05);
-            box-shadow: var(--shadow-xl);
+            border: 2px solid #F59E0B;
+            transform: scale(1.04);
+            box-shadow: 0 25px 60px -15px rgba(245,158,11,0.35), var(--shadow-xl);
+            background:
+                radial-gradient(120% 80% at 50% 0%, rgba(245,158,11,0.08), transparent 55%),
+                #fff;
         }
 
         .plan-card.popular .popular-badge {
             position: absolute;
-            top: -14px;
+            top: -16px;
             left: 50%;
             transform: translateX(-50%);
-            background: var(--gradient-primary);
-            color: #fff;
-            padding: 6px 24px;
+            background: linear-gradient(135deg, #F59E0B, #FCD34D);
+            color: #1F2937;
+            padding: 8px 26px;
             border-radius: 50px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            box-shadow: 0 8px 20px rgba(245,158,11,0.4);
+            white-space: nowrap;
+        }
+
+        .plan-card.popular .plan-name {
+            background: linear-gradient(135deg, #D97706, #F59E0B);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .plan-card:hover {
@@ -468,7 +485,7 @@
         }
 
         .plan-card.popular:hover {
-            transform: scale(1.05) translateY(-8px);
+            transform: scale(1.04) translateY(-8px);
         }
 
         .plan-name {
@@ -691,7 +708,7 @@
         @media (max-width: 768px) {
             .nav-links { display: none; }
             .footer-grid { grid-template-columns: 1fr; gap: 32px; }
-            .plans-grid { grid-template-columns: 1fr; }
+            .plans-grid { grid-template-columns: 1fr; max-width: 480px; gap: 40px; }
             .plan-card.popular { transform: none; }
             .plan-card.popular:hover { transform: translateY(-8px); }
             .hero-stats { gap: 24px; }
@@ -1177,134 +1194,80 @@
         <div class="section-header">
             <div class="section-tag">الباقات</div>
             <h2>اختار الباقة المناسبة لمشروعك</h2>
-            <p>ثلاث باقات تناسب كل أحجام المشاريع</p>
+            <p>باقتان واضحتان — اختر اللي يناسب حجم نشاطك</p>
         </div>
 
+        <!-- 2-plan catalog (post-May-2026 consolidation: STARTER + BUSINESS merged → PRO). -->
         <div class="plans-grid">
-            <!-- Starter -->
+            <!-- ⚡ Pro -->
             <div class="plan-card fade-up">
-                <div class="plan-name">المبتدئ</div>
-                <div class="plan-desc">مثالي للمقاهي الصغيرة والجديدة</div>
+                <div class="plan-name">⚡ Pro</div>
+                <div class="plan-desc">باقة شاملة لنشاط واحد — POS كامل + مخزون + موظفين + AI</div>
                 <div class="plan-price">
-                    <span class="amount">٢٩٩</span>
+                    <span class="amount">٦٩٩</span>
                     <span class="currency">ج.م</span>
-                    <span class="period">/ شهرياً</span>
+                    <span class="period">/ شهرياً (٦,٩٩٠ ج.م سنوياً — شهرين مجاناً)</span>
                 </div>
                 <div class="plan-limits">
-                    <div class="plan-limit">
-                        <span class="value">١</span>
-                        <span class="label">مدير</span>
-                    </div>
-                    <div class="plan-limit">
-                        <span class="value">١</span>
-                        <span class="label">كاشير</span>
-                    </div>
-                    <div class="plan-limit">
-                        <span class="value">٧٥٠</span>
-                        <span class="label">طلب/شهر</span>
-                    </div>
-                    <div class="plan-limit">
-                        <span class="value">٥٠</span>
-                        <span class="label">صنف</span>
-                    </div>
-                </div>
-                <ul class="plan-features">
-                    <li class="included">نقطة البيع (POS)</li>
-                    <li class="included">إدارة الطلبات</li>
-                    <li class="included">إدارة القائمة</li>
-                    <li class="included">إدارة الموظفين الأساسية</li>
-                    <li class="included">نقاط الولاء</li>
-                    <li class="included">الخصومات اليدوية</li>
-                    <li class="included">صندوق النقد</li>
-                    <li class="included">الإشعارات</li>
-                    <li class="excluded">المخزون</li>
-                    <li class="excluded">الحضور والانصراف</li>
-                    <li class="excluded">التوصيل</li>
-                    <li class="excluded">الطاولات</li>
-                    <li class="excluded">العملاء</li>
-                    <li class="excluded">التحليلات</li>
-                    <li class="excluded">إدارة العروض</li>
-                    <li class="excluded">الدفع المقسم</li>
-                    <li class="excluded">ائتمان العملاء</li>
-                    <li class="excluded">الموردين</li>
-                    <li class="excluded">المرتجعات</li>
-                    <li class="excluded">الوصفات الطبية</li>
-                    <li class="excluded">شاشة المطبخ (KDS)</li>
-                    <li class="excluded">الطلبات المجدولة</li>
-                    <li class="excluded">الأوفرتايم</li>
-                    <li class="excluded">الإيصالات الرقمية</li>
-                </ul>
-            </div>
-
-            <!-- Business -->
-            <div class="plan-card popular fade-up">
-                <div class="popular-badge">⭐ الأكثر طلباً</div>
-                <div class="plan-name">الأعمال</div>
-                <div class="plan-desc">للمقاهي والمطاعم المتوسطة</div>
-                <div class="plan-price">
-                    <span class="amount">٥٩٩</span>
-                    <span class="currency">ج.م</span>
-                    <span class="period">/ شهرياً</span>
-                </div>
-                <div class="plan-limits">
-                    <div class="plan-limit">
-                        <span class="value">٢</span>
-                        <span class="label">مدير</span>
-                    </div>
                     <div class="plan-limit">
                         <span class="value">٣</span>
+                        <span class="label">مدير</span>
+                    </div>
+                    <div class="plan-limit">
+                        <span class="value">٥</span>
                         <span class="label">كاشير</span>
                     </div>
                     <div class="plan-limit">
-                        <span class="value">٣,٥٠٠</span>
+                        <span class="value">٥,٠٠٠</span>
                         <span class="label">طلب/شهر</span>
                     </div>
                     <div class="plan-limit">
-                        <span class="value">٢٠٠</span>
+                        <span class="value">٥٠٠</span>
                         <span class="label">صنف</span>
                     </div>
                 </div>
                 <ul class="plan-features">
-                    <li class="included">كل مميزات المبتدئ</li>
-                    <li class="included">إدارة المخزون والوصفات</li>
-                    <li class="included">الحضور والانصراف (PIN + QR)</li>
-                    <li class="included">نظام التوصيل الكامل</li>
-                    <li class="included">إدارة الطاولات</li>
-                    <li class="included">إدارة العملاء</li>
-                    <li class="included">الرواتب والمدفوعات</li>
-                    <li class="included">كروت QR للموظفين</li>
-                    <li class="included">التحليلات المتقدمة</li>
-                    <li class="included">تصدير التقارير</li>
-                    <li class="included">إدارة العروض</li>
-                    <li class="included">الدفع المقسم</li>
-                    <li class="included">ائتمان العملاء</li>
-                    <li class="included">الموردين وأوامر الشراء</li>
-                    <li class="included">المرتجعات</li>
-                    <li class="included">الوصفات الطبية</li>
+                    <li class="included">نقطة البيع (POS) + الدفع المقسم</li>
+                    <li class="included">إدارة الطلبات والقائمة</li>
                     <li class="included">شاشة المطبخ (KDS)</li>
-                    <li class="excluded">الطلبات المجدولة</li>
-                    <li class="excluded">الأوفرتايم</li>
-                    <li class="excluded">الإيصالات الرقمية</li>
+                    <li class="included">إدارة الطاولات والحجوزات</li>
+                    <li class="included">القائمة الرقمية (Digital Menu) + QR</li>
+                    <li class="included">نظام التوصيل + تتبع السائق</li>
+                    <li class="included">الطلبات المجدولة والتيك أواي</li>
+                    <li class="included">إدارة المخزون والوصفات + تنبيهات</li>
+                    <li class="included">الموردين وأوامر الشراء</li>
+                    <li class="included">الحضور (PIN + QR) + الرواتب + الأوفرتايم</li>
+                    <li class="included">إدارة العملاء + نقاط ولاء + ائتمان + كوبونات</li>
+                    <li class="included">الإيصالات الرقمية + إرسال واتساب</li>
+                    <li class="included">إدارة العروض والخصومات</li>
+                    <li class="included">المرتجعات والاسترداد</li>
+                    <li class="included">الوصفات الطبية وتداخل الأدوية</li>
+                    <li class="included">تطبيق المدير على الموبايل</li>
+                    <li class="included">ذكاء اصطناعي أساسي (توقعات + ترويج)</li>
+                    <li class="included">تقارير وتحليلات يومية وشهرية</li>
+                    <li class="excluded">تعدد الفروع</li>
+                    <li class="excluded">ذكاء اصطناعي كامل + API + مدير حساب مخصص</li>
                 </ul>
             </div>
 
-            <!-- Enterprise -->
-            <div class="plan-card fade-up">
-                <div class="plan-name">المؤسسات</div>
-                <div class="plan-desc">للسلاسل والمطاعم الكبيرة</div>
+            <!-- 🏆 Enterprise — most requested (rebranded May 2026) -->
+            <div class="plan-card popular fade-up">
+                <div class="popular-badge">👑 الأكثر طلباً</div>
+                <div class="plan-name">🏆 Enterprise</div>
+                <div class="plan-desc">للسلاسل والامتيازات — فروع غير محدودة + AI كامل + API + مدير حساب</div>
                 <div class="plan-price">
-                    <span class="amount">٩٩٩</span>
+                    <span class="amount">١,٢٩٩</span>
                     <span class="currency">ج.م</span>
-                    <span class="period">/ شهرياً</span>
+                    <span class="period">/ شهرياً (١٢,٩٩٠ ج.م سنوياً — شهرين مجاناً)</span>
                 </div>
                 <div class="plan-limits">
                     <div class="plan-limit">
                         <span class="value">∞</span>
-                        <span class="label">مدير</span>
+                        <span class="label">فروع</span>
                     </div>
                     <div class="plan-limit">
                         <span class="value">∞</span>
-                        <span class="label">كاشير</span>
+                        <span class="label">مدير/كاشير</span>
                     </div>
                     <div class="plan-limit">
                         <span class="value">∞</span>
@@ -1316,17 +1279,20 @@
                     </div>
                 </div>
                 <ul class="plan-features">
-                    <li class="included">كل مميزات الأعمال</li>
-                    <li class="included">أوفرتايم الموظفين</li>
-                    <li class="included">الإيصالات الرقمية</li>
-                    <li class="included">القائمة الرقمية (Digital Menu)</li>
-                    <li class="included">الطلبات المجدولة</li>
-                    <li class="included">حتى ٥ فروع</li>
-                    <li class="included">عدد غير محدود من الموظفين</li>
-                    <li class="included">عدد غير محدود من الطلبات</li>
-                    <li class="included">عدد غير محدود من الأصناف</li>
-                    <li class="included">جميع المميزات بلا استثناء</li>
-                    <li class="included">دعم أولوية</li>
+                    <li class="included">كل مميزات Pro</li>
+                    <li class="included">فروع غير محدودة + لوحة موحدة لكل الفروع</li>
+                    <li class="included">ذكاء اصطناعي كامل (تنبؤ + هيت ماب + ترويج ذكي)</li>
+                    <li class="included">تحليل أداء الموظفين بـ AI</li>
+                    <li class="included">ذكاء موسمي (رمضان والمناسبات)</li>
+                    <li class="included">REST API كامل + Webhooks</li>
+                    <li class="included">تخصيص نظام كامل + White-label</li>
+                    <li class="included">حقول وتقارير ومسارات عمل مخصصة</li>
+                    <li class="included">مدير حساب مخصص للمشروع</li>
+                    <li class="included">دعم أولوية ٢٤/٧ (واتساب + هاتف)</li>
+                    <li class="included">ضمان SLA مكتوب</li>
+                    <li class="included">تدريب فريق العمل والموظفين الجدد</li>
+                    <li class="included">تقارير عبر الفروع + KPI مخصص + سجل تدقيق</li>
+                    <li class="included">تحديثات مجانية على مدار السنة</li>
                 </ul>
             </div>
         </div>

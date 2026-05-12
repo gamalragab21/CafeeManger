@@ -6,12 +6,16 @@ import io.ktor.server.request.*
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -21,6 +25,8 @@ import net.marllex.waselak.backend.plugins.routeTrace
 import net.marllex.waselak.backend.data.database.ActivityLogsTable
 import net.marllex.waselak.backend.data.database.CustomerAddressesTable
 import net.marllex.waselak.backend.data.database.CreditTransactionsTable
+import net.marllex.waselak.backend.data.database.OrderPaymentsTable
+import net.marllex.waselak.backend.data.database.PrescriptionsTable
 import net.marllex.waselak.backend.data.database.CustomerCreditsTable
 import net.marllex.waselak.backend.data.database.CustomersTable
 import net.marllex.waselak.backend.data.database.ItemsTable
@@ -165,6 +171,13 @@ data class ShiftSummaryDto(
 data class OrderDto(
     val id: String,
     val vendor_id: String,
+    /**
+     * Per-vendor per-day sequence number ("Order #1, #2, #3..."). Resets
+     * each calendar day. UI surfaces this as the primary human-readable
+     * order identifier; the UUID `id` is kept for joins / lookups only.
+     */
+    val daily_seq: Int = 0,
+    val daily_seq_date: String = "",
     val channel: String,
     val status: String,
     val table_id: String? = null,
@@ -941,10 +954,35 @@ fun Route.orderRoutes() {
                 val hasDeliveryUser = request.delivery_user_id != null
                 val initialStatus = if (hasDeliveryUser) "ASSIGNED" else "CREATED"
 
+                // ── Daily sequence ────────────────────────────────────────
+                // Compute the next per-day order number for this vendor.
+                // Format YYYY-MM-DD in the system default zone — same call
+                // the rest of the receipt path uses for human dates. The
+                // SELECT-then-INSERT inside the same `transaction { }`
+                // gives us read-committed isolation; in the rare race when
+                // two cashiers create orders simultaneously, the second
+                // insert will see the first's row and yield the next
+                // value (no unique constraint needed — duplicates here
+                // are merely a display nuisance, not a correctness issue).
+                val today: String = kotlinx.datetime.Clock.System.now()
+                    .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                    .date.toString()
+                val maxToday = OrdersTable.selectAll().where {
+                    (OrdersTable.vendorId eq vendorUUID) and
+                        (OrdersTable.dailySeqDate eq today)
+                }.maxOfOrNull { it[OrdersTable.dailySeq] } ?: 0
+                val nextDailySeq = maxToday + 1
+                trace.step("Daily sequence assigned", mapOf(
+                    "date" to today,
+                    "dailySeq" to nextDailySeq.toString(),
+                ))
+
                 val orderId = OrdersTable.insertAndGetId { stmt ->
                     stmt[OrdersTable.vendorId] = vendorUUID
                     stmt[channel] = request.channel
                     stmt[status] = initialStatus
+                    stmt[dailySeq] = nextDailySeq
+                    stmt[dailySeqDate] = today
                     resolvedTableId?.let { tid -> stmt[tableId] = UUID.fromString(tid) }
                     stmt[cashierId] = UUID.fromString(principal.userId)
                     stmt[OrdersTable.deliveryUserId] = request.delivery_user_id?.let { UUID.fromString(it) }
@@ -2027,6 +2065,116 @@ fun Route.orderRoutes() {
             call.respond(HttpStatusCode.OK, order)
         }
 
+        // ─── DELETE /orders/{id} — MANAGER ONLY ─────────────────────
+        //
+        // Hard-deletes an order plus everything that hangs off it
+        // (order items, activity logs, completed product returns, etc).
+        // We deliberately RESTRICT this to the MANAGER role — cashiers
+        // can only change an order's status (e.g. to CANCELED) so the
+        // audit trail of cancellations isn't quietly erasable.
+        //
+        // For COMPLETED/REFUNDED orders we also restore stock quantities
+        // (no double-counting on re-creation) and free the table if it
+        // was a dine-in.
+        delete("/{id}") {
+            val trace = call.routeTrace()
+            trace.step("Delete order started")
+            val principal = requireRole("MANAGER")
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("ID required")
+            val orderUUID = UUID.fromString(id)
+            val vendorUUID = UUID.fromString(principal.vendorId)
+
+            val deleted = transaction {
+                val orderRow = OrdersTable.selectAll().where {
+                    (OrdersTable.id eq orderUUID) and (OrdersTable.vendorId eq vendorUUID)
+                }.firstOrNull() ?: throw NoSuchElementException("Order not found")
+
+                // Restore stock if the order was not already cancelled —
+                // deletes should be neutral, not double-effective.
+                val orderStatus = orderRow[OrdersTable.status]
+                if (orderStatus !in listOf("CANCELED", "CANCELLED")) {
+                    val orderItems = OrderItemsTable.selectAll()
+                        .where { OrderItemsTable.orderId eq orderUUID }.toList()
+                    restoreStockForOrderItems(vendorUUID, orderUUID, orderItems)
+                    trace.step("Stock restored for deleted order",
+                        mapOf("itemCount" to orderItems.size.toString()))
+                }
+
+                // Free dine-in table.
+                if (orderRow[OrdersTable.channel] == "DINE_IN") {
+                    orderRow[OrdersTable.tableId]?.let { tableUUID ->
+                        TablesTable.update({ TablesTable.id eq tableUUID }) {
+                            it[TablesTable.status] = "AVAILABLE"
+                            it[updatedAt] = Clock.System.now()
+                        }
+                    }
+                }
+
+                // ── Clean up dependent rows ────────────────────────────
+                // Order of operations:
+                //   1. NULL out nullable order_id refs so historical
+                //      analytics rows survive (stock_transactions,
+                //      points_transactions, credit_transactions,
+                //      prescriptions, scheduled_orders).
+                //   2. DELETE rows whose schema makes order_id NOT NULL
+                //      (activity_logs, order_items, order_payments,
+                //      product_returns + their return_items).
+                //   3. DELETE the order itself.
+                //
+                // We use runCatching around each NULL update so a column
+                // we haven't enumerated still won't break the delete —
+                // worst case the order row stays and the user retries.
+                runCatching {
+                    StockTransactionsTable.update({ StockTransactionsTable.orderId eq orderUUID }) {
+                        it[orderId] = null
+                    }
+                }
+                runCatching {
+                    PointsTransactionsTable.update({ PointsTransactionsTable.orderId eq orderUUID }) {
+                        it[orderId] = null
+                    }
+                }
+                runCatching {
+                    CreditTransactionsTable.update({ CreditTransactionsTable.orderId eq orderUUID }) {
+                        it[orderId] = null
+                    }
+                }
+                runCatching {
+                    PrescriptionsTable.update({ PrescriptionsTable.orderId eq orderUUID }) {
+                        it[orderId] = null
+                    }
+                }
+
+                ActivityLogsTable.deleteWhere { ActivityLogsTable.orderId eq orderUUID }
+                OrderPaymentsTable.deleteWhere { OrderPaymentsTable.orderId eq orderUUID }
+
+                // Return items reference order_items which reference orders.
+                val orderItemIds = OrderItemsTable.selectAll()
+                    .where { OrderItemsTable.orderId eq orderUUID }
+                    .map { it[OrderItemsTable.id].value }
+                if (orderItemIds.isNotEmpty()) {
+                    ReturnItemsTable.deleteWhere { ReturnItemsTable.orderItemId inList orderItemIds }
+                }
+                ProductReturnsTable.deleteWhere { ProductReturnsTable.orderId eq orderUUID }
+                OrderItemsTable.deleteWhere { OrderItemsTable.orderId eq orderUUID }
+
+                // Decrement offer used_count if applicable
+                orderRow[OrdersTable.offerId]?.let { offerUUID ->
+                    OffersTable.update({ OffersTable.id eq offerUUID }) { stmt ->
+                        with(SqlExpressionBuilder) {
+                            stmt[usedCount] = usedCount - 1
+                        }
+                    }
+                }
+
+                OrdersTable.deleteWhere {
+                    (OrdersTable.id eq orderUUID) and (OrdersTable.vendorId eq vendorUUID)
+                }
+            }
+            trace.step("Order deleted", mapOf("orderId" to id, "rows" to deleted.toString()))
+            call.respond(HttpStatusCode.OK, mapOf("success" to true, "deleted" to deleted))
+        }
+
     }
 }
 
@@ -2165,6 +2313,8 @@ private fun ResultRow.toOrderDto(
     return OrderDto(
     id = this[OrdersTable.id].toString(),
     vendor_id = this[OrdersTable.vendorId].toString(),
+    daily_seq = this[OrdersTable.dailySeq],
+    daily_seq_date = this[OrdersTable.dailySeqDate],
     channel = this[OrdersTable.channel],
     status = this[OrdersTable.status],
     table_id = this[OrdersTable.tableId]?.toString(),

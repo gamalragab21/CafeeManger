@@ -440,7 +440,7 @@ private fun WorkerAttendanceCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -708,46 +708,66 @@ private fun PinErrorDialog(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
-                // Show common error explanations
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+
+                // Detect whether this looks like a connectivity issue. When the
+                // error is the standard "no internet / connection" copy from
+                // userFriendlyMessage(), or a generic "unexpected error",
+                // showing the PIN-specific "Possible Reasons" list mislead
+                // cashiers into thinking the PIN was wrong (it usually wasn't —
+                // the request just timed out on slow WiFi). For those cases we
+                // hide the reasons list entirely.
+                val lowered = errorMessage.lowercase()
+                val looksLikeNetwork = "اتصال" in errorMessage ||
+                    "إنترنت" in errorMessage ||
+                    "غير متوقع" in errorMessage ||
+                    "internet" in lowered ||
+                    "network" in lowered ||
+                    "timeout" in lowered ||
+                    "unexpected" in lowered ||
+                    "session" in lowered ||
+                    "جلسة" in errorMessage
+
+                if (!looksLikeNetwork) {
+                    // Show common error explanations
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = stringResource(Res.string.possible_reasons),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        
-                        val reasons = listOf(
-                            stringResource(Res.string.pin_error_incorrect),
-                            stringResource(Res.string.pin_error_no_pin_set),
-                            stringResource(Res.string.pin_error_too_many_attempts),
-                            stringResource(Res.string.pin_error_worker_not_found)
-                        )
-                        
-                        reasons.forEach { reason ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = "•",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = reason,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.possible_reasons),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+
+                            val reasons = listOf(
+                                stringResource(Res.string.pin_error_incorrect),
+                                stringResource(Res.string.pin_error_no_pin_set),
+                                stringResource(Res.string.pin_error_too_many_attempts),
+                                stringResource(Res.string.pin_error_worker_not_found)
+                            )
+
+                            reasons.forEach { reason ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = "•",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = reason,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

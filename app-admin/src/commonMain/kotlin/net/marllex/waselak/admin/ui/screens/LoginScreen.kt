@@ -127,7 +127,7 @@ private fun LoginCard(
         modifier = Modifier
             .widthIn(max = 420.dp)
             .padding(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier.padding(32.dp),

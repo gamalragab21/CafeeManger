@@ -502,7 +502,7 @@ private fun WorkerCard(
             if (isPresent) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
             else Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -684,7 +684,7 @@ private fun AttendanceTab(uiState: StaffViewModel.UiState, viewModel: StaffViewM
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
@@ -1054,7 +1054,7 @@ private fun WorkerAttendanceSummaryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         border = BorderStroke(
             width = 1.dp,
             color = borderColor
@@ -1331,7 +1331,7 @@ private fun AttendanceRecordCard(record: Attendance, photoUrl: String? = null) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         border = BorderStroke(
             width = 1.dp,
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -2525,7 +2525,7 @@ private fun RolesTab(uiState: StaffViewModel.UiState, viewModel: StaffViewModel)
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                         ) {
                             Row(
                                 modifier = Modifier

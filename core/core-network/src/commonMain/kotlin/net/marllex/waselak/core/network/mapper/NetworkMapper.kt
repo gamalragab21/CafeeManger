@@ -191,6 +191,8 @@ fun OfferItemResponse.toDomain() = OfferItem(
 fun OrderResponse.toDomain() = Order(
     id = id,
     vendorId = vendorId,
+    dailySeq = dailySeq,
+    dailySeqDate = dailySeqDate,
     channel = OrderChannel.valueOf(channel),
     status = OrderStatus.parse(status),
     tableId = tableId,
@@ -396,6 +398,10 @@ fun PeriodMetricsResponse.toDomain() = PeriodMetrics(
     averageOrderValue = averageOrderValue,
     totalDeliveryFees = totalDeliveryFees,
     totalDiscounts = totalDiscounts,
+    pendingRevenue = pendingRevenue,
+    completedRevenue = completedRevenue,
+    completedOrders = completedOrders,
+    pendingOrders = pendingOrders,
 )
 
 fun ExecutiveSummaryResponse.toDomain() = ExecutiveSummary(

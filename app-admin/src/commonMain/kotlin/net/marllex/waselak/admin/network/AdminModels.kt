@@ -199,7 +199,11 @@ data class CreateVendorRequest(
     val tax_enabled: Boolean? = null,
     val default_tax_percent: Double? = null,
     val stock_mode: String? = null,
-    val plan: String = "STARTER",
+    // Default plan is PRO after the May 2026 consolidation (STARTER + BUSINESS
+    // merged into PRO). Sending the old "STARTER" string here still works —
+    // the backend migration re-points it to PRO — but new vendors should pick
+    // PRO explicitly.
+    val plan: String = "PRO",
     val manager_name: String,
     val manager_phone: String,
     val manager_email: String? = null,
@@ -1103,4 +1107,81 @@ data class UpdateReleaseRequest(
     val min_version_code: Int? = null,
     val drive_folder_id: String? = null,
     val is_active: Boolean? = null,
+)
+
+// ─── Admin: Vendor Menu Management ──────────────────────────────
+// Mirrors GET /api/v1/cms/vendors/{id}/menu — the backend ships a
+// flat tree of categories with their items. We rehydrate it here so
+// the admin UI can render category rows with expandable item lists.
+@kotlinx.serialization.Serializable
+data class AdminCategoryDto(
+    val id: String = "",
+    val name: String = "",
+    val display_order: String = "0",
+    val item_count: String = "0",
+    val items: List<AdminItemDto> = emptyList(),
+)
+
+@kotlinx.serialization.Serializable
+data class AdminItemDto(
+    val id: String = "",
+    val category_id: String = "",
+    val name: String = "",
+    val description: String = "",
+    val price: String = "0",
+    val cost_price: String = "",
+    val sku: String = "",
+    val barcode: String = "",
+    val image_url: String = "",
+    val available: String = "true",
+    val stock_behavior: String = "NONE",
+)
+
+@kotlinx.serialization.Serializable
+data class CreateAdminCategoryRequest(
+    val name: String,
+    val display_order: Int = 0,
+)
+
+@kotlinx.serialization.Serializable
+data class UpdateAdminCategoryRequest(
+    val name: String? = null,
+    val display_order: Int? = null,
+)
+
+@kotlinx.serialization.Serializable
+data class CreateAdminItemRequest(
+    val category_id: String,
+    val name: String,
+    val price: Double,
+    val description: String? = null,
+    val cost_price: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
+    val image_url: String? = null,
+    val available: Boolean = true,
+    val stock_behavior: String = "NONE",
+)
+
+@kotlinx.serialization.Serializable
+data class UpdateAdminItemRequest(
+    val category_id: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val price: Double? = null,
+    val cost_price: Double? = null,
+    val sku: String? = null,
+    val barcode: String? = null,
+    val image_url: String? = null,
+    val available: Boolean? = null,
+    val stock_behavior: String? = null,
+)
+
+// ─── Admin: Vendor Recipes ───────────────────────────────────────
+@kotlinx.serialization.Serializable
+data class AdminRecipeDto(
+    val id: String = "",
+    val name: String = "",
+    val item_id: String = "",
+    val ingredient_count: String = "0",
 )

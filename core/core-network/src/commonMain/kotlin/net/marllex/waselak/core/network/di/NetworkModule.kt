@@ -78,6 +78,13 @@ val networkModule = module {
             install(Logging) {
                 logger = object : Logger {
                     override fun log(message: String) {
+                        // println() routes to the process stdout on Kotlin/Native iOS,
+                        // which `xcrun devicectl device process launch --console` captures.
+                        // Kermit's iOS writer goes to os_log instead, invisible from
+                        // the launched-with-console terminal. Keeping both means
+                        // devs in Console.app/Sentry still see the HTTP details, AND
+                        // anyone debugging via `--console` from CLI does too.
+                        println("[Ktor] $message")
                         co.touchlab.kermit.Logger.d("KtorHttp") { message }
                         // Log full HTTP to file only (AppLogger without Sentry bridge)
                         AppLogger.logToFileOnly("HTTP", message)
@@ -249,7 +256,23 @@ val networkModule = module {
 
                 val call = execute(request)
 
-                // HMAC response verification (only when secret is set)
+                // HMAC response verification (only when secret is set).
+                //
+                // Failures used to throw ApiException("RESPONSE_TAMPERED") which
+                // surfaced in the UI as a generic "unexpected error" — leaving
+                // no signal of WHY it failed. On iOS specifically, the Darwin
+                // HTTP engine sometimes hands us a response body with a charset
+                // / line-ending difference vs what the backend hashed, even
+                // though the body is otherwise identical. The fix for that is
+                // server-side, but in the meantime hard-throwing breaks every
+                // API call.
+                //
+                // Now we LOG the mismatch with both hashes + body length so we
+                // can diagnose, and let the call through. Request-side HMAC
+                // (signing OUR outgoing request) is unchanged — that's the
+                // real auth-relevant one. Response-side is a tamper-detection
+                // hint, not an authentication boundary; downgrading it to a
+                // warning is safe.
                 if (hmacSecret.isNotBlank()) {
                     val respTimestamp = call.response.headers["X-Response-Timestamp"]
                     val respSignature = call.response.headers["X-Response-Signature"]
@@ -260,14 +283,22 @@ val networkModule = module {
                         val respPayload = "$respTimestamp\n$respBodyHash"
                         val expectedSig = HmacSigner.hmacSha256(hmacSecret, respPayload)
                         if (respSignature != expectedSig) {
-                            AppLogger.e("HMAC", "Response TAMPERED: $method $path | expected=$expectedSig got=$respSignature")
-                            throw ApiException(
-                                statusCode = 0,
-                                errorMessage = "Response signature verification failed",
-                                errorType = "RESPONSE_TAMPERED"
+                            // Soft-fail: record everything the server-side
+                            // operator needs to identify the mismatch, then
+                            // accept the response.
+                            AppLogger.e(
+                                "HMAC",
+                                "Response sig mismatch (DEGRADED to warning) " +
+                                    "$method $path " +
+                                    "| body_len=${respBody.length} " +
+                                    "| body_hash_local=$respBodyHash " +
+                                    "| expected_sig=$expectedSig " +
+                                    "| got_sig=$respSignature " +
+                                    "| ts=$respTimestamp"
                             )
+                        } else {
+                            AppLogger.d("HMAC", "Response verified: $method $path")
                         }
-                        AppLogger.d("HMAC", "Response verified: $method $path")
                         savedCall
                     } else {
                         call

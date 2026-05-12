@@ -201,6 +201,91 @@ object DatabaseConfig {
             exec("UPDATE subscription_plans SET digital_receipt = false WHERE name = 'BUSINESS'")
             exec("UPDATE subscription_plans SET digital_receipt = true WHERE name = 'ENTERPRISE'")
 
+            // ─── Plan V4: Consolidate STARTER + BUSINESS → PRO (May 2026) ───
+            //
+            // Sales asked us to drop the entry-level "STARTER" tier (was
+            // confusing customers next to BUSINESS) and rename BUSINESS to
+            // PRO with bumped limits. Migration sequence is important:
+            //   1. Make sure a PRO row exists with the new pricing.
+            //   2. Re-point every vendor subscription that was on
+            //      STARTER or BUSINESS to PRO.
+            //   3. Delete the old STARTER + BUSINESS plan rows so
+            //      `listActivePlans()` returns only the new catalog.
+            //
+            // The PRO row is upserted here directly so the migration is
+            // self-contained — the seed loop below it will pick up the
+            // pricing tweaks for the second run, but for already-running
+            // installs we patch the row in place.
+            // Ensure pgcrypto is available so gen_random_uuid() resolves
+            // on PostgreSQL versions that don't ship it core-loaded.
+            runCatching { exec("CREATE EXTENSION IF NOT EXISTS pgcrypto") }
+            exec("""
+                INSERT INTO subscription_plans (
+                    id, name, display_name, price_egp, billing_cycle, active,
+                    max_managers, max_cashiers, max_delivery, max_orders_per_month,
+                    max_menu_items, max_branches,
+                    stock_management, worker_attendance, delivery_module,
+                    analytics, digital_menu, overtime, salaries,
+                    customer_management, table_management, worker_qrcode,
+                    digital_receipt, loyalty_points, manual_discount,
+                    offers_management, cash_drawer, split_payment,
+                    customer_credit, installments, suppliers, returns,
+                    prescriptions, drug_interactions, scheduled_orders, kds,
+                    notifications, display_order, created_at, updated_at
+                ) VALUES (
+                    gen_random_uuid(), 'PRO', 'Pro', 699, 'MONTHLY', true,
+                    3, 5, 5, 5000, 500, 1,
+                    true, true, true,
+                    'FULL', 'FULL', true, true,
+                    true, true, true,
+                    true, true, true,
+                    true, true, true,
+                    true, true, true, true,
+                    true, true, true, true,
+                    true, 1, NOW(), NOW()
+                ) ON CONFLICT (name) DO UPDATE SET
+                    display_name = 'Pro',
+                    price_egp = 699,
+                    active = true,
+                    max_managers = 3, max_cashiers = 5, max_delivery = 5,
+                    max_orders_per_month = 5000, max_menu_items = 500, max_branches = 1,
+                    stock_management = true, worker_attendance = true,
+                    delivery_module = true, analytics = 'FULL', digital_menu = 'FULL',
+                    overtime = true, salaries = true, customer_management = true,
+                    table_management = true, worker_qrcode = true,
+                    digital_receipt = true, loyalty_points = true,
+                    manual_discount = true, offers_management = true,
+                    cash_drawer = true, split_payment = true,
+                    customer_credit = true, installments = true,
+                    suppliers = true, returns = true, prescriptions = true,
+                    drug_interactions = true, scheduled_orders = true, kds = true,
+                    notifications = true, display_order = 1, updated_at = NOW()
+            """.trimIndent())
+
+            // Bump ENTERPRISE pricing too (999 → 1299) and unlock unlimited branches.
+            exec("""
+                UPDATE subscription_plans SET
+                    price_egp = 1299,
+                    max_branches = -1,
+                    display_order = 2,
+                    active = true
+                WHERE name = 'ENTERPRISE'
+            """.trimIndent())
+
+            // Re-point existing STARTER + BUSINESS subscriptions to PRO so
+            // no vendor accidentally loses access mid-renewal.
+            exec("""
+                UPDATE vendor_subscriptions
+                SET plan_id = (SELECT id FROM subscription_plans WHERE name = 'PRO')
+                WHERE plan_id IN (
+                    SELECT id FROM subscription_plans WHERE name IN ('STARTER', 'BUSINESS')
+                )
+            """.trimIndent())
+
+            // Finally, remove the old plan rows so the catalog endpoints
+            // return only PRO + ENTERPRISE.
+            exec("DELETE FROM subscription_plans WHERE name IN ('STARTER', 'BUSINESS')")
+
             // Recipe/BOM migration: backfill stockBehavior for items that already have stock entries
             exec("UPDATE items SET stock_behavior = 'DIRECT' WHERE id IN (SELECT item_id FROM stock WHERE item_id IS NOT NULL) AND stock_behavior = 'NONE'")
             // Normalize unit values from legacy "pcs" to "PIECE"
@@ -428,38 +513,22 @@ object DatabaseConfig {
                 val displayOrder: Int
             )
 
+            // ── Plan catalog v4 — consolidated from 3 → 2 plans (May 2026) ──
+            //
+            // Old STARTER (299 EGP) is gone. STARTER customers are migrated
+            // to PRO (see the SQL migration below this block). PRO is a
+            // direct rename + price-bump of the old BUSINESS plan with one
+            // small concession: stockManagement is on so single-shop
+            // restaurants don't lose inventory features. ENTERPRISE adds
+            // unlimited branches, full AI, API access, account manager.
+            //
+            // PRICING (matches waselak_pricing_plans.md):
+            //   PRO         — 699 EGP / mo  (6,990 / yr — pay 10 use 12)
+            //   ENTERPRISE  — 1,299 EGP / mo (12,990 / yr)
             val plans = listOf(
-                PlanSeed("STARTER", "Starter", 299,
-                    maxManagers = 1, maxCashiers = 1, maxDelivery = 0,
-                    maxOrdersPerMonth = 750, maxMenuItems = 50, maxBranches = 1,
-                    stockManagement = false, workerAttendance = false, deliveryModule = false,
-                    analytics = "NONE", digitalMenu = "NONE",
-                    overtime = false, salaries = false, customerManagement = false,
-                    tableManagement = false, workerQrcode = false, digitalReceipt = false,
-                    loyaltyPoints = true, manualDiscount = true, offersManagement = false,
-                    cashDrawer = true, splitPayment = false, customerCredit = false,
-                    installments = false,
-                    suppliers = false, returns = false, prescriptions = false,
-                    drugInteractions = false, scheduledOrders = false, kds = false,
-                    notifications = true,
-                    displayOrder = 1),
-                PlanSeed("BUSINESS", "Business", 599,
-                    maxManagers = 2, maxCashiers = 3, maxDelivery = 3,
-                    maxOrdersPerMonth = 3500, maxMenuItems = 200, maxBranches = 1,
-                    stockManagement = true, workerAttendance = true, deliveryModule = true,
-                    analytics = "FULL", digitalMenu = "NONE",
-                    overtime = false, salaries = true, customerManagement = true,
-                    tableManagement = true, workerQrcode = true, digitalReceipt = false,
-                    loyaltyPoints = true, manualDiscount = true, offersManagement = true,
-                    cashDrawer = true, splitPayment = true, customerCredit = true,
-                    installments = true,
-                    suppliers = true, returns = true, prescriptions = true,
-                    drugInteractions = true, scheduledOrders = false, kds = true,
-                    notifications = true,
-                    displayOrder = 2),
-                PlanSeed("ENTERPRISE", "Enterprise", 999,
-                    maxManagers = -1, maxCashiers = -1, maxDelivery = -1,
-                    maxOrdersPerMonth = -1, maxMenuItems = -1, maxBranches = 5,
+                PlanSeed("PRO", "Pro", 699,
+                    maxManagers = 3, maxCashiers = 5, maxDelivery = 5,
+                    maxOrdersPerMonth = 5000, maxMenuItems = 500, maxBranches = 1,
                     stockManagement = true, workerAttendance = true, deliveryModule = true,
                     analytics = "FULL", digitalMenu = "FULL",
                     overtime = true, salaries = true, customerManagement = true,
@@ -470,7 +539,21 @@ object DatabaseConfig {
                     suppliers = true, returns = true, prescriptions = true,
                     drugInteractions = true, scheduledOrders = true, kds = true,
                     notifications = true,
-                    displayOrder = 3),
+                    displayOrder = 1),
+                PlanSeed("ENTERPRISE", "Enterprise", 1299,
+                    maxManagers = -1, maxCashiers = -1, maxDelivery = -1,
+                    maxOrdersPerMonth = -1, maxMenuItems = -1, maxBranches = -1,
+                    stockManagement = true, workerAttendance = true, deliveryModule = true,
+                    analytics = "FULL", digitalMenu = "FULL",
+                    overtime = true, salaries = true, customerManagement = true,
+                    tableManagement = true, workerQrcode = true, digitalReceipt = true,
+                    loyaltyPoints = true, manualDiscount = true, offersManagement = true,
+                    cashDrawer = true, splitPayment = true, customerCredit = true,
+                    installments = true,
+                    suppliers = true, returns = true, prescriptions = true,
+                    drugInteractions = true, scheduledOrders = true, kds = true,
+                    notifications = true,
+                    displayOrder = 2),
             )
 
             for (plan in plans) {

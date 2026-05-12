@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
@@ -149,11 +150,19 @@ fun OrdersScreen(
     // Load orders when screen appears + periodic polling to reflect KDS status changes.
     // Uses simple LaunchedEffect instead of repeatOnLifecycle for cross-platform compatibility
     // (Desktop lifecycle may not reach RESUMED state reliably).
+    //
+    // The polling pass calls `loadOrders(silent = true)` so it:
+    //   • doesn't toggle the screen's loading indicator (no flicker), and
+    //   • preserves rows currently flagged as in-flight optimistic
+    //     updates inside the ViewModel — otherwise the polling
+    //     response would clobber an in-progress "Mark Completed" and
+    //     the button would reappear for a moment before the PATCH
+    //     finally lands.
     LaunchedEffect(Unit) {
-        viewModel.loadOrders()
+        viewModel.loadOrders(silent = false)
         while (true) {
             kotlinx.coroutines.delay(10_000) // refresh every 10 seconds
-            viewModel.loadOrders()
+            viewModel.loadOrders(silent = true)
         }
     }
 
@@ -599,7 +608,7 @@ private fun OrderCard(
             .fillMaxWidth()
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             // --- Header Section ---
@@ -611,7 +620,7 @@ private fun OrderCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "#${order.id.takeLast(6).uppercase()}",
+                            text = order.displayId,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
@@ -858,14 +867,60 @@ private fun OrderCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             val nextStatuses = getNextStatuses(order)
-            if (nextStatuses.isNotEmpty()) {
+
+            // ── Fast-counter "Mark Completed" CTA ────────────────────
+            //
+            // Some merchants don't walk every order through prep → ready →
+            // served. They want a single tap to close an order. The backend
+            // permits CREATED → COMPLETED for every channel, but enforces
+            // "payment must be PAID" first — so we only surface the button
+            // when paymentStatus == PAID and the order is in a pre-terminal
+            // status. When payment is still PENDING the existing "Pay Now"
+            // button above is the right next action; we deliberately don't
+            // show "Mark Completed" so the cashier can't try a path the
+            // backend will refuse.
+            val isPreTerminal = order.status !in listOf(
+                OrderStatus.COMPLETED, OrderStatus.CANCELED, OrderStatus.REFUNDED
+            )
+            val showQuickComplete = isPreTerminal &&
+                order.paymentStatus == PaymentStatus.PAID &&
+                OrderStatus.COMPLETED in nextStatuses
+            if (showQuickComplete) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { onStatusUpdate(OrderStatus.COMPLETED) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary,
+                    ),
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(Res.string.mark_completed),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+
+            // The flow-row below offers the FULL set of valid next
+            // statuses (prep, ready, served/picked_up, etc) for merchants
+            // who DO want the staged workflow. We exclude COMPLETED here
+            // when we've already surfaced it as a CTA so it doesn't
+            // appear twice.
+            val flowStatuses = if (showQuickComplete) {
+                nextStatuses.filter { it != OrderStatus.COMPLETED }
+            } else nextStatuses
+            if (flowStatuses.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    nextStatuses.forEach { status ->
+                    flowStatuses.forEach { status ->
                         FilledTonalButton(
                             onClick = { onStatusUpdate(status) },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -1002,7 +1057,7 @@ private fun PaymentBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "#${order.id.takeLast(6).uppercase()}",
+                        text = order.displayId,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -1301,7 +1356,7 @@ private fun ReturnBottomSheet(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "#${order.id.takeLast(6).uppercase()}",
+                order.displayId,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

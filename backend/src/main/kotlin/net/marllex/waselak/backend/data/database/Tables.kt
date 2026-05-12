@@ -195,6 +195,14 @@ object OrdersTable : UUIDTable("orders") {
     val vendorId = reference("vendor_id", VendorsTable)
     val channel = varchar("channel", 20)
     val status = varchar("status", 30).default("CREATED")
+    // Per-vendor per-day order counter. Reset each calendar day at midnight
+    // in the vendor's local timezone — the merchant uses this as the
+    // human-friendly "Order #1, #2, #3…" identifier that appears on the
+    // POS screen, orders list, and printed receipt. The UUID `id` column
+    // remains the canonical opaque identifier; `dailySeq` is purely a
+    // display aid that's much easier to call out to a customer.
+    val dailySeq = integer("daily_seq").default(0)
+    val dailySeqDate = varchar("daily_seq_date", 10).default("") // YYYY-MM-DD
     val tableId = reference("table_id", TablesTable).nullable()
     val cashierId = reference("cashier_id", UsersTable)
     val deliveryUserId = reference("delivery_user_id", UsersTable).nullable()

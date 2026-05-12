@@ -14,6 +14,7 @@ import net.marllex.waselak.backend.domain.model.DomainDefaults
 import net.marllex.waselak.backend.domain.service.AdminAuthService
 import net.marllex.waselak.backend.domain.service.AuthService
 import net.marllex.waselak.backend.domain.service.NotificationService
+import net.marllex.waselak.backend.domain.service.PinService
 import net.marllex.waselak.backend.domain.service.PlanService
 import net.marllex.waselak.backend.domain.service.RequestLogService
 import net.marllex.waselak.backend.plugins.AdminPrincipal
@@ -86,6 +87,8 @@ fun Route.adminApiRoutes() {
     val planService by KoinJavaComponent.inject<PlanService>(clazz = PlanService::class.java)
     val requestLogService by KoinJavaComponent.inject<RequestLogService>(clazz = RequestLogService::class.java)
     val notificationService by KoinJavaComponent.inject<NotificationService>(clazz = NotificationService::class.java)
+    val pinService by KoinJavaComponent.inject<PinService>(clazz = PinService::class.java)
+    val authService by KoinJavaComponent.inject<AuthService>(clazz = AuthService::class.java)
 
     route("/api/v1/cms") {
 
@@ -1916,9 +1919,13 @@ fun Route.adminApiRoutes() {
                 transaction { AppReleasesTable.deleteWhere { AppReleasesTable.id eq UUID.fromString(releaseId) } }
                 call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
             }
-        }
 
         // ─── Vendor User Management (Admin creates users for any vendor) ──
+        //
+        // SECURITY: Every route below this point must remain INSIDE the
+        // surrounding `authenticate("admin-jwt-bearer")` block. The user/
+        // menu/recipes/impersonate endpoints mutate any vendor's data and
+        // can NOT be exposed unauthenticated.
 
         route("/vendors/{vendorId}/users") {
 
@@ -2049,8 +2056,687 @@ fun Route.adminApiRoutes() {
                         it[active] = false
                         it[updatedAt] = kotlinx.datetime.Clock.System.now()
                     }
+                    // Also wipe sessions so a deactivated employee cannot keep
+                    // using the apps with an already-issued refresh token.
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
                 }
                 call.respond(HttpStatusCode.OK, mapOf("status" to "deactivated"))
+            }
+
+            // ─── Admin: Reset an employee's login password ─────────────
+            // Why a dedicated endpoint and not a flag on PUT /{userId}: the
+            // generic update endpoint accepts public fields only (name, email,
+            // active). Password is a security-sensitive field — separating
+            // the route makes both audit logs and authorisation checks clearer.
+            put("/{userId}/reset-password") {
+                val principal = call.principal<AdminPrincipal>()!!
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val userId = call.parameters["userId"] ?: throw IllegalArgumentException("User ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+                val userUUID = UUID.fromString(userId)
+
+                @Serializable
+                data class ResetPasswordRequest(val new_password: String)
+                val request = call.receive<ResetPasswordRequest>()
+                require(request.new_password.length >= 6) { "Password must be at least 6 characters" }
+
+                val newHash = org.mindrot.jbcrypt.BCrypt.hashpw(
+                    request.new_password,
+                    org.mindrot.jbcrypt.BCrypt.gensalt(),
+                )
+                val now = kotlinx.datetime.Clock.System.now()
+
+                val updated = transaction {
+                    val rows = UsersTable.update({
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }) {
+                        it[passwordHash] = newHash
+                        it[updatedAt] = now
+                    }
+                    if (rows > 0) {
+                        // Force re-login on every device — an admin-driven
+                        // password reset means the existing refresh tokens
+                        // should no longer be trusted (compromised account,
+                        // employee left, etc.).
+                        RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                    }
+                    rows
+                }
+                if (updated == 0) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found in this vendor"))
+                    return@put
+                }
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "success" to true,
+                    "message" to "Password reset; all sessions revoked.",
+                    "actor_admin_id" to principal.adminId,
+                ))
+            }
+
+            // ─── Admin: Set or clear an employee's override PIN ────────
+            // POST a 4-6 digit PIN to set, or POST `clear=true` to wipe.
+            // The PIN is hashed with bcrypt (via PinService) — never stored
+            // or returned in plain text.
+            put("/{userId}/set-pin") {
+                val principal = call.principal<AdminPrincipal>()!!
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val userId = call.parameters["userId"] ?: throw IllegalArgumentException("User ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+                val userUUID = UUID.fromString(userId)
+
+                @Serializable
+                data class SetPinRequest(val pin: String? = null, val clear: Boolean = false)
+                val request = call.receive<SetPinRequest>()
+
+                if (!request.clear && request.pin.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Either `pin` or `clear=true` is required"))
+                    return@put
+                }
+                if (!request.clear && !pinService.isValidPin(request.pin!!)) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "PIN must be 4-6 digits"))
+                    return@put
+                }
+
+                val newHash = if (request.clear) null else pinService.hashPin(request.pin!!)
+                val now = kotlinx.datetime.Clock.System.now()
+                val updated = transaction {
+                    UsersTable.update({
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }) {
+                        it[overridePinHash] = newHash
+                        it[overridePinSetAt] = if (request.clear) null else now
+                        it[updatedAt] = now
+                    }
+                }
+                if (updated == 0) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found in this vendor"))
+                    return@put
+                }
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "success" to true,
+                    "override_pin_set" to (!request.clear),
+                    "actor_admin_id" to principal.adminId,
+                ))
+            }
+
+            // ─── Admin: Hard delete (super admin only) ─────────────────
+            // The plain DELETE endpoint deactivates; this one wipes the row.
+            // Mirrors the manager-side delete logic in UserManagementRoutes.kt
+            // by cleaning up all FK references first. Orders the user
+            // created as cashier are reassigned to the requesting admin's
+            // designated "system" user if needed — we cannot delete order
+            // history without losing revenue records.
+            //
+            // If the user has cashier orders we REFUSE the permanent delete
+            // and tell the caller to either soft-delete or to manually
+            // reassign the orders. This is safer than silently rewriting
+            // historical revenue rows.
+            delete("/{userId}/permanent") {
+                val principal = call.principal<AdminPrincipal>()!!
+                if (!principal.isSuperAdmin) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                    return@delete
+                }
+                val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+                val userId = call.parameters["userId"] ?: throw IllegalArgumentException("User ID required")
+                val vendorUUID = UUID.fromString(vendorId)
+                val userUUID = UUID.fromString(userId)
+
+                // `reassign` query: if present, reassign the user's orders
+                // to this other user ID before deletion. Without it we
+                // refuse to delete a user who has orders attached.
+                val reassignTo = call.request.queryParameters["reassignTo"]?.let {
+                    runCatching { UUID.fromString(it) }.getOrNull()
+                }
+
+                val result = transaction {
+                    // Sanity: the user must belong to the named vendor.
+                    val exists = UsersTable.selectAll().where {
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                    if (!exists) return@transaction "not_found"
+
+                    val hasOrders = OrdersTable.selectAll()
+                        .where { OrdersTable.cashierId eq userUUID }.count() > 0
+                    val hasAttendance = AttendanceTable.selectAll()
+                        .where { AttendanceTable.recordedBy eq userUUID }.count() > 0
+
+                    if (hasOrders && reassignTo == null) {
+                        return@transaction "orders_attached"
+                    }
+                    if (hasAttendance && reassignTo == null) {
+                        return@transaction "attendance_attached"
+                    }
+
+                    // Reassign all the NOT-NULL FKs that point at this user
+                    // to the chosen replacement, then null-out the ones the
+                    // schema allows to be null.
+                    reassignTo?.let { newOwner ->
+                        // Confirm the replacement belongs to the same vendor.
+                        val replacementOk = UsersTable.selectAll().where {
+                            (UsersTable.id eq newOwner) and (UsersTable.vendorId eq vendorUUID)
+                        }.count() > 0
+                        if (!replacementOk) return@transaction "bad_reassign_target"
+
+                        OrdersTable.update({ OrdersTable.cashierId eq userUUID }) {
+                            it[cashierId] = newOwner
+                        }
+                        AttendanceTable.update({ AttendanceTable.recordedBy eq userUUID }) {
+                            it[recordedBy] = newOwner
+                        }
+                    }
+
+                    // ON DELETE RESTRICT FKs that we can clear:
+                    RefreshTokensTable.deleteWhere { RefreshTokensTable.userId eq userUUID }
+                    ActivityLogsTable.deleteWhere { ActivityLogsTable.userId eq userUUID }
+
+                    // Worker rows can keep existing but lose the user link.
+                    // Fully qualify the column — the route's outer `userId`
+                    // String parameter shadows `WorkersTable.userId` inside
+                    // this update block.
+                    WorkersTable.update({ WorkersTable.userId eq userUUID }) {
+                        it[WorkersTable.userId] = null
+                    }
+
+                    UsersTable.deleteWhere {
+                        (UsersTable.id eq userUUID) and (UsersTable.vendorId eq vendorUUID)
+                    }
+                    "deleted"
+                }
+
+                when (result) {
+                    "not_found" ->
+                        call.respond(HttpStatusCode.NotFound, mapOf("error" to "User not found in this vendor"))
+                    "orders_attached" ->
+                        call.respond(
+                            HttpStatusCode.Conflict,
+                            mapOf(
+                                "error" to "User has historical orders; pass ?reassignTo=<otherUserId> to keep order history.",
+                                "code" to "ORDERS_ATTACHED",
+                            ),
+                        )
+                    "attendance_attached" ->
+                        call.respond(
+                            HttpStatusCode.Conflict,
+                            mapOf(
+                                "error" to "User recorded attendance entries; pass ?reassignTo=<otherUserId>.",
+                                "code" to "ATTENDANCE_ATTACHED",
+                            ),
+                        )
+                    "bad_reassign_target" ->
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            mapOf("error" to "reassignTo user is not in the same vendor"),
+                        )
+                    "deleted" ->
+                        call.respond(HttpStatusCode.OK, mapOf(
+                            "success" to true,
+                            "actor_admin_id" to principal.adminId,
+                            "reassigned_to" to (reassignTo?.toString() ?: ""),
+                        ))
+                    else ->
+                        call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result: $result"))
+                }
+            }
+        }
+
+        // ─── Admin: Impersonate as Vendor Manager ──────────────────────
+        //
+        // Mints a real auth session (access + refresh tokens) for a vendor's
+        // primary MANAGER user, enabling the admin dashboard to perform any
+        // manager-side action — menu, recipes, stock, tables, offers,
+        // customers, orders, suppliers, attendance, salary, etc. — using
+        // the same JWT-authenticated endpoints the manager app uses.
+        //
+        // Usage from the admin dashboard:
+        //   POST /api/v1/cms/vendors/{id}/impersonate            (auto-pick first active manager)
+        //   POST /api/v1/cms/vendors/{id}/impersonate { "user_id": "..." }   (pick a specific user)
+        //
+        // Returns the standard AuthService.AuthResult JSON. Side effect:
+        // any existing session for the targeted user is INVALIDATED (single-
+        // session enforcement, same as a fresh login). The user will need
+        // to log in again afterwards.
+        post("/vendors/{vendorId}/impersonate") {
+            val principal = call.principal<AdminPrincipal>()!!
+            if (!principal.isSuperAdmin) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Super admin only"))
+                return@post
+            }
+            val vendorId = call.parameters["vendorId"] ?: throw IllegalArgumentException("Vendor ID required")
+            val vendorUUID = UUID.fromString(vendorId)
+
+            @Serializable
+            data class ImpersonateRequest(val user_id: String? = null)
+            // Body is optional — empty POST auto-picks the first manager.
+            val request = runCatching { call.receive<ImpersonateRequest>() }
+                .getOrDefault(ImpersonateRequest())
+
+            // Resolve target user: explicit user_id wins, else the first
+            // active MANAGER for the vendor, else any active user.
+            val targetUserUUID = transaction {
+                val explicit = request.user_id?.let {
+                    runCatching { UUID.fromString(it) }.getOrNull()
+                }
+                if (explicit != null) {
+                    val row = UsersTable.selectAll().where {
+                        (UsersTable.id eq explicit) and
+                            (UsersTable.vendorId eq vendorUUID) and
+                            (UsersTable.active eq true)
+                    }.firstOrNull()
+                    return@transaction row?.get(UsersTable.id)?.value
+                }
+
+                val manager = UsersTable.selectAll().where {
+                    (UsersTable.vendorId eq vendorUUID) and
+                        (UsersTable.role eq "MANAGER") and
+                        (UsersTable.active eq true)
+                }.orderBy(UsersTable.createdAt, SortOrder.ASC).firstOrNull()
+                if (manager != null) return@transaction manager[UsersTable.id].value
+
+                // Fallback to any active user
+                UsersTable.selectAll().where {
+                    (UsersTable.vendorId eq vendorUUID) and (UsersTable.active eq true)
+                }.orderBy(UsersTable.createdAt, SortOrder.ASC)
+                    .firstOrNull()?.get(UsersTable.id)?.value
+            }
+
+            if (targetUserUUID == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    mapOf("error" to "No active user found for this vendor to impersonate"),
+                )
+                return@post
+            }
+
+            val auth = try {
+                authService.adminImpersonate(targetUserUUID)
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to (e.message ?: "Impersonation failed")),
+                )
+                return@post
+            }
+
+            call.respond(HttpStatusCode.OK, mapOf(
+                "access_token"    to auth.accessToken,
+                "refresh_token"   to auth.refreshToken,
+                "user_id"         to auth.userId,
+                "vendor_id"       to auth.vendorId,
+                "role"            to auth.role,
+                "name"            to auth.name,
+                "phone"           to auth.phone,
+                "email"           to (auth.email ?: ""),
+                "photo_url"       to (auth.photoUrl ?: ""),
+                "actor_admin_id"  to principal.adminId,
+            ))
+        }
+
+        // ─── Admin: Vendor Menu Management (Categories + Items) ─────
+        //
+        // Mirrors the manager-side endpoints (/api/v1/categories,
+        // /api/v1/items) but is JWT-admin-authenticated and takes the
+        // vendor in the URL path. No HMAC required — these are admin-scope
+        // CMS calls, not customer-app calls.
+        //
+        // Endpoints:
+        //   GET     /vendors/{id}/menu                 → full categories+items tree
+        //   POST    /vendors/{id}/categories            → create category
+        //   PUT     /vendors/{id}/categories/{catId}    → update category
+        //   DELETE  /vendors/{id}/categories/{catId}    → delete category (must be empty)
+        //   POST    /vendors/{id}/items                 → create item
+        //   PUT     /vendors/{id}/items/{itemId}        → update item
+        //   DELETE  /vendors/{id}/items/{itemId}        → delete item
+        route("/vendors/{vendorId}/menu") {
+            // Full categories + items tree, sorted by display order then name.
+            // The response is built with Json* helpers instead of returning
+            // a `Map<String,Any>` because kotlinx.serialization can't infer
+            // a serializer for `Any` — and the legacy Map<String,String>
+            // shortcut breaks here because each category row mixes Strings
+            // with a nested List<Map>.
+            get {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val tree = transaction {
+                    CategoriesTable.selectAll()
+                        .where { CategoriesTable.vendorId eq vendorUUID }
+                        .orderBy(CategoriesTable.displayOrder to SortOrder.ASC, CategoriesTable.name to SortOrder.ASC)
+                        .map { catRow ->
+                            val catId = catRow[CategoriesTable.id].value
+                            val items = ItemsTable.selectAll()
+                                .where {
+                                    (ItemsTable.vendorId eq vendorUUID) and
+                                        (ItemsTable.categoryId eq catId)
+                                }
+                                .orderBy(ItemsTable.name)
+                                .toList()
+                            buildJsonObject {
+                                put("id", catId.toString())
+                                put("name", catRow[CategoriesTable.name])
+                                put("display_order", catRow[CategoriesTable.displayOrder].toString())
+                                put("item_count", items.size.toString())
+                                putJsonArray("items") {
+                                    items.forEach { i ->
+                                        addJsonObject {
+                                            put("id", i[ItemsTable.id].value.toString())
+                                            put("name", i[ItemsTable.name])
+                                            put("description", i[ItemsTable.description] ?: "")
+                                            put("price", i[ItemsTable.price].toPlainString())
+                                            put("cost_price", i[ItemsTable.costPrice]?.toPlainString() ?: "")
+                                            put("sku", i[ItemsTable.sku] ?: "")
+                                            put("barcode", i[ItemsTable.barcode] ?: "")
+                                            put("image_url", i[ItemsTable.imageUrl] ?: "")
+                                            put("available", i[ItemsTable.available].toString())
+                                            put("stock_behavior", i[ItemsTable.stockBehavior])
+                                            put("category_id", catId.toString())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                }
+                val arr = buildJsonArray { tree.forEach { add(it) } }
+                call.respondText(arr.toString(), ContentType.Application.Json)
+            }
+        }
+
+        route("/vendors/{vendorId}/categories") {
+            post {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                @Serializable
+                data class CreateCategoryRequest(val name: String, val display_order: Int = 0)
+                val body = call.receive<CreateCategoryRequest>()
+                require(body.name.isNotBlank()) { "Category name is required" }
+
+                val now = Clock.System.now()
+                val result = transaction {
+                    val existing = CategoriesTable.selectAll().where {
+                        (CategoriesTable.vendorId eq vendorUUID) and (CategoriesTable.name eq body.name)
+                    }.firstOrNull()
+                    if (existing != null) return@transaction null
+                    val newId = CategoriesTable.insertAndGetId {
+                        it[CategoriesTable.vendorId] = vendorUUID
+                        it[name] = body.name
+                        it[displayOrder] = body.display_order
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    mapOf(
+                        "id" to newId.value.toString(),
+                        "name" to body.name,
+                        "display_order" to body.display_order.toString(),
+                    )
+                }
+                if (result == null) {
+                    call.respond(HttpStatusCode.Conflict, mapOf("error" to "Category name already exists for this vendor"))
+                } else {
+                    call.respond(HttpStatusCode.Created, result)
+                }
+            }
+
+            put("/{catId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val catUUID = UUID.fromString(call.parameters["catId"]!!)
+                @Serializable
+                data class UpdateCategoryRequest(val name: String? = null, val display_order: Int? = null)
+                val body = call.receive<UpdateCategoryRequest>()
+
+                val rows = transaction {
+                    CategoriesTable.update({
+                        (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID)
+                    }) { stmt ->
+                        body.name?.takeIf { it.isNotBlank() }?.let { stmt[name] = it }
+                        body.display_order?.let { stmt[displayOrder] = it }
+                        stmt[updatedAt] = Clock.System.now()
+                    }
+                }
+                if (rows == 0) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Category not found"))
+                } else {
+                    call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                }
+            }
+
+            delete("/{catId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val catUUID = UUID.fromString(call.parameters["catId"]!!)
+                val result = transaction {
+                    val itemCount = ItemsTable.selectAll().where {
+                        (ItemsTable.categoryId eq catUUID) and (ItemsTable.vendorId eq vendorUUID)
+                    }.count()
+                    if (itemCount > 0) return@transaction "has_items"
+                    val rows = CategoriesTable.deleteWhere {
+                        (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID)
+                    }
+                    if (rows == 0) "not_found" else "deleted"
+                }
+                when (result) {
+                    "deleted"   -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Category not found"))
+                    "has_items" -> call.respond(
+                        HttpStatusCode.Conflict,
+                        mapOf(
+                            "error" to "Category has items — move them or delete them first",
+                            "code" to "CATEGORY_NOT_EMPTY",
+                        ),
+                    )
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+        }
+
+        route("/vendors/{vendorId}/items") {
+            post {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                @Serializable
+                data class CreateItemRequest(
+                    val category_id: String,
+                    val name: String,
+                    val price: Double,
+                    val description: String? = null,
+                    val cost_price: Double? = null,
+                    val sku: String? = null,
+                    val barcode: String? = null,
+                    val image_url: String? = null,
+                    val available: Boolean = true,
+                    val stock_behavior: String = "NONE",
+                )
+                val body = call.receive<CreateItemRequest>()
+                require(body.name.isNotBlank()) { "Item name is required" }
+                require(body.price >= 0) { "Price must be >= 0" }
+                require(body.stock_behavior in listOf("NONE", "DIRECT", "RECIPE")) {
+                    "stock_behavior must be NONE, DIRECT, or RECIPE"
+                }
+
+                val catUUID = UUID.fromString(body.category_id)
+                val now = Clock.System.now()
+                val result = transaction {
+                    // Verify the category belongs to this vendor.
+                    val catOk = CategoriesTable.selectAll().where {
+                        (CategoriesTable.id eq catUUID) and (CategoriesTable.vendorId eq vendorUUID)
+                    }.count() > 0
+                    if (!catOk) return@transaction null
+                    val newId = ItemsTable.insertAndGetId {
+                        it[ItemsTable.vendorId] = vendorUUID
+                        it[categoryId] = catUUID
+                        it[name] = body.name
+                        it[description] = body.description
+                        it[price] = java.math.BigDecimal.valueOf(body.price)
+                        it[costPrice] = body.cost_price?.let { c -> java.math.BigDecimal.valueOf(c) }
+                        it[sku] = body.sku
+                        it[barcode] = body.barcode
+                        it[imageUrl] = body.image_url
+                        it[available] = body.available
+                        it[stockBehavior] = body.stock_behavior
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                    }
+                    mapOf("id" to newId.value.toString(), "name" to body.name)
+                }
+                if (result == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Category not found for this vendor"))
+                } else {
+                    call.respond(HttpStatusCode.Created, result)
+                }
+            }
+
+            put("/{itemId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val itemUUID = UUID.fromString(call.parameters["itemId"]!!)
+                @Serializable
+                data class UpdateItemRequest(
+                    val category_id: String? = null,
+                    val name: String? = null,
+                    val description: String? = null,
+                    val price: Double? = null,
+                    val cost_price: Double? = null,
+                    val sku: String? = null,
+                    val barcode: String? = null,
+                    val image_url: String? = null,
+                    val available: Boolean? = null,
+                    val stock_behavior: String? = null,
+                )
+                val body = call.receive<UpdateItemRequest>()
+
+                val rows = transaction {
+                    // If category_id is being changed, verify the new one
+                    // belongs to the same vendor before we touch the row.
+                    val newCat = body.category_id?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    if (newCat != null) {
+                        val ok = CategoriesTable.selectAll().where {
+                            (CategoriesTable.id eq newCat) and (CategoriesTable.vendorId eq vendorUUID)
+                        }.count() > 0
+                        if (!ok) return@transaction -1
+                    }
+                    ItemsTable.update({
+                        (ItemsTable.id eq itemUUID) and (ItemsTable.vendorId eq vendorUUID)
+                    }) { stmt ->
+                        newCat?.let { stmt[categoryId] = it }
+                        body.name?.takeIf { it.isNotBlank() }?.let { stmt[name] = it }
+                        body.description?.let { stmt[description] = it.takeIf(String::isNotBlank) }
+                        body.price?.let { stmt[price] = java.math.BigDecimal.valueOf(it) }
+                        body.cost_price?.let { stmt[costPrice] = java.math.BigDecimal.valueOf(it) }
+                        body.sku?.let { stmt[sku] = it.takeIf(String::isNotBlank) }
+                        body.barcode?.let { stmt[barcode] = it.takeIf(String::isNotBlank) }
+                        body.image_url?.let { stmt[imageUrl] = it.takeIf(String::isNotBlank) }
+                        body.available?.let { stmt[available] = it }
+                        body.stock_behavior?.takeIf { it in listOf("NONE", "DIRECT", "RECIPE") }
+                            ?.let { stmt[stockBehavior] = it }
+                        stmt[updatedAt] = Clock.System.now()
+                    }
+                }
+                when {
+                    rows < 0 -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Category not found for this vendor"))
+                    rows == 0 -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Item not found"))
+                    else -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                }
+            }
+
+            delete("/{itemId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val itemUUID = UUID.fromString(call.parameters["itemId"]!!)
+                // Items are referenced by orders, offers, prescriptions etc.
+                // We deliberately don't try to hard-cascade — just attempt
+                // the delete and surface the FK error so the admin can
+                // make an informed call. For the common case (items never
+                // ordered yet) the delete succeeds cleanly.
+                val result = transaction {
+                    // Recipes for this item should go with the item.
+                    val recipeIds = RecipesTable.selectAll().where {
+                        (RecipesTable.itemId eq itemUUID) and (RecipesTable.vendorId eq vendorUUID)
+                    }.map { it[RecipesTable.id].value }
+                    if (recipeIds.isNotEmpty()) {
+                        RecipeIngredientsTable.deleteWhere { RecipeIngredientsTable.recipeId inList recipeIds }
+                        RecipesTable.deleteWhere { RecipesTable.id inList recipeIds }
+                    }
+                    runCatching {
+                        ItemsTable.deleteWhere {
+                            (ItemsTable.id eq itemUUID) and (ItemsTable.vendorId eq vendorUUID)
+                        }
+                    }.fold(
+                        onSuccess = { if (it == 0) "not_found" else "deleted" },
+                        onFailure = { "fk_blocked" },
+                    )
+                }
+                when (result) {
+                    "deleted" -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Item not found"))
+                    "fk_blocked" -> call.respond(
+                        HttpStatusCode.Conflict,
+                        mapOf(
+                            "error" to "Item is referenced by historical orders / offers and cannot be deleted. Mark it unavailable instead.",
+                            "code" to "ITEM_REFERENCED",
+                        ),
+                    )
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+        }
+
+        // ─── Admin: Vendor Recipes (list + delete) ──────────────────
+        // Read-only listing + delete. Creating/editing recipes from admin
+        // is rarely needed (managers do it in the manager app); use the
+        // "Open as Manager" workflow for creating recipes.
+        route("/vendors/{vendorId}/recipes") {
+            get {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val list = transaction {
+                    RecipesTable.selectAll()
+                        .where { RecipesTable.vendorId eq vendorUUID }
+                        .orderBy(RecipesTable.name)
+                        .map { r ->
+                            val recipeId = r[RecipesTable.id].value
+                            val ingredientCount = RecipeIngredientsTable.selectAll()
+                                .where { RecipeIngredientsTable.recipeId eq recipeId }
+                                .count()
+                            mapOf(
+                                "id" to recipeId.toString(),
+                                "name" to r[RecipesTable.name],
+                                "item_id" to r[RecipesTable.itemId].toString(),
+                                "ingredient_count" to ingredientCount.toString(),
+                            )
+                        }
+                }
+                call.respond(HttpStatusCode.OK, list)
+            }
+
+            delete("/{recipeId}") {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val recipeUUID = UUID.fromString(call.parameters["recipeId"]!!)
+                val result = transaction {
+                    // Null out any stock_transactions that reference this
+                    // recipe — same approach we used for the Wimpy cleanup.
+                    StockTransactionsTable.update({ StockTransactionsTable.recipeId eq recipeUUID }) {
+                        it[recipeId] = null
+                    }
+                    // RecipeIngredientsTable cascades, so deleting the recipe
+                    // row is enough.
+                    val rows = RecipesTable.deleteWhere {
+                        (RecipesTable.id eq recipeUUID) and (RecipesTable.vendorId eq vendorUUID)
+                    }
+                    if (rows == 0) "not_found" else "deleted"
+                }
+                when (result) {
+                    "deleted" -> call.respond(HttpStatusCode.OK, mapOf("success" to true))
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Recipe not found"))
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Unknown result"))
+                }
+            }
+
+            // Bulk delete — wipe every recipe for the vendor. Useful when a
+            // merchant wants to reset their recipe catalogue.
+            delete {
+                val vendorUUID = UUID.fromString(call.parameters["vendorId"]!!)
+                val deleted = transaction {
+                    val recipeIds = RecipesTable.selectAll()
+                        .where { RecipesTable.vendorId eq vendorUUID }
+                        .map { it[RecipesTable.id].value }
+                    if (recipeIds.isEmpty()) return@transaction 0
+                    StockTransactionsTable.update({ StockTransactionsTable.recipeId inList recipeIds }) {
+                        it[recipeId] = null
+                    }
+                    RecipesTable.deleteWhere { RecipesTable.vendorId eq vendorUUID }
+                }
+                call.respond(HttpStatusCode.OK, mapOf("deleted" to deleted))
             }
         }
 
@@ -2160,8 +2846,11 @@ fun Route.adminApiRoutes() {
                 }
                 call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
             }
-        }
-    }
+        } // end route("/team")
+        } // end authenticate("admin-jwt-bearer") — closes the auth wrapper
+          //   that was previously closed at line 1922 before the vendor-user
+          //   / menu / recipes / impersonate / team routes were added.
+    } // end route("/api/v1/cms")
 }
 
 private fun formatFileSize(bytes: Long): String {

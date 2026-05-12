@@ -7,6 +7,13 @@ import kotlinx.serialization.Serializable
 data class OrderResponse(
     val id: String,
     @SerialName("vendor_id") val vendorId: String,
+    /**
+     * Per-day order counter ("Order #1, #2, #3..."). Resets daily per
+     * vendor. The cashier / manager / delivery apps surface this as the
+     * primary glanceable order ID. UUID `id` is kept only for lookups.
+     */
+    @SerialName("daily_seq") val dailySeq: Int = 0,
+    @SerialName("daily_seq_date") val dailySeqDate: String = "",
     val channel: String,
     val status: String,
     @SerialName("table_id") val tableId: String? = null,

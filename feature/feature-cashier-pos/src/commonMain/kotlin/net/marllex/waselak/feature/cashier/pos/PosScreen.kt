@@ -100,6 +100,7 @@ import net.marllex.waselak.feature.cashier.pos.generated.resources.Res
 import net.marllex.waselak.feature.cashier.pos.generated.resources.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -127,8 +128,16 @@ import coil3.compose.AsyncImage
 import net.marllex.waselak.core.ui.components.waslekLogoPainter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalDensity
 import net.marllex.waselak.core.ui.components.WaselakSearchBar
 import net.marllex.waselak.core.ui.components.EmptyView
 import net.marllex.waselak.core.ui.components.ErrorView
@@ -157,10 +166,29 @@ fun PosScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCartSheet by remember { mutableStateOf(false) }
+    // Whether the offers carousel is expanded. Default closed (false) so the
+    // tablet-landscape compact top row stays one line; cashier opens via the
+    // 🎁 chip when they actually want to apply a promo. `rememberSaveable`
+    // so it survives rotation, language switch, and process death — feels
+    // jarring otherwise after the user toggles it on.
+    var offersExpanded by rememberSaveable { mutableStateOf(false) }
 
     BoxWithConstraints {
     val isTablet = maxWidth >= 600.dp
+    // Tablet AND landscape orientation. Catches iPad-class devices held in
+    // landscape where the cashier wants every dp on screen for the menu grid.
+    // Phones in landscape (which can be ~700dp wide on big phones) deliberately
+    // don't qualify: their height becomes too short for the existing vertical
+    // hierarchy (channel chips → offers → search → grid) to look good. Use a
+    // 900dp threshold so only true tablet-class screens flip into wide mode.
+    val isTabletLandscape = isTablet && maxWidth >= 900.dp && maxWidth > maxHeight
     val horizontalPadding = if (isTablet) 24.dp else 16.dp
+
+    // Soft keyboard up — used to auto-collapse the offers carousel so the
+    // remaining ~50% of vertical space (after channel + search + IME) goes
+    // entirely to the menu grid the cashier is actually trying to scan.
+    val density = LocalDensity.current
+    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
 
     // Vendor-type-aware labels
     val newOrderLabel = when (uiState.businessType) {
@@ -237,7 +265,21 @@ fun PosScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.TopCenter,
             ) { Column(
-                modifier = Modifier.then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth()),
+                modifier = Modifier.then(
+                    when {
+                        // Tablet landscape: claim every dp. The 720dp cap that
+                        // works fine on tablet portrait wastes 300+dp of margin
+                        // on each side at 1024-1366dp landscape widths, and is
+                        // why the menu cards look cramped here.
+                        isTabletLandscape -> Modifier.fillMaxWidth()
+                        // Tablet portrait: keep the 720dp readability cap that
+                        // prevents the existing single-column hierarchy from
+                        // sprawling across the screen.
+                        isTablet -> Modifier.widthIn(max = 720.dp)
+                        // Phone: full width.
+                        else -> Modifier.fillMaxWidth()
+                    },
+                ),
             ) {
                 // Channel selector – only show enabled channels
                 val availableChannels = remember(uiState.enableDineIn, uiState.enableDelivery, uiState.enableTakeaway, uiState.enableInStore, uiState.enablePickupLater) {
@@ -250,7 +292,83 @@ fun PosScreen(
                         if (isEmpty()) addAll(OrderChannel.entries) // fallback: show all
                     }
                 }
-                if (availableChannels.size > 1) {
+                // Tablet-landscape compact top row: channels + search + offers
+                // toggle, all on a single line. Saves ~120dp vertical vs the
+                // separated phone/portrait layout.
+                //
+                // `tabletLandscapeTopBar` flag is just for clarity — it'd be
+                // possible to inline-branch in the existing positions but the
+                // intent is harder to read once the channel chips and search
+                // bar are 200 lines apart in source.
+                val tabletLandscapeTopBar = isTabletLandscape && availableChannels.size > 1
+
+                if (tabletLandscapeTopBar) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalPadding, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        SingleChoiceSegmentedButtonRow {
+                            availableChannels.forEachIndexed { index, channel ->
+                                SegmentedButton(
+                                    selected = uiState.channel == channel,
+                                    onClick = { viewModel.setChannel(channel) },
+                                    shape = SegmentedButtonDefaults.itemShape(index, availableChannels.size),
+                                ) {
+                                    Text(
+                                        net.marllex.waselak.core.ui.components.formatChannelLabel(channel, uiState.businessType)
+                                    )
+                                }
+                            }
+                        }
+                        // Search bar takes remaining horizontal space; bound
+                        // to searchInput (instant) not searchQuery (debounced).
+                        WaselakSearchBar(
+                            query = uiState.searchInput,
+                            onQueryChange = viewModel::updateSearchQuery,
+                            placeholder = stringResource(Res.string.search_menu),
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Offers toggle — 🎁 N ▾. Only shows when there are
+                        // active offers. When tapped, the carousel below
+                        // expands/collapses inline. Hidden entirely when soft
+                        // keyboard is up because we don't want the cashier
+                        // to bump it accidentally while typing in search.
+                        if (uiState.activeOffers.isNotEmpty() && !isImeVisible) {
+                            FilledTonalButton(
+                                onClick = { offersExpanded = !offersExpanded },
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (offersExpanded)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.secondaryContainer,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Filled.LocalOffer,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "${uiState.activeOffers.size}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Icon(
+                                    if (offersExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                } else if (availableChannels.size > 1) {
+                    // Phone / tablet-portrait: keep the original full-width
+                    // segmented button row above the search bar.
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -310,10 +428,36 @@ fun PosScreen(
                 }
 
                 // ─── Offers Banner Carousel ────────────────────────
-                if (uiState.activeOffers.isNotEmpty()) {
+                // Visibility rules differ by layout:
+                //   • Tablet landscape: only when the user explicitly opens
+                //     it via the 🎁 chip (offersExpanded). Auto-collapses
+                //     when soft keyboard is up so it doesn't fight the
+                //     menu grid for vertical space during search.
+                //   • Phone / tablet portrait: same as before — visible
+                //     whenever offers exist and no keyboard is up. The
+                //     existing flow doesn't have a chip, so we keep the
+                //     always-visible behavior.
+                val showOffers = uiState.activeOffers.isNotEmpty() && !isImeVisible &&
+                    (if (isTabletLandscape) offersExpanded else true)
+
+                AnimatedVisibility(
+                    visible = showOffers,
+                    enter = expandVertically(animationSpec = tween(200)) + fadeIn(tween(200)),
+                    exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(tween(150)),
+                ) {
                     OffersBannerCarousel(
                         offers = uiState.activeOffers,
-                        onOfferClick = { offer -> viewModel.applyOffer(offer) },
+                        onOfferClick = { offer ->
+                            viewModel.applyOffer(offer)
+                            // Auto-collapse after applying — the offers panel
+                            // is meant for promo selection, not as a permanent
+                            // visual element.
+                            if (isTabletLandscape) offersExpanded = false
+                        },
+                        // Taller banner on tablet landscape so promo art /
+                        // discount badge reads from cashier-distance, not
+                        // squashed into 130dp like on a phone.
+                        bannerHeight = if (isTabletLandscape) 170.dp else 130.dp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = horizontalPadding, vertical = 4.dp),
@@ -321,15 +465,22 @@ fun PosScreen(
                 }
 
                 // ─── Search Bar ──────────────────────────────
-                // Bound to searchInput (updates on every keystroke), not searchQuery
-                // (debounced) — keeps the TextField feeling instant while the item grid
-                // filter only recomputes after the user pauses typing.
-                WaselakSearchBar(
-                    query = uiState.searchInput,
-                    onQueryChange = viewModel::updateSearchQuery,
-                    placeholder = stringResource(Res.string.search_menu),
-                    modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 4.dp),
-                )
+                // Tablet landscape already drew the search bar in the compact
+                // top row, so skip rendering it again here.
+                //
+                // Phone / tablet portrait: keep the standalone full-width search
+                // bar that sits below the channels + offers banner.
+                if (!isTabletLandscape) {
+                    // Bound to searchInput (updates on every keystroke), not searchQuery
+                    // (debounced) — keeps the TextField feeling instant while the item grid
+                    // filter only recomputes after the user pauses typing.
+                    WaselakSearchBar(
+                        query = uiState.searchInput,
+                        onQueryChange = viewModel::updateSearchQuery,
+                        placeholder = stringResource(Res.string.search_menu),
+                        modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 4.dp),
+                    )
+                }
 
                 // ─── Category Sidebar + Items Grid ─────────────────
                 val allLabel = stringResource(Res.string.all_categories)
@@ -385,8 +536,20 @@ fun PosScreen(
                             }
                         } else {
                             LazyVerticalGrid(
-                                columns = if (isTablet) GridCells.Adaptive(minSize = 150.dp)
-                                          else GridCells.Fixed(2),
+                                // Tablet landscape: 240dp minimum. With sidebar
+                                // (~110dp) and padding eating ~32dp, an iPad
+                                // landscape (1180dp) gets 4 columns at ~250dp
+                                // each, an iPad Pro 12.9" (1366dp) gets 5 at
+                                // ~245dp. Image area (90dp) + title + price
+                                // tag now read clearly from cashier-distance.
+                                // Bumped from 200dp because the cashier said
+                                // "make items easier and bigger" — this is the
+                                // single setting that controls perceived size.
+                                columns = when {
+                                    isTabletLandscape -> GridCells.Adaptive(minSize = 240.dp)
+                                    isTablet -> GridCells.Adaptive(minSize = 150.dp)
+                                    else -> GridCells.Fixed(2)
+                                },
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(
                                     start = 8.dp,
@@ -1317,12 +1480,24 @@ private fun CartBottomSheet(
                 }
             }
 
-            // Customer phone field — shown for all channels (required for DELIVERY/TAKEAWAY, optional for DINE_IN)
+            // Customer phone field — shown for all channels.
+            //
+            // Required-vs-optional matrix:
+            //   • DELIVERY      → required (need to dispatch the driver)
+            //   • PICKUP_LATER  → required (cashier calls when ready)
+            //   • TAKEAWAY      → OPTIONAL (walk-up counter sale — no
+            //                     reason to slow down the cashier asking
+            //                     for a phone the customer doesn't want
+            //                     to give)
+            //   • DINE_IN       → optional
+            //   • IN_STORE      → optional
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                val isPhoneError = hasAttemptedSubmit && isDeliveryOrTakeaway && uiState.clientPhone.isBlank()
+                val isPhoneRequired = uiState.channel == OrderChannel.DELIVERY ||
+                    uiState.channel == OrderChannel.PICKUP_LATER
+                val isPhoneError = hasAttemptedSubmit && isPhoneRequired && uiState.clientPhone.isBlank()
                 val phoneLabel = stringResource(Res.string.customer_phone) +
-                    if (!isDeliveryOrTakeaway) " (${stringResource(Res.string.optional_hint)})" else ""
+                    if (!isPhoneRequired) " (${stringResource(Res.string.optional_hint)})" else ""
                 OutlinedTextField(
                     value = uiState.clientPhone, onValueChange = viewModel::setClientPhone,
                     label = { Text(phoneLabel) }, singleLine = true,
@@ -2160,6 +2335,7 @@ private fun OffersBannerCarousel(
     offers: List<Offer>,
     onOfferClick: (Offer) -> Unit,
     modifier: Modifier = Modifier,
+    bannerHeight: Dp = 130.dp,
 ) {
     val pagerState = rememberPagerState(pageCount = { offers.size })
 
@@ -2177,7 +2353,7 @@ private fun OffersBannerCarousel(
     Column(modifier = modifier) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxWidth().height(130.dp),
+            modifier = Modifier.fillMaxWidth().height(bannerHeight),
             pageSpacing = 8.dp,
         ) { page ->
             val offer = offers[page]
@@ -2226,7 +2402,7 @@ private fun OfferBannerCard(
             .fillMaxSize()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Background: image or gradient

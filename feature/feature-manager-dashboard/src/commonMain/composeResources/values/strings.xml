@@ -24,6 +24,11 @@
     <string name="today_snapshot">Today Snapshot</string>
     <string name="total_revenue">Total Revenue</string>
     <string name="total_orders">Total Orders</string>
+    <!-- Accounting-correct dashboard KPIs (match shift summary numbers). -->
+    <string name="completed_revenue_today">Today\'s Revenue (Completed)</string>
+    <string name="completed_orders_today">Completed Orders</string>
+    <string name="in_progress_orders">In Progress</string>
+    <string name="pending_payment_today">Pending Payment</string>
     <string name="avg_order_value">Avg Order Value</string>
     <string name="delivery_fees">Delivery Fees</string>
     <string name="staff_present">Staff Present</string>

@@ -174,7 +174,10 @@ private fun PlanCard(
 
     val planBadgeColor = when (plan.name.uppercase()) {
         "ENTERPRISE" -> MaterialTheme.colorScheme.tertiary
-        "BUSINESS" -> MaterialTheme.colorScheme.primary
+        // After the 3→2 consolidation, PRO is the entry tier. Legacy
+        // STARTER / BUSINESS rows fall through to the same color so old
+        // analytics charts stay coherent.
+        "PRO", "STARTER", "BUSINESS" -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.secondary
     }
 

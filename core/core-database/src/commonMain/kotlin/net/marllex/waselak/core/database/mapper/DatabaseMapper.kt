@@ -239,6 +239,7 @@ fun OfferItem.toDbEntity() = Offer_items(
 // ─── Order Mappers ───────────────────────────────────────────────
 fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
     id = id, vendorId = vendor_id,
+    dailySeq = daily_seq, dailySeqDate = daily_seq_date,
     channel = OrderChannel.valueOf(channel),
     status = OrderStatus.parse(status),
     tableId = table_id, tableNumber = table_number,
@@ -265,7 +266,9 @@ fun Orders.toDomain(items: List<OrderItem> = emptyList()) = Order(
 )
 
 fun Order.toDbEntity() = Orders(
-    id = id, vendor_id = vendorId, channel = channel.name,
+    id = id, vendor_id = vendorId,
+    daily_seq = dailySeq, daily_seq_date = dailySeqDate,
+    channel = channel.name,
     status = status.name, table_id = tableId, table_number = tableNumber,
     cashier_id = cashierId,
     cashier_name = cashierName, delivery_user_id = deliveryUserId,

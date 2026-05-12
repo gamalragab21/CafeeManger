@@ -23,14 +23,27 @@ import java.util.UUID
 // ── Executive Summary ────────────────────────────────────────────────
 @Serializable
 data class PeriodMetricsDto(
-    val total_revenue: Double,          // gross: total customer pays (includes delivery + tax)
-    val net_revenue: Double = 0.0,      // total_revenue minus delivery fees
-    val pending_revenue: Double = 0.0,  // unpaid orders total
+    // ── "Total revenue" — every PAID order regardless of fulfillment
+    //    status. Kept for backwards compatibility but the dashboard
+    //    headline now uses `completed_revenue` (the same definition the
+    //    shift summary uses) so the two screens agree. ──
+    val total_revenue: Double,
+    val net_revenue: Double = 0.0,
+    val pending_revenue: Double = 0.0,
     val total_orders: Int,
     val average_order_value: Double,
     val total_delivery_fees: Double,
     val total_discounts: Double,
     val total_tax: Double = 0.0,
+    // ── Accounting-correct figures ──────────────────────────────────
+    // Earnings: PAID + COMPLETED. Matches what shift summary shows.
+    val completed_revenue: Double = 0.0,
+    // Count of fully closed orders (status = COMPLETED).
+    val completed_orders: Int = 0,
+    // Count of unpaid orders (regardless of status). Lets the
+    // dashboard surface "money you still need to collect" alongside
+    // its EGP total in `pending_revenue`.
+    val pending_orders: Int = 0,
 )
 
 @Serializable
@@ -445,29 +458,47 @@ fun Route.analyticsDashboardRoutes() {
                                 (OrdersTable.createdAt lessEq end) and
                                 (OrdersTable.status notInList excludedStatuses)
                     }.toList()
-                    // Revenue only from PAID orders
                     val paidOrders = orders.filter { it[OrdersTable.paymentStatus] == "PAID" }
-                    val totalRevenue = paidOrders.sumOf { it[OrdersTable.total].toDouble() }
-                    val pendingRevenue = orders
-                        .filter { it[OrdersTable.paymentStatus] == "PENDING" }
-                        .sumOf { it[OrdersTable.total].toDouble() }
-                    val totalOrders = orders.size
-                    val aov = if (totalOrders > 0) totalRevenue / totalOrders else 0.0
-                    val totalDeliveryFees = paidOrders
+                    val completedPaidOrders = paidOrders.filter { it[OrdersTable.status] == "COMPLETED" }
+                    // Orders that are NOT yet finalised. The dashboard
+                    // surfaces this set as "Pending" because the merchant
+                    // base reads "still pending" to mean "kitchen is
+                    // still cooking", NOT "customer hasn't paid". Most
+                    // Wimpy-style shops collect cash upfront, so the
+                    // payment-PENDING bucket is almost always empty —
+                    // showing it as the headline "Pending Payment" gives
+                    // a misleading 0 every time. Instead this bucket
+                    // tells the merchant how many tickets are still in
+                    // motion + their total value (the in-pipeline money).
+                    val pendingOrdersList = orders.filter { it[OrdersTable.status] != "COMPLETED" }
+
+                    val completedRevenue = completedPaidOrders.sumOf { it[OrdersTable.total].toDouble() }
+                    // Renamed semantic: `pendingRevenue` now means "total
+                    // value of orders not yet completed" — covers both
+                    // unpaid and paid-but-still-cooking. This is what the
+                    // merchant means by "still pending".
+                    val pendingRevenue = pendingOrdersList.sumOf { it[OrdersTable.total].toDouble() }
+                    val completedOrders = completedPaidOrders.size
+                    val pendingOrdersCount = pendingOrdersList.size
+                    val aov = if (completedOrders > 0) completedRevenue / completedOrders else 0.0
+                    val totalDeliveryFees = completedPaidOrders
                         .filter { it[OrdersTable.channel] == "DELIVERY" }
                         .sumOf { it[OrdersTable.deliveryFee].toDouble() }
-                    val totalDiscounts = paidOrders.sumOf { it[OrdersTable.discount].toDouble() }
-                    val totalTax = paidOrders.sumOf { it[OrdersTable.tax].toDouble() }
-                    val netRevenue = totalRevenue - totalDeliveryFees
+                    val totalDiscounts = completedPaidOrders.sumOf { it[OrdersTable.discount].toDouble() }
+                    val totalTax = completedPaidOrders.sumOf { it[OrdersTable.tax].toDouble() }
+                    val netRevenue = completedRevenue - totalDeliveryFees
                     return PeriodMetricsDto(
-                        total_revenue = totalRevenue,
+                        total_revenue = completedRevenue,
                         net_revenue = netRevenue,
                         pending_revenue = pendingRevenue,
-                        total_orders = totalOrders,
+                        total_orders = completedOrders,
                         average_order_value = aov,
                         total_delivery_fees = totalDeliveryFees,
                         total_discounts = totalDiscounts,
                         total_tax = totalTax,
+                        completed_revenue = completedRevenue,
+                        completed_orders = completedOrders,
+                        pending_orders = pendingOrdersCount,
                     )
                 }
 
