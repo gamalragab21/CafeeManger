@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.QrCode
@@ -575,6 +576,40 @@ fun ReceiptScreen(
                                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))
                                     Text(shareStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                // ── WhatsApp send-to-customer ───────────────
+                                //
+                                // Renders only when the order has a customer
+                                // phone (DELIVERY / pickup orders typically
+                                // do; a walk-in dine-in won't). Builds a
+                                // `wa.me/<phone>?text=…` deep link with a
+                                // bilingual prefilled message and the share
+                                // URL (if digital receipts are on) — opens
+                                // WhatsApp Web / app directly into the
+                                // customer's chat. No Business API needed.
+                                val customerPhone = order.clientPhone?.takeIf { it.isNotBlank() }
+                                if (customerPhone != null) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val msg = whatsappReceiptMessage(
+                                                vendorName = vendor?.name ?: "",
+                                                orderIdValue = if (order.dailySeq > 0) "#${order.dailySeq}"
+                                                    else "#${order.id.takeLast(8).uppercase()}",
+                                                total = formatAmount(order.total, "").trim(),
+                                                currency = currency,
+                                                shareUrl = uiState.shareUrl,
+                                                language = receiptLang,
+                                            )
+                                            platformActions.openUrl(buildWhatsappLink(customerPhone, msg))
+                                        },
+                                        modifier = btnMod,
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp),
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.Chat, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("WhatsApp", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                                 // ── NFC tap-to-share (Android only) ─────────
                                 //
