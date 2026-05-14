@@ -125,11 +125,13 @@ actual class ReceiptPrinter(private val context: Context) {
                 //   n     = 0x64      (100% density)
                 val maxDensity = byteArrayOf(0x1D, 0x28, 0x45, 0x03, 0x00, 0x05, 0x00, 0x64.toByte())
                 val feed = byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A)                       // feed past cutter
-                // GS V A n — feed n dots then FULL cut (was 0x42 B = partial).
-                // Full cut + 50-dot feed (~6 mm) gives a clean separation
-                // between copies — each receipt drops as its own paper slip
-                // instead of staying attached to the next one.
-                val cut = byteArrayOf(0x1D, 0x56, 0x41, 0x32)                        // GS V A 50
+                // GS V B n — feed n dots then partial cut (the only variant
+                // the XP-P323B firmware actually executes; GS V A "full cut"
+                // is silently ignored on this hardware, which is partial-cut
+                // only). 50-dot feed (~6 mm) leaves enough between copies
+                // that they tear apart cleanly even though the cutter
+                // leaves the standard thin centre strip.
+                val cut = byteArrayOf(0x1D, 0x56, 0x42, 0x32)                        // GS V B 50
                 val rawBytes = init + maxDensity + rasterBody + feed + cut
                 Log.i(TAG, "printOrder: rendered bitmap ${bitmap.width}x${bitmap.height}, ${rawBytes.size} ESC/POS bytes total (max density)")
 
