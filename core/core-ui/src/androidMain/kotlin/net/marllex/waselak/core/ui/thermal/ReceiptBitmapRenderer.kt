@@ -240,6 +240,11 @@ class ReceiptBitmapRenderer(
         // ── Footer ───────────────────────────────────────────────────
         out += blank()
         out += TextElement(model.footerThanks, pBodyBold, center)
+        // Branding line — small, centered, just under the thanks. Always
+        // present, no toggle. Kept on its own paint at 18px so it reads
+        // as a fine-print credit rather than competing with the thanks.
+        out += blank(8)
+        out += TextElement(model.poweredBy, paint(18f, bold = false), center)
         out += blank(16)
         return out
     }

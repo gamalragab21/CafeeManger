@@ -433,6 +433,9 @@ fun buildReceiptHtml(
         // trim CSS only kills the trailing whitespace below this).
         // ────────────────────────────────────────────────────────────
         append("<div class='part-footer'>${model.footerThanks.htmlEscape()}</div>")
+        // Branding line — fine-print credit, smaller than the thanks.
+        // Same text on every receipt surface (screen, print, share).
+        append("<div class='part-footer' style='font-size:10px;opacity:0.7;margin-top:4px'>${model.poweredBy.htmlEscape()}</div>")
 
         // JS bridge used by the Android printer to read the exact
         // rendered content height for MediaSize sizing.

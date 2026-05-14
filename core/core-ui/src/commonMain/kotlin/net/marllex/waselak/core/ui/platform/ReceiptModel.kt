@@ -52,6 +52,8 @@ data class ReceiptModel(
     val notesLabel: String?,
     val notesText: String?,
     val footerThanks: String,
+    /** Branding line — "Powered by Waselak Team", same on every receipt. */
+    val poweredBy: String = "Powered by Waselak Team — مدعوم بواسطة فريق وصلك",
 ) {
     data class ItemRow(val name: String, val qty: String, val price: String)
 }

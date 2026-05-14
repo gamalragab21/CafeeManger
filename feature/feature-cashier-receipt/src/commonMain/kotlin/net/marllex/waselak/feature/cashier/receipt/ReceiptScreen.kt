@@ -439,6 +439,17 @@ fun ReceiptScreen(
                                     fontStyle = FontStyle.Italic,
                                     color = receiptColors.textSecondary,
                                     textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                // Branding line — same on every receipt
+                                // surface (screen, print, shared image).
+                                Text(
+                                    text = "Powered by Waselak Team — مدعوم بواسطة فريق وصلك",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = receiptColors.textSecondary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
