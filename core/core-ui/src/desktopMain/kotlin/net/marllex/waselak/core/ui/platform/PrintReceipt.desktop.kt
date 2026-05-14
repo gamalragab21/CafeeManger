@@ -1,7 +1,22 @@
 package net.marllex.waselak.core.ui.platform
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Font
@@ -18,6 +33,9 @@ import javax.swing.SwingUtilities
 import javax.swing.text.html.HTMLEditorKit
 import net.marllex.waselak.core.model.Order
 import net.marllex.waselak.core.model.Vendor
+import net.marllex.waselak.core.ui.thermal.DesktopPrinterPrefs
+import net.marllex.waselak.core.ui.thermal.sendEscPosOverTcp
+import net.marllex.waselak.core.ui.thermal.toEscPosReceipt
 
 /**
  * Desktop receipt printer.
@@ -84,6 +102,68 @@ actual class ReceiptPrinter {
         qrCodeUrl: String?,
         copies: Int,
     ) {
+        // ── Thermal-printer path (network / TCP) ─────────────────────
+        // If a thermal printer is configured (host stored in JVM
+        // Preferences), render the receipt as a monochrome bitmap, turn
+        // it into ESC/POS raster bytes, and stream over TCP to port 9100
+        // (the universal "Raw" / JetDirect printer protocol). One TCP
+        // connection per copy so a network blip drops only one job, not
+        // a queued batch.
+        val thermalConfig = DesktopPrinterPrefs.load()
+        if (thermalConfig != null) {
+            Thread({
+                try {
+                    val model = buildReceiptModel(order, vendor, language)
+                    val painter = ReceiptPainter(model)
+                    val mm = 72.0 / 25.4
+                    val paperWidthPt = thermalConfig.widthMm * mm
+
+                    // Dry-run on a measurement bitmap so we know height.
+                    val measureImg = BufferedImage(
+                        paperWidthPt.toInt().coerceAtLeast(200),
+                        8000,
+                        BufferedImage.TYPE_INT_ARGB,
+                    )
+                    val measureG = measureImg.createGraphics()
+                    val contentHeightPt = painter.paint(measureG, paperWidthPt)
+                    measureG.dispose()
+
+                    // Real raster bitmap, sized to the actual content.
+                    // 8 dots/mm is the thermal-printer standard, so width
+                    // in dots = widthMm × 8.
+                    val widthDots = thermalConfig.widthMm * 8
+                    val heightDots = ((contentHeightPt + 2.0) * widthDots / paperWidthPt).toInt()
+                    val raster = BufferedImage(widthDots, heightDots, BufferedImage.TYPE_INT_ARGB)
+                    val rg = raster.createGraphics()
+                    rg.color = Color.WHITE
+                    rg.fillRect(0, 0, widthDots, heightDots)
+                    rg.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+                    rg.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+                    // Scale from points → dots so the painter's pt-based
+                    // layout fits the dot-based raster grid exactly.
+                    val scale = widthDots.toDouble() / paperWidthPt
+                    rg.scale(scale, scale)
+                    painter.paint(rg, paperWidthPt)
+                    rg.dispose()
+
+                    val bytes = raster.toEscPosReceipt()
+                    val n = copies.coerceIn(1, 10)
+                    repeat(n) { copyIdx ->
+                        sendEscPosOverTcp(thermalConfig, bytes)
+                            .onFailure { e ->
+                                println("[ReceiptPrinter] TCP print failed on copy ${copyIdx + 1}: ${e.message}")
+                            }
+                        if (copyIdx < n - 1) Thread.sleep(400)
+                    }
+                } catch (e: Exception) {
+                    println("[ReceiptPrinter] thermal printOrder failed: ${e.message}")
+                    e.printStackTrace()
+                }
+            }, "WaselakThermalPrint").start()
+            return
+        }
+
+        // ── OS print-dialog path (fallback) ──────────────────────────
         // Desktop: java.awt.print supports the OS-native copies count
         // directly on the PrinterJob.copies field set below. No looping
         // needed (the OS handles it via the printer driver).
@@ -155,9 +235,23 @@ actual class ReceiptPrinter {
         }
     }
 
+    /**
+     * On desktop "configured" means EITHER a thermal-network printer is
+     * saved in JVM Preferences OR the OS print dialog is available
+     * (which is essentially always). We return `true` unconditionally so
+     * the receipt screen's Print button never refuses to show — the
+     * thermal-network path is opt-in via the picker dialog.
+     */
     actual fun hasPrinterConfigured(): Boolean = true
 
-    actual fun clearPrinterConfiguration() { /* no-op: OS print dialog handles selection */ }
+    /**
+     * Wipes the saved thermal-network config so the next Print falls
+     * back to the OS print dialog. Used by the "Change printer" link in
+     * the receipt screen.
+     */
+    actual fun clearPrinterConfiguration() {
+        DesktopPrinterPrefs.clear()
+    }
 }
 
 // Desktop doesn't have a Bluetooth/USB ESC/POS picker — it uses the OS
@@ -169,13 +263,83 @@ actual fun rememberReceiptPrinter(): ReceiptPrinter {
     return remember { ReceiptPrinter() }
 }
 
+/**
+ * Desktop printer picker. Lets the merchant enter the network thermal
+ * printer's IP/host + port + paper width, saved in JVM Preferences. If
+ * left blank the call falls back to the OS print dialog on next print.
+ *
+ * The dialog deliberately doesn't try to auto-discover printers via
+ * mDNS or LAN scans — most merchants paste an IP from their router's
+ * DHCP list and that's far more reliable than zeroconf on Windows.
+ */
 @Composable
 actual fun PrinterSelectionDialogIfNeeded(
     show: Boolean,
     onSelected: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // No-op on desktop; the OS print dialog handles printer selection.
+    if (!show) return
+    val existing = remember { net.marllex.waselak.core.ui.thermal.DesktopPrinterPrefs.load() }
+    var host by remember { mutableStateOf(existing?.host ?: "") }
+    var portText by remember { mutableStateOf((existing?.port ?: 9100).toString()) }
+    var widthMmText by remember { mutableStateOf((existing?.widthMm ?: 80).toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Thermal Printer / طابعة شبكة") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Enter the printer's IP address (port 9100 is the default for raw ESC/POS over TCP). Leave blank to use the OS print dialog.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = host,
+                    onValueChange = { host = it.trim() },
+                    label = { Text("IP address / host") },
+                    placeholder = { Text("192.168.1.50") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = portText,
+                        onValueChange = { v -> portText = v.filter { it.isDigit() }.take(5) },
+                        label = { Text("Port") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = widthMmText,
+                        onValueChange = { v -> widthMmText = v.filter { it.isDigit() }.take(3) },
+                        label = { Text("Width (mm)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val h = host.trim()
+                if (h.isBlank()) {
+                    net.marllex.waselak.core.ui.thermal.DesktopPrinterPrefs.clear()
+                } else {
+                    net.marllex.waselak.core.ui.thermal.DesktopPrinterPrefs.save(
+                        net.marllex.waselak.core.ui.thermal.DesktopPrinterConfig(
+                            host = h,
+                            port = portText.toIntOrNull()?.coerceIn(1, 65535) ?: 9100,
+                            widthMm = widthMmText.toIntOrNull()?.coerceIn(48, 112) ?: 80,
+                        ),
+                    )
+                }
+                onSelected()
+            }) { Text("Save / حفظ") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel / إلغاء") }
+        },
+    )
 }
 
 actual fun getReceiptLanguage(): String {
