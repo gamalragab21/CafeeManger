@@ -9,7 +9,7 @@
     <string name="offer_change_image">غيّر الصورة</string>
     <string name="offer_uploading_image">بيتحمّل…</string>
     <string name="discount_type">نوع الخصم</string>
-    <string name="fixed_price">سعر ثابت</string>
+    <string name="fixed_price">مبلغ ثابت</string>
     <string name="percentage">نسبة مئوية</string>
     <string name="discount_value">قيمة الخصم</string>
     <string name="active">نشط</string>

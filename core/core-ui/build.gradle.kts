@@ -29,6 +29,11 @@ kotlin {
             implementation(libs.camerax.camera2)
             implementation(libs.camerax.lifecycle)
             implementation(libs.camerax.view)
+            // ESC/POS thermal printer driver (Bluetooth + USB). Used by
+            // ThermalPrinterManager / EscPosReceiptFormatter for direct
+            // receipt printing on the cashier app without depending on
+            // RawBT or any other 3rd-party Android print-service app.
+            implementation("com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0")
         }
         val desktopMain by getting
         desktopMain.dependencies {

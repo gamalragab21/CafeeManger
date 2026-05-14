@@ -355,22 +355,11 @@ fun DeliveryReceiptScreen(
 
                                 Spacer(Modifier.height(20.dp))
 
-                                // Receipt QR Code (shows order ID directly)
-                                DashedDivider(color = receiptColors.divider)
-                                Spacer(Modifier.height(12.dp))
-                                Image(
-                                    painter = rememberQrKitPainterMP(data = uiState.shareUrl ?: order.id),
-                                    contentDescription = "Receipt QR Code",
-                                    modifier = Modifier.size(100.dp),
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "$orderNumLabel${order.displayId}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = receiptColors.textSecondary,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Spacer(Modifier.height(12.dp))
+                                // (Inline QR code block removed — merchant
+                                //  asked to drop the QR from the receipt
+                                //  itself. The dedicated "Show QR" action
+                                //  button below still surfaces it as a
+                                //  separate share dialog.)
 
                                 // Footer
                                 Text(
@@ -397,21 +386,16 @@ fun DeliveryReceiptScreen(
                                 onClick = {
                                     // Use printOrder for direct rendering on desktop
                                     // (HTML path was unreliable — see PrintReceipt.desktop.kt).
-                                    // shareUrl is only populated after a successful
-                                    // share call (which is itself plan-gated on the
-                                    // server), so a non-blank URL is sufficient
-                                    // signal that the digital-receipt QR should be
-                                    // embedded in the printout. The delivery
-                                    // ViewModel doesn't track a separate
-                                    // digitalReceiptEnabled flag the way the cashier
-                                    // ViewModel does.
-                                    val qrUrl = uiState.shareUrl?.takeIf { it.isNotBlank() }
+                                    // No QR is embedded — merchant asked to
+                                    // remove the QR from the receipt itself
+                                    // (digital-receipt sharing is still
+                                    // available via the "Show QR" action button).
                                     printer.printOrder(
                                         order = order,
                                         vendor = vendor,
                                         language = receiptLang,
                                         jobName = "Receipt-${order.id.takeLast(8)}",
-                                        qrCodeUrl = qrUrl,
+                                        qrCodeUrl = null,
                                     )
                                 },
                                 modifier = btnMod,

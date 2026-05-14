@@ -182,8 +182,9 @@ class OrderRepositoryImpl constructor(
         doctorName: String?, diagnosis: String?,
         deliveryUserId: String?,
         managerOverrideToken: String?,
+        deliveryFee: Double,
     ): Result<Order> = runCatching {
-        AppLogger.d("OrderRepo", "Creating order: channel=${channel.name}, items=${items.size}")
+        AppLogger.d("OrderRepo", "Creating order: channel=${channel.name}, items=${items.size}, deliveryFee=$deliveryFee, discount=$discount")
         val request = CreateOrderRequest(
             channel = channel.name, tableId = tableId,
             clientName = clientName, clientPhone = clientPhone,
@@ -197,6 +198,7 @@ class OrderRepositoryImpl constructor(
             notes = notes,
             discount = discount,
             discountType = discountType,
+            deliveryFee = deliveryFee,
             items = items,
             offerId = offerId,
             pointsRedeemed = pointsRedeemed,
@@ -286,6 +288,25 @@ class OrderRepositoryImpl constructor(
         }
         val subtotal = orderItems.sumOf { it.itemPriceSnapshot * it.quantity }
 
+        // Offline-order math mirrors the backend (OrderRoutes.kt):
+        //   discountAmount = request.discount, capped at subtotal
+        //   afterDiscount  = subtotal − discountAmount
+        //   deliveryFee    = request.delivery_fee (already resolved by POS
+        //                    against the selected zone / vendor default)
+        //   total          = afterDiscount + deliveryFee + tax
+        //
+        // Tax stays 0 on offline orders — vendor.taxEnabled lookup would
+        // need a separate DAO; the sync job re-computes everything when
+        // the order goes online, so a brief 0 here is acceptable.
+        val discountAmount = request.discount.coerceAtMost(subtotal).coerceAtLeast(0.0)
+        val afterDiscount = subtotal - discountAmount
+        val deliveryFeeAmount = if (channel == OrderChannel.DELIVERY) request.deliveryFee else 0.0
+        val totalAmount = afterDiscount + deliveryFeeAmount
+        AppLogger.d(
+            "OrderRepo",
+            "Offline math: subtotal=$subtotal discount=$discountAmount delivery=$deliveryFeeAmount total=$totalAmount",
+        )
+
         val order = Order(
             id = localId, vendorId = vendorId,
             channel = channel, status = OrderStatus.CREATED,
@@ -295,7 +316,12 @@ class OrderRepositoryImpl constructor(
             clientAddress = clientAddress, customerId = customerId,
             geoLat = geoLat, geoLng = geoLng,
             paymentMethod = paymentMethod, paymentTiming = paymentTiming,
-            subtotal = subtotal, total = subtotal, notes = notes,
+            subtotal = subtotal,
+            deliveryFee = deliveryFeeAmount,
+            discount = discountAmount,
+            discountType = request.discountType,
+            total = totalAmount,
+            notes = notes,
             items = orderItems,
             createdAt = now, syncStatus = "PENDING_SYNC",
         )

@@ -95,11 +95,30 @@ class AttendanceViewModel constructor(
         }
     }
 
-    fun loadData() {
-        CrashReporter.addBreadcrumb("loadData() called", "AttendanceViewModel")
+    /**
+     * Reload workers + today's attendance + today's summary from the
+     * server (or local DB when offline).
+     *
+     * @param silent When true, skip the `isLoading = true` toggle and
+     *   swallow errors silently. Used by the periodic polling loop in
+     *   the screen — without this, every 30-second refresh would flash
+     *   the screen's loading indicator and surface a transient network
+     *   error to the cashier even though the existing data on screen
+     *   is still perfectly usable.
+     *
+     *   Manager-side worker edits (name, role, salary, etc.) only
+     *   reach the cashier app via the refresh path, so the polling
+     *   loop is what makes "manager renamed a worker → cashier sees
+     *   the new name within 30s" work without the cashier hitting the
+     *   manual refresh button.
+     */
+    fun loadData(silent: Boolean = false) {
+        CrashReporter.addBreadcrumb("loadData() called silent=$silent", "AttendanceViewModel")
         viewModelScope.launch {
-            AppLogger.d("Attendance", "Loading attendance data, isOffline=${networkMonitor.isOnline.value.not()}")
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            AppLogger.d("Attendance", "Loading attendance data, silent=$silent isOffline=${networkMonitor.isOnline.value.not()}")
+            if (!silent) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            }
             try {
                 if (networkMonitor.isOnline.value) {
                     workerRepository.refreshWorkers().getOrThrow()
@@ -121,6 +140,13 @@ class AttendanceViewModel constructor(
                     _uiState.update { it.copy(workers = workers, isLoading = false) }
                 }
             } catch (e: Exception) {
+                if (silent) {
+                    // Polling failures are routine on flaky networks —
+                    // log but don't toggle isLoading / surface an error
+                    // banner. The next tick will retry on its own.
+                    AppLogger.w("Attendance", "Silent refresh failed: ${e.message}")
+                    return@launch
+                }
                 if (e.isFeatureNotAvailableOrOffline()) {
                     _uiState.update { it.copy(isLoading = false, showFeatureNotAvailable = true, featureNotAvailableMessage = e.message ?: "") }
                 } else {

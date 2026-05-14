@@ -478,6 +478,50 @@ fun Route.workerRoutes() {
                     }
                     trace.step("Worker record updated")
 
+                    // ── Mirror display fields into the linked users row ─────
+                    //
+                    // For workers with `is_login_enabled = true` (those who
+                    // can also sign in as a cashier/delivery user) the
+                    // workers and users tables hold two parallel copies of
+                    // name/phone/photo. Older code only touched
+                    // WorkersTable, so the manager would rename "Abdallah"
+                    // and the manager UI would show the new name (it reads
+                    // workers) while:
+                    //   • the cashier app showed the OLD name (its "who am
+                    //     I logged in as" header reads users.name), and
+                    //   • the admin web dashboard's cashier list showed the
+                    //     OLD name (also reads users.name).
+                    //
+                    // Sync the safe-to-mirror display columns whenever the
+                    // request changes them. We do NOT mirror:
+                    //   • workers.role — that's a free-text job title
+                    //     (Cashier, Baker, Cheif…). users.role is the
+                    //     auth role (CASHIER / MANAGER / DELIVERY) and
+                    //     would break login if overwritten.
+                    //   • workers.description / salary fields — not on
+                    //     users at all.
+                    //   • workers.pin* — users have their own password.
+                    //
+                    // active IS mirrored: deactivating the worker should
+                    // also block the linked user from logging back in.
+                    val linkedUserId = currentWorker[WorkersTable.userId]
+                    val needsUserSync = linkedUserId != null && (
+                        request.full_name != null ||
+                            request.phone != null ||
+                            request.photo_url != null ||
+                            request.active != null
+                    )
+                    if (needsUserSync) {
+                        UsersTable.update({ UsersTable.id eq linkedUserId!! }) { stmt ->
+                            request.full_name?.let { stmt[name] = it }
+                            request.phone?.let { stmt[phone] = it }
+                            request.photo_url?.let { stmt[photoUrl] = it }
+                            request.active?.let { stmt[active] = it }
+                            stmt[updatedAt] = now
+                        }
+                        trace.step("Linked user row synced", mapOf("userId" to linkedUserId.toString()))
+                    }
+
                     // Update UNPAID salary records when salary amount or type changes
                     if (request.salary_amount != null || request.salary_type != null) {
                         val newAmount = request.salary_amount?.let { BigDecimal.valueOf(it) }

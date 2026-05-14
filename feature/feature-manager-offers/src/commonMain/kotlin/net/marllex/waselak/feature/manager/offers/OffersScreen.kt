@@ -238,11 +238,15 @@ private fun OfferCard(
                         .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
+                    // Both types are now flat discounts (PERCENT off /
+                    // fixed amount off). The earlier "X Fixed Price" label
+                    // was confusing — it implied "this combo costs X" but
+                    // the value is the amount taken off the subtotal.
                     Text(
                         text = if (offer.discountType == "PERCENT") {
                             "${offer.discountValue.toInt()}% ${stringResource(Res.string.off)}"
                         } else {
-                            "${offer.discountValue} ${stringResource(Res.string.fixed_price)}"
+                            "${offer.discountValue.toInt()} EGP ${stringResource(Res.string.off)}"
                         },
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,

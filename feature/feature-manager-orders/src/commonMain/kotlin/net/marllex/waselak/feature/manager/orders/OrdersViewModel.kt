@@ -61,6 +61,16 @@ class OrdersViewModel constructor(
         val showAssignDeliveryDialog: Boolean = false,
         val assignOrderId: String? = null,
         /**
+         * True when the assign-delivery dialog was opened by the
+         * "Mark Completed" quick-action on a DELIVERY order that had no
+         * driver assigned yet. After the user picks a driver and the
+         * assignment succeeds, we automatically fire updateOrderStatus
+         * (orderId, COMPLETED) so the cashier ends up exactly where they
+         * tapped to go — without forcing them through the prep/ready/
+         * assigned/out-for-delivery/delivered cascade.
+         */
+        val pendingCompleteAfterAssign: Boolean = false,
+        /**
          * True while we're pulling a fresh delivery-user list from the API right before
          * showing the assign dialog. Ensures users added from another device (e.g. the
          * manager app on a different phone) show up without needing to leave+re-open
@@ -364,11 +374,43 @@ class OrdersViewModel constructor(
         if (newStatus == OrderStatus.ASSIGNED) {
             if (currentOrder?.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY) {
                 _uiState.update {
-                    it.copy(showAssignDeliveryDialog = true, assignOrderId = orderId)
+                    it.copy(
+                        showAssignDeliveryDialog = true,
+                        assignOrderId = orderId,
+                        pendingCompleteAfterAssign = false,
+                    )
                 }
                 refreshDeliveryUsers()
                 return
             }
+        }
+
+        // ── DELIVERY-channel "Mark Completed" shortcut ────────────────
+        //
+        // Merchant request: when the cashier taps "Mark Completed" on a
+        // DELIVERY order that has no driver assigned yet, don't silently
+        // close it — pop the same driver-picker dialog used by the
+        // ASSIGNED transition, then automatically complete the order
+        // once a driver is picked. This way every completed delivery
+        // ends up with an assigned driver in the audit trail.
+        //
+        // Skips the dialog when:
+        //   • channel is not DELIVERY (other channels still close directly)
+        //   • a driver is already assigned (no need to ask again — just
+        //     fall through to the normal optimistic update below)
+        if (newStatus == OrderStatus.COMPLETED &&
+            currentOrder?.channel == net.marllex.waselak.core.model.OrderChannel.DELIVERY &&
+            currentOrder.deliveryUserId.isNullOrBlank()
+        ) {
+            _uiState.update {
+                it.copy(
+                    showAssignDeliveryDialog = true,
+                    assignOrderId = orderId,
+                    pendingCompleteAfterAssign = true,
+                )
+            }
+            refreshDeliveryUsers()
+            return
         }
 
         // ── Optimistic UI update ──────────────────────────────────────
@@ -445,28 +487,60 @@ class OrdersViewModel constructor(
     }
 
     fun dismissAssignDeliveryDialog() {
-        _uiState.update { it.copy(showAssignDeliveryDialog = false, assignOrderId = null) }
+        _uiState.update {
+            it.copy(
+                showAssignDeliveryDialog = false,
+                assignOrderId = null,
+                pendingCompleteAfterAssign = false,
+            )
+        }
     }
 
     fun assignDeliveryUser(deliveryUserId: String) {
         val orderId = _uiState.value.assignOrderId ?: return
+        // Capture this BEFORE clearing state so the chained complete still
+        // fires even after the dialog state resets.
+        val shouldCompleteAfter = _uiState.value.pendingCompleteAfterAssign
         viewModelScope.launch {
-            AppLogger.d("Orders", "Assigning delivery user: $deliveryUserId to order $orderId")
+            AppLogger.d("Orders", "Assigning delivery user: $deliveryUserId to order $orderId (completeAfter=$shouldCompleteAfter)")
             // Don't close dialog immediately - wait for API response
             _uiState.update { it.copy(isLoading = true) }
-            
+
             orderRepository.assignDeliveryUser(orderId, deliveryUserId)
                 .onSuccess {
                     AppLogger.i("Orders", "Delivery user assigned successfully")
-                    // Close dialog only on success
-                    _uiState.update {
-                        it.copy(
-                            showAssignDeliveryDialog = false, 
+                    // Close dialog AND optimistically patch the order so
+                    // its `deliveryUserId` is non-null before any chained
+                    // updateOrderStatus reads from state. Without this
+                    // patch the chained "Mark Completed" path below would
+                    // re-enter the dialog branch (deliveryUserId would
+                    // still be null in state until loadOrders() returns
+                    // asynchronously — and we can't wait for it).
+                    _uiState.update { state ->
+                        state.copy(
+                            showAssignDeliveryDialog = false,
                             assignOrderId = null,
-                            isLoading = false
-                        ) 
+                            pendingCompleteAfterAssign = false,
+                            isLoading = false,
+                            orders = state.orders.map {
+                                if (it.id == orderId) it.copy(deliveryUserId = deliveryUserId) else it
+                            },
+                        )
                     }
-                    loadOrders() // Refresh orders list
+                    // If the assign dialog was opened by the
+                    // "Mark Completed" CTA, fire the actual complete now
+                    // that a driver is on the order. This re-enters
+                    // updateOrderStatus, which now skips the dialog
+                    // branch (deliveryUserId is set) and runs the normal
+                    // optimistic-update path. We deliberately do NOT
+                    // call loadOrders() in this branch — the optimistic
+                    // path will refresh the row from the server response.
+                    if (shouldCompleteAfter) {
+                        AppLogger.i("Orders", "Auto-completing order $orderId after delivery assignment")
+                        updateOrderStatus(orderId, OrderStatus.COMPLETED)
+                    } else {
+                        loadOrders() // Refresh orders list (assign-only flow)
+                    }
                 }
                 .onFailure { e ->
                     CrashReporter.captureException(e)

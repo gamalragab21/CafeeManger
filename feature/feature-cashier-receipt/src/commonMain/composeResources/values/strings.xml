@@ -50,4 +50,11 @@
     <string name="payment_bank_transfer">Bank Transfer</string>
     <string name="payment_credit">Credit</string>
     <string name="payment_split">Split</string>
+    <!-- NFC share (Android only — the button is hidden on platforms
+         that don't support HCE-based tap-to-share). -->
+    <string name="share_via_nfc">NFC</string>
+    <string name="nfc_share_dialog_title">Hold phones together</string>
+    <string name="nfc_share_dialog_message">Place the customer\'s phone back-to-back with this device. The receipt URL will open on their phone automatically.</string>
+    <string name="nfc_share_dialog_done">Done</string>
+    <string name="nfc_unavailable_message">NFC must be turned on and a share URL must be ready first.</string>
 </resources>

@@ -53,7 +53,7 @@
     <string name="offline_confirm_message">You are offline. Do you want to continue working in offline mode? Orders will be saved locally and synced when back online.</string>
     <string name="continue_offline">Continue Offline</string>
     <!-- Offers Banner -->
-    <string name="offer_discount_fixed">%1$s only</string>
+    <string name="offer_discount_fixed">%1$s EGP off</string>
     <string name="offer_discount_percent">%1$s off</string>
     <string name="offer_banner_items">%1$d items</string>
     <string name="offer_applied">Offer applied</string>

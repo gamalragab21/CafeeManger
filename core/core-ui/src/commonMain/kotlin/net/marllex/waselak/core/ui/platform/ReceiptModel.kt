@@ -78,25 +78,25 @@ fun buildReceiptModel(order: Order, vendor: Vendor?, language: String): ReceiptM
     // this as the "Order #X" the cashier calls out to the customer.
     // Falls back to the last 8 chars of the UUID for legacy orders that
     // were created before the daily_seq feature was deployed.
-    val orderIdLabel = "$orderLabel #"
+    // Clean "Order #5" / "طلب #5" — the # lives in the value only so it
+    // isn't doubled-up when concatenated against the label.
+    val orderIdLabel = orderLabel
     val orderIdValue = if (order.dailySeq > 0) {
         "#${order.dailySeq}"
     } else {
         "#${order.id.takeLast(8).uppercase()}"
     }
 
+    // Order info rows are deliberately a *minimal* set — the merchant
+    // asked us to drop Status / Payment-Status / Payment-Timing from
+    // the printed receipt because they were noise to the customer.
     val orderRows = buildList {
         add(L("التاريخ", "Date") to formatDate(order.createdAt))
         add(L("النوع", "Channel") to channelLabel(order.channel, isAr))
-        add(L("الحالة", "Status") to statusLabel(order.status, isAr))
         order.tableNumber?.takeIf { it.isNotBlank() }?.let {
             add(L("ترابيزة", "Table") to it)
         }
         add(L("الدفع", "Payment") to paymentLabel(order.paymentMethod, isAr))
-        add(L("حالة الدفع", "Payment Status") to paymentStatusLabel(order.paymentStatus, isAr))
-        if (order.paymentTiming == PaymentTiming.PAY_LATER) {
-            add(L("توقيت الدفع", "Payment Timing") to paymentTimingLabel(order.paymentTiming, isAr))
-        }
         add(L("الكاشير", "Cashier") to (order.cashierName ?: "-"))
         order.deliveryUserName?.takeIf { it.isNotBlank() }?.let {
             add(L("السائق", "Delivery") to it)
@@ -124,27 +124,10 @@ fun buildReceiptModel(order: Order, vendor: Vendor?, language: String): ReceiptM
 
     val totalsRows = buildList {
         add(L("الإجمالي قبل", "Subtotal") to formatAmount(order.subtotal))
-        // Always show delivery fee on DELIVERY orders, even when 0, so the
-        // customer sees confirmation that delivery was free (or that the
-        // fee was applied). For other channels we only emit the row if a
-        // non-zero fee was actually charged — keeps in-store receipts
-        // uncluttered. Merchant flagged the missing delivery line as a
-        // recurring complaint from customers ordering delivery.
-        val isDelivery = order.channel == OrderChannel.DELIVERY
-        if (isDelivery || order.deliveryFee > 0.0) {
-            val feeText = if (order.deliveryFee > 0.0) {
-                formatAmount(order.deliveryFee)
-            } else {
-                if (isAr) "مجاني" else "Free"
-            }
-            add(L("رسوم التوصيل", "Delivery Fee") to feeText)
-        }
-        if (order.tax > 0.0) {
-            val pct = if (order.taxPercent > 0.0) " (${order.taxPercent.toInt()}%)" else ""
-            add(L("الضريبة", "Tax") + pct to formatAmount(order.tax))
-        }
+        // Discounts and points stack just under the subtotal — they
+        // modify what the customer pays before fees + tax are added.
         if (order.discount > 0.0) {
-            add(L("الخصم", "Discount") to "-${formatAmount(order.discount)}")
+            add("الخصم / Discount" to "-${formatAmount(order.discount)}")
             order.discountReason?.takeIf { it.isNotBlank() }?.let {
                 add(L("سبب الخصم", "Discount Reason") to it)
             }
@@ -154,6 +137,20 @@ fun buildReceiptModel(order: Order, vendor: Vendor?, language: String): ReceiptM
         }
         if (order.pointsRedeemed > 0) {
             add(L("النقاط المستبدلة", "Points Redeemed") to "-${order.pointsRedeemed}")
+        }
+        // Delivery fee — STRICTLY hidden when zero, regardless of channel.
+        // Bilingual label so Arabic + English customers can both read it
+        // (merchants in Egypt frequently print one paper for both).
+        if (order.deliveryFee > 0.0) {
+            add("رسوم التوصيل / Delivery Fee" to formatAmount(order.deliveryFee))
+        }
+        // Tax — gated on the CURRENT vendor configuration (not the
+        // historical value baked into the order). If the dashboard
+        // has tax off / 0%, the row vanishes even for old orders.
+        val vendorHasTax = (vendor?.taxEnabled == true) && (vendor.defaultTaxPercent > 0.0)
+        if (vendorHasTax && order.tax > 0.0) {
+            val pct = if (order.taxPercent > 0.0) " (${order.taxPercent.toInt()}%)" else ""
+            add("الضريبة / Tax$pct" to formatAmount(order.tax))
         }
     }
 
@@ -169,8 +166,11 @@ fun buildReceiptModel(order: Order, vendor: Vendor?, language: String): ReceiptM
         vendorName = vendor?.name ?: "Restaurant",
         vendorAddress = vendor?.address?.takeIf { it.isNotBlank() },
         vendorPhone = vendor?.contactPhone?.takeIf { it.isNotBlank() },
-        vendorWallet = vendor?.walletPhone?.takeIf { it.isNotBlank() },
-        vendorWhatsapp = vendor?.whatsappNumber?.takeIf { it.isNotBlank() },
+        // Wallet + WhatsApp dropped from the printed receipt per merchant
+        // request. Kept as nullable fields so existing renderers / HTML
+        // markup don't break — they're just always null now.
+        vendorWallet = null,
+        vendorWhatsapp = null,
         vendorLogoUrl = vendor?.logoUrl?.takeIf { it.isNotBlank() },
         orderIdLabel = orderIdLabel,
         orderIdValue = orderIdValue,

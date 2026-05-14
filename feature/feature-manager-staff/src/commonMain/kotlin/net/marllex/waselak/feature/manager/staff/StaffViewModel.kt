@@ -431,9 +431,28 @@ class StaffViewModel constructor(
         AppLogger.d("Staff", "Saving worker: name=${s.dialogName}, editing=${s.editingWorker != null}")
         if (s.dialogName.isBlank() || s.dialogRole.isBlank()) return
 
-        // Salary is mandatory
-        val amount = s.dialogSalaryAmount.toDoubleOrNull() ?: 0.0
-        if (amount <= 0) return
+        // Salary validation differs by mode:
+        //   • Create  — salary is mandatory (> 0). Blank/0 → bail.
+        //   • Edit    — salary is optional. Blank means "don't touch
+        //     the existing salary"; a typed value > 0 updates it. If the
+        //     user typed something that parses to 0/negative we still
+        //     bail (don't silently treat as "no change") to avoid
+        //     surprises.
+        // Previous version forced `> 0` for both modes, which blocked
+        // every update on workers stored with salary_amount = 0
+        // (the MANAGER seed user being the painful one). The Save button
+        // stayed disabled and the merchant couldn't fix the name.
+        val typedAmount: Double? = s.dialogSalaryAmount.toDoubleOrNull()
+        val salaryAmountToSend: Double? = when {
+            s.editingWorker == null -> {
+                // Create: must be > 0
+                if (typedAmount == null || typedAmount <= 0) return
+                typedAmount
+            }
+            s.dialogSalaryAmount.isBlank() -> null  // edit + blank → leave alone
+            typedAmount == null || typedAmount <= 0 -> return  // edit + invalid → bail
+            else -> typedAmount
+        }
 
         // Validate PIN
         if (s.editingWorker == null) {
@@ -460,7 +479,7 @@ class StaffViewModel constructor(
                     photoUrl = s.dialogPhotoUrl,
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType.name,
-                    salaryAmount = amount,
+                    salaryAmount = salaryAmountToSend,
                     pin = s.dialogPin.ifBlank { null }, // Only send PIN if not empty
                     active = null
                 ).onSuccess {
@@ -474,6 +493,11 @@ class StaffViewModel constructor(
                     _uiState.update { it.copy(isSaving = false, error = e.message) }
                 }
             } else {
+                // Create-mode validation already ensured salaryAmountToSend
+                // is non-null and > 0 above (the `if (typedAmount == null
+                // || typedAmount <= 0) return` branch). The `!!` is safe
+                // here because we'd have bailed before launching the
+                // coroutine otherwise.
                 workerRepository.createWorker(
                     fullName = s.dialogName,
                     phone = s.dialogPhone.ifBlank { null },
@@ -481,7 +505,7 @@ class StaffViewModel constructor(
                     photoUrl = s.dialogPhotoUrl,
                     role = s.dialogRole,
                     salaryType = s.dialogSalaryType,
-                    salaryAmount = amount,
+                    salaryAmount = salaryAmountToSend!!,
                     isLoginEnabled = s.dialogIsLoginEnabled,
                     password = if (s.dialogIsLoginEnabled) s.dialogPassword.ifBlank { null } else null,
                     loginRole = if (s.dialogIsLoginEnabled) s.dialogLoginRole else null,

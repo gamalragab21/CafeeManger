@@ -40,6 +40,12 @@ class RestaurantProfileViewModel(
         val planLoading: Boolean = false,
         // Loyalty & Discount settings
         val loyaltySaving: Boolean = false,
+        // Tax settings — surfaced as their own pair so the screen can
+        // show an in-flight spinner on the tax card independently of
+        // the rest of the profile.
+        val taxSaving: Boolean = false,
+        val editTaxEnabled: Boolean = false,
+        val editTaxPercent: String = "0",
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -87,6 +93,10 @@ class RestaurantProfileViewModel(
                         editContactPhone = vendor?.contactPhone ?: "",
                         editWalletPhone = vendor?.walletPhone ?: "",
                         editLogoUrl = vendor?.logoUrl ?: "",
+                        editTaxEnabled = vendor?.taxEnabled ?: false,
+                        editTaxPercent = vendor?.defaultTaxPercent?.let {
+                            if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+                        } ?: "0",
                     )
                 }
             }
@@ -225,4 +235,44 @@ class RestaurantProfileViewModel(
     }
 
     fun clearSaveSuccess() { _uiState.update { it.copy(saveSuccess = false) } }
+
+    // ─── Tax Settings ───────────────────────────────────────────
+    //
+    // Two-step pattern: live edits update the local UI state (so the
+    // user sees their typing reflected immediately), and [saveTaxSettings]
+    // commits them to the backend. We refresh the vendor afterwards so
+    // the cashier app's next read sees the new value.
+
+    fun updateTaxEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(editTaxEnabled = enabled) }
+    }
+
+    fun updateTaxPercent(value: String) {
+        // Only accept numeric input + optional single decimal point so a
+        // bad paste doesn't put the field into a state the backend would
+        // reject.
+        if (value.isEmpty() || value.matches(Regex("^\\d{0,3}(\\.\\d{0,2})?$"))) {
+            _uiState.update { it.copy(editTaxPercent = value) }
+        }
+    }
+
+    fun saveTaxSettings() {
+        val s = _uiState.value
+        val percent = s.editTaxPercent.toDoubleOrNull() ?: 0.0
+        viewModelScope.launch {
+            AppLogger.d("Profile", "Saving tax settings: enabled=${s.editTaxEnabled} percent=$percent")
+            _uiState.update { it.copy(taxSaving = true) }
+            vendorRepository.updateVendor(
+                taxEnabled = s.editTaxEnabled,
+                defaultTaxPercent = percent,
+            ).onSuccess {
+                vendorRepository.refreshVendor()
+                _uiState.update { it.copy(taxSaving = false, saveSuccess = true) }
+            }.onFailure { e ->
+                CrashReporter.captureException(e)
+                AppLogger.e("Profile", "Failed to save tax settings", e)
+                _uiState.update { it.copy(taxSaving = false, error = e.message) }
+            }
+        }
+    }
 }

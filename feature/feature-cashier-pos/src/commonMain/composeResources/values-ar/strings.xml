@@ -53,7 +53,7 @@
     <string name="offline_confirm_message">أنت أوفلاين. عايز تكمل شغل من غير إنترنت؟ الطلبات هتتحفظ محلي وهتتزامن لما الإنترنت يرجع.</string>
     <string name="continue_offline">كمّل أوفلاين</string>
     <!-- Offers Banner -->
-    <string name="offer_discount_fixed">%1$s بس</string>
+    <string name="offer_discount_fixed">خصم %1$s جنيه</string>
     <string name="offer_discount_percent">خصم %1$s</string>
     <string name="offer_banner_items">%1$d أصناف</string>
     <string name="offer_applied">العرض اتطبق</string>

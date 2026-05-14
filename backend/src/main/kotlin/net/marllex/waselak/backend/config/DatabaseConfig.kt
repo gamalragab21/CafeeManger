@@ -445,14 +445,37 @@ object DatabaseConfig {
             val toBackfill = candidateUsers.filter { (uid, _, _) -> uid !in alreadyLinkedUserIds }
             if (toBackfill.isEmpty()) return@transaction
 
-            // For human-readable WRK-### IDs we need the current per-vendor count.
-            // Cache it once per vendor to avoid a count query inside the loop.
-            val countsByVendor = mutableMapOf<UUID, Long>()
+            // For human-readable WRK-### IDs we need the next available
+            // number per vendor. Previously we used `count(rows) + 1`,
+            // which broke when workers had been deleted historically:
+            // count was 12 but the live numbers ran WRK-002…WRK-013
+            // (WRK-001 had been hard-deleted), so `count+1 = 13` tried
+            // to re-insert an existing WRK-013, hit the unique index,
+            // and crashed the backend on every restart.
+            //
+            // Fix: parse every existing WRK-### in the vendor, take the
+            // numeric MAX, and start from MAX+1. Skips any worker_id
+            // that doesn't match the WRK-### shape (some merchants may
+            // have hand-entered freeform IDs). Cached per vendor so we
+            // don't re-scan inside the loop.
+            val nextByVendor = mutableMapOf<UUID, Int>()
+            fun nextWrkNumberFor(vendorUuid: UUID): Int {
+                nextByVendor[vendorUuid]?.let { return it.also { nextByVendor[vendorUuid] = it + 1 } }
+                val maxExisting = WorkersTable.selectAll()
+                    .where { WorkersTable.vendorId eq vendorUuid }
+                    .mapNotNull {
+                        val wid = it[WorkersTable.workerId]
+                        if (wid.startsWith("WRK-")) wid.removePrefix("WRK-").trimStart('0').toIntOrNull()
+                        else null
+                    }
+                    .maxOrNull() ?: 0
+                val next = maxExisting + 1
+                nextByVendor[vendorUuid] = next + 1
+                return next
+            }
             toBackfill.forEach { (userId, vendorUuid, nameRoleTriple) ->
                 val (name, phone, role) = nameRoleTriple
-                val nextCount = (countsByVendor[vendorUuid]
-                    ?: WorkersTable.selectAll().where { WorkersTable.vendorId eq vendorUuid }.count()) + 1
-                countsByVendor[vendorUuid] = nextCount
+                val nextCount = nextWrkNumberFor(vendorUuid)
                 WorkersTable.insert {
                     it[WorkersTable.vendorId] = vendorUuid
                     it[WorkersTable.userId] = userId

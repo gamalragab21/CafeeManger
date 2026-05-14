@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
@@ -76,6 +77,7 @@ import net.marllex.waselak.core.ui.components.LoadingIndicator
 import net.marllex.waselak.core.ui.platform.buildReceiptHtml
 import net.marllex.waselak.core.ui.platform.getReceiptLanguage
 import net.marllex.waselak.core.ui.platform.rememberPlatformActions
+import net.marllex.waselak.core.ui.platform.PrinterSelectionDialogIfNeeded
 import net.marllex.waselak.core.ui.platform.rememberReceiptPrinter
 import net.marllex.waselak.core.ui.theme.LocalReceiptColors
 import org.jetbrains.compose.resources.stringResource
@@ -124,6 +126,16 @@ fun ReceiptScreen(
     val printer = rememberReceiptPrinter()
     val platformActions = rememberPlatformActions()
     var showQr by remember { mutableStateOf(false) }
+    // True when the cashier tapped Print but no ESC/POS printer has
+    // been picked yet (Android first-time-setup), OR when they
+    // long-pressed Print to switch to a different printer. On other
+    // platforms this stays false (the OS handles printer selection).
+    var showPrinterPicker by remember { mutableStateOf(false) }
+    // True while the "Hold phones together" NFC share dialog is on
+    // screen. While shown, the HCE service is armed with the receipt's
+    // share URL; dismissing the dialog clears the URL so a later stray
+    // tap can't leak the previous receipt.
+    var showNfcDialog by remember { mutableStateOf(false) }
     val receiptColors = LocalReceiptColors.current
     // Receipt language — comes from the platform-specific persisted
     // language selector (NOT Compose's Locale.current, which is cached
@@ -163,6 +175,7 @@ fun ReceiptScreen(
     val qrStr = stringResource(Res.string.qr)
     val shareStr = stringResource(Res.string.share)
     val doneStr = stringResource(Res.string.done)
+    val nfcUnavailableMessage = stringResource(Res.string.nfc_unavailable_message)
     val currency = stringResource(Res.string.receipt_currency)
 
     Scaffold(
@@ -317,11 +330,28 @@ fun ReceiptScreen(
                                 DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(16.dp))
 
-                                // Totals
+                                // Totals layout:
+                                //   Subtotal (always)
+                                //   Discount (if any — offer / manual / points)
+                                //   Delivery Fee (if > 0)
+                                //   Tax (if > 0)
+                                //   ─────────
+                                //   Total (grand-total band)
+                                //
+                                // The Discount row is critical when an offer
+                                // is applied: without it, customers see
+                                // "Subtotal 115" then jump to "Total 100" with
+                                // no visible reason for the reduction. The
+                                // bilingual label matches the printed receipt.
                                 ReceiptDataRow(subtotalLabel, formatAmount(order.subtotal, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                 Spacer(Modifier.height(4.dp))
-                                if (order.tax > 0.0) {
-                                    ReceiptDataRow(taxLabel, formatAmount(order.tax, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                if (order.discount > 0.0) {
+                                    ReceiptDataRow(
+                                        "الخصم / Discount",
+                                        "-${formatAmount(order.discount, currency)}",
+                                        labelColor = receiptColors.textSecondary,
+                                        valueColor = MaterialTheme.colorScheme.error,
+                                    )
                                     Spacer(Modifier.height(4.dp))
                                 }
                                 if (order.deliveryFee > 0.0) {
@@ -329,7 +359,7 @@ fun ReceiptScreen(
                                     Spacer(Modifier.height(4.dp))
                                 }
                                 if (order.tax > 0.0) {
-                                    ReceiptDataRow("Tax", formatAmount(order.tax, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
+                                    ReceiptDataRow(taxLabel, formatAmount(order.tax, currency), labelColor = receiptColors.textSecondary, valueColor = receiptColors.textPrimary)
                                     Spacer(Modifier.height(4.dp))
                                 }
 
@@ -396,25 +426,11 @@ fun ReceiptScreen(
 
                                 Spacer(Modifier.height(20.dp))
 
-                                // Receipt QR Code (only for Enterprise plan with digital receipt)
-                                val shareUrl = uiState.shareUrl
-                                if (uiState.digitalReceiptEnabled && shareUrl != null) {
-                                    DashedDivider(color = receiptColors.divider)
-                                    Spacer(Modifier.height(12.dp))
-                                    Image(
-                                        painter = rememberQrKitPainterMP(data = shareUrl),
-                                        contentDescription = "Receipt QR Code",
-                                        modifier = Modifier.size(100.dp),
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "$orderNumLabel${order.displayId}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = receiptColors.textSecondary,
-                                        textAlign = TextAlign.Center,
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                }
+                                // (Inline QR code block removed — merchant
+                                //  asked to drop the QR from the receipt
+                                //  itself. The dedicated "Show QR" action
+                                //  button below still surfaces it as a
+                                //  separate share dialog.)
 
                                 // Footer
                                 Text(
@@ -437,28 +453,35 @@ fun ReceiptScreen(
                             maxItemsInEachRow = 3,
                         ) {
                             val btnMod = Modifier.weight(1f).height(48.dp)
+                            // Fires the actual print job. Called either
+                            // immediately (printer already configured) or
+                            // from the picker's onSelected callback after
+                            // the cashier picks one (first-time setup).
+                            val firePrint: () -> Unit = {
+                                printer.printOrder(
+                                    order = order,
+                                    vendor = vendor,
+                                    language = receiptLang,
+                                    jobName = "Receipt-${order.id.takeLast(8)}",
+                                    qrCodeUrl = null,
+                                    copies = 1,
+                                )
+                            }
                             OutlinedButton(
                                 onClick = {
-                                    // Use printOrder (NOT printHtml) so the
-                                    // desktop platform draws directly with
-                                    // Graphics2D for pixel-perfect centering
-                                    // and zero trailing whitespace. printHtml
-                                    // is kept only for share-as-image.
-                                    // Pass the digital-receipt share URL so a
-                                    // QR code is embedded in the printed
-                                    // receipt for customers to scan. Falls
-                                    // back to null when digital receipts are
-                                    // disabled for this vendor — in that
-                                    // case no QR is drawn.
-                                    val qrUrl = uiState.shareUrl
-                                        ?.takeIf { uiState.digitalReceiptEnabled && it.isNotBlank() }
-                                    printer.printOrder(
-                                        order = order,
-                                        vendor = vendor,
-                                        language = receiptLang,
-                                        jobName = "Receipt-${order.id.takeLast(8)}",
-                                        qrCodeUrl = qrUrl,
-                                    )
+                                    // Android: if no Bluetooth/USB
+                                    // thermal printer is selected yet,
+                                    // show the picker first. After the
+                                    // cashier picks one, the dialog's
+                                    // onSelected callback will call
+                                    // firePrint(). Other platforms
+                                    // hasPrinterConfigured() returns true
+                                    // so we go straight to print.
+                                    if (!printer.hasPrinterConfigured()) {
+                                        showPrinterPicker = true
+                                    } else {
+                                        firePrint()
+                                    }
                                 },
                                 modifier = btnMod,
                                 shape = RoundedCornerShape(12.dp),
@@ -467,6 +490,26 @@ fun ReceiptScreen(
                                 Icon(Icons.Default.Print, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text(printStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            // "Change printer" — small text button that
+                            // forgets the saved printer so the next tap
+                            // on Print re-opens the picker. Hidden on
+                            // platforms that don't use the picker.
+                            if (printer.hasPrinterConfigured()) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        printer.clearPrinterConfiguration()
+                                        showPrinterPicker = true
+                                    },
+                                    modifier = Modifier.height(36.dp),
+                                ) {
+                                    Text(
+                                        text = "تغيير الطابعة / Change printer",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                             if (uiState.digitalReceiptEnabled) {
                                 OutlinedButton(
@@ -491,6 +534,52 @@ fun ReceiptScreen(
                                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))
                                     Text(shareStr, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                // ── NFC tap-to-share (Android only) ─────────
+                                //
+                                // The button only renders when:
+                                //   1. The device has NFC turned on
+                                //      (isNfcAvailable === true) — iOS
+                                //      and desktop always return false.
+                                //   2. Digital receipts are enabled for
+                                //      this vendor — without a share URL
+                                //      there's nothing to broadcast.
+                                //   3. We already have a non-blank
+                                //      shareUrl — same reason.
+                                //
+                                // Tapping arms the HCE service and shows
+                                // the "Hold phones together" dialog. The
+                                // OS on the customer's phone handles the
+                                // rest — when their NFC reader sees our
+                                // emulated NDEF Type-4 Tag it opens the
+                                // URL automatically.
+                                val nfcShareUrl = uiState.shareUrl
+                                val canShareViaNfc = platformActions.isNfcAvailable &&
+                                    uiState.digitalReceiptEnabled &&
+                                    !nfcShareUrl.isNullOrBlank()
+                                if (canShareViaNfc) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (platformActions.shareUrlViaNfc(nfcShareUrl!!)) {
+                                                showNfcDialog = true
+                                            } else {
+                                                platformActions.showToast(
+                                                    nfcUnavailableMessage,
+                                                )
+                                            }
+                                        },
+                                        modifier = btnMod,
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp),
+                                    ) {
+                                        Icon(Icons.Default.Nfc, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            stringResource(Res.string.share_via_nfc),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -554,6 +643,79 @@ fun ReceiptScreen(
         )
     }
 
+    // NFC "Hold phones together" instruction dialog. The HCE service is
+    // already armed at this point — this dialog just tells the cashier
+    // what to do physically. Dismissing it clears the URL on the
+    // service so a later accidental tap can't leak the receipt.
+    if (showNfcDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showNfcDialog = false
+                platformActions.stopNfcShare()
+            },
+            icon = {
+                Icon(
+                    Icons.Default.Nfc,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp),
+                )
+            },
+            title = {
+                Text(
+                    stringResource(Res.string.nfc_share_dialog_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(Res.string.nfc_share_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showNfcDialog = false
+                    platformActions.stopNfcShare()
+                }) {
+                    Text(stringResource(Res.string.nfc_share_dialog_done))
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+        )
+    }
+
+    // ── Bluetooth/USB ESC/POS printer picker (Android only) ─────────
+    //
+    // Shown when the cashier taps Print for the first time, OR after
+    // they tap "Change printer". On non-Android platforms the actual
+    // is a no-op composable so this call is free.
+    val orderForPrint = uiState.order
+    val vendorForPrint = uiState.vendor
+    PrinterSelectionDialogIfNeeded(
+        show = showPrinterPicker,
+        onSelected = {
+            showPrinterPicker = false
+            // Fire the print job now that the cashier has chosen a
+            // printer. We re-read uiState.order/vendor at click time
+            // rather than capturing them above so a fresh order
+            // (after navigation away and back) prints correctly.
+            if (orderForPrint != null) {
+                printer.printOrder(
+                    order = orderForPrint,
+                    vendor = vendorForPrint,
+                    language = receiptLang,
+                    jobName = "Receipt-${orderForPrint.id.takeLast(8)}",
+                    qrCodeUrl = null,
+                    copies = 1,
+                )
+            }
+        },
+        onDismiss = { showPrinterPicker = false },
+    )
 }
 
 @Composable

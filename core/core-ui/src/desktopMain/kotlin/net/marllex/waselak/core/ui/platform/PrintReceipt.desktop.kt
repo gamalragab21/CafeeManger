@@ -82,17 +82,19 @@ actual class ReceiptPrinter {
         language: String,
         jobName: String,
         qrCodeUrl: String?,
+        copies: Int,
     ) {
+        // Desktop: java.awt.print supports the OS-native copies count
+        // directly on the PrinterJob.copies field set below. No looping
+        // needed (the OS handles it via the printer driver).
         SwingUtilities.invokeLater {
             try {
                 val model = buildReceiptModel(order, vendor, language)
-                // Desktop direct-draw doesn't fetch network QR images
-                // (Graphics2D can't render qrserver.com URLs natively).
-                // Pass the URL as a string the painter renders below the
-                // footer so the customer can type it. Future improvement:
-                // generate a QR matrix with ZXing core (already on the
-                // class path) and draw it as a grid of black squares.
-                val painter = ReceiptPainter(model, qrCodeUrl)
+                // QR code intentionally not drawn (merchant request).
+                // `qrCodeUrl` parameter is ignored; kept on the public
+                // ReceiptPrinter API for source-compatibility.
+                @Suppress("UNUSED_VARIABLE") val ignoredQr = qrCodeUrl
+                val painter = ReceiptPainter(model)
 
                 // Java AWT works in points (1 pt = 1/72 inch). 80 mm thermal
                 // width = 80 × 72/25.4 ≈ 226.77 pt. We use 226 to leave a
@@ -125,6 +127,8 @@ actual class ReceiptPrinter {
 
                 val job = PrinterJob.getPrinterJob()
                 job.jobName = jobName
+                // OS-native copies setting; clamped 1..10 to match Android.
+                job.copies = copies.coerceIn(1, 10)
                 job.setPrintable(object : Printable {
                     override fun print(g: Graphics, pf: PageFormat, idx: Int): Int {
                         if (idx > 0) return Printable.NO_SUCH_PAGE
@@ -150,11 +154,28 @@ actual class ReceiptPrinter {
             }
         }
     }
+
+    actual fun hasPrinterConfigured(): Boolean = true
+
+    actual fun clearPrinterConfiguration() { /* no-op: OS print dialog handles selection */ }
 }
 
+// Desktop doesn't have a Bluetooth/USB ESC/POS picker — it uses the OS
+// print dialog instead, which handles printer selection on its own.
+// `hasPrinterConfigured` always returns true so the receipt screen
+// skips the picker and goes straight to PrinterJob.printDialog().
 @Composable
 actual fun rememberReceiptPrinter(): ReceiptPrinter {
     return remember { ReceiptPrinter() }
+}
+
+@Composable
+actual fun PrinterSelectionDialogIfNeeded(
+    show: Boolean,
+    onSelected: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // No-op on desktop; the OS print dialog handles printer selection.
 }
 
 actual fun getReceiptLanguage(): String {
@@ -184,27 +205,29 @@ actual fun getReceiptLanguage(): String {
  */
 private class ReceiptPainter(
     private val model: ReceiptModel,
-    private val qrCodeUrl: String? = null,
 ) {
 
     // Font sizes bumped per merchant request for better readability,
     // with extra vertical spacing in the row painters below. The order
     // ID fonts remain the LARGEST on the receipt.
+    // Font sizes trimmed ~15-20% vs the previous version (merchant
+    // feedback: "a little smaller please"). Order-ID is still the
+    // biggest text on the page so the cashier can still call it out
+    // at a glance, just less dominant relative to the rest.
     private val fontFamily = "Tahoma"
-    private val fontHeader = Font(fontFamily, Font.BOLD, 20)
-    private val fontVendorMeta = Font(fontFamily, Font.PLAIN, 12)
+    private val fontHeader = Font(fontFamily, Font.BOLD, 17)
+    private val fontVendorMeta = Font(fontFamily, Font.PLAIN, 10)
     // Biggest text on the whole receipt — order ID label/value.
-    private val fontOrderIdLabel = Font(fontFamily, Font.BOLD, 22)
-    private val fontOrderIdValue = Font(fontFamily, Font.BOLD, 26)
-    private val fontLabel = Font(fontFamily, Font.BOLD, 14)
-    private val fontValue = Font(fontFamily, Font.BOLD, 15)
-    private val fontItemName = Font(fontFamily, Font.PLAIN, 14)
-    private val fontItemBold = Font(fontFamily, Font.BOLD, 14)
-    private val fontTotalLabel = Font(fontFamily, Font.BOLD, 14)
-    private val fontTotalValue = Font(fontFamily, Font.BOLD, 22)
-    private val fontFooter = Font(fontFamily, Font.BOLD, 14)
-    private val fontNotes = Font(fontFamily, Font.PLAIN, 12)
-    private val fontQrLabel = Font(fontFamily, Font.PLAIN, 10)
+    private val fontOrderIdLabel = Font(fontFamily, Font.BOLD, 18)
+    private val fontOrderIdValue = Font(fontFamily, Font.BOLD, 22)
+    private val fontLabel = Font(fontFamily, Font.BOLD, 12)
+    private val fontValue = Font(fontFamily, Font.BOLD, 12)
+    private val fontItemName = Font(fontFamily, Font.PLAIN, 11)
+    private val fontItemBold = Font(fontFamily, Font.BOLD, 11)
+    private val fontTotalLabel = Font(fontFamily, Font.BOLD, 12)
+    private val fontTotalValue = Font(fontFamily, Font.BOLD, 18)
+    private val fontFooter = Font(fontFamily, Font.BOLD, 12)
+    private val fontNotes = Font(fontFamily, Font.PLAIN, 10)
 
     /**
      * Paint the receipt onto [g] using [widthPt] as the column width.
@@ -301,16 +324,10 @@ private class ReceiptPainter(
             y = drawNotesBox(g, widthPt, y, model.notesLabel, model.notesText)
         }
 
-        // ── QR code URL ─────────────────────────────────────────
-        // Desktop direct-draw can't render a remote QR image. We print
-        // the share URL as text so the customer can still type it. (When
-        // ZXing is added later, swap this for a drawn QR matrix.)
-        if (!qrCodeUrl.isNullOrBlank()) {
-            y += 6
-            val qrLabel = if (model.isArabic) "افتح الفاتورة الرقمية:" else "Open digital receipt:"
-            y = drawCenteredText(g, widthPt, y, qrLabel, fontQrLabel) + 1
-            y = drawCenteredText(g, widthPt, y, qrCodeUrl, fontQrLabel) + 2
-        }
+        // (QR code / share-URL section removed — merchant asked to drop
+        // the QR from the printed receipt. `qrCodeUrl` is kept on the
+        // ReceiptPainter constructor for source-compatibility but is now
+        // ignored on every platform.)
 
         // ── Footer ──────────────────────────────────────────────
         y += 6

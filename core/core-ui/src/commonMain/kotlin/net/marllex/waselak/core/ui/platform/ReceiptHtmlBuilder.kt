@@ -30,59 +30,21 @@ import net.marllex.waselak.core.model.Vendor
 private fun String.htmlEscape(): String =
     replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
-private fun urlEncodeForQuery(s: String): String {
-    val sb = StringBuilder(s.length)
-    for (ch in s) {
-        if (ch.code in 0..0x7F &&
-            (ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch in "-_.~")
-        ) {
-            sb.append(ch)
-        } else {
-            val bytes = ch.toString().encodeToByteArray()
-            for (b in bytes) {
-                sb.append('%')
-                val v = b.toInt() and 0xFF
-                sb.append("0123456789ABCDEF"[v ushr 4])
-                sb.append("0123456789ABCDEF"[v and 0x0F])
-            }
-        }
-    }
-    return sb.toString()
-}
-
-/**
- * Rough threshold for "this receipt is too long to keep the QR code on
- * one continuous page". Each item row is ~26px tall at the new compact
- * layout (name + qty + price on one line). 12 items × 26px = ~310px,
- * which combined with the rest of the receipt (header + client + totals
- * + footer ≈ 600px) leaves zero room for a 170×170 QR + label before the
- * total exceeds a typical "single thermal page" feel. Drop QR over this.
- *
- * If the merchant wants the QR for every receipt regardless of length,
- * change this to Int.MAX_VALUE.
- */
-private const val MAX_ITEMS_FOR_QR = 10
-
 fun buildReceiptHtml(
     order: Order,
     vendor: Vendor?,
     language: String = "ar",
-    qrCodeUrl: String? = null,
+    @Suppress("UNUSED_PARAMETER") qrCodeUrl: String? = null,
 ): String {
     val model = buildReceiptModel(order, vendor, language)
     val isAr = model.isArabic
     val lang = if (isAr) "ar" else "en"
     val dir = if (isAr) "rtl" else "ltr"
-
-    // Hide QR when there are too many items to keep the receipt on one
-    // continuous page. The user's "fit in one page" rule trumps showing
-    // the QR every time — they explicitly said skip the QR when needed.
-    val showQr = qrCodeUrl != null && qrCodeUrl.isNotBlank() && model.items.size <= MAX_ITEMS_FOR_QR
-    val qrImgUrl: String? = if (showQr) {
-        "https://api.qrserver.com/v1/create-qr-code/" +
-            "?size=200x200&margin=6&format=png&data=${urlEncodeForQuery(qrCodeUrl!!)}"
-    } else null
-    val qrLabel = if (isAr) "افتح الفاتورة الرقمية" else "Open digital receipt"
+    // QR code intentionally removed from the printed receipt (merchant
+    // request — too noisy on the thermal print, customer never scanned).
+    // `qrCodeUrl` parameter is kept for source-compatibility with the
+    // various platform callers but is no longer rendered. Safe to drop
+    // the parameter entirely once all platform callers stop passing it.
 
     // Sub-labels for items table header
     val tItem = if (isAr) "الصنف" else "Item"
@@ -101,33 +63,37 @@ fun buildReceiptHtml(
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { background: #fff; margin: 0; padding: 0; }
   body {
+    /* Font sizes bumped substantially (final round) — receipt now
+       fills the printer preview canvas instead of looking like a
+       small column on a virtual A4 page. Base 22px; everything
+       scales from there. */
     font-family: 'Tajawal', 'Cairo', 'Noto Naskh Arabic',
                  'Segoe UI', 'Tahoma', Helvetica, Arial, sans-serif;
-    font-size: 18px;
+    font-size: 22px;
     line-height: 1.4;
     color: #000;
     text-align: center;
     width: 100%;
-    padding: 10px 4px 0 4px;
+    padding: 10px 6px 0 6px;
   }
 
   /* ═══ Part 1 — Restaurant header ═══════════════════════════════ */
-  .part-header { text-align: center; margin-bottom: 6px; }
+  .part-header { text-align: center; margin-bottom: 8px; }
   .hdr-logo {
-    width: 72px; height: 72px;
+    width: 90px; height: 90px;
     border-radius: 50%; object-fit: cover;
     display: block;
-    margin: 0 auto 5px;
+    margin: 0 auto 6px;
   }
   .hdr-name {
-    font-size: 26px;
+    font-size: 32px;
     font-weight: 900;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
   .hdr-line {
-    font-size: 14px;
+    font-size: 18px;
     color: #222;
-    margin: 2px 0;
+    margin: 3px 0;
   }
 
   /* ═══ Order ID — focal point ═══════════════════════════════════ */
@@ -135,16 +101,16 @@ fun buildReceiptHtml(
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin: 8px 4px;
+    margin: 10px 4px;
     padding: 0 8px;
   }
   .order-id .label {
-    font-size: 30px;
+    font-size: 34px;
     font-weight: 900;
     color: #000;
   }
   .order-id .value {
-    font-size: 35px;
+    font-size: 40px;
     font-weight: 900;
     color: #000;
     letter-spacing: 0.5px;
@@ -153,18 +119,18 @@ fun buildReceiptHtml(
   }
 
   /* ═══ Part 2 — Client/cashier/delivery info ═══════════════════
-     Same 18px base as the restaurant header. Each row is a
-     space-between flex layout so label and value sit on opposite
-     edges (RTL/LTR-aware via body's `dir` attribute). */
-  .part-info { margin: 4px 0; }
+     Same 22px base as the body. Each row is a space-between flex
+     layout so label and value sit on opposite edges (RTL/LTR-aware
+     via body's `dir` attribute). */
+  .part-info { margin: 6px 0; }
   .kv {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 8px;
     padding: 0 10px;
-    margin: 6px 0;
-    font-size: 18px;
+    margin: 8px 0;
+    font-size: 22px;
   }
   .kv .label {
     font-weight: 700;
@@ -181,21 +147,21 @@ fun buildReceiptHtml(
 
   /* ═══ Part 3 — Items table ════════════════════════════════════
      Compact 3-column row: item name takes most of the row, qty +
-     price hug the other edge. Smaller font (14px) than parts 1/2
+     price hug the other edge. Smaller font (12px) than parts 1/2
      so more items fit per page. */
   .part-items {
-    margin: 8px 0;
+    margin: 6px 0;
     border-top: 1px solid #333;
     border-bottom: 1px solid #333;
-    padding: 4px 0;
+    padding: 3px 0;
   }
   .items-header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 5px 8px;
+    font-size: 16px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -203,16 +169,16 @@ fun buildReceiptHtml(
     border-bottom: 1px dashed #aaa;
   }
   .items-header .col-name { flex: 1; text-align: start; }
-  .items-header .col-qty  { width: 40px; text-align: center; }
-  .items-header .col-price { width: 78px; text-align: end; }
+  .items-header .col-qty  { width: 52px; text-align: center; }
+  .items-header .col-price { width: 100px; text-align: end; }
 
   .item-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 6px;
-    padding: 3px 8px;
-    font-size: 14px;
+    padding: 4px 8px;
+    font-size: 19px;
   }
   .item-row .col-name {
     flex: 1;
@@ -223,14 +189,14 @@ fun buildReceiptHtml(
     overflow-wrap: anywhere;
   }
   .item-row .col-qty {
-    width: 40px;
+    width: 52px;
     text-align: center;
     font-weight: 800;
     direction: ltr;
     unicode-bidi: plaintext;
   }
   .item-row .col-price {
-    width: 78px;
+    width: 100px;
     text-align: end;
     font-weight: 800;
     direction: ltr;
@@ -240,31 +206,31 @@ fun buildReceiptHtml(
   .item-row:nth-child(odd of .item-row) { background: #f9f9f9; }
 
   /* ═══ Part 4 — Totals + grand total ═══════════════════════════
-     Back to 18px font for clear emphasis. Grand total is a framed
-     box highlighting the final number the customer pays. */
-  .part-totals { margin: 8px 0; }
-  .part-totals .kv { margin: 4px 0; font-size: 16px; }
+     Slightly smaller than the body so totals don't dominate; the
+     grand total below is the framed focal element. */
+  .part-totals { margin: 9px 0; }
+  .part-totals .kv { margin: 5px 0; font-size: 20px; }
   .part-totals .kv .label { font-weight: 600; }
-  .part-totals .kv .value { font-size: 17px; }
+  .part-totals .kv .value { font-size: 21px; }
 
-  .grand-wrap { text-align: center; margin: 10px 0 6px 0; }
+  .grand-wrap { text-align: center; margin: 12px 0 8px 0; }
   .grand {
     display: inline-block;
-    padding: 10px 22px;
-    border: 2.4px solid #000;
+    padding: 12px 24px;
+    border: 2.5px solid #000;
     text-align: center;
-    min-width: 72%;
+    min-width: 75%;
   }
   .grand .grand-label {
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 2px;
     color: #333;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
   .grand .grand-value {
-    font-size: 30px;
+    font-size: 35px;
     font-weight: 900;
     color: #000;
     line-height: 1.1;
@@ -273,45 +239,29 @@ fun buildReceiptHtml(
   }
   .grand-wrap.muted .grand {
     border-style: dashed;
-    border-width: 1.4px;
+    border-width: 1.5px;
   }
-  .grand-wrap.muted .grand-value { font-size: 22px; }
+  .grand-wrap.muted .grand-value { font-size: 26px; }
 
   /* Notes (when present) */
   .notes {
-    margin: 8px 8px 0 8px;
-    padding: 6px 10px;
+    margin: 9px 8px 0 8px;
+    padding: 8px 10px;
     border: 1px dashed #aaa;
-    font-size: 14px;
+    font-size: 18px;
     text-align: center;
   }
-  .notes .notes-title { font-weight: 800; margin-bottom: 2px; }
+  .notes .notes-title { font-weight: 800; margin-bottom: 3px; }
 
-  /* ═══ Part 5 — QR code ═════════════════════════════════════════
-     Hidden when item count > threshold so the receipt stays on
-     one page. Tighter than the previous design (170×170 → 150×150)
-     to claw back some vertical space. */
-  .part-qr {
-    margin: 10px auto 4px auto;
-    text-align: center;
-  }
-  .qr-img {
-    width: 150px; height: 150px;
-    display: inline-block;
-  }
-  .qr-label {
-    margin-top: 3px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #222;
-  }
+  /* Part 5 (QR code) removed — receipt is now 5 parts: header / client /
+     items / totals / footer. */
 
   /* ═══ Part 6 — Footer / closing greeting ═══════════════════════ */
   .part-footer {
-    margin: 10px 0 0 0;
-    padding: 7px 6px 0 6px;
+    margin: 12px 0 0 0;
+    padding: 8px 6px 0 6px;
     border-top: 1px dashed #999;
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 800;
     text-align: center;
   }
@@ -326,6 +276,18 @@ fun buildReceiptHtml(
     border: 0;
     border-top: 2px solid #000;
     margin: 7px 4px;
+  }
+
+  /* Trim any inherited bottom margin from the very last block so
+     document.body.scrollHeight reports the actual ink area, not the
+     ink area + a phantom margin. The Android printer uses scrollHeight
+     to size the page, so a stray bottom margin here would print as
+     trailing white space on the thermal paper. Applied OUTSIDE the
+     `@media print` block on purpose — we measure on screen (not on
+     print), so the screen-side rule has to match. */
+  body > *:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
   }
 
   @media print {
@@ -463,14 +425,8 @@ fun buildReceiptHtml(
         }
 
         // ────────────────────────────────────────────────────────────
-        // Part 5 — QR code (CONDITIONALLY rendered — see MAX_ITEMS_FOR_QR)
+        // (Part 5 — QR code — intentionally removed; see header comment.)
         // ────────────────────────────────────────────────────────────
-        if (qrImgUrl != null) {
-            append("<div class='part-qr'>")
-            append("<img class='qr-img' src='${qrImgUrl.htmlEscape()}' alt='QR'>")
-            append("<div class='qr-label'>${qrLabel.htmlEscape()}</div>")
-            append("</div>")
-        }
 
         // ────────────────────────────────────────────────────────────
         // Part 6 — Footer / thank-you (always last so the page-end
@@ -483,6 +439,20 @@ fun buildReceiptHtml(
         append("""
 <script>
   window.__waselak_receipt_height = function() {
+    // When the Android print pipeline duplicates the receipt for multi-
+    // copy printing it wraps each copy in <div class='receipt-copy'>.
+    // We measure JUST the first one — the print engine paginates on
+    // the page-break-before separators, so each printed page is the
+    // size of ONE copy, not the stacked total.
+    //
+    // Fall back to body.scrollHeight when there is no .receipt-copy
+    // wrapper (single-copy receipts; or non-Android renderers that
+    // don't use the wrapper).
+    var first = document.querySelector('.receipt-copy');
+    if (first) {
+      var fr = first.getBoundingClientRect();
+      if (fr && fr.height > 0) return Math.ceil(fr.height);
+    }
     var h1 = document.body.scrollHeight;
     var h2 = document.documentElement.scrollHeight;
     var r = document.body.getBoundingClientRect();

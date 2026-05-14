@@ -3413,8 +3413,22 @@ private fun AddEditWorkerBottomSheet(uiState: StaffViewModel.UiState, viewModel:
             !uiState.dialogIsLoginEnabled || uiState.dialogPassword.length >= 6
         }
 
-        // Salary is mandatory
-        val salaryValid = (uiState.dialogSalaryAmount.toDoubleOrNull() ?: 0.0) > 0
+        // Salary validation:
+        //   • Create mode — mandatory (must be > 0).
+        //   • Edit mode    — optional. Blank means "leave the existing
+        //     salary unchanged"; a typed value must still be > 0. Without
+        //     this relaxation, the Save button stayed disabled forever
+        //     when editing any worker whose stored salary is 0 (e.g. the
+        //     MANAGER user with salary_amount = 0) because the form
+        //     prefilled an empty string, failing `> 0` permanently and
+        //     blocking name/role/phone updates too. Merchant feedback:
+        //     "update isn't working for all details."
+        val salaryEntered = uiState.dialogSalaryAmount.toDoubleOrNull()
+        val salaryValid = if (isEdit) {
+            uiState.dialogSalaryAmount.isBlank() || (salaryEntered != null && salaryEntered > 0)
+        } else {
+            salaryEntered != null && salaryEntered > 0
+        }
 
         return uiState.dialogName.isNotBlank() &&
                uiState.dialogRole.isNotBlank() &&

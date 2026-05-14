@@ -141,6 +141,13 @@ actual class PlatformActions {
         }
         webView.loadHTMLString(htmlContent, baseURL = null)
     }
+
+    // iOS doesn't permit HCE for non-payment use cases, so the
+    // "Share via NFC" flow is Android-only. These stubs let the
+    // common code call the same API without #ifdef noise.
+    actual val isNfcAvailable: Boolean = false
+    actual fun shareUrlViaNfc(url: String): Boolean = false
+    actual fun stopNfcShare() {}
 }
 
 @Composable

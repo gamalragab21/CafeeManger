@@ -26,4 +26,9 @@
     <string name="no_items">No menu items yet</string>
     <string name="barcode">Barcode</string>
     <string name="scan_barcode">Scan Barcode</string>
+    <!-- Confirmation dialog shown before permanently deleting a menu item.
+         %1$s is the item name. Cancel keeps the item; Delete removes it. -->
+    <string name="delete_item_title">Delete item?</string>
+    <string name="delete_item_message">Are you sure you want to delete \"%1$s\"? This cannot be undone.</string>
+    <string name="delete">Delete</string>
 </resources>

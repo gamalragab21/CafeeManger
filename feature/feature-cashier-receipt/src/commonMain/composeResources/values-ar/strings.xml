@@ -50,4 +50,9 @@
     <string name="payment_bank_transfer">تحويل بنكي</string>
     <string name="payment_credit">آجل</string>
     <string name="payment_split">تقسيم</string>
+    <string name="share_via_nfc">NFC</string>
+    <string name="nfc_share_dialog_title">قرّب الهاتفين من بعض</string>
+    <string name="nfc_share_dialog_message">حُط هاتف العميل ظَهر-بظَهر مع الجهاز ده. لينك الفاتورة هيفتح عنده تلقائياً.</string>
+    <string name="nfc_share_dialog_done">تم</string>
+    <string name="nfc_unavailable_message">لازم تشغّل NFC وتعمل مشاركة للينك الأول.</string>
 </resources>

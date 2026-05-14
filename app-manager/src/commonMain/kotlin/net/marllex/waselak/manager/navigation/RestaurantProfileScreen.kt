@@ -21,10 +21,15 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Wallet
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -208,6 +213,18 @@ fun RestaurantProfileScreen(
                             }
                         }
 
+                        // ── Tax Settings ──────────────────────────────
+                        item {
+                            TaxSettingsCard(
+                                enabled = uiState.editTaxEnabled,
+                                percent = uiState.editTaxPercent,
+                                isSaving = uiState.taxSaving,
+                                onToggle = viewModel::updateTaxEnabled,
+                                onPercentChange = viewModel::updateTaxPercent,
+                                onSave = viewModel::saveTaxSettings,
+                            )
+                        }
+
                         // Plan Info Section
                         val plan = uiState.planInfo
                         if (plan != null) {
@@ -237,6 +254,95 @@ private fun ProfileInfoRow(icon: ImageVector, label: String, value: String) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(Modifier.size(12.dp))
             Column { Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface) }
+        }
+    }
+}
+
+/**
+ * Tax settings — toggle "Enable tax" + the default tax percent that gets
+ * baked into every new order at creation time.
+ *
+ * Mutating these here is what fixes the "old orders show 50% tax even
+ * though the dashboard says 0" complaint: the backend reads these values
+ * at order-creation time, and the receipt renderer also gates the Tax
+ * row on whether the vendor still has tax enabled now — so changing the
+ * toggle here propagates to both new orders AND old-order receipts.
+ */
+@Composable
+private fun TaxSettingsCard(
+    enabled: Boolean,
+    percent: String,
+    isSaving: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onPercentChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Header row: icon + title + status badge
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Receipt,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.size(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Tax Settings / إعدادات الضريبة",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "Applied at order creation, shown on receipts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            // Toggle: enable tax
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Enable Tax / تفعيل الضريبة",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Switch(checked = enabled, onCheckedChange = onToggle, enabled = !isSaving)
+            }
+            // Percent input — only enabled when tax itself is enabled,
+            // otherwise dimmed.
+            OutlinedTextField(
+                value = percent,
+                onValueChange = onPercentChange,
+                label = { Text("Tax Percent (%) / نسبة الضريبة") },
+                leadingIcon = { Icon(Icons.Filled.Percent, null) },
+                singleLine = true,
+                enabled = enabled && !isSaving,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            )
+            Button(
+                onClick = onSave,
+                enabled = !isSaving,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Filled.Save, null, Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text("Save Tax Settings / حفظ")
+                }
+            }
         }
     }
 }

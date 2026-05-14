@@ -26,8 +26,17 @@ actual class ReceiptPrinter {
         language: String,
         jobName: String,
         qrCodeUrl: String?,
+        copies: Int,
     ) {
-        present(buildReceiptHtml(order, vendor, language, qrCodeUrl), jobName)
+        // iOS UIPrintInteractionController doesn't expose a programmatic
+        // copies setter — the system print panel lets the USER pick the
+        // copy count. To honor `copies` we present the print panel N
+        // times in sequence; the user just taps "Print" each time.
+        // Clamped 1..10 to match Android.
+        val n = copies.coerceIn(1, 10)
+        repeat(n) {
+            present(buildReceiptHtml(order, vendor, language, qrCodeUrl), jobName)
+        }
     }
 
     private fun present(html: String, jobName: String) {
@@ -52,6 +61,13 @@ actual class ReceiptPrinter {
 
         printController.presentAnimated(true, completionHandler = null)
     }
+
+    // iOS uses UIPrintInteractionController, which presents its own
+    // system printer-picker UI. We always return true so the Compose
+    // layer skips the Android-only BT/USB picker.
+    actual fun hasPrinterConfigured(): Boolean = true
+
+    actual fun clearPrinterConfiguration() { /* no-op on iOS */ }
 }
 
 @Composable
@@ -59,14 +75,31 @@ actual fun rememberReceiptPrinter(): ReceiptPrinter {
     return remember { ReceiptPrinter() }
 }
 
+@Composable
+actual fun PrinterSelectionDialogIfNeeded(
+    show: Boolean,
+    onSelected: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // No-op on iOS; UIPrintInteractionController handles printer selection.
+}
+
 /**
- * Reads the active iOS app locale. iOS's first preferred locale follows
- * the per-app language override that NSLocalizedString uses, so this
- * matches whatever the user sees in the UI.
+ * Reads the active iOS app locale. NSBundle's preferredLocalizations
+ * matches whatever language the OS picked for the running app — same
+ * value NSLocalizedString uses, so it tracks the per-app language
+ * override the user can set in Settings → App → Language.
+ *
+ * History: first tried `NSLocale.preferredLanguages` then
+ * `NSLocale.currentLocale.languageCode` — both unresolved on K/N
+ * Foundation bindings (the class-level static is not exposed as a
+ * Kotlin-side property). NSBundle.mainBundle.preferredLocalizations is
+ * an instance property and resolves cleanly. Falls back to "ar" if the
+ * list is empty (it never is in practice; iOS always provides at least
+ * the development localization).
  */
 actual fun getReceiptLanguage(): String {
-    val raw = (platform.Foundation.NSLocale.preferredLanguages.firstOrNull() as? String)
-        ?.take(2)
-        ?: "ar"
-    return if (raw == "en") "en" else "ar"
+    val list = platform.Foundation.NSBundle.mainBundle.preferredLocalizations
+    val first = list.firstOrNull() as? String ?: return "ar"
+    return if (first.take(2) == "en") "en" else "ar"
 }

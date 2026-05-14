@@ -38,6 +38,27 @@ fun AttendanceScreen(
     val uiState by viewModel.uiState.collectAsState()
     val platformActions = rememberPlatformActions()
 
+    // ── Periodic refresh to pick up manager-side worker edits ─────────
+    //
+    // The cashier app only sees worker changes (rename, role change,
+    // PIN reset, new worker, deactivation) when refreshWorkers() runs.
+    // ViewModel.init triggers one refresh on first composition, and
+    // the network-state observer triggers another when connectivity
+    // returns — but nothing re-fetches while the screen is just left
+    // open on a stable network. Cashier kept seeing the old name even
+    // after the manager renamed a worker, until they pressed the
+    // refresh button manually.
+    //
+    // Fix: poll every 30s with `silent = true` (no loading flicker,
+    // no transient-error banner). Workers don't change often, so 30s
+    // is a fair balance between freshness and chattiness.
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30_000)
+            viewModel.loadData(silent = true)
+        }
+    }
+
     // Show PIN dialog
     if (uiState.showPinDialog && uiState.selectedWorker != null) {
         PinEntryDialog(

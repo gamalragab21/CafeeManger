@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HCE service descriptor for NfcReceiptHceService. Tells Android the
+  service emulates an NDEF Type-4 Tag application so the OS routes
+  incoming APDUs to us when another phone (in NFC reader mode) selects
+  the NDEF AID D2760000850101.
+
+  category=other so the service doesn't conflict with payment apps
+  (which use category=payment and require additional permissions).
+
+  requireDeviceUnlock=false so the merchant can hand a receipt over by
+  tap even with the phone briefly idle — the tag emulation is a
+  read-only public URL, not anything sensitive.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/nfc_receipt_service_description"
+    android:requireDeviceUnlock="false">
+    <aid-group
+        android:category="other"
+        android:description="@string/nfc_receipt_aid_group_description">
+        <!-- NFC Forum Type-4 Tag NDEF application AID. -->
+        <aid-filter android:name="D2760000850101" />
+    </aid-group>
+</host-apdu-service>

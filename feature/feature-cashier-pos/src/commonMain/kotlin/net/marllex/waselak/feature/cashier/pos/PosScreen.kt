@@ -1458,7 +1458,33 @@ private fun CartBottomSheet(
                     }
                 }
 
-                if (totalDiscount > 0) {
+                // Delivery fee — from the selected delivery zone. Shows
+                // up between discounts and the grand total so the cashier
+                // (and customer at the till) see the full breakdown:
+                // subtotal − discount + delivery = total.
+                val deliveryFee = viewModel.getDeliveryFee()
+                if (deliveryFee > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "رسوم التوصيل / Delivery Fee",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = "+ ${CurrencyFormatter.formatDecimal(deliveryFee)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+
+                // Always show the grand total when there's a cart, so the
+                // cashier confirms the exact amount before tapping Place
+                // Order. Previously this row was gated on `totalDiscount > 0`
+                // which hid the total for plain (no-discount) orders.
+                if (totalDiscount > 0 || deliveryFee > 0) {
                     Spacer(Modifier.height(4.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(4.dp))

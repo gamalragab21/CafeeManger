@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  core-ui AndroidManifest. Merged into every Android app that depends on
+  this module (manager, cashier, delivery, kds, admin), so the NFC
+  receipt-share feature is available everywhere without each app
+  needing to copy these entries.
+
+  Declared as:
+    - NFC permission (uses-permission)
+    - HCE service (host-apdu-service) for NDEF Type-4 Tag emulation
+    - NFC HCE hardware feature, required=false so devices without NFC
+      can still install the app — the receipt screen hides the
+      "Share via NFC" button when isNfcAvailable returns false.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.NFC" />
+
+    <!-- Bluetooth permissions for ESC/POS thermal printer.
+         BLUETOOTH / BLUETOOTH_ADMIN — legacy (≤ Android 11, API 30)
+         BLUETOOTH_CONNECT — Android 12+ (API 31+): runtime permission
+                            required to connect to an already-paired
+                            classic-Bluetooth printer.
+         BLUETOOTH_SCAN — Android 12+: only needed if we ever scan; we
+                          only enumerate paired devices so this isn't
+                          strictly required, but the dantsu library
+                          uses it under the hood on some paths. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.nfc.hce"
+        android:required="false" />
+    <!-- Bluetooth + USB-host are optional hardware features so the app
+         still installs on devices without them — the cashier's printer
+         selection dialog hides the corresponding tabs when the
+         hardware isn't present. -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <application>
+        <service
+            android:name="net.marllex.waselak.core.ui.nfc.NfcReceiptHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/nfc_receipt_aid_list" />
+        </service>
+    </application>
+</manifest>

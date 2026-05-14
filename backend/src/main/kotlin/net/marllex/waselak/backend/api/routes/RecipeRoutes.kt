@@ -412,6 +412,21 @@ fun Route.recipeRoutes() {
 
                 val itemUUID = recipe[RecipesTable.itemId]
 
+                // Null out the recipe_id on every stock_transactions row
+                // that points at this recipe. The column is nullable on
+                // purpose (see Tables.kt — "Track which recipe caused
+                // the deduction") so we keep the historical stock
+                // movement intact for the audit trail; we just unlink
+                // it from the recipe we're about to delete. Without
+                // this nullification the FK constraint
+                // `fk_stock_transactions_recipe_id__id` rejects the
+                // recipe delete with a 500 — the merchant complaint.
+                StockTransactionsTable.update({
+                    StockTransactionsTable.recipeId eq recipeUUID
+                }) {
+                    it[recipeId] = null
+                }
+
                 // Delete ingredients (CASCADE should handle this, but be explicit)
                 RecipeIngredientsTable.deleteWhere { RecipeIngredientsTable.recipeId eq recipeUUID }
 

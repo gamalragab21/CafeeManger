@@ -33,7 +33,12 @@ class ReceiptViewModel constructor(
         val isSharing: Boolean = false,
         val shareUrl: String? = null,
         val shareExpiresAt: Long? = null,
-        val digitalReceiptEnabled: Boolean = true,
+        // Starts FALSE so the QR + Share buttons don't render eagerly
+        // and then vanish ~1 s later when the shareReceipt API replies
+        // with "feature disabled / offline" — that flicker was the
+        // "sometimes I see the buttons, sometimes I don't" complaint.
+        // Flipped to true only after a successful shareReceipt call.
+        val digitalReceiptEnabled: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -90,7 +95,8 @@ class ReceiptViewModel constructor(
                             isSharing = false,
                             shareUrl = link.url,
                             shareExpiresAt = link.expiresAt,
-                            error = null
+                            digitalReceiptEnabled = true,
+                            error = null,
                         )
                     }
                 }

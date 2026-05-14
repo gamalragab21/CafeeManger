@@ -137,14 +137,35 @@ fun PaymentScreen(
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                            // Totals breakdown — Subtotal → Discount →
+                            // Delivery Fee → Tax → Total. Each row hidden
+                            // when zero. Previously the screen smashed
+                            // `deliveryFee + tax` into a single "Delivery
+                            // Fee" row, which made the delivery line look
+                            // wrong (e.g. 25 entered shown as 28) and
+                            // dropped the offer-discount line entirely.
                             SummaryRow(
                                 label = stringResource(Res.string.subtotal),
                                 value = order.subtotal,
                             )
-                            SummaryRow(
-                                label = stringResource(Res.string.delivery_fee),
-                                value = order.deliveryFee + order.tax,
-                            )
+                            if (order.discount > 0.0) {
+                                SummaryRow(
+                                    label = "الخصم / Discount",
+                                    value = -order.discount,
+                                )
+                            }
+                            if (order.deliveryFee > 0.0) {
+                                SummaryRow(
+                                    label = "رسوم التوصيل / Delivery Fee",
+                                    value = order.deliveryFee,
+                                )
+                            }
+                            if (order.tax > 0.0) {
+                                SummaryRow(
+                                    label = "الضريبة / Tax",
+                                    value = order.tax,
+                                )
+                            }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

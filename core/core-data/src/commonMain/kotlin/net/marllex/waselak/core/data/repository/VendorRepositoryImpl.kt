@@ -46,6 +46,8 @@ class VendorRepositoryImpl constructor(
         minPointsRedeem: Int?,
         maxManualDiscountPercent: Double?,
         manualDiscountRequiresPin: Boolean?,
+        taxEnabled: Boolean?,
+        defaultTaxPercent: Double?,
     ): Result<Vendor> = runCatching {
         AppLogger.d(TAG, "Updating vendor settings")
         val response = api.updateMyVendor(
@@ -62,6 +64,8 @@ class VendorRepositoryImpl constructor(
                 minPointsRedeem = minPointsRedeem,
                 maxManualDiscountPercent = maxManualDiscountPercent,
                 manualDiscountRequiresPin = manualDiscountRequiresPin,
+                taxEnabled = taxEnabled,
+                defaultTaxPercent = defaultTaxPercent,
             )
         )
         val vendor = response.toDomain()

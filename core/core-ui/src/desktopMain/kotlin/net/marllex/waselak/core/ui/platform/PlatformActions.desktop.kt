@@ -108,6 +108,13 @@ actual class PlatformActions {
             }
         }
     }
+
+    // Desktop has no NFC stack — the cashier laptop is plugged in and
+    // can't physically tap another phone. The "Share via NFC" button
+    // is hidden when isNfcAvailable is false.
+    actual val isNfcAvailable: Boolean = false
+    actual fun shareUrlViaNfc(url: String): Boolean = false
+    actual fun stopNfcShare() {}
 }
 
 @Composable

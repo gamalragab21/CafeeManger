@@ -19,5 +19,11 @@ interface VendorRepository {
         minPointsRedeem: Int? = null,
         maxManualDiscountPercent: Double? = null,
         manualDiscountRequiresPin: Boolean? = null,
+        // Tax settings — surfaced through the dashboard so managers can
+        // toggle tax on/off and set the percent. Used by the backend at
+        // order-creation time (DatabaseConfig.kt:1191) and by receipts
+        // to decide whether the tax row is shown (ReceiptModel.kt).
+        taxEnabled: Boolean? = null,
+        defaultTaxPercent: Double? = null,
     ): Result<Vendor>
 }

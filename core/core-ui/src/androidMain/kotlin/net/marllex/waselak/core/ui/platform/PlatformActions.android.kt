@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -200,6 +201,29 @@ actual class PlatformActions(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.e("PlatformActions", "Failed to share file", e)
         }
+    }
+
+    actual val isNfcAvailable: Boolean
+        get() {
+            // getDefaultAdapter() returns null on devices without NFC
+            // hardware. isEnabled() catches "NFC turned off in
+            // settings" — the receipt screen should hide the button
+            // in that case (no point arming an HCE service the OS will
+            // never route APDUs to).
+            val adapter = NfcAdapter.getDefaultAdapter(context) ?: return false
+            return adapter.isEnabled
+        }
+
+    actual fun shareUrlViaNfc(url: String): Boolean {
+        if (!isNfcAvailable) return false
+        if (url.isBlank()) return false
+        net.marllex.waselak.core.ui.nfc.NfcReceiptHceService.currentReceiptUrl.set(url)
+        android.util.Log.i("PlatformActions", "NFC share armed for URL (len=${url.length})")
+        return true
+    }
+
+    actual fun stopNfcShare() {
+        net.marllex.waselak.core.ui.nfc.NfcReceiptHceService.currentReceiptUrl.set(null)
     }
 
     private fun Context.findActivity(): android.app.Activity? {

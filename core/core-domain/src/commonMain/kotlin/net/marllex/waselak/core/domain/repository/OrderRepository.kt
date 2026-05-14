@@ -60,6 +60,12 @@ interface OrderRepository {
          * the server returns 403 DISCOUNT_REQUIRES_MANAGER.
          */
         managerOverrideToken: String? = null,
+        /**
+         * Explicit delivery fee computed by the POS (zone flat-fee or vendor default).
+         * Passed to the backend AND used by the offline order path so the local copy
+         * matches what the backend would have computed. 0.0 means no delivery fee.
+         */
+        deliveryFee: Double = 0.0,
     ): Result<Order>
     suspend fun fetchOrder(id: String): Result<Order>
     suspend fun updateOrder(

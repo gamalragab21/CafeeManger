@@ -50,9 +50,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import net.marllex.waselak.core.ui.components.WaselakTopAppBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +80,12 @@ fun ItemsScreen(
     viewModel: ItemsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Local state for the "are you sure?" confirmation. Holds the item
+    // pending deletion until the user confirms or dismisses. We keep it
+    // here (not in the ViewModel) because it's purely UI-affordance state
+    // — the merchant wanted a guardrail, not extra business state to
+    // sync. Null when no dialog is visible.
+    var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
 
     Scaffold(
         topBar = {
@@ -180,7 +191,7 @@ fun ItemsScreen(
                             ModernItemCard(
                                 item = item,
                                 onEdit = { viewModel.showEditDialog(item) },
-                                onDelete = { viewModel.deleteItem(item.id) },
+                                onDelete = { pendingDeleteItem = item },
                                 onToggleAvailability = { viewModel.toggleAvailability(item) },
                             )
                         }
@@ -195,6 +206,48 @@ fun ItemsScreen(
                 uiState = uiState,
                 viewModel = viewModel,
                 onDismiss = viewModel::hideSheet,
+            )
+        }
+
+        // Delete-confirmation dialog. Shown only when the user tapped
+        // the trash icon on an item card. Cancel just dismisses;
+        // Delete fires the actual viewmodel call and clears state.
+        pendingDeleteItem?.let { itemToDelete ->
+            AlertDialog(
+                onDismissRequest = { pendingDeleteItem = null },
+                icon = {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                title = { Text(stringResource(Res.string.delete_item_title)) },
+                text = {
+                    Text(
+                        stringResource(Res.string.delete_item_message, itemToDelete.name),
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteItem(itemToDelete.id)
+                            pendingDeleteItem = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        Text(stringResource(Res.string.delete))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeleteItem = null }) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                },
+                shape = RoundedCornerShape(20.dp),
             )
         }
     }

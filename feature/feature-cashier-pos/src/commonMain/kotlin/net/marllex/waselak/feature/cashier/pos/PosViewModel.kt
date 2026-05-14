@@ -112,6 +112,11 @@ class PosViewModel constructor(
         val selectedDeliveryUserId: String? = null,
         val reservationId: String? = null,
         val selectedTaxPlaceId: String? = null,
+        // Vendor's fallback delivery fee (used when no zone is picked).
+        // Mirrors the backend behaviour in OrderRoutes — zone > vendor
+        // default. Surfacing it in UiState lets the POS confirmation
+        // show the same number the receipt will print.
+        val defaultDeliveryFee: Double = 0.0,
         val clientName: String = "",
         val clientPhone: String = "",
         val clientAddress: String = "",
@@ -285,6 +290,7 @@ class PosViewModel constructor(
                         loyaltyEnabled = vendor.loyaltyEnabled,
                         pointsRedeemRate = vendor.pointsRedeemRate,
                         minPointsRedeem = vendor.minPointsRedeem,
+                        defaultDeliveryFee = vendor.defaultDeliveryFee,
                         maxManualDiscountPercent = vendor.maxManualDiscountPercent,
                         manualDiscountRequiresPin = vendor.manualDiscountRequiresPin,
                         canUsePrescriptions = features.hasPrescriptions && vendor.enablePrescriptions,
@@ -491,6 +497,8 @@ class PosViewModel constructor(
     }
 
     fun setSelectedTaxPlaceId(taxPlaceId: String?) {
+        val zone = _uiState.value.taxPlaces.firstOrNull { it.id == taxPlaceId }
+        AppLogger.i("POS-DELIVERY", "setSelectedTaxPlaceId: id=$taxPlaceId zone=${zone?.name} fee=${zone?.taxPercent}")
         _uiState.update { it.copy(selectedTaxPlaceId = taxPlaceId) }
     }
 
@@ -624,8 +632,18 @@ class PosViewModel constructor(
         val s = _uiState.value
         val offer = s.appliedOffer ?: return 0.0
         val subtotal = getSubtotal()
+        // `discountValue` is the DISCOUNT AMOUNT, not the final price —
+        // matching how the manager UI labels its number field
+        // ("Discount Value / قيمة الخصم") and how the seed offer name
+        // reads ("خصم ثابت" = "Fixed Discount"). Earlier this branch
+        // computed `subtotal - discountValue` which interpreted the
+        // value as the final fixed price, so a merchant who entered
+        // 15 expecting to take 15 EGP off a 115 EGP combo accidentally
+        // gave away 100 EGP (final = 15). Now the value is the amount
+        // subtracted, capped at the subtotal so a too-generous offer
+        // doesn't go negative.
         return when (offer.discountType) {
-            "FIXED_PRICE" -> (subtotal - offer.discountValue).coerceAtLeast(0.0)
+            "FIXED_PRICE" -> offer.discountValue.coerceAtMost(subtotal).coerceAtLeast(0.0)
             "PERCENT" -> subtotal * (offer.discountValue / 100.0)
             else -> 0.0
         }
@@ -649,7 +667,43 @@ class PosViewModel constructor(
 
     fun getDiscountAmount(): Double = getOfferDiscount() + getManualDiscount() + getPointsDiscount()
 
-    fun getTotal(): Double = (getSubtotal() - getDiscountAmount()).coerceAtLeast(0.0)
+    /**
+     * Effective delivery fee for the current cart, based on the selected
+     * delivery zone (TaxPlace). Zero when:
+     *   • channel is not DELIVERY
+     *   • cashier hasn't picked a zone yet
+     *   • the picked zone has a 0 EGP fee (free delivery)
+     *
+     * The `taxPercent` column on TaxPlace is, despite the name, a flat
+     * delivery fee in EGP (see TaxPlacesScreen — the manager UI labels
+     * it "Delivery fee (EGP)"). This matches the backend logic in
+     * OrderRoutes after the delivery-fee fix.
+     */
+    fun getDeliveryFee(): Double {
+        val s = _uiState.value
+        if (s.channel != OrderChannel.DELIVERY) {
+            AppLogger.d("POS-DELIVERY", "getDeliveryFee: channel=${s.channel} → 0")
+            return 0.0
+        }
+        // Priority matches the backend (OrderRoutes.kt:884):
+        //   1. Selected delivery zone's flat fee (taxPercent column —
+        //      misnamed, but it IS the flat EGP fee per zone).
+        //   2. Vendor's default delivery fee.
+        //   3. Zero.
+        val zone = s.taxPlaces.firstOrNull { it.id == s.selectedTaxPlaceId }
+        val fee = zone?.taxPercent ?: s.defaultDeliveryFee
+        AppLogger.d("POS-DELIVERY", "getDeliveryFee: channel=DELIVERY selectedZoneId=${s.selectedTaxPlaceId} zonesLoaded=${s.taxPlaces.size} matchedZone=${zone?.name} zoneFee=${zone?.taxPercent} vendorDefault=${s.defaultDeliveryFee} → $fee")
+        return fee
+    }
+
+    /**
+     * Grand total including delivery fee. The confirmation screen needs
+     * this so the cashier sees the same number the receipt will print.
+     * Without `+ getDeliveryFee()`, the confirmation was understating the
+     * total by the zone's fee (e.g. 100 EGP shown, 125 EGP charged).
+     */
+    fun getTotal(): Double =
+        (getSubtotal() - getDiscountAmount() + getDeliveryFee()).coerceAtLeast(0.0)
 
     // ─── Customer methods ─────────────────────────────────────────
 
@@ -964,6 +1018,12 @@ class PosViewModel constructor(
                     // in the flow. Server requires it when discount > 0 and the cashier
                     // isn't a manager; otherwise it's ignored.
                     managerOverrideToken = s.managerOverrideToken,
+                    // Pre-computed delivery fee from the selected zone (or
+                    // vendor default). Pass-through so the backend uses the
+                    // exact same number the cashier saw on the cart sheet,
+                    // AND so the offline path can apply it without needing
+                    // its own TaxPlace lookup.
+                    deliveryFee = getDeliveryFee(),
                 ).onSuccess { order ->
                     AppLogger.i("POS", "Order submitted: id=${order.id}")
                     onSuccess(order)

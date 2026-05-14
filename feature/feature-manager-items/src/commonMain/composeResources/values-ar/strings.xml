@@ -26,4 +26,7 @@
     <string name="no_items">مفيش أصناف لسه</string>
     <string name="barcode">باركود</string>
     <string name="scan_barcode">مسح الباركود</string>
+    <string name="delete_item_title">حذف الصنف؟</string>
+    <string name="delete_item_message">هل أنت متأكد إنك عايز تحذف \"%1$s\"؟ مش هتقدر تتراجع.</string>
+    <string name="delete">حذف</string>
 </resources>

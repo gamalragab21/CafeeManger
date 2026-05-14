@@ -18,6 +18,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // JitPack — hosts dantsu/ESCPOS-ThermalPrinter-Android, which is
+        // the Bluetooth/USB ESC/POS printer driver we use for direct
+        // thermal-receipt printing (no 3rd-party app needed).
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

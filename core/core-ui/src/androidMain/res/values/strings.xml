@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest-only strings for the NFC HCE service. These are referenced by
+  the host-apdu-service XML descriptor and surface in Android's NFC
+  "default service" picker if the user has multiple NDEF services
+  installed. Not used from the Compose UI — those strings live in the
+  per-feature compose resources.
+-->
+<resources>
+    <string name="nfc_receipt_service_description">Waselak Receipt Share</string>
+    <string name="nfc_receipt_aid_group_description">Share receipt URL by tapping another phone</string>
+</resources>

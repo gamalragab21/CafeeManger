@@ -9,9 +9,9 @@
     <string name="offer_change_image">Change Image</string>
     <string name="offer_uploading_image">Uploading…</string>
     <string name="discount_type">Discount Type</string>
-    <string name="fixed_price">Fixed Price</string>
+    <string name="fixed_price">Fixed Amount</string>
     <string name="percentage">Percentage</string>
-    <string name="discount_value">Discount Value</string>
+    <string name="discount_value">Discount Amount</string>
     <string name="active">Active</string>
     <string name="inactive">Inactive</string>
     <string name="expires_at">Expiry Date (optional)</string>
