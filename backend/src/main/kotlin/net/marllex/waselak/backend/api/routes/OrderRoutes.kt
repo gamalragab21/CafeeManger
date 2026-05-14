@@ -881,11 +881,29 @@ fun Route.orderRoutes() {
                     Triple(item, orderItem, price)
                 }
 
-                // Delivery fee: only for DELIVERY orders
-                // If cashier provides a fee > 0, use it; otherwise fall back to vendor default
+                // Delivery fee resolution priority for DELIVERY orders:
+                //   1. Explicit `request.delivery_fee` if > 0 (cashier override).
+                //   2. Selected delivery zone (`tax_place_id`) — its
+                //      `tax_percent` column is a misnamed flat-EGP fee per
+                //      zone (see TaxPlacesScreen — the UI labels it
+                //      "Delivery fee (EGP)" and the manager enters a flat
+                //      amount). We use it here as the delivery fee.
+                //   3. Vendor's default delivery fee.
+                //
+                // Previously this field was misinterpreted as a tax
+                // percentage and the receipt rendered phantom tax amounts
+                // (e.g. delivery 25 → 25% tax of subtotal), which is why
+                // merchants saw the "delivery fee 25 shown as 28" bug.
+                val taxPlaceIdUuid = request.tax_place_id?.let { UUID.fromString(it) }
                 val deliveryFeeAmount = if (request.channel == "DELIVERY") {
                     if (request.delivery_fee > 0.0) {
                         BigDecimal.valueOf(request.delivery_fee)
+                    } else if (taxPlaceIdUuid != null) {
+                        val zoneRow = TaxPlacesTable.selectAll().where {
+                            (TaxPlacesTable.id eq taxPlaceIdUuid) and
+                            (TaxPlacesTable.vendorId eq vendorUUID)
+                        }.firstOrNull()
+                        zoneRow?.get(TaxPlacesTable.taxPercent) ?: vendor[VendorsTable.defaultDeliveryFee]
                     } else {
                         vendor[VendorsTable.defaultDeliveryFee]
                     }
@@ -919,21 +937,16 @@ fun Route.orderRoutes() {
                     approvingManagerId = UUID.fromString(payload.managerUserId)
                 }
 
-                // Tax calculation - percentage-based on all channels (Phase 3)
+                // Tax calculation — driven ONLY by the vendor-level setting.
+                // The delivery-zone (`tax_place_id`) is no longer involved in
+                // tax: it's now resolved into the delivery fee above (its
+                // `tax_percent` column is a misnamed flat-EGP fee per zone,
+                // not a percentage). Vendor tax is the single source of truth
+                // and the manager controls it from the Restaurant Profile
+                // screen.
                 var taxAmount = BigDecimal.ZERO
                 var taxPercentValue = BigDecimal.ZERO
-                val taxPlaceIdUuid = request.tax_place_id?.let { UUID.fromString(it) }
-                if (taxPlaceIdUuid != null) {
-                    val taxPlace = TaxPlacesTable.selectAll().where {
-                        (TaxPlacesTable.id eq taxPlaceIdUuid) and (TaxPlacesTable.vendorId eq vendorUUID)
-                    }.firstOrNull()
-                    taxPlace?.let {
-                        taxPercentValue = it[TaxPlacesTable.taxPercent]
-                        taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
-                            .setScale(2, java.math.RoundingMode.HALF_UP)
-                    }
-                } else if (vendor[VendorsTable.taxEnabled]) {
-                    // Use vendor default tax percent if no tax place specified
+                if (vendor[VendorsTable.taxEnabled]) {
                     taxPercentValue = vendor[VendorsTable.defaultTaxPercent]
                     if (taxPercentValue > BigDecimal.ZERO) {
                         taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
@@ -1597,33 +1610,37 @@ fun Route.orderRoutes() {
 
                     // Recalculate totals
                     val channel = current[OrdersTable.channel]
-                    // Delivery fee only for DELIVERY orders; cashier can override, otherwise keep existing
+                    val vendor = VendorsTable.selectAll()
+                        .where { VendorsTable.id eq vendorUUID }.first()
+
+                    // Resolve the effective delivery zone (request can change
+                    // it; otherwise fall back to whatever the order has).
+                    val taxPlaceIdUuid: UUID? = request.tax_place_id?.let { UUID.fromString(it) }
+                        ?: current[OrdersTable.taxPlaceId]?.value
+
+                    // Delivery fee: explicit override → delivery zone flat
+                    // fee → keep current value. The zone's `tax_percent`
+                    // column is actually a flat-EGP delivery fee (see
+                    // TaxPlacesScreen). Mirror the create-order logic.
                     val deliveryFeeAmount = if (channel == "DELIVERY") {
-                        request.delivery_fee?.let { BigDecimal.valueOf(it) } ?: current[OrdersTable.deliveryFee]
+                        request.delivery_fee?.let { BigDecimal.valueOf(it) }
+                            ?: taxPlaceIdUuid?.let { uuid ->
+                                TaxPlacesTable.selectAll().where {
+                                    (TaxPlacesTable.id eq uuid) and (TaxPlacesTable.vendorId eq vendorUUID)
+                                }.firstOrNull()?.get(TaxPlacesTable.taxPercent)
+                            }
+                            ?: current[OrdersTable.deliveryFee]
                     } else BigDecimal.ZERO
 
                     // Discount recalculation
                     val discountAmt = current[OrdersTable.discount]
                     val afterDiscount = (subtotal - discountAmt).coerceAtLeast(BigDecimal.ZERO)
 
-                    // Tax recalculation (same logic as create)
-                    val vendor = VendorsTable.selectAll()
-                        .where { VendorsTable.id eq vendorUUID }.first()
+                    // Tax recalculation — vendor-level setting only.
+                    // The delivery zone is no longer involved in tax.
                     var taxAmount = BigDecimal.ZERO
                     var taxPercentValue = BigDecimal.ZERO
-                    val taxPlaceIdUuid: UUID? = request.tax_place_id?.let { UUID.fromString(it) }
-                        ?: current[OrdersTable.taxPlaceId]?.value
-                    if (taxPlaceIdUuid != null) {
-                        val taxPlace = TaxPlacesTable.selectAll().where {
-                            (TaxPlacesTable.id eq taxPlaceIdUuid) and
-                            (TaxPlacesTable.vendorId eq vendorUUID)
-                        }.firstOrNull()
-                        taxPlace?.let {
-                            taxPercentValue = it[TaxPlacesTable.taxPercent]
-                            taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
-                                .setScale(2, java.math.RoundingMode.HALF_UP)
-                        }
-                    } else if (vendor[VendorsTable.taxEnabled]) {
+                    if (vendor[VendorsTable.taxEnabled]) {
                         taxPercentValue = vendor[VendorsTable.defaultTaxPercent]
                         if (taxPercentValue > BigDecimal.ZERO) {
                             taxAmount = (afterDiscount * taxPercentValue / BigDecimal(100))
