@@ -41,6 +41,10 @@ val dataModule = module {
     single { SyncService(get(), get(), get()) }
     single { DataRefreshManager(get(), get(), get(), get(), get(), get(), get()) }
     single(createdAtStart = true) { SyncScheduler(get(), get(), get(), get(), get()) }
-    single { ConnectivityChecker(get(named("baseUrl")), get()) }
-    single { OfflineModeManager(get(), get(), get()) }
+    // ConnectivityChecker is created eagerly so its polling loop kicks
+    // off the moment the DI graph is built — otherwise nothing
+    // references it directly (we resolve it lazily inside
+    // OfflineModeManager) and Koin would never instantiate it.
+    single(createdAtStart = true) { ConnectivityChecker(get(named("baseUrl")), get()) }
+    single { OfflineModeManager(get(), get(), get(), get()) }
 }

@@ -16,6 +16,7 @@ import net.marllex.waselak.core.network.connectivity.NetworkMonitor
 
 class OfflineModeManager(
     private val networkMonitor: NetworkMonitor,
+    private val connectivityChecker: ConnectivityChecker,
     private val vendorRepository: VendorRepository,
     private val pendingSyncDao: PendingSyncDao,
 ) {
@@ -30,8 +31,29 @@ class OfflineModeManager(
     private val _userAcceptedOffline = MutableStateFlow(false)
     val userAcceptedOffline: StateFlow<Boolean> = _userAcceptedOffline.asStateFlow()
 
-    /** Whether the device has network connectivity (device-level check). */
-    val isOnline: StateFlow<Boolean> get() = networkMonitor.isOnline
+    /**
+     * Effective "is the app online" signal.
+     *
+     * We are *online* if EITHER:
+     *   • the OS reports a network capability AND has not been refuted
+     *     by the backend probe yet, OR
+     *   • the backend was reachable on the last probe.
+     *
+     * We are *offline* only when BOTH signals agree the link is dead.
+     * This forgiving union fixes the prior false-offline behaviour
+     * where a single failed probe (or a network that blocks the
+     * `8.8.8.8` desktop probe) would flash the "no internet" dialog
+     * even though the app could happily reach its backend.
+     *
+     * Recovery is fast: either signal flipping to true brings us back
+     * online immediately.
+     */
+    val isOnline: StateFlow<Boolean> = combine(
+        networkMonitor.isOnline,
+        connectivityChecker.isOnline,
+    ) { osOnline, backendReachable ->
+        osOnline || backendReachable
+    }.stateIn(scope, SharingStarted.Eagerly, true)
 
     /** Whether offline mode is enabled by the manager. */
     val offlineModeEnabled: StateFlow<Boolean> get() = _offlineModeEnabled
@@ -43,7 +65,7 @@ class OfflineModeManager(
      */
     val isOfflineActive: StateFlow<Boolean> = combine(
         _offlineModeEnabled,
-        networkMonitor.isOnline,
+        isOnline,
         _userAcceptedOffline,
     ) { enabled, online, accepted ->
         enabled && !online && accepted
@@ -55,7 +77,7 @@ class OfflineModeManager(
      */
     val needsOfflineConfirmation: StateFlow<Boolean> = combine(
         _offlineModeEnabled,
-        networkMonitor.isOnline,
+        isOnline,
         _userAcceptedOffline,
     ) { enabled, online, accepted ->
         enabled && !online && !accepted
@@ -63,6 +85,13 @@ class OfflineModeManager(
 
     val pendingCount: StateFlow<Long> = pendingSyncDao.getPendingCount()
         .stateIn(scope, SharingStarted.Eagerly, 0L)
+
+    /**
+     * Probe the backend right now. Useful for "Retry" buttons on the
+     * offline dialog so the user doesn't have to wait the 15-s polling
+     * cycle after fixing their network.
+     */
+    suspend fun recheckNow(): Boolean = connectivityChecker.checkNow()
 
     init {
         scope.launch {
@@ -72,7 +101,7 @@ class OfflineModeManager(
         }
         // Auto-reset user acceptance when connectivity is restored
         scope.launch {
-            networkMonitor.isOnline.collect { online ->
+            isOnline.collect { online ->
                 if (online) {
                     _userAcceptedOffline.value = false
                 }
