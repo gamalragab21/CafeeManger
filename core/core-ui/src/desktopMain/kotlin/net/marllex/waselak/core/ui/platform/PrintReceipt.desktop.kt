@@ -334,8 +334,8 @@ private class ReceiptPainter(
         y = drawHorizontalLine(g, widthPt, y)
         y += 4
         y = drawCenteredText(g, widthPt, y, model.footerThanks, fontFooter)
-        y += 4
-        // Branding line — small, centered, just below the thanks.
+        // Wide gap so the branding sits at the very bottom of the cut.
+        y += 32
         y = drawCenteredText(g, widthPt, y, model.poweredBy, fontFooter.deriveFont(8f))
         y += 2  // tiny bottom buffer so the cut doesn't clip descenders
 

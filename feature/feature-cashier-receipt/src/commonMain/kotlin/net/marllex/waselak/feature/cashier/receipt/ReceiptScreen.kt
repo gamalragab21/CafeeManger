@@ -136,6 +136,11 @@ fun ReceiptScreen(
     // share URL; dismissing the dialog clears the URL so a later stray
     // tap can't leak the previous receipt.
     var showNfcDialog by remember { mutableStateOf(false) }
+    // How many copies of the receipt to print on the next Print tap.
+    // The cashier picks 1 or 2 via a small selector next to the Print
+    // button — common case is 1 (customer copy), 2 is for delivery
+    // orders where the driver also needs a copy.
+    var printCopies by remember { mutableStateOf(1) }
     val receiptColors = LocalReceiptColors.current
     // Receipt language — comes from the platform-specific persisted
     // language selector (NOT Compose's Locale.current, which is cached
@@ -441,9 +446,9 @@ fun ReceiptScreen(
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
-                                Spacer(Modifier.height(4.dp))
-                                // Branding line — same on every receipt
-                                // surface (screen, print, shared image).
+                                // Big gap before the branding so it sits
+                                // at the very bottom of the receipt card.
+                                Spacer(Modifier.height(32.dp))
                                 Text(
                                     text = "Powered by Waselak Team — مدعوم بواسطة فريق وصلك",
                                     style = MaterialTheme.typography.labelSmall,
@@ -454,7 +459,32 @@ fun ReceiptScreen(
                             }
                         }
 
-                        Spacer(Modifier.height(20.dp))
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── Print copies selector ────────────────────
+                        // Tiny 1/2/3 chip row. Default is 1 (single copy);
+                        // 2 is common for delivery orders so the driver
+                        // gets one. Selection feeds into `firePrint()`.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "عدد النسخ / Copies",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = receiptColors.textSecondary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            listOf(1, 2, 3).forEach { n ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = printCopies == n,
+                                    onClick = { printCopies = n },
+                                    label = { Text("x$n") },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
 
                         // Action Buttons
                         FlowRow(
@@ -475,7 +505,7 @@ fun ReceiptScreen(
                                     language = receiptLang,
                                     jobName = "Receipt-${order.id.takeLast(8)}",
                                     qrCodeUrl = null,
-                                    copies = 1,
+                                    copies = printCopies,
                                 )
                             }
                             OutlinedButton(
@@ -721,7 +751,7 @@ fun ReceiptScreen(
                     language = receiptLang,
                     jobName = "Receipt-${orderForPrint.id.takeLast(8)}",
                     qrCodeUrl = null,
-                    copies = 1,
+                    copies = printCopies,
                 )
             }
         },
