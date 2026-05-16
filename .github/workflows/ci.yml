@@ -567,6 +567,38 @@ jobs:
 
           echo "✅ GitHub Release created: $TAG"
 
+      # ── Notify backend (push-based release publish) ─────────────────────
+      # The backend's GithubReleaseService caches the latest release from
+      # the GitHub API. We poll daily as a fallback, but the fastest way
+      # for users to see "Update available" after a tag push is for THIS
+      # workflow to call the backend's /release-published endpoint as
+      # soon as the GitHub Release exists. Backend then refreshes its
+      # cache within seconds. Token validation guards against random
+      # internet traffic hitting this endpoint.
+      - name: Notify backend of new release
+        env:
+          BACKEND_PUSH_TOKEN: ${{ secrets.BACKEND_PUSH_TOKEN }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$BACKEND_PUSH_TOKEN" ]; then
+            echo "⚠️ BACKEND_PUSH_TOKEN not set, skipping backend notification"
+            exit 0
+          fi
+          for HOST in "http://187.124.47.222:8080" "http://187.124.47.222:8081"; do
+            echo "→ Notifying $HOST"
+            CODE=$(curl -s -o /tmp/notify.json -w "%{http_code}" -m 15 \
+              -X POST "$HOST/api/v1/app/release-published" \
+              -H "X-Push-Token: $BACKEND_PUSH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"$TAG\",\"version\":\"$VERSION\"}" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "   ✓ $HOST: $(cat /tmp/notify.json)"
+            else
+              echo "   ⚠️ $HOST: HTTP $CODE — $(cat /tmp/notify.json 2>/dev/null | head -c 200)"
+            fi
+          done
+
       # ── Send to Telegram ────────────────────────────────────────────────
       - name: Send files to Telegram
         env:

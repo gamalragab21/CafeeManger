@@ -45,7 +45,12 @@ fun Application.configureHmacVerification() {
             path.startsWith("/api/v1/upload") ||
             path.startsWith("/api/v1/logs/upload") ||
             path.startsWith("/uploads/") ||
-            path.startsWith("/crm/")
+            path.startsWith("/crm/") ||
+            // GitHub Action → backend webhook. Auth is via X-Push-Token
+            // (compared in the route handler against BACKEND_PUSH_TOKEN);
+            // the Action would otherwise have to compute an HMAC signature
+            // matching the app-side scheme, which is fragile in YAML.
+            path == "/api/v1/app/release-published"
         ) {
             return@intercept
         }

@@ -11,13 +11,23 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.marllex.waselak.backend.data.database.AppReleasesTable
 import net.marllex.waselak.backend.data.database.AppSettingsTable
+import net.marllex.waselak.backend.domain.service.GithubReleaseService
 import net.marllex.waselak.backend.plugins.routeTrace
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.java.KoinJavaComponent
 import java.util.UUID
 
 private val ADMIN_PASSWORD = System.getenv("ADMIN_PASSWORD") ?: "admin123"
+
+/**
+ * Short-lived shared secret the GitHub Action sends in its X-Push-Token
+ * header when calling /release-published. Loaded once at startup —
+ * setting the env var requires a backend restart (which is fine because
+ * rotating this token is a security-event-only activity).
+ */
+private val BACKEND_PUSH_TOKEN: String? = System.getenv("BACKEND_PUSH_TOKEN")
 
 private suspend fun RoutingContext.requireAdmin(): Boolean {
     val password = call.request.header("X-Admin-Password")
@@ -134,9 +144,170 @@ private fun buildDownloadInfo(
     return downloadUrl to fileName
 }
 
+/**
+ * Map a (app, platform) request to the expected release asset filename
+ * produced by ci.yml. Naming convention (matches existing pipeline):
+ *
+ *     {app}-v{version}-{DDMMYY}-release-{platform}.{ext}
+ *
+ * Examples:
+ *     cashier-v1.11.0-160526-release-android.apk
+ *     manager-v1.11.0-160526-release-macos.dmg
+ *
+ * Returns null when platform → ext mapping is unknown.
+ */
+private fun expectedAssetFilename(
+    appName: String,
+    platform: String,
+    versionName: String,
+    ddmmyy: String,
+): String? {
+    val plat = when (platform.lowercase()) {
+        "desktop" -> "windows"
+        else -> platform.lowercase()
+    }
+    val ext = when (plat) {
+        "android" -> "apk"
+        "windows" -> "msi"
+        "macos", "mac" -> "dmg"
+        "linux" -> "deb"
+        "ios" -> "ipa"
+        else -> return null
+    }
+    return "$appName-v$versionName-$ddmmyy-release-$plat.$ext"
+}
+
+/**
+ * Build the JSON response served from a GitHub-backed snapshot.
+ * Picks the right asset by filename match; if the asset doesn't exist
+ * (e.g. iOS isn't published) we still return `has_update` so the app
+ * can prompt — just without a working download URL.
+ */
+private fun buildGithubResponse(
+    release: net.marllex.waselak.backend.domain.service.GithubReleaseService.ReleaseSnapshot,
+    appName: String,
+    platform: String,
+    currentVersion: String,
+    currentVersionCode: Int,
+): CheckUpdateResponse {
+    // Settings (social links etc.) still come from the DB — they're
+    // independent of the release source.
+    val social = transaction {
+        val s = AppSettingsTable.selectAll().firstOrNull()
+        listOf(
+            s?.get(AppSettingsTable.facebookUrl),
+            s?.get(AppSettingsTable.landingPageUrl),
+            s?.get(AppSettingsTable.instagramUrl),
+            s?.get(AppSettingsTable.whatsappNumber),
+        )
+    }
+    val (fbUrl, lpUrl, igUrl, waNum) = listOf(social[0], social[1], social[2], social[3])
+
+    val hasUpdate = release.versionCode > currentVersionCode
+    if (!hasUpdate) {
+        return CheckUpdateResponse(
+            has_update = false,
+            latest_version = release.versionName,
+            latest_version_code = release.versionCode,
+            current_version = currentVersion,
+            current_version_code = currentVersionCode,
+            update_status = "UP_TO_DATE",
+            facebook_url = fbUrl,
+            landing_page_url = lpUrl,
+            instagram_url = igUrl,
+            whatsapp_number = waNum,
+        )
+    }
+
+    // Find the asset whose name matches our (app, platform) tuple. The
+    // CI bakes the build date (DDMMYY) into every filename; we search
+    // every asset rather than predict the date because the release
+    // commit might span midnight UTC.
+    val plat = when (platform.lowercase()) {
+        "desktop" -> "windows"
+        else -> platform.lowercase()
+    }
+    val ext = when (plat) {
+        "android" -> "apk"
+        "windows" -> "msi"
+        "macos", "mac" -> "dmg"
+        "linux" -> "deb"
+        "ios" -> "ipa"
+        else -> "apk"
+    }
+    val asset = release.assets.firstOrNull { a ->
+        // Format: {app}-v{version}-{DDMMYY}-release-{plat}.{ext}
+        a.name.startsWith("$appName-v${release.versionName}-")
+            && a.name.endsWith("-release-$plat.$ext")
+    }
+
+    return CheckUpdateResponse(
+        has_update = true,
+        latest_version = release.versionName,
+        latest_version_code = release.versionCode,
+        current_version = currentVersion,
+        current_version_code = currentVersionCode,
+        update_status = "OPTIONAL",
+        release_notes = release.releaseNotes,
+        release_notes_ar = release.releaseNotesAr,
+        download_url = asset?.let { "api/v1/app/download?filename=${it.name}&version=${release.versionName}" },
+        download_filename = asset?.name,
+        released_at = release.publishedAt,
+        facebook_url = fbUrl,
+        landing_page_url = lpUrl,
+        instagram_url = igUrl,
+        whatsapp_number = waNum,
+    )
+}
+
 // ─── Routes ─────────────────────────────────────────────────────
 
+/**
+ * No-auth routes that the GitHub Action calls (X-Push-Token is the
+ * auth mechanism). Registered OUTSIDE the JWT auth block in
+ * Routing.kt so CI can hit them without minting a user JWT.
+ */
+fun Route.appUpdatePublicRoutes() {
+    val github by KoinJavaComponent.inject<GithubReleaseService>(GithubReleaseService::class.java)
+
+    post("/api/v1/app/release-published") {
+        val token = call.request.header("X-Push-Token")
+        if (BACKEND_PUSH_TOKEN.isNullOrBlank()) {
+            call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "BACKEND_PUSH_TOKEN not configured"))
+            return@post
+        }
+        if (token != BACKEND_PUSH_TOKEN) {
+            call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid push token"))
+            return@post
+        }
+        val snapshot = github.refresh()
+        if (snapshot != null) {
+            call.respond(
+                HttpStatusCode.OK,
+                ReleasePublishedResponse(
+                    ok = true,
+                    tag = snapshot.tagName,
+                    version_code = snapshot.versionCode,
+                    assets = snapshot.assets.size,
+                ),
+            )
+        } else {
+            call.respond(HttpStatusCode.BadGateway, mapOf("error" to "Failed to fetch release from GitHub"))
+        }
+    }
+}
+
+@Serializable
+private data class ReleasePublishedResponse(
+    val ok: Boolean,
+    val tag: String,
+    val version_code: Int,
+    val assets: Int,
+)
+
 fun Route.appUpdateRoutes() {
+    val github by KoinJavaComponent.inject<GithubReleaseService>(GithubReleaseService::class.java)
+
     // ── Public endpoint: check for updates (no auth required) ─────
     route("/api/v1/app") {
         get("/check-update") {
@@ -148,8 +319,35 @@ fun Route.appUpdateRoutes() {
             val currentVersionCode = call.parameters["version_code"]?.toIntOrNull() ?: 1
             val platform = call.parameters["platform"] ?: "android"
 
+            // ── GitHub-backed PRIMARY path ─────────────────────────
+            // Source of truth is GitHub Releases. If our cache has a
+            // snapshot (push from CI, daily poll, or inline pull below
+            // populated it) we serve from there. Falls through to the
+            // legacy AppReleasesTable path only when GitHub is unreachable
+            // (e.g. PAT expired, GitHub outage, brand-new VPS without a
+            // refresh yet).
+            val githubRelease = try {
+                github.latestRelease()
+            } catch (e: Throwable) {
+                null
+            }
+            if (githubRelease != null) {
+                val ghResponse = buildGithubResponse(
+                    release = githubRelease,
+                    appName = appName,
+                    platform = platform,
+                    currentVersion = currentVersion,
+                    currentVersionCode = currentVersionCode,
+                )
+                trace.step("Update check completed (github)", mapOf(
+                    "hasUpdate" to ghResponse.has_update.toString(),
+                    "tag" to githubRelease.tagName,
+                ))
+                call.respond(HttpStatusCode.OK, ghResponse)
+                return@get
+            }
 
-
+            // ── Legacy DB-backed FALLBACK path ─────────────────────
             val response = transaction {
                 // Load global social links
                 val settings = AppSettingsTable.selectAll().firstOrNull()
@@ -229,7 +427,13 @@ fun Route.appUpdateRoutes() {
             call.respond(HttpStatusCode.OK, response)
         }
 
-        // ── Download proxy: fetches file from Dropbox and streams to client ──
+        // ── Download proxy ─────────────────────────────────────────
+        // First tries to match the requested filename against the
+        // GitHub release cache (private-repo asset streamed through us
+        // with the PAT). If nothing matches we fall back to the
+        // legacy Dropbox path so the existing installed-cashiers
+        // (which already point at this route) don't break during the
+        // GitHub-source rollout.
         get("/download") {
             val trace = call.routeTrace()
             trace.step("Download proxy started")
@@ -237,9 +441,46 @@ fun Route.appUpdateRoutes() {
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "filename parameter required"))
             val version = call.parameters["version"] ?: ""
 
+            // ── GitHub-source PRIMARY path ─────────────────────────
+            try {
+                val release = github.latestRelease()
+                val matching = release?.assets?.firstOrNull { it.name == filename }
+                if (matching != null) {
+                    trace.step("Streaming from GitHub", mapOf("asset" to filename))
+                    val asset = github.downloadAsset(matching.apiUrl)
+                    if (asset != null) {
+                        val ext = filename.substringAfterLast('.', "bin")
+                        val contentType = when (ext) {
+                            "apk" -> "application/vnd.android.package-archive"
+                            "msi" -> "application/x-msi"
+                            "dmg" -> "application/x-apple-diskimage"
+                            "deb" -> "application/vnd.debian.binary-package"
+                            "ipa" -> "application/octet-stream"
+                            else -> asset.contentType
+                        }
+                        call.response.header("Content-Disposition", "attachment; filename=\"$filename\"")
+                        call.response.header("Content-Length", asset.bytes.size.toString())
+                        call.respondBytes(
+                            bytes = asset.bytes,
+                            contentType = io.ktor.http.ContentType.parse(contentType),
+                            status = HttpStatusCode.OK,
+                        )
+                        trace.step("GitHub download completed", mapOf(
+                            "filename" to filename,
+                            "size" to asset.bytes.size.toString(),
+                        ))
+                        return@get
+                    }
+                }
+            } catch (e: Throwable) {
+                // Fall through to Dropbox.
+                trace.step("GitHub path failed, falling back", mapOf("error" to (e.message ?: "")))
+            }
+
+            // ── Legacy Dropbox FALLBACK path ───────────────────────
             if (DROPBOX_ACCESS_TOKEN.isBlank()) {
-                return@get call.respond(HttpStatusCode.InternalServerError,
-                    mapOf("error" to "Dropbox credentials not configured"))
+                return@get call.respond(HttpStatusCode.NotFound,
+                    mapOf("error" to "Asset not found on GitHub and Dropbox is not configured"))
             }
 
             try {

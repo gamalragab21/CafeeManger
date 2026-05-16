@@ -26,4 +26,14 @@ val appModule = module {
     single { AnalyticsQueryService() }
     single { net.marllex.waselak.backend.domain.service.ExportService(get()) }
     single { NotificationService() }
+    // App update / release pipeline. Reads GITHUB_REPO + GITHUB_PAT
+    // from env so the backend can fetch release metadata + asset
+    // streams from the private GitHub repo. Token is optional — if
+    // unset, public-repo unauthenticated rate limits apply.
+    single(createdAtStart = true) {
+        GithubReleaseService(
+            repo = System.getenv("GITHUB_REPO") ?: "gamalragab21/waselak",
+            token = System.getenv("GITHUB_PAT"),
+        )
+    }
 }

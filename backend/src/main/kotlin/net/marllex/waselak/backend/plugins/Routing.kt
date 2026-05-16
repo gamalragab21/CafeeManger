@@ -46,6 +46,12 @@ fun Application.configureRouting() {
         // CRM Sales Dashboard
         crmRoutes()
 
+        // Public app-update push endpoint (CI Action → /release-published).
+        // Auth is via X-Push-Token header validated inside the handler.
+        // Must live OUTSIDE the JWT block because GitHub Actions can't
+        // mint a user JWT easily.
+        appUpdatePublicRoutes()
+
         // Protected routes
         authenticate("auth-jwt") {
             // Global interceptor: block ALL API calls if vendor is suspended
