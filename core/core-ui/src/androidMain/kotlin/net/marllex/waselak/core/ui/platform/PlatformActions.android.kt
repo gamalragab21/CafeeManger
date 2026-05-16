@@ -226,6 +226,96 @@ actual class PlatformActions(private val context: Context) {
         net.marllex.waselak.core.ui.nfc.NfcReceiptHceService.currentReceiptUrl.set(null)
     }
 
+    actual suspend fun downloadAppUpdate(
+        url: String,
+        filename: String,
+        onProgress: (Float) -> Unit,
+    ): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            // App-private external dir — no storage permission required
+            // on any Android version, and visible to FileProvider via
+            // <external-files-path> in file_paths.xml.
+            val updatesDir = File(
+                context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "updates",
+            )
+            if (!updatesDir.exists() && !updatesDir.mkdirs()) {
+                android.util.Log.w("PlatformActions", "Failed to create updates dir")
+                return@withContext null
+            }
+            val outFile = File(updatesDir, filename)
+            val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 60_000
+                instanceFollowRedirects = true
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                android.util.Log.w("PlatformActions", "Update download HTTP $code")
+                return@withContext null
+            }
+            val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
+            var read = 0L
+            FileOutputStream(outFile).use { out ->
+                conn.inputStream.use { input ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n <= 0) break
+                        out.write(buffer, 0, n)
+                        read += n
+                        if (total > 0) onProgress((read.toFloat() / total.toFloat()).coerceIn(0f, 1f))
+                    }
+                }
+            }
+            onProgress(1f)
+            android.util.Log.i("PlatformActions", "Update downloaded: ${outFile.absolutePath} ($read bytes)")
+            outFile.absolutePath
+        } catch (e: Throwable) {
+            android.util.Log.w("PlatformActions", "Update download failed: ${e.message}")
+            null
+        }
+    }
+
+    actual fun installAppUpdate(filePath: String): Boolean {
+        return try {
+            val file = File(filePath)
+            if (!file.exists()) {
+                android.util.Log.w("PlatformActions", "installAppUpdate: file not found at $filePath")
+                return false
+            }
+            // Android 8+ requires the user to grant "Install unknown
+            // apps" permission once for our app. If we don't have it,
+            // open the system Settings page so they can grant it,
+            // then return false — the user will tap Install again
+            // after granting.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val packageManager = context.packageManager
+                if (!packageManager.canRequestPackageInstalls()) {
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    showToast("Please allow this app to install updates, then tap Install again.")
+                    return false
+                }
+            }
+            val authority = "${context.packageName}.fileprovider"
+            val uri = FileProvider.getUriForFile(context, authority, file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Throwable) {
+            android.util.Log.e("PlatformActions", "installAppUpdate failed: ${e.message}", e)
+            false
+        }
+    }
+
     private fun Context.findActivity(): android.app.Activity? {
         var ctx = this
         while (ctx is android.content.ContextWrapper) {

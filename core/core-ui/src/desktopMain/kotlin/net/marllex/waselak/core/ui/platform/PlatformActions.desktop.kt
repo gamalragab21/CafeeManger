@@ -115,6 +115,61 @@ actual class PlatformActions {
     actual val isNfcAvailable: Boolean = false
     actual fun shareUrlViaNfc(url: String): Boolean = false
     actual fun stopNfcShare() {}
+
+    actual suspend fun downloadAppUpdate(
+        url: String,
+        filename: String,
+        onProgress: (Float) -> Unit,
+    ): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val home = System.getProperty("user.home") ?: return@withContext null
+            val dir = java.io.File(home, "Downloads")
+            if (!dir.exists() && !dir.mkdirs()) return@withContext null
+            val outFile = java.io.File(dir, filename)
+            val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 120_000
+                instanceFollowRedirects = true
+            }
+            if (conn.responseCode !in 200..299) return@withContext null
+            val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
+            var read = 0L
+            java.io.FileOutputStream(outFile).use { out ->
+                conn.inputStream.use { input ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n <= 0) break
+                        out.write(buffer, 0, n)
+                        read += n
+                        if (total > 0) onProgress((read.toFloat() / total.toFloat()).coerceIn(0f, 1f))
+                    }
+                }
+            }
+            onProgress(1f)
+            outFile.absolutePath
+        } catch (e: Throwable) {
+            println("[PlatformActions] downloadAppUpdate failed: ${e.message}")
+            null
+        }
+    }
+
+    actual fun installAppUpdate(filePath: String): Boolean = try {
+        // Hand the installer to the OS-default handler. macOS opens
+        // DMG in Finder (auto-mounts); Windows runs the MSI installer
+        // chain; Linux DEB pops up the system package installer.
+        val os = System.getProperty("os.name").lowercase()
+        val command = when {
+            os.contains("mac") -> arrayOf("open", filePath)
+            os.contains("win") -> arrayOf("cmd", "/c", "start", "", filePath)
+            else -> arrayOf("xdg-open", filePath)
+        }
+        Runtime.getRuntime().exec(command)
+        true
+    } catch (e: Throwable) {
+        println("[PlatformActions] installAppUpdate failed: ${e.message}")
+        false
+    }
 }
 
 @Composable

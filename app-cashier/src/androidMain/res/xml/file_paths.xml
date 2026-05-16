@@ -6,4 +6,12 @@
     <cache-path
         name="cache"
         path="." />
+    <!-- App-update APK downloads. Path resolves to
+         /storage/emulated/0/Android/data/<package>/files/Download/updates/
+         which is app-private external storage — no runtime permission
+         required to write, and FileProvider can serve from it to the
+         system install intent. -->
+    <external-files-path
+        name="updates"
+        path="Download/updates/" />
 </paths>

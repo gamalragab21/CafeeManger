@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- In-app self-update: Android 8+ requires this permission to fire
+         the package-install intent. The user must ALSO grant "Install
+         unknown apps" for this app once via Settings — which we open
+         automatically on first install attempt if missing. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application

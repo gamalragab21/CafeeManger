@@ -1541,6 +1541,44 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
         }
     }
     val tokenManager: net.marllex.waselak.core.auth.TokenManager = koinInject()
+
+    // ── In-app update state ─────────────────────────────────────────
+    // One state holder for the whole cashier app — survives navigation
+    // so a download started from the POS keeps progressing while the
+    // user moves between screens. The check lambda is built once with
+    // captured apiClient + version-info; AppUpdateState handles all
+    // lifecycle from there (silent refresh on app start, download on
+    // user tap, fire-and-forget install intent on completion).
+    val platformActions = net.marllex.waselak.core.ui.platform.rememberPlatformActions()
+    val baseUrl = net.marllex.waselak.config.BuildConfig.BASE_URL
+    val appUpdateState = remember {
+        net.marllex.waselak.core.ui.update.AppUpdateState(
+            platformActions = platformActions,
+            appName = "cashier",
+            check = {
+                val resp = apiClient.checkForUpdate(
+                    app = "cashier",
+                    version = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
+                    versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                )
+                net.marllex.waselak.core.ui.update.AppUpdateState.CheckResult(
+                    hasUpdate = resp.hasUpdate,
+                    latestVersion = resp.latestVersion,
+                    latestVersionCode = resp.latestVersionCode,
+                    updateStatus = resp.updateStatus,
+                    releaseNotes = resp.releaseNotes,
+                    releaseNotesAr = resp.releaseNotesAr,
+                    downloadUrl = resp.downloadUrl,
+                    downloadFilename = resp.downloadFilename,
+                    baseUrl = baseUrl,
+                )
+            },
+        )
+    }
+    // Silent check on first composition. Errors are swallowed inside
+    // AppUpdateState — no toast, no banner flash, no log spam.
+    LaunchedEffect(Unit) { appUpdateState.refresh() }
+
     var showShiftSummary by remember { mutableStateOf(false) }
     var shiftSummaryWithSignOut by remember { mutableStateOf(false) }
     var shiftSummaryData by remember { mutableStateOf<net.marllex.waselak.core.ui.components.ShiftSummaryUiModel?>(null) }
@@ -1970,6 +2008,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                                 ),
                             )
                         }
+                        // In-app self-update banner. Sits ABOVE the
+                        // offline/syncing banners so a "Critical update"
+                        // is the first thing the cashier sees if both
+                        // signals fire at the same time.
+                        net.marllex.waselak.core.ui.update.UpdateBanner(appUpdateState)
                         AnimatedVisibility(
                             visible = isOffline,
                             enter = expandVertically(),
@@ -2046,6 +2089,11 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                     },
                 ) { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {
+                        // In-app self-update banner. Sits ABOVE the
+                        // offline/syncing banners so a "Critical update"
+                        // is the first thing the cashier sees if both
+                        // signals fire at the same time.
+                        net.marllex.waselak.core.ui.update.UpdateBanner(appUpdateState)
                         AnimatedVisibility(
                             visible = isOffline,
                             enter = expandVertically(),

@@ -325,6 +325,37 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     val scope = rememberCoroutineScope()
     val biometricAuth = rememberBiometricAuthenticator()
 
+    // ── In-app update state (mirrors cashier nav host) ──────────────
+    // Silent /check-update on first composition; the UpdateBanner
+    // mounted at scaffold root reacts to the resulting state flow.
+    val platformActions = net.marllex.waselak.core.ui.platform.rememberPlatformActions()
+    val updateApi = org.koin.compose.koinInject<net.marllex.waselak.core.network.WaselakApiClient>()
+    val appUpdateState = remember {
+        net.marllex.waselak.core.ui.update.AppUpdateState(
+            platformActions = platformActions,
+            appName = "manager",
+            check = {
+                val resp = updateApi.checkForUpdate(
+                    app = "manager",
+                    version = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
+                )
+                net.marllex.waselak.core.ui.update.AppUpdateState.CheckResult(
+                    hasUpdate = resp.hasUpdate,
+                    latestVersion = resp.latestVersion,
+                    latestVersionCode = resp.latestVersionCode,
+                    updateStatus = resp.updateStatus,
+                    releaseNotes = resp.releaseNotes,
+                    releaseNotesAr = resp.releaseNotesAr,
+                    downloadUrl = resp.downloadUrl,
+                    downloadFilename = resp.downloadFilename,
+                    baseUrl = BuildConfig.BASE_URL,
+                )
+            },
+        )
+    }
+    LaunchedEffect(Unit) { appUpdateState.refresh() }
+
     // Force-navigate to login if session is invalidated (e.g. logged in on another device)
     val isLoggedIn by authRepository.isLoggedIn.collectAsState(initial = true)
     LaunchedEffect(Unit) {
@@ -400,13 +431,19 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                         thickness = 0.5.dp,
                     )
                 }
-                NavHost(
-                    navController = navController,
-                    startDestination = AUTH_ROUTE,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
+                // Update banner sits above the NavHost so it's visible
+                // on every manager screen without each one having to
+                // opt in. Wrapped in a Column so the banner only takes
+                // its intrinsic height — NavHost still fills the rest.
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) {
+                    net.marllex.waselak.core.ui.update.UpdateBanner(appUpdateState)
+                    NavHost(
+                        navController = navController,
+                        startDestination = AUTH_ROUTE,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    ) {
                     authScreen(
                         onLoginSuccess = {
                             navController.navigate(ManagerTab.DASHBOARD.route) {
@@ -474,7 +511,8 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     receiptScreen(
                         onBack = { navController.navigateUp() },
                     )
-                }
+                    }   // close NavHost lambda
+                }       // close Column { UpdateBanner + NavHost }
             }
         } else {
             // Phone: Bottom NavigationBar
@@ -483,11 +521,13 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     if (showNav) ManagerBottomBar(navController, currentDestination, visibleTabs, vendor?.businessType ?: "RESTAURANT")
                 }
             ) { innerPadding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = AUTH_ROUTE,
-                    modifier = Modifier.padding(innerPadding)
-                ) {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.padding(innerPadding)) {
+                    net.marllex.waselak.core.ui.update.UpdateBanner(appUpdateState)
+                    NavHost(
+                        navController = navController,
+                        startDestination = AUTH_ROUTE,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    ) {
                     authScreen(
                         onLoginSuccess = {
                             navController.navigate(ManagerTab.DASHBOARD.route) {
@@ -555,7 +595,8 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     receiptScreen(
                         onBack = { navController.navigateUp() },
                     )
-                }
+                    }   // close NavHost lambda
+                }       // close Column { UpdateBanner + NavHost }
             }
         }
     }

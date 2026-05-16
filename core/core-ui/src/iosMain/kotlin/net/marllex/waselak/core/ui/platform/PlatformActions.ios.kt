@@ -148,6 +148,17 @@ actual class PlatformActions {
     actual val isNfcAvailable: Boolean = false
     actual fun shareUrlViaNfc(url: String): Boolean = false
     actual fun stopNfcShare() {}
+
+    // iOS has no in-app update path — App Store handles everything.
+    // The banner UI calls these no-ops, then falls back to opening
+    // the App Store URL via `openUrl` (which the caller already does).
+    actual suspend fun downloadAppUpdate(
+        url: String,
+        filename: String,
+        onProgress: (Float) -> Unit,
+    ): String? = null
+
+    actual fun installAppUpdate(filePath: String): Boolean = false
 }
 
 @Composable
