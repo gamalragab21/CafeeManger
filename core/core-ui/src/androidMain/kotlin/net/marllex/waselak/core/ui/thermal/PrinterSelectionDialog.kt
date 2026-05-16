@@ -113,12 +113,24 @@ fun PrinterSelectionDialog(
     var selectedAddress by remember { mutableStateOf<String?>(manager.getSavedPrinter()?.address) }
 
     // Trigger an initial scan once we have permission.
+    //
+    // Before scanning, we kick off any pending USB-permission requests.
+    // The OS shows its own "Allow Waselak Cashier to access this USB
+    // device?" dialog; once the user taps Allow, a quick rescan picks
+    // the device up. If no USB devices are plugged in (or all of them
+    // are already permissioned), this is a no-op.
     LaunchedEffect(hasBluetoothPermission) {
         if (!hasBluetoothPermission) {
             if (requiredBluetoothPerms.isNotEmpty()) {
                 btPermissionLauncher.launch(requiredBluetoothPerms)
             }
             return@LaunchedEffect
+        }
+        val requested = manager.requestUsbPermissions()
+        if (requested > 0) {
+            // Give the OS dialog a moment to surface + the user a
+            // moment to tap Allow before we run the discovery sweep.
+            kotlinx.coroutines.delay(1500)
         }
         isScanning = true
         devices = withContext(Dispatchers.IO) { manager.discoverPrinters() }
@@ -159,6 +171,11 @@ fun PrinterSelectionDialog(
                     IconButton(
                         onClick = {
                             scope.launch {
+                                // Re-request USB perms on rescan too —
+                                // catches printers the user plugged in
+                                // AFTER the dialog opened.
+                                val requested = manager.requestUsbPermissions()
+                                if (requested > 0) kotlinx.coroutines.delay(1500)
                                 isScanning = true
                                 devices = withContext(Dispatchers.IO) { manager.discoverPrinters() }
                                 isScanning = false

@@ -1,13 +1,8 @@
 package net.marllex.waselak.core.ui.platform
 
-import android.content.ContentValues
 import android.content.Context
-import android.graphics.Bitmap
-import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -121,14 +116,6 @@ actual class ReceiptPrinter(private val context: Context) {
                     logo = logoBitmap,
                     isRtl = model.isArabic,
                 ).render(model)
-                // ── DEBUG: save the rendered bitmap to the gallery so
-                // we can preview what would print without an actual
-                // printer attached. Lands in Pictures/Waselak Receipts/
-                // visible in the device's Gallery / Photos app.
-                // Remove this block (and saveReceiptBitmap below) once
-                // printer-side testing is done.
-                saveReceiptBitmap(bitmap, order.id)
-
                 val rasterBody = bitmap.toEscPosRasterBytes()
                 val init = byteArrayOf(0x1B, 0x40)                                  // ESC @
                 // GS ( E pL pH fn [a] n — function 5: set print density.
@@ -204,58 +191,6 @@ actual class ReceiptPrinter(private val context: Context) {
     private fun showError(message: String) {
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        }
-    }
-
-    /**
-     * DEBUG-only: dump the rendered receipt bitmap to the device's
-     * gallery (Pictures/Waselak Receipts) so we can preview what would
-     * print without a physical printer attached.
-     *
-     * Uses MediaStore so the file shows up in the Gallery / Photos
-     * app immediately, with no runtime permission required on
-     * Android 10+ (API 29+).
-     *
-     * Caller is the print Thread, so all I/O happens off the main
-     * thread already. A toast on the main thread reports the result.
-     *
-     * To remove this feature: delete this function plus the
-     * `saveReceiptBitmap(bitmap, order.id)` call inside `printOrder`.
-     */
-    private fun saveReceiptBitmap(bitmap: Bitmap, orderId: String) {
-        try {
-            val filename = "waselak-receipt-${orderId.takeLast(8)}-${System.currentTimeMillis()}.png"
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(
-                        MediaStore.Images.Media.RELATIVE_PATH,
-                        Environment.DIRECTORY_PICTURES + "/Waselak Receipts",
-                    )
-                }
-            }
-            val uri = context.contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                values,
-            )
-            if (uri == null) {
-                Log.w(TAG, "saveReceiptBitmap: insert returned null")
-                return
-            }
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            Log.i(TAG, "saveReceiptBitmap: saved $filename to Pictures/Waselak Receipts ($uri)")
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(
-                    context,
-                    "تم حفظ صورة الإيصال في المعرض\nReceipt image saved to gallery",
-                    Toast.LENGTH_LONG,
-                ).show()
-            }
-        } catch (e: Throwable) {
-            Log.w(TAG, "saveReceiptBitmap failed: ${e.message}")
         }
     }
 

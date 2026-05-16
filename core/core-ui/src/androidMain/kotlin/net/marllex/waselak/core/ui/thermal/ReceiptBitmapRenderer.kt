@@ -365,7 +365,17 @@ class ReceiptBitmapRenderer(
  */
 fun Bitmap.toEscPosRasterBytes(threshold: Int = 128): ByteArray {
     val widthBytes = (width + 7) / 8
-    val out = java.io.ByteArrayOutputStream()
+    val totalBytes = 8 /* header */ * ((height + BAND_HEIGHT - 1) / BAND_HEIGHT) + widthBytes * height
+    val out = java.io.ByteArrayOutputStream(totalBytes)
+
+    // Performance: read ALL pixels into a single IntArray up front.
+    // The old implementation called Bitmap.getPixel(x, y) once per pixel
+    // — that's a JNI hop per call, ~460k JNI hops for a typical 576×800
+    // receipt, costing ~2 s on a low-end device. getPixels() does it
+    // in one bulk JNI hop into a Java int[] we then iterate locally
+    // (~10× faster).
+    val pixels = IntArray(width * height)
+    getPixels(pixels, 0, width, 0, 0, width, height)
 
     var rowsRemaining = height
     var rowStart = 0
@@ -378,13 +388,20 @@ fun Bitmap.toEscPosRasterBytes(threshold: Int = 128): ByteArray {
         out.write(byteArrayOf(0x1D, 0x76, 0x30, 0x00, xL.toByte(), xH.toByte(), yL.toByte(), yH.toByte()))
 
         for (row in rowStart until rowStart + bandHeight) {
+            val rowOffset = row * width
             for (byteCol in 0 until widthBytes) {
                 var b = 0
+                val baseCol = byteCol * 8
                 for (bit in 0 until 8) {
-                    val col = byteCol * 8 + bit
+                    val col = baseCol + bit
                     if (col < width) {
-                        val pixel = getPixel(col, row)
-                        val gray = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
+                        // Inline ARGB→grayscale: faster than Color.red/green/blue
+                        // calls which each unpack and shift the same int.
+                        val argb = pixels[rowOffset + col]
+                        val r = (argb shr 16) and 0xFF
+                        val g = (argb shr 8) and 0xFF
+                        val bl = argb and 0xFF
+                        val gray = (r + g + bl) / 3
                         if (gray < threshold) {
                             b = b or (1 shl (7 - bit))
                         }

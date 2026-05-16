@@ -1,7 +1,12 @@
 package net.marllex.waselak.core.ui.thermal
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.util.Log
 import com.dantsu.escposprinter.connection.DeviceConnection
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection
@@ -154,6 +159,70 @@ class ThermalPrinterManager(private val context: Context) {
         }
     }
 
+    /**
+     * Request runtime USB permission for every plugged-in USB device
+     * that looks like a printer (USB Class 7 — `USB_CLASS_PRINTER`).
+     * Without this the Dantsu `UsbPrintersConnections.list` returns an
+     * empty list because the OS hides devices the app isn't authorised
+     * to touch — and the merchant has no way to grant permission from
+     * the picker dialog.
+     *
+     * After the user taps "Allow" on the system dialog, Android keeps
+     * the grant persistent (with the "Always" checkbox) for the
+     * lifetime of the device+app combination. The picker dialog
+     * subsequently re-runs `discoverPrinters()` and the device shows
+     * up.
+     *
+     * Returns the count of USB devices that newly received a grant
+     * request — so the picker UI can prompt the user to wait a moment
+     * for the OS dialog.
+     */
+    fun requestUsbPermissions(): Int {
+        val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
+            ?: return 0
+        val devices = usbManager.deviceList.values
+        if (devices.isEmpty()) return 0
+
+        var requested = 0
+        // Action name doesn't really matter — we never listen for the
+        // response, we just need an Intent to attach to the
+        // PendingIntent. The OS shows its own permission dialog on top.
+        val action = "${context.packageName}.USB_PERMISSION"
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(action), flags)
+
+        for (device in devices) {
+            if (!isLikelyPrinter(device)) continue
+            if (usbManager.hasPermission(device)) continue
+            try {
+                usbManager.requestPermission(device, pendingIntent)
+                requested++
+                Log.i(TAG, "USB: requested permission for ${device.deviceName} (vendorId=${device.vendorId})")
+            } catch (e: Throwable) {
+                Log.w(TAG, "USB requestPermission failed for ${device.deviceName}: ${e.message}")
+            }
+        }
+        return requested
+    }
+
+    /**
+     * Heuristic: every USB-class-7 device is a printer (per the USB
+     * spec). Some cheap thermal printers report class 0xFF
+     * (vendor-specific) instead; check any interface for class 7 as a
+     * fallback so they still get permission requested.
+     */
+    private fun isLikelyPrinter(device: UsbDevice): Boolean {
+        if (device.deviceClass == UsbConstants.USB_CLASS_PRINTER) return true
+        for (i in 0 until device.interfaceCount) {
+            if (device.getInterface(i).interfaceClass == UsbConstants.USB_CLASS_PRINTER) return true
+        }
+        return false
+    }
+
     companion object {
         private const val TAG = "ThermalPrinterMgr"
         private const val PREFS_NAME = "waselak_printer"
@@ -163,6 +232,12 @@ class ThermalPrinterManager(private val context: Context) {
         private const val KEY_WIDTH_MM = "width_mm"
         const val DEFAULT_PAPER_WIDTH_MM = 80
     }
+}
+
+// Imported here rather than at the top so the constant resolves under
+// the same `android.hardware.usb` namespace as the rest of the USB API.
+private object UsbConstants {
+    const val USB_CLASS_PRINTER = android.hardware.usb.UsbConstants.USB_CLASS_PRINTER
 }
 
 /**
