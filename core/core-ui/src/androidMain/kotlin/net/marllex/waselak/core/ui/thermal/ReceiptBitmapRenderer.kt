@@ -203,7 +203,10 @@ class ReceiptBitmapRenderer(
             // Item name flows on its own line, naturally aligned to
             // the leading edge of the paper for the current language.
             out += TextElement(item.name, pBodyBold, natural)
-            out += RowElement("  × ${item.qty}", item.price, pBody)
+            // Math row: "qty × unitPrice" flush-left, line total
+            // flush-right. Customer can verify the multiplication at a
+            // glance without the column getting too wide for 80 mm.
+            out += RowElement("  ${item.qty} × ${item.unitPrice}", item.lineTotal, pBody)
         }
         out += TextElement(thinDivider, pBody, center)
 

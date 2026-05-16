@@ -365,16 +365,15 @@ fun buildReceiptHtml(
         // Part 3 — Items table (compact 3-column rows)
         // ────────────────────────────────────────────────────────────
         append("<div class='part-items'>")
-        append("<div class='items-header'>")
-        append("<span class='col-name'>${tItem.htmlEscape()}</span>")
-        append("<span class='col-qty'>${tQty.htmlEscape()}</span>")
-        append("<span class='col-price'>${tPrice.htmlEscape()}</span>")
-        append("</div>")
+        // Header line dropped — math row beneath each item is
+        // self-explanatory and matches the printed receipt layout.
         for (item in model.items) {
-            append("<div class='item-row'>")
-            append("<span class='col-name'>${item.name.htmlEscape()}</span>")
-            append("<span class='col-qty'>${item.qty.htmlEscape()}</span>")
-            append("<span class='col-price'>${item.price.htmlEscape()}</span>")
+            append("<div class='item-row' style='display:block;margin-bottom:6px'>")
+            append("<div class='item-name' style='font-weight:600'>${item.name.htmlEscape()}</div>")
+            append("<div class='item-math' style='display:flex;justify-content:space-between;font-size:0.95em'>")
+            append("<span style='opacity:0.75'>&nbsp;&nbsp;${item.qty.htmlEscape()} × ${item.unitPrice.htmlEscape()}</span>")
+            append("<span>${item.lineTotal.htmlEscape()}</span>")
+            append("</div>")
             append("</div>")
         }
         append("</div>")

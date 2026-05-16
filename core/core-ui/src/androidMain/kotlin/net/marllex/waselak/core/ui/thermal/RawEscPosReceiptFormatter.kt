@@ -117,7 +117,7 @@ fun ReceiptModel.toRawEscPosBytes(charsPerLine: Int): ByteArray {
         raw(EscPosCmd.BOLD_ON)
         line(item.name)
         raw(EscPosCmd.BOLD_OFF)
-        row("  x ${item.qty}", item.price)
+        row("  ${item.qty} x ${item.unitPrice}", item.lineTotal)
     }
     raw(EscPosCmd.ALIGN_CENTER)
     line("-".repeat(charsPerLine))

@@ -59,7 +59,7 @@ fun ReceiptModel.toEscPosMarkup(): String = buildString {
     appendLine("[C]================================")
     for (item in items) {
         appendLine("[L]<b>${escape(item.name)}</b>")
-        appendLine("[L]  x ${escape(item.qty)}[R]${escape(item.price)}")
+        appendLine("[L]  ${escape(item.qty)} x ${escape(item.unitPrice)}[R]${escape(item.lineTotal)}")
     }
     appendLine("[C]--------------------------------")
 

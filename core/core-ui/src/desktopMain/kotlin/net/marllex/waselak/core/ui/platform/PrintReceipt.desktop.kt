@@ -647,43 +647,49 @@ private class ReceiptPainter(
         y0: Double,
         item: ReceiptModel.ItemRow,
     ): Double {
-        g.font = fontItemName
-        val nameFm = g.fontMetrics
+        // Two-line layout matching the bitmap renderer:
+        //   1. Bold item name (full width, wraps if needed)
+        //   2. Math sub-row: "  qty × unitPrice" on the leading edge,
+        //      lineTotal on the trailing edge, both in the smaller
+        //      non-bold font.
+        // RTL mode swaps leading/trailing edges so Arabic readers see
+        // the math row mirrored.
         g.font = fontItemBold
         val boldFm = g.fontMetrics
+        g.font = fontItemName
+        val nameFm = g.fontMetrics
 
-        val nameAreaWidth = widthPt * 0.55
-        val qtyCol = widthPt * 0.6
-        val priceCol = widthPt * 0.78
-        val qtyW = boldFm.stringWidth(item.qty)
-        val priceW = boldFm.stringWidth(item.price)
-
-        // Wrap item name within the name area.
-        val nameLines = wrapText(item.name, nameFm, nameAreaWidth)
+        // ── Line 1: bold name (wraps to multiple lines if too long) ──
+        val nameLines = wrapText(item.name, boldFm, widthPt - 8)
         var y = y0
-        nameLines.forEachIndexed { i, line ->
-            g.font = fontItemName
-            val baseline = y + nameFm.ascent
+        g.font = fontItemBold
+        nameLines.forEach { line ->
+            val baseline = y + boldFm.ascent
             if (model.isArabic) {
-                val w = nameFm.stringWidth(line)
+                val w = boldFm.stringWidth(line)
                 g.drawString(line, (widthPt - 4 - w).toFloat(), baseline.toFloat())
             } else {
                 g.drawString(line, 4f, baseline.toFloat())
             }
-            // Only draw qty + price on the first line.
-            if (i == 0) {
-                g.font = fontItemBold
-                val boldBaseline = y + boldFm.ascent
-                if (model.isArabic) {
-                    g.drawString(item.qty, (widthPt - qtyCol - qtyW / 2).toFloat(), boldBaseline.toFloat())
-                    g.drawString(item.price, 4f, boldBaseline.toFloat())
-                } else {
-                    g.drawString(item.qty, (qtyCol - qtyW / 2).toFloat(), boldBaseline.toFloat())
-                    g.drawString(item.price, (widthPt - 4 - priceW).toFloat(), boldBaseline.toFloat())
-                }
-            }
-            y += nameFm.height
+            y += boldFm.height
         }
+
+        // ── Line 2: math row "qty × unit ............ lineTotal" ──
+        g.font = fontItemName
+        val mathBaseline = y + nameFm.ascent
+        val mathLeft = "  ${item.qty} × ${item.unitPrice}"
+        val mathRight = item.lineTotal
+        val rightW = nameFm.stringWidth(mathRight)
+        if (model.isArabic) {
+            // Mirror: math text on the right, total on the left.
+            val leftW = nameFm.stringWidth(mathLeft)
+            g.drawString(mathLeft, (widthPt - 4 - leftW).toFloat(), mathBaseline.toFloat())
+            g.drawString(mathRight, 4f, mathBaseline.toFloat())
+        } else {
+            g.drawString(mathLeft, 4f, mathBaseline.toFloat())
+            g.drawString(mathRight, (widthPt - 4 - rightW).toFloat(), mathBaseline.toFloat())
+        }
+        y += nameFm.height
         return y + 1
     }
 

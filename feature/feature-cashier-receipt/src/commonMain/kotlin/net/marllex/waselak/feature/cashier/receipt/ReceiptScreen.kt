@@ -302,32 +302,44 @@ fun ReceiptScreen(
                                 DashedDivider(color = receiptColors.divider)
                                 Spacer(Modifier.height(16.dp))
 
-                                // Items table header
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(itemLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, modifier = Modifier.weight(1f))
-                                    Text(qtyLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                    Text(priceLabel, style = MaterialTheme.typography.labelMedium, color = receiptColors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                HorizontalDivider(color = receiptColors.divider, thickness = 0.5.dp)
-                                Spacer(Modifier.height(8.dp))
-
+                                // Items section — name on its own bold line,
+                                // then a math sub-row "qty × unitPrice ..... lineTotal".
+                                // No column header — the math is self-
+                                // explanatory and mirrors the printed receipt
+                                // for consistency.
                                 order.items.forEach { item ->
-                                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                                        Text(
+                                            text = item.itemNameSnapshot,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = receiptColors.textPrimary,
+                                        )
+                                        net.marllex.waselak.core.ui.util.VariantDisplayHelper
+                                            .formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
+                                                Text(
+                                                    text = summary,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = receiptColors.textSecondary,
+                                                )
+                                            }
+                                        Spacer(Modifier.height(2.dp))
                                         Row(
                                             Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            Text(item.itemNameSnapshot, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, modifier = Modifier.weight(1f))
-                                            Text("${item.quantity}", style = MaterialTheme.typography.bodyMedium, color = receiptColors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                            Text(formatAmount(item.itemPriceSnapshot * item.quantity, currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = receiptColors.textPrimary, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
-                                        }
-                                        net.marllex.waselak.core.ui.util.VariantDisplayHelper.formatVariantSummary(item.variantOptionsSnapshot)?.let { summary ->
-                                            Text(text = summary, style = MaterialTheme.typography.bodySmall, color = receiptColors.textSecondary)
+                                            Text(
+                                                text = "  ${item.quantity} × ${formatAmount(item.itemPriceSnapshot, currency)}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = receiptColors.textSecondary,
+                                            )
+                                            Text(
+                                                text = formatAmount(item.itemPriceSnapshot * item.quantity, currency),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = receiptColors.textPrimary,
+                                            )
                                         }
                                     }
                                 }

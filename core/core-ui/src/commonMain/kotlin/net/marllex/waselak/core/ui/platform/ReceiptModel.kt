@@ -55,7 +55,20 @@ data class ReceiptModel(
     /** Branding line — "Powered by Waselak Team", same on every receipt. */
     val poweredBy: String = "Powered by Waselak Team — مدعوم بواسطة فريق وصلك",
 ) {
-    data class ItemRow(val name: String, val qty: String, val price: String)
+    /**
+     * One line on the items section of the receipt. We carry both the
+     * per-unit price AND the line total (= unit × qty) so the renderer
+     * can show the math explicitly ("2 × 40.00 EGP   80.00 EGP") —
+     * customers can verify the multiplication without a calculator.
+     */
+    data class ItemRow(
+        val name: String,
+        val qty: String,
+        /** Per-unit price as a localised currency string, e.g. "40.00 EGP". */
+        val unitPrice: String,
+        /** Line total = unitPrice × qty, same currency format. */
+        val lineTotal: String,
+    )
 }
 
 /**
@@ -120,7 +133,8 @@ fun buildReceiptModel(order: Order, vendor: Vendor?, language: String): ReceiptM
         ReceiptModel.ItemRow(
             name = name,
             qty = item.quantity.toString(),
-            price = formatAmount(item.itemPriceSnapshot * item.quantity),
+            unitPrice = formatAmount(item.itemPriceSnapshot),
+            lineTotal = formatAmount(item.itemPriceSnapshot * item.quantity),
         )
     }
 
