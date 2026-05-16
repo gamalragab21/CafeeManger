@@ -38,17 +38,59 @@ private val prefs: Preferences = Preferences.userNodeForPackage(LanguageSelector
 /** Marker class for Preferences node. */
 private class LanguageSelectorDesktop
 
+// Backup persistence: a plain text file under ~/.waselak/. JVM Preferences
+// on macOS can lose unflushed writes if the app is force-quit (the backing
+// CFPreferences plist syncs lazily and Compose Desktop's exit path doesn't
+// always wait for it). The file write is synchronous so it survives even
+// a hard kill. We use whichever source has the most recent value at load
+// time, and write both on every change.
+private val backupFile: java.io.File by lazy {
+    val home = System.getProperty("user.home") ?: "."
+    val dir = java.io.File(home, ".waselak")
+    if (!dir.exists()) dir.mkdirs()
+    java.io.File(dir, "language")
+}
+
+private fun readPersisted(): String {
+    val fileVal = runCatching { backupFile.readText().trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+    val prefVal = prefs.get(PREF_KEY_LANGUAGE, null)
+    return fileVal ?: prefVal ?: Locale.getDefault().language
+}
+
+private fun writePersisted(code: String) {
+    // Write both for redundancy. Prefs are nice for system integration
+    // (System Settings → Java); the file is the source of truth for the
+    // next app launch because it can't be lost to lazy plist flushes.
+    runCatching {
+        prefs.put(PREF_KEY_LANGUAGE, code)
+        prefs.flush()
+    }
+    runCatching { backupFile.writeText(code) }
+}
+
+// Flush prefs on JVM exit too — belt-and-braces for the case where
+// applyLanguage() ran but the backing store hadn't synced yet.
+// File-level Kotlin can't have an `init {}` block, so we register the
+// hook eagerly via a property that runs once when this file's classfile
+// is loaded.
+private val shutdownHookRegistered: Boolean = run {
+    runCatching {
+        Runtime.getRuntime().addShutdownHook(Thread {
+            runCatching { prefs.flush() }
+        })
+    }
+    true
+}
+
 /** Global observable language state — app root should observe this */
-val currentLanguageState: MutableState<String> = mutableStateOf(
-    prefs.get(PREF_KEY_LANGUAGE, Locale.getDefault().language)
-)
+val currentLanguageState: MutableState<String> = mutableStateOf(readPersisted())
 
 /** Read persisted language or fall back to system default. */
-fun getPersistedLanguage(): String = prefs.get(PREF_KEY_LANGUAGE, Locale.getDefault().language)
+fun getPersistedLanguage(): String = readPersisted()
 
 /** Apply and persist a language code, triggers recomposition via currentLanguageState. */
 fun applyLanguage(code: String) {
-    prefs.put(PREF_KEY_LANGUAGE, code)
+    writePersisted(code)
     Locale.setDefault(Locale(code))
     currentLanguageState.value = code
 }

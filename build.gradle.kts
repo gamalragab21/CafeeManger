@@ -167,11 +167,11 @@ tasks.register<Exec>("vpsStatus") {
     description = "Check VPS backend health and current version"
     workingDir = rootDir
     commandLine("bash", "-c", """
-        echo "=== VPS Release Backend (8080) ==="
-        curl -s -m 5 http://187.124.47.222:8080/health 2>/dev/null || echo "❌ Not reachable"
+        echo "=== Release backend — https://api.waselak.online ==="
+        curl -s -m 5 https://api.waselak.online/health 2>/dev/null || echo "❌ Not reachable"
         echo ""
-        echo "=== VPS Debug Backend (8081) ==="
-        curl -s -m 5 http://187.124.47.222:8081/health 2>/dev/null || echo "❌ Not reachable"
+        echo "=== Debug backend — https://debug.waselak.online ==="
+        curl -s -m 5 https://debug.waselak.online/health 2>/dev/null || echo "❌ Not reachable"
         echo ""
         echo "=== Current Version ==="
         ssh -i ~/.ssh/id_ed25519_hostinger -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@187.124.47.222 "cat /opt/waselak/CURRENT_VERSION 2>/dev/null || echo 'Unknown'" 2>/dev/null || echo "SSH not available"
@@ -184,7 +184,7 @@ tasks.register<Exec>("vpsRestart") {
     workingDir = rootDir
     commandLine("bash", "-c", """
         echo "Restarting VPS services..."
-        ssh -i ~/.ssh/id_ed25519_hostinger -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@187.124.47.222 "systemctl restart waselak-release waselak-debug && sleep 10 && curl -s http://localhost:8080/health && echo '' && curl -s http://localhost:8081/health" 2>&1
+        ssh -i ~/.ssh/id_ed25519_hostinger -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@187.124.47.222 "systemctl restart waselak-release waselak-debug && sleep 10 && curl -s https://api.waselak.online/health && echo '' && curl -s https://debug.waselak.online/health" 2>&1
         echo ""
         echo "✅ VPS services restarted"
     """.trimIndent())

@@ -43,6 +43,7 @@ fun CashierApp() {
                 app = "cashier",
                 version = BuildConfig.VERSION_NAME,
                 versionCode = BuildConfig.VERSION_CODE,
+                variant = if (BuildConfig.IS_DEBUG) "debug" else "release",
             )
             if (resp.hasUpdate && resp.updateStatus == "MANDATORY") {
                 mandatoryUpdate = MandatoryUpdateState(

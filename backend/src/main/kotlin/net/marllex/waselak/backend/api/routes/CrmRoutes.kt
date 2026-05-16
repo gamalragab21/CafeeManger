@@ -14,6 +14,11 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.*
 import net.marllex.waselak.backend.domain.service.CrmService
 import net.marllex.waselak.backend.plugins.CrmPrincipal
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 import org.koin.java.KoinJavaComponent
 
 /**
@@ -1196,6 +1201,231 @@ fun Route.crmRoutes() {
                 crmLayout("الأنشطة", principal.name, principal.role, principal, "activities", content),
                 ContentType.Text.Html
             )
+        }
+
+        // ─── Leads Inbox (canSeeAll: owner + sales manager) ─────
+        // Public landing-page submissions land here as the first step
+        // of the sales funnel. The list is global (not org-scoped) —
+        // these are pre-signup prospects that haven't been assigned to
+        // any organization yet. Status flow: NEW → CONTACTED →
+        // (CONVERTED | REJECTED).
+        get("/crm/leads") {
+            val principal = call.principal<CrmPrincipal>()!!
+            // Open to every authenticated CRM role — owner, super_admin,
+            // sales manager, call-center agent, sales rep. The leads
+            // inbox is the team's shared work queue so anyone in the
+            // org should be able to triage it.
+            val statusFilter = call.parameters["status"]?.takeIf { it.isNotBlank() }
+            val leads = transaction {
+                val rows = net.marllex.waselak.backend.data.database.LeadsTable.selectAll()
+                    .let { q -> if (statusFilter != null) q.where { net.marllex.waselak.backend.data.database.LeadsTable.status eq statusFilter } else q }
+                    .orderBy(net.marllex.waselak.backend.data.database.LeadsTable.createdAt, org.jetbrains.exposed.sql.SortOrder.DESC)
+                    .limit(500)
+                rows.map { row ->
+                    LeadRow(
+                        id = row[net.marllex.waselak.backend.data.database.LeadsTable.id].value.toString(),
+                        businessName = row[net.marllex.waselak.backend.data.database.LeadsTable.businessName],
+                        businessPhone = row[net.marllex.waselak.backend.data.database.LeadsTable.businessPhone],
+                        contactName = row[net.marllex.waselak.backend.data.database.LeadsTable.contactName],
+                        contactPhone = row[net.marllex.waselak.backend.data.database.LeadsTable.contactPhone],
+                        notes = row[net.marllex.waselak.backend.data.database.LeadsTable.notes],
+                        channel = row[net.marllex.waselak.backend.data.database.LeadsTable.channel],
+                        status = row[net.marllex.waselak.backend.data.database.LeadsTable.status],
+                        createdAt = row[net.marllex.waselak.backend.data.database.LeadsTable.createdAt].toEpochMilliseconds(),
+                    )
+                }
+            }
+            val statusCounts = leads.groupingBy { it.status }.eachCount()
+            val total = leads.size
+
+            // Pre-compute display data so the buildString stays readable.
+            val tableRows = buildString {
+                if (leads.isEmpty()) {
+                    append(
+                        """<tr><td colspan="7" class="text-center py-12 text-gray-400">لا توجد عملاء محتملون حتى الآن. شارك رابط صفحة الهبوط للحصول على أول leads.</td></tr>"""
+                    )
+                } else {
+                    leads.forEach { l ->
+                        val statusChip = when (l.status) {
+                            "NEW" -> "bg-blue-100 text-blue-700"
+                            "CONTACTED" -> "bg-amber-100 text-amber-700"
+                            "CONVERTED" -> "bg-emerald-100 text-emerald-700"
+                            "REJECTED" -> "bg-red-100 text-red-700"
+                            else -> "bg-gray-100 text-gray-700"
+                        }
+                        val statusLabel = when (l.status) {
+                            "NEW" -> "جديد"
+                            "CONTACTED" -> "تم التواصل"
+                            "CONVERTED" -> "تم التحويل"
+                            "REJECTED" -> "مرفوض"
+                            else -> l.status
+                        }
+                        val ageMs = System.currentTimeMillis() - l.createdAt
+                        val ageDisplay = when {
+                            ageMs < 60_000L -> "الآن"
+                            ageMs < 3_600_000L -> "${ageMs / 60_000L} دقيقة"
+                            ageMs < 86_400_000L -> "${ageMs / 3_600_000L} ساعة"
+                            else -> "${ageMs / 86_400_000L} يوم"
+                        }
+                        val notesPreview = l.notes?.take(80)?.let { if (l.notes.length > 80) "$it…" else it } ?: ""
+                        val waLink = "https://wa.me/${l.contactPhone.filter { c -> c.isDigit() }}"
+                        append("""
+                            <tr class="hover:bg-gray-50 transition" data-status="${l.status}" id="lead-${l.id}">
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-gray-900">${escapeHtml(l.businessName)}</div>
+                                    <div class="text-xs text-gray-500" dir="ltr">${escapeHtml(l.businessPhone)}</div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="text-gray-900">${escapeHtml(l.contactName)}</div>
+                                    <a href="$waLink" target="_blank" class="text-xs text-emerald-600 hover:underline" dir="ltr">${escapeHtml(l.contactPhone)}</a>
+                                </td>
+                                <td class="px-4 py-3 text-xs text-gray-500 max-w-xs">${escapeHtml(notesPreview)}</td>
+                                <td class="px-4 py-3 text-xs text-gray-500">${escapeHtml(l.channel)}</td>
+                                <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">$ageDisplay</td>
+                                <td class="px-4 py-3"><span class="inline-block px-2 py-1 rounded-full text-xs font-medium $statusChip">$statusLabel</span></td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <select onchange="updateLeadStatus('${l.id}', this.value)"
+                                                class="text-xs border rounded px-2 py-1 bg-white">
+                                            <option value="">تغيير الحالة…</option>
+                                            <option value="NEW">جديد</option>
+                                            <option value="CONTACTED">تم التواصل</option>
+                                            <option value="CONVERTED">تم التحويل</option>
+                                            <option value="REJECTED">مرفوض</option>
+                                        </select>
+                                        <button onclick="deleteLead('${l.id}', '${escapeHtml(l.businessName).replace("'", "\\'")}')"
+                                                title="حذف"
+                                                class="text-xs text-red-600 hover:text-white hover:bg-red-600 border border-red-300 rounded px-2 py-1 transition">
+                                            🗑
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        """.trimIndent())
+                    }
+                }
+            }
+
+            fun statCard(label: String, value: Int, color: String) = """
+                <div class="bg-white rounded-xl shadow p-4 text-center">
+                    <div class="text-3xl font-bold $color">$value</div>
+                    <div class="text-sm text-gray-500 mt-1">$label</div>
+                </div>
+            """.trimIndent()
+            val statsRow = """
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    ${statCard("الإجمالي", total, "text-gray-900")}
+                    ${statCard("جديد", statusCounts["NEW"] ?: 0, "text-blue-600")}
+                    ${statCard("تم التواصل", statusCounts["CONTACTED"] ?: 0, "text-amber-600")}
+                    ${statCard("تم التحويل", statusCounts["CONVERTED"] ?: 0, "text-emerald-600")}
+                    ${statCard("مرفوض", statusCounts["REJECTED"] ?: 0, "text-red-600")}
+                </div>
+            """.trimIndent()
+
+            val content = """
+                <h2 class="text-xl font-bold mb-4">العملاء المحتملون (Leads)</h2>
+                $statsRow
+                <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap gap-2 items-center">
+                    <a href="/crm/leads" class="text-sm px-3 py-1.5 rounded ${if (statusFilter == null) "bg-emerald-500 text-white" else "bg-gray-100 text-gray-700 hover:bg-gray-200"}">الكل</a>
+                    <a href="/crm/leads?status=NEW" class="text-sm px-3 py-1.5 rounded ${if (statusFilter == "NEW") "bg-blue-500 text-white" else "bg-gray-100 text-gray-700 hover:bg-gray-200"}">جديد</a>
+                    <a href="/crm/leads?status=CONTACTED" class="text-sm px-3 py-1.5 rounded ${if (statusFilter == "CONTACTED") "bg-amber-500 text-white" else "bg-gray-100 text-gray-700 hover:bg-gray-200"}">تم التواصل</a>
+                    <a href="/crm/leads?status=CONVERTED" class="text-sm px-3 py-1.5 rounded ${if (statusFilter == "CONVERTED") "bg-emerald-500 text-white" else "bg-gray-100 text-gray-700 hover:bg-gray-200"}">تم التحويل</a>
+                    <a href="/crm/leads?status=REJECTED" class="text-sm px-3 py-1.5 rounded ${if (statusFilter == "REJECTED") "bg-red-500 text-white" else "bg-gray-100 text-gray-700 hover:bg-gray-200"}">مرفوض</a>
+                </div>
+                <div class="bg-white rounded-xl shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b text-xs text-gray-600 uppercase">
+                                <tr>
+                                    <th class="px-4 py-3 text-right">النشاط</th>
+                                    <th class="px-4 py-3 text-right">المسؤول</th>
+                                    <th class="px-4 py-3 text-right">ملاحظات</th>
+                                    <th class="px-4 py-3 text-right">المصدر</th>
+                                    <th class="px-4 py-3 text-right">منذ</th>
+                                    <th class="px-4 py-3 text-right">الحالة</th>
+                                    <th class="px-4 py-3 text-right">إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y">$tableRows</tbody>
+                        </table>
+                    </div>
+                </div>
+                <script>
+                    async function updateLeadStatus(id, status) {
+                        if (!status) return;
+                        const r = await fetch('/crm/leads/' + id + '/status', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({status: status}),
+                        });
+                        if (r.ok) location.reload();
+                        else alert('فشل التحديث: ' + r.status);
+                    }
+                    async function deleteLead(id, name) {
+                        if (!confirm('حذف العميل المحتمل: ' + name + '؟\nلا يمكن التراجع.')) return;
+                        const r = await fetch('/crm/leads/' + id, { method: 'DELETE' });
+                        if (r.ok || r.status === 204) {
+                            // Remove the row from the DOM instead of full reload
+                            // so the user keeps their scroll position and filter.
+                            const row = document.getElementById('lead-' + id);
+                            if (row) row.remove();
+                        } else {
+                            alert('فشل الحذف: ' + r.status);
+                        }
+                    }
+                </script>
+            """.trimIndent()
+
+            call.respondText(
+                crmLayout("Leads", principal.name, principal.role, principal, "leads", content),
+                ContentType.Text.Html
+            )
+        }
+
+        // Update lead status. Open to every CRM role — leads triage is a
+        // team-wide responsibility. Body is JSON
+        // `{"status": "NEW|CONTACTED|CONVERTED|REJECTED"}`. Returns 204.
+        post("/crm/leads/{id}/status") {
+            call.principal<CrmPrincipal>()!! // just require authenticated
+            val idStr = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val leadId = try { java.util.UUID.fromString(idStr) } catch (_: Throwable) {
+                return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid id"))
+            }
+            val body = call.receive<LeadStatusUpdate>()
+            val allowed = setOf("NEW", "CONTACTED", "CONVERTED", "REJECTED")
+            if (body.status !in allowed) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "status must be one of $allowed"))
+                return@post
+            }
+            val updated = transaction {
+                net.marllex.waselak.backend.data.database.LeadsTable.update({
+                    net.marllex.waselak.backend.data.database.LeadsTable.id eq leadId
+                }) {
+                    it[status] = body.status
+                    it[updatedAt] = kotlinx.datetime.Clock.System.now()
+                }
+            }
+            if (updated == 0) call.respond(HttpStatusCode.NotFound)
+            else call.respond(HttpStatusCode.NoContent)
+        }
+
+        // Permanently delete a lead row. Authenticated CRM roles only —
+        // not gated to owner/manager because the lead inbox is shared
+        // by the whole team (call-center, sales reps, etc.). UI shows
+        // a confirm dialog before calling this.
+        delete("/crm/leads/{id}") {
+            call.principal<CrmPrincipal>()!!
+            val idStr = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            val leadId = try { java.util.UUID.fromString(idStr) } catch (_: Throwable) {
+                return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid id"))
+            }
+            val deleted = transaction {
+                net.marllex.waselak.backend.data.database.LeadsTable.deleteWhere {
+                    net.marllex.waselak.backend.data.database.LeadsTable.id eq leadId
+                }
+            }
+            if (deleted == 0) call.respond(HttpStatusCode.NotFound)
+            else call.respond(HttpStatusCode.NoContent)
         }
 
         // ─── Reports Page (Owner Only) ──────────────────────────
@@ -5172,6 +5402,11 @@ private fun crmLayout(title: String, agentName: String, agentRole: String, princ
         append(navLink("clients", "العملاء", "👥", "/crm/clients"))
         // Activities - everyone sees
         append(navLink("activities", "الأنشطة", "📋", "/crm/activities"))
+        // Leads inbox — visible to every CRM role (owner, super_admin,
+        // sales manager, call-center, sales rep). Sits between
+        // activities and reports so the funnel reads top-down:
+        // prospects (leads) → working (activities) → numbers (reports).
+        append(navLink("leads", "العملاء المحتملون", "🎯", "/crm/leads"))
         // Reports - owner only
         if (principal.canSeeAnalytics) {
             append(navLink("reports", "التقارير", "📈", "/crm/reports"))
@@ -6844,3 +7079,40 @@ private fun systemDocsHtml(): String = """
 
 </div>
 """
+
+// ─── Leads support types ────────────────────────────────────────────
+// Live in this file because they're only used by the /crm/leads routes
+// above; promoting them to a shared DTO module would be over-abstraction.
+
+/** Snapshot of one row from LeadsTable for the CRM leads page. */
+private data class LeadRow(
+    val id: String,
+    val businessName: String,
+    val businessPhone: String,
+    val contactName: String,
+    val contactPhone: String,
+    val notes: String?,
+    val channel: String,
+    val status: String,
+    val createdAt: Long,
+)
+
+/** POST body for /crm/leads/{id}/status. */
+@kotlinx.serialization.Serializable
+private data class LeadStatusUpdate(val status: String)
+
+/**
+ * Bare-minimum HTML escape. We control every field that flows through
+ * here (LeadsTable is server-side written with no Markdown semantics),
+ * but escaping defends against future ingest paths that don't sanitise
+ * input. Only the five "dangerous" entities — everything else (Arabic,
+ * emoji, punctuation) flows through unchanged.
+ */
+private fun escapeHtml(s: String?): String {
+    if (s.isNullOrEmpty()) return ""
+    return s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
+}

@@ -330,6 +330,10 @@ fun ManagerNavHost(authRepository: AuthRepository) {
     // mounted at scaffold root reacts to the resulting state flow.
     val platformActions = net.marllex.waselak.core.ui.platform.rememberPlatformActions()
     val updateApi = org.koin.compose.koinInject<net.marllex.waselak.core.network.WaselakApiClient>()
+    // Variant detection — BuildConfig.IS_DEBUG is the single source of truth
+    // (gradle sets it from the build variant for Android, and from the
+    // selected env/{debug,release}.properties for Desktop/iOS).
+    val managerVariant = if (BuildConfig.IS_DEBUG) "debug" else "release"
     val appUpdateState = remember {
         net.marllex.waselak.core.ui.update.AppUpdateState(
             platformActions = platformActions,
@@ -339,6 +343,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     app = "manager",
                     version = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
+                    variant = managerVariant,
                 )
                 net.marllex.waselak.core.ui.update.AppUpdateState.CheckResult(
                     hasUpdate = resp.hasUpdate,
@@ -480,6 +485,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     composable(ManagerTab.MORE.route) {
                         MoreTabContent(
                             onSignOut = onSignOut,
+                            appUpdateState = appUpdateState,
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
                             },
@@ -564,6 +570,7 @@ fun ManagerNavHost(authRepository: AuthRepository) {
                     composable(ManagerTab.MORE.route) {
                         MoreTabContent(
                             onSignOut = onSignOut,
+                            appUpdateState = appUpdateState,
                             onNavigateToWorkerQrCode = { workerId ->
                                 navController.navigate("worker_qr_code/$workerId")
                             },
@@ -870,6 +877,10 @@ private fun EmptyMenuState() {
 @Composable
 private fun MoreTabContent(
     onSignOut: () -> Unit,
+    // Shared app-update state so the About screen here can render the
+    // same banner/progress as the global one. Optional — falls back to
+    // the legacy onCheckUpdate callback path if null.
+    appUpdateState: net.marllex.waselak.core.ui.update.AppUpdateState? = null,
     onNavigateToWorkerQrCode: (String) -> Unit = {},
     onNavigateToExport: () -> Unit = {},
 ) {
@@ -1137,30 +1148,12 @@ private fun MoreTabContent(
             }
 
             "about" -> {
-                val profileApi = profileVm
                 AboutScreen(
                     appName = "Waselak Manager",
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
-                    onCheckUpdate = {
-                        val api = org.koin.mp.KoinPlatform.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
-                        val resp = api.checkForUpdate("manager", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
-                        net.marllex.waselak.core.ui.components.UpdateInfo(
-                            hasUpdate = resp.hasUpdate,
-                            latestVersion = resp.latestVersion,
-                            updateStatus = resp.updateStatus,
-                            releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
-                            downloadUrl = resp.downloadUrl,
-                            facebookUrl = resp.facebookUrl,
-                            landingPageUrl = resp.landingPageUrl,
-                            instagramUrl = resp.instagramUrl,
-                            whatsappNumber = resp.whatsappNumber,
-                        )
-                    },
-                    onDownload = { url, onProgress ->
-                        val api = org.koin.mp.KoinPlatform.getKoin().get<net.marllex.waselak.core.network.WaselakApiClient>()
-                        api.downloadFile(url, onProgress)
-                    },
+                    // Shared state — same AppUpdateState the banner observes.
+                    appUpdateState = appUpdateState,
                     onNavigateBack = { activeSubScreen = null },
                     vendorName = vendor?.name,
                 )

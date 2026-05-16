@@ -39,6 +39,11 @@ fun Application.configureHmacVerification() {
         // Skip HMAC verification for health check, public endpoints, admin routes, and file uploads
         if (path == "/health" ||
             path.startsWith("/public/") ||
+            // Public lead-capture + future public endpoints (landing page,
+            // contact form, etc). No HMAC because the page is a static
+            // file served to anonymous browsers — they can't reasonably
+            // compute a signature, and the data isn't sensitive.
+            path.startsWith("/api/v1/public/") ||
             path.startsWith("/admin/") ||
             path.startsWith("/api/v1/admin") ||
             path.startsWith("/api/v1/cms") ||
@@ -50,7 +55,15 @@ fun Application.configureHmacVerification() {
             // (compared in the route handler against BACKEND_PUSH_TOKEN);
             // the Action would otherwise have to compute an HMAC signature
             // matching the app-side scheme, which is fragile in YAML.
-            path == "/api/v1/app/release-published"
+            path == "/api/v1/app/release-published" ||
+            // Update endpoints are called from raw HttpURLConnection on
+            // the download side (no Ktor client → no HMAC signer), and
+            // the check-update silent ping fires before login on a fresh
+            // install. Both are safe to skip — payload is non-sensitive
+            // (just app/version/variant) and download serves binaries
+            // the user could otherwise grab straight from GitHub.
+            path == "/api/v1/app/check-update" ||
+            path == "/api/v1/app/download"
         ) {
             return@intercept
         }

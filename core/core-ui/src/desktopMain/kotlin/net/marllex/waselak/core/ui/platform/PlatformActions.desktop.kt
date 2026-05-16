@@ -131,7 +131,11 @@ actual class PlatformActions {
                 readTimeout = 120_000
                 instanceFollowRedirects = true
             }
-            if (conn.responseCode !in 200..299) return@withContext null
+            if (conn.responseCode !in 200..299) {
+                // Surface the actual code so the user sees "HTTP 404"
+                // instead of a generic "Download failed" in the banner.
+                throw java.io.IOException("HTTP ${conn.responseCode} on $url")
+            }
             val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
             var read = 0L
             java.io.FileOutputStream(outFile).use { out ->

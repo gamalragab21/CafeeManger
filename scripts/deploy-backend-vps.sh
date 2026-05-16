@@ -11,19 +11,26 @@
 #
 # Required:
 #   - SSH key at ~/.ssh/id_ed25519_hostinger
-#   - VPS at 187.124.47.222
+#   - VPS reachable at api.waselak.online / debug.waselak.online (HTTPS)
+#     and 187.124.47.222 (raw SSH/SCP, and the deploy webhook on :9090)
 # =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# SCP/SSH still use the raw IP because the hostnames resolve to nginx on
+# :443/:80 — they're for HTTP traffic, not the OpenSSH daemon. The
+# webhook (:9090) is also unproxied so it stays on the IP too.
 VPS_HOST="187.124.47.222"
 VPS_USER="root"
 VPS_SSH_KEY="$HOME/.ssh/id_ed25519_hostinger"
 VPS_JAR_PATH="/opt/waselak/waselak-backend.jar"
 VPS_DEPLOY_TOKEN="waselak-deploy-2026-secret"
 VPS_WEBHOOK_PORT="9090"
+# Public health-check hostnames (TLS, behind nginx).
+RELEASE_URL="https://api.waselak.online"
+DEBUG_URL="https://debug.waselak.online"
 
 JAR_PATH="$PROJECT_DIR/backend/build/libs/backend-all.jar"
 LOCAL_JAR="$PROJECT_DIR/build/deploy/waselak-backend.jar"
@@ -100,11 +107,11 @@ fi
 
 echo ""
 echo ">> Health check..."
-RELEASE=$(curl -s -m 5 "http://$VPS_HOST:8080/health" 2>/dev/null || echo "❌ Not reachable")
-DEBUG=$(curl -s -m 5 "http://$VPS_HOST:8081/health" 2>/dev/null || echo "❌ Not reachable")
+RELEASE=$(curl -s -m 5 "$RELEASE_URL/health" 2>/dev/null || echo "❌ Not reachable")
+DEBUG=$(curl -s -m 5 "$DEBUG_URL/health" 2>/dev/null || echo "❌ Not reachable")
 
-echo "Release (8080): $RELEASE"
-echo "Debug   (8081): $DEBUG"
+echo "Release: $RELEASE_URL → $RELEASE"
+echo "Debug:   $DEBUG_URL → $DEBUG"
 
 echo ""
 echo "============================================================"

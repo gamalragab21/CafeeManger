@@ -251,8 +251,11 @@ actual class PlatformActions(private val context: Context) {
             }
             val code = conn.responseCode
             if (code !in 200..299) {
-                android.util.Log.w("PlatformActions", "Update download HTTP $code")
-                return@withContext null
+                android.util.Log.w("PlatformActions", "Update download HTTP $code on $url")
+                // Surface the HTTP code so the UI can show "HTTP 404"
+                // instead of a generic "Download failed" — much easier
+                // to diagnose a stale download URL.
+                throw java.io.IOException("HTTP $code on $url")
             }
             val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
             var read = 0L

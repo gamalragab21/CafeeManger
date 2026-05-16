@@ -568,12 +568,22 @@ class WaselakApiClient(private val client: HttpClient) {
         }.body()
 
     // ─── App Updates ────────────────────────────────────────────
-    suspend fun checkForUpdate(app: String, version: String, versionCode: Int, platform: String = detectPlatform()): CheckUpdateResponse =
+    suspend fun checkForUpdate(
+        app: String,
+        version: String,
+        versionCode: Int,
+        platform: String = detectPlatform(),
+        // "debug" or "release" — backend uses this to pick the right
+        // APK variant so signatures match the running app and Android
+        // accepts the install upgrade.
+        variant: String = "release",
+    ): CheckUpdateResponse =
         client.get("api/v1/app/check-update") {
             parameter("app", app)
             parameter("version", version)
             parameter("version_code", versionCode)
             parameter("platform", platform)
+            parameter("variant", variant)
         }.body()
 
     /**

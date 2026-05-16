@@ -1551,6 +1551,10 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
     // user tap, fire-and-forget install intent on completion).
     val platformActions = net.marllex.waselak.core.ui.platform.rememberPlatformActions()
     val baseUrl = net.marllex.waselak.config.BuildConfig.BASE_URL
+    // Detect debug vs release. BuildConfig.IS_DEBUG is the single source of
+    // truth (gradle sets it from the build variant for Android, and from the
+    // selected env/{debug,release}.properties for Desktop/iOS).
+    val variant = if (net.marllex.waselak.config.BuildConfig.IS_DEBUG) "debug" else "release"
     val appUpdateState = remember {
         net.marllex.waselak.core.ui.update.AppUpdateState(
             platformActions = platformActions,
@@ -1560,6 +1564,7 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                     app = "cashier",
                     version = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
                     versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                    variant = variant,
                 )
                 net.marllex.waselak.core.ui.update.AppUpdateState.CheckResult(
                     hasUpdate = resp.hasUpdate,
@@ -1853,17 +1858,9 @@ fun CashierNavHost(authRepository: AuthRepository, vendorRepository: VendorRepos
                 appName = "Waselak Cashier",
                 versionName = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
                 versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
-                onCheckUpdate = {
-                    val resp = apiClient.checkForUpdate("cashier", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
-                    net.marllex.waselak.core.ui.components.UpdateInfo(
-                        hasUpdate = resp.hasUpdate,
-                        latestVersion = resp.latestVersion,
-                        updateStatus = resp.updateStatus,
-                        releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
-                        downloadUrl = resp.downloadUrl, facebookUrl = resp.facebookUrl, landingPageUrl = resp.landingPageUrl, instagramUrl = resp.instagramUrl, whatsappNumber = resp.whatsappNumber,
-                    )
-                },
-                onDownload = { url, onProgress -> apiClient.downloadFile(url, onProgress) },
+                // Shared state — the same instance the UpdateBanner observes.
+                // Tapping "Check / Download" here drives the banner's progress.
+                appUpdateState = appUpdateState,
                 vendorName = vendor?.name,
             )
         }

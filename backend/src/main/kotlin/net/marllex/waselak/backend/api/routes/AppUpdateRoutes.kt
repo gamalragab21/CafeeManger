@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.writeByteArray
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.jsonArray
@@ -189,6 +190,7 @@ private fun buildGithubResponse(
     platform: String,
     currentVersion: String,
     currentVersionCode: Int,
+    variant: String,
 ): CheckUpdateResponse {
     // Settings (social links etc.) still come from the DB — they're
     // independent of the release source.
@@ -203,7 +205,19 @@ private fun buildGithubResponse(
     }
     val (fbUrl, lpUrl, igUrl, waNum) = listOf(social[0], social[1], social[2], social[3])
 
-    val hasUpdate = release.versionCode > currentVersionCode
+    // Comparison logic:
+    //   • Same versionName → up-to-date, regardless of how the backend
+    //     computed the version_code. The release notes don't always carry
+    //     an explicit VERSION_CODE=N marker, so the backend falls back to
+    //     mapping `major*10000+minor*100+patch` → for "1.11.0" that's
+    //     11100, while the actual app build is 36. Without the name guard,
+    //     an up-to-date client would forever see "update available".
+    //   • Different versionName → trust the numeric ordering. This still
+    //     works for the normal monotonic upgrade path.
+    val hasUpdate = when {
+        currentVersion == release.versionName -> false
+        else -> release.versionCode > currentVersionCode
+    }
     if (!hasUpdate) {
         return CheckUpdateResponse(
             has_update = false,
@@ -235,10 +249,20 @@ private fun buildGithubResponse(
         "ios" -> "ipa"
         else -> "apk"
     }
+    // Match the right variant (debug / release) for this client. Debug
+    // builds have a different signing keystore than release; if a debug
+    // client tried to install a release APK Android would reject it for
+    // signature mismatch (and vice versa). Default to release for any
+    // unknown / missing value so old clients that don't send the param
+    // keep working.
+    val variantSegment = when (variant.lowercase()) {
+        "debug" -> "debug"
+        else -> "release"
+    }
     val asset = release.assets.firstOrNull { a ->
-        // Format: {app}-v{version}-{DDMMYY}-release-{plat}.{ext}
+        // Format: {app}-v{version}-{DDMMYY}-{variant}-{plat}.{ext}
         a.name.startsWith("$appName-v${release.versionName}-")
-            && a.name.endsWith("-release-$plat.$ext")
+            && a.name.endsWith("-$variantSegment-$plat.$ext")
     }
 
     return CheckUpdateResponse(
@@ -318,6 +342,9 @@ fun Route.appUpdateRoutes() {
             val currentVersion = call.parameters["version"] ?: "1.0.0"
             val currentVersionCode = call.parameters["version_code"]?.toIntOrNull() ?: 1
             val platform = call.parameters["platform"] ?: "android"
+            // variant=debug|release. Defaults to "release" since the older
+            // installed apps that pre-date this change don't send it.
+            val variant = call.parameters["variant"] ?: "release"
 
             // ── GitHub-backed PRIMARY path ─────────────────────────
             // Source of truth is GitHub Releases. If our cache has a
@@ -338,6 +365,7 @@ fun Route.appUpdateRoutes() {
                     platform = platform,
                     currentVersion = currentVersion,
                     currentVersionCode = currentVersionCode,
+                    variant = variant,
                 )
                 trace.step("Update check completed (github)", mapOf(
                     "hasUpdate" to ghResponse.has_update.toString(),
@@ -447,7 +475,7 @@ fun Route.appUpdateRoutes() {
                 val matching = release?.assets?.firstOrNull { it.name == filename }
                 if (matching != null) {
                     trace.step("Streaming from GitHub", mapOf("asset" to filename))
-                    val asset = github.downloadAsset(matching.apiUrl)
+                    val asset = github.openAssetStream(matching.apiUrl)
                     if (asset != null) {
                         val ext = filename.substringAfterLast('.', "bin")
                         val contentType = when (ext) {
@@ -459,15 +487,33 @@ fun Route.appUpdateRoutes() {
                             else -> asset.contentType
                         }
                         call.response.header("Content-Disposition", "attachment; filename=\"$filename\"")
-                        call.response.header("Content-Length", asset.bytes.size.toString())
-                        call.respondBytes(
-                            bytes = asset.bytes,
-                            contentType = io.ktor.http.ContentType.parse(contentType),
-                            status = HttpStatusCode.OK,
-                        )
+                        // Stream via an explicit OutgoingContent so we can
+                        // surface the correct Content-Length to the client.
+                        // respondOutputStream forces chunked encoding (no
+                        // Content-Length) which leaves the download UI stuck
+                        // at 0% — the client uses Content-Length to compute
+                        // progress per chunk.
+                        val resolvedContentType = io.ktor.http.ContentType.parse(contentType)
+                        val knownLength = asset.contentLength.takeIf { it > 0 }
+                        call.respond(object : io.ktor.http.content.OutgoingContent.WriteChannelContent() {
+                            override val contentType = resolvedContentType
+                            override val contentLength: Long? = knownLength
+                            override val status = HttpStatusCode.OK
+                            override suspend fun writeTo(channel: io.ktor.utils.io.ByteWriteChannel) {
+                                asset.use { rsrc ->
+                                    val buffer = ByteArray(64 * 1024)
+                                    while (true) {
+                                        val n = rsrc.stream.read(buffer)
+                                        if (n <= 0) break
+                                        channel.writeByteArray(buffer.copyOf(n))
+                                    }
+                                    channel.flushAndClose()
+                                }
+                            }
+                        })
                         trace.step("GitHub download completed", mapOf(
                             "filename" to filename,
-                            "size" to asset.bytes.size.toString(),
+                            "size" to asset.contentLength.toString(),
                         ))
                         return@get
                     }

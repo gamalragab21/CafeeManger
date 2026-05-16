@@ -1194,3 +1194,36 @@ object CrmCommissionDetailsTable : UUIDTable("crm_commission_details") {
     val organizationId = reference("organization_id", CrmOrganizationsTable).nullable()
     val createdAt = timestamp("created_at").default(Clock.System.now())
 }
+
+// ─── Public landing-page leads ────────────────────────────────────
+// Captures business + contact info from the lead form on the public
+// landing page. NOT scoped to a vendor (these are pre-signup); the
+// sales team triages them and creates Vendor accounts manually.
+object LeadsTable : UUIDTable("leads") {
+    /** Business / brand name (pharmacy, restaurant, cafe, retail). */
+    val businessName = varchar("business_name", 255)
+    /** Business contact phone — public-facing line. */
+    val businessPhone = varchar("business_phone", 32)
+    /** Owner / contact person full name. */
+    val contactName = varchar("contact_name", 255)
+    /** Owner / contact direct phone. */
+    val contactPhone = varchar("contact_phone", 32)
+    /** Optional free-text notes from the form. */
+    val notes = text("notes").nullable()
+    /** Where the lead came from — defaults to "landing" but lets us
+     *  attribute social/ad campaigns later via a `?source=...` query
+     *  param on the landing URL. Property is `channel` instead of
+     *  `source` because Exposed's parent ColumnSet already exposes a
+     *  `source` member and reusing the name shadows it. */
+    val channel = varchar("source", 64).default("landing")
+    /** Set when the sales team marks a lead as actioned, so the same
+     *  lead can't be worked twice. */
+    val status = varchar("status", 32).default("NEW") // NEW | CONTACTED | CONVERTED | REJECTED
+    /** Remote IP that submitted — light spam attribution; we do not
+     *  rate-limit on this yet, just log. */
+    val ipAddress = varchar("ip_address", 64).nullable()
+    /** Raw User-Agent of the submitter (browser/device). */
+    val userAgent = text("user_agent").nullable()
+    val createdAt = timestamp("created_at").default(Clock.System.now())
+    val updatedAt = timestamp("updated_at").default(Clock.System.now())
+}

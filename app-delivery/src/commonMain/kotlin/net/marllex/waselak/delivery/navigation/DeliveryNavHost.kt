@@ -779,8 +779,25 @@ fun DeliveryNavHost(
                 versionName = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
                 versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
                 onCheckUpdate = {
-                    val resp = deliveryApi.checkForUpdate("delivery", net.marllex.waselak.config.BuildConfig.VERSION_NAME, net.marllex.waselak.config.BuildConfig.VERSION_CODE)
-                    net.marllex.waselak.core.ui.components.UpdateInfo(hasUpdate = resp.hasUpdate, latestVersion = resp.latestVersion, updateStatus = resp.updateStatus, releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes, downloadUrl = resp.downloadUrl, facebookUrl = resp.facebookUrl, landingPageUrl = resp.landingPageUrl, instagramUrl = resp.instagramUrl, whatsappNumber = resp.whatsappNumber)
+                    val resp = deliveryApi.checkForUpdate(
+                        app = "delivery",
+                        version = net.marllex.waselak.config.BuildConfig.VERSION_NAME,
+                        versionCode = net.marllex.waselak.config.BuildConfig.VERSION_CODE,
+                        variant = if (net.marllex.waselak.config.BuildConfig.IS_DEBUG) "debug" else "release",
+                    )
+                    net.marllex.waselak.core.ui.components.UpdateInfo(
+                        hasUpdate = resp.hasUpdate,
+                        latestVersion = resp.latestVersion,
+                        updateStatus = resp.updateStatus,
+                        releaseNotes = resp.releaseNotesAr ?: resp.releaseNotes,
+                        downloadUrl = resp.downloadUrl,
+                        downloadFilename = resp.downloadFilename,
+                        baseUrl = net.marllex.waselak.config.BuildConfig.BASE_URL,
+                        facebookUrl = resp.facebookUrl,
+                        landingPageUrl = resp.landingPageUrl,
+                        instagramUrl = resp.instagramUrl,
+                        whatsappNumber = resp.whatsappNumber,
+                    )
                 },
                 onDownload = { url, onProgress -> deliveryApi.downloadFile(url, onProgress) },
             )

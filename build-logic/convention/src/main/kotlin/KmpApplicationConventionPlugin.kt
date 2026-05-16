@@ -32,9 +32,13 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
 
             // ── Load environment properties ─────────────────────────────────
             val envProps = loadEnvProperties(buildEnv)
+            // Last-resort fallback only — used if env/{debug,release}.properties
+            // is missing AND no -PBASE_URL was passed. Production builds
+            // should always go through the env file path; this string just
+            // keeps Compose previews / fresh checkouts from crashing.
             val baseUrl = envProps.getProperty("BASE_URL")
                 ?: project.findProperty("BASE_URL") as? String
-                ?: "https://api.waselak.net"
+                ?: "https://api.waselak.online"
             val hmacSecret = envProps.getProperty("HMAC_SECRET")
                 ?: project.findProperty("HMAC_SECRET") as? String
                 ?: ""

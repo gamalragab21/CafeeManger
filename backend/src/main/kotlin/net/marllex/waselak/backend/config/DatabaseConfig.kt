@@ -93,6 +93,7 @@ object DatabaseConfig {
                 DeviceTokensTable,
                 RequestLogsTable,
                 ReservationsTable,
+                LeadsTable,
             )
             // Add any new columns to existing tables
             SchemaUtils.createMissingTablesAndColumns(
@@ -125,6 +126,7 @@ object DatabaseConfig {
                 CrmInvoicesTable, CrmPaymentsTable,
                 CrmAgentTargetsTable, CrmAgentReviewsTable,
                 CrmSalaryConfigsTable, CrmSalaryRecordsTable, CrmCommissionDetailsTable,
+                LeadsTable,
             )
 
             // Add enable_offline_mode to vendors

@@ -15,7 +15,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
-import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -44,7 +43,7 @@ import java.net.URL
  *             well inside the 5000 req/h authenticated quota.
  *
  * Asset URLs returned for private repos require the same `Authorization:
- * Bearer $GITHUB_PAT` header to actually download. [downloadAsset] is
+ * Bearer $GITHUB_PAT` header to actually download. [openAssetStream] is
  * the helper for that — used by the `/api/v1/app/download` proxy route.
  */
 class GithubReleaseService(
@@ -135,7 +134,7 @@ class GithubReleaseService(
     }
 
     /**
-     * Stream an asset's bytes through the caller's [OutputStream].
+     * Open a streaming connection to an asset's bytes.
      * GitHub's private-repo asset URLs require:
      *   1. GET /releases/assets/<id> with Authorization + Accept: application/octet-stream
      *   2. GitHub responds with a 302 redirect to a signed CDN URL —
@@ -143,9 +142,11 @@ class GithubReleaseService(
      *      MUST strip our Authorization header on the second request
      *      to avoid a 400 ("two-credential-paths" rejection).
      *
-     * Returns the byte count + content type, or null on failure.
+     * Returns an [AssetStream] the caller MUST close, or null on failure.
+     * The stream is unbuffered — callers should pipe it straight through
+     * to the response so a 150 MB DMG doesn't sit in heap.
      */
-    suspend fun downloadAsset(assetApiUrl: String): AssetResponse? = withContext(Dispatchers.IO) {
+    suspend fun openAssetStream(assetApiUrl: String): AssetStream? = withContext(Dispatchers.IO) {
         try {
             // Step 1: ask GitHub for the redirect. We need to disable
             // auto-redirect so we can strip our Authorization header
@@ -163,17 +164,28 @@ class GithubReleaseService(
             val firstCode = first.responseCode
             if (firstCode !in 300..399) {
                 log.warn("Asset metadata fetch returned HTTP $firstCode (expected 302 redirect)")
+                first.disconnect()
                 return@withContext null
             }
-            val location = first.getHeaderField("Location") ?: return@withContext null
+            val location = first.getHeaderField("Location") ?: run {
+                first.disconnect()
+                return@withContext null
+            }
             first.disconnect()
 
-            // Step 2: download the actual bytes from the CDN — NO
-            // Authorization header.
+            // Step 2: open the CDN stream — NO Authorization header.
+            // We deliberately do NOT consume the body here; the caller
+            // streams it through. A 150 MB DMG buffered in heap was
+            // tripping silent OOMs on a 1 GB-heap JVM and dropping the
+            // request with no audit trail.
             val cdn = (URL(location).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = 5_000
-                readTimeout = 60_000
+                // Big assets (DMG / MSI) on slower client links need
+                // generous read timeouts — the CDN holds the connection
+                // open while bytes flow, but Java's read timeout is
+                // PER-read, not total. 5 min is comfortable headroom.
+                readTimeout = 300_000
                 setRequestProperty("Accept", "application/octet-stream")
             }
             val cdnCode = cdn.responseCode
@@ -183,17 +195,30 @@ class GithubReleaseService(
                 return@withContext null
             }
             val contentType = cdn.contentType ?: "application/octet-stream"
-            val buffer = ByteArrayOutputStream()
-            cdn.inputStream.use { it.copyTo(buffer) }
-            cdn.disconnect()
-            AssetResponse(bytes = buffer.toByteArray(), contentType = contentType)
+            val contentLength = cdn.contentLengthLong.takeIf { it > 0 } ?: -1L
+            AssetStream(
+                stream = cdn.inputStream,
+                contentType = contentType,
+                contentLength = contentLength,
+                onClose = { runCatching { cdn.disconnect() } },
+            )
         } catch (e: Throwable) {
-            log.warn("downloadAsset failed: ${e.message}")
+            log.warn("openAssetStream failed: ${e.message}", e)
             null
         }
     }
 
-    data class AssetResponse(val bytes: ByteArray, val contentType: String)
+    data class AssetStream(
+        val stream: java.io.InputStream,
+        val contentType: String,
+        val contentLength: Long,
+        private val onClose: () -> Unit,
+    ) : AutoCloseable {
+        override fun close() {
+            runCatching { stream.close() }
+            onClose()
+        }
+    }
 
     // ── Internal ──────────────────────────────────────────────────────
 

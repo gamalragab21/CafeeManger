@@ -52,6 +52,18 @@ fun Application.configureRouting() {
         // mint a user JWT easily.
         appUpdatePublicRoutes()
 
+        // Public app-update endpoints (check-update + download).
+        // Live OUTSIDE the JWT block because the silent check-update call
+        // fires on app launch before the user has logged in (and before
+        // the suspension interceptor can trip). Neither endpoint reads
+        // the principal — they only take app/version/variant query params.
+        appUpdateRoutes()
+
+        // Public lead-capture endpoint (landing-page form).
+        // No auth — anyone visiting the landing page can submit business
+        // contact info. The HMAC plugin skips /api/v1/public/* below.
+        leadsPublicRoutes()
+
         // Protected routes
         authenticate("auth-jwt") {
             // Global interceptor: block ALL API calls if vendor is suspended
@@ -122,7 +134,9 @@ fun Application.configureRouting() {
             exportRoutes() // Export data as PDF/Excel (MANAGER only)
             uploadRoutes() // File upload (multipart)
             logRoutes() // App log upload
-            appUpdateRoutes() // Public: check-update endpoint only
+            // appUpdateRoutes is registered above (outside the JWT block)
+            // so the silent check-update call can succeed before login.
+            leadsAdminRoutes() // GET admin view of lead inbox
         }
     }
 }

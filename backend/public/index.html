@@ -9,6 +9,9 @@
     <meta property="og:title" content="Waselak | نظام ذكي متكامل لكل نشاط تجاري">
     <meta property="og:description" content="منصة واحدة ذكية تتكيف مع طبيعة نشاطك - مطعم، كافيه، صيدلية أو محل تجاري">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://waselak.online/">
+    <meta property="og:image" content="https://waselak.online/landing/waslek_logo.png">
+    <link rel="canonical" href="https://waselak.online/">
     <link rel="icon" href="waslek_logo_sm.png" type="image/png">
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
@@ -290,6 +293,147 @@
 
         /* === FLOATING SHAPES === */
         .float-shape{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);opacity:.15}
+
+        /* === DOWNLOADS SECTION === */
+        .download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:48px}
+        .download-card{background:linear-gradient(135deg,var(--surface-2),rgba(37,99,235,.05));border:1px solid var(--surface-3);border-radius:var(--radius);padding:28px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;transition:all .3s;text-decoration:none;color:var(--text)}
+        .download-card:hover{transform:translateY(-4px);border-color:var(--primary);box-shadow:0 12px 32px var(--primary-glow)}
+        .download-card.is-loading{opacity:.55;pointer-events:none}
+        .download-card .dl-icon{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;font-size:1.9rem;box-shadow:0 6px 18px var(--primary-glow)}
+        .download-card .dl-icon.android{background:linear-gradient(135deg,#3DDC84,#1aaf60)}
+        .download-card .dl-icon.macos{background:linear-gradient(135deg,#94A3B8,#475569)}
+        .download-card .dl-icon.windows{background:linear-gradient(135deg,#0078D4,#005A9E)}
+        .download-card .dl-icon.linux{background:linear-gradient(135deg,#F59E0B,#D97706)}
+        .download-card .dl-title{font-weight:800;font-size:1.15rem}
+        .download-card .dl-version{font-size:.85rem;color:var(--text-muted);font-family:monospace}
+        .download-card .dl-cta{margin-top:6px;background:transparent;color:var(--primary-light);border:1px solid var(--primary);padding:8px 20px;border-radius:var(--radius-sm);font-weight:700;font-size:.9rem;display:inline-flex;align-items:center;gap:8px}
+        .download-card[href=""]:not(.is-loading) .dl-cta{opacity:.45}
+        .download-card[href=""]:not(.is-loading)::after{content:"غير متوفر / Unavailable";display:block;color:var(--text-muted);font-size:.78rem;margin-top:-2px}
+
+        /* === MOBILE OPTIMISATION ────────────────────────────────────
+           Page was designed desktop-first. These overrides tighten
+           padding, scale type down, switch grids to single-column,
+           and replace the hamburger drop-down with a polished
+           full-screen mobile menu. Applied below 768px (tablet) and
+           further tuned below 480px (phone). === */
+        @media (max-width: 768px) {
+            /* Page rhythm — sections were 100px → 56px so phones don't
+               feel like a slide deck with a screenful of dead space
+               between every block. */
+            .section { padding: 56px 0; }
+            .container { padding: 0 16px; }
+            .section-title { font-size: clamp(1.6rem, 7vw, 2.2rem); margin-bottom: 12px; }
+            .section-desc, .section p { font-size: .98rem; line-height: 1.7; }
+
+            /* Hero — single column already, but tighten the surrounding
+               spacing so the fold shows the CTAs without scrolling. */
+            .hero { min-height: auto; padding-top: 88px; padding-bottom: 32px; }
+            .hero h1 { font-size: clamp(1.9rem, 8vw, 2.6rem); line-height: 1.2; }
+            .hero p { font-size: 1rem; line-height: 1.65; margin-bottom: 24px; }
+            .hero-screenshot { transform: none; margin-top: 24px; }
+            .hero-stats { gap: 10px; margin-top: 24px; }
+            .hero-stat { padding: 12px 8px; }
+            .hero-stat .num { font-size: 1.4rem; }
+            .hero-stat .label { font-size: .72rem; }
+
+            /* CTAs go full-width — easier thumb reach + each button gets
+               its own line so the user actually reads them. */
+            .hero-btns { flex-direction: column; gap: 10px; }
+            .hero-btns .btn-primary,
+            .hero-btns .btn-outline { width: 100%; justify-content: center; padding: 14px 20px; }
+
+            /* Business-type panels — desktop puts content side-by-side;
+               on phones a two-column biz-hero crams text into 100px wide. */
+            .biz-panel { padding: 24px 18px; }
+            .biz-hero { grid-template-columns: 1fr; gap: 24px; margin-bottom: 28px; }
+            .biz-hero-content h3 { font-size: 1.5rem; }
+            .biz-hero-content p { font-size: .95rem; }
+            .biz-gallery { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+            /* Downloads / lead form */
+            .download-grid { gap: 14px; }
+            .download-card { padding: 22px 18px; }
+            .lead-card { padding: 24px 18px; margin-top: 28px; border-radius: var(--radius); }
+            .lead-actions { gap: 12px; }
+            .lead-actions .btn-primary { width: 100%; justify-content: center; }
+            #lead-status { width: 100%; }
+
+            /* Nav — full-screen drop instead of a corner panel. Bigger
+               tap targets, no horizontal scroll. */
+            .nav { padding: 10px 0; }
+            .nav.scrolled { padding: 8px 0; }
+            .nav-logo { font-size: 1.1rem; }
+            .nav-logo img { height: 32px; width: 32px; }
+            .nav-links.open {
+                top: 100%; right: 0; left: 0;
+                background: rgba(15,23,42,.985);
+                backdrop-filter: blur(24px);
+                padding: 24px 20px;
+                gap: 4px;
+                border-bottom: 1px solid var(--surface-3);
+                box-shadow: 0 20px 60px rgba(0,0,0,.4);
+                max-height: calc(100vh - 64px);
+                overflow-y: auto;
+            }
+            .nav-links.open a {
+                padding: 14px 12px;
+                border-radius: var(--radius-sm);
+                font-size: 1rem;
+                color: var(--text);
+                transition: background .2s;
+            }
+            .nav-links.open a:hover,
+            .nav-links.open a:active { background: rgba(37,99,235,.12); }
+            .nav-links.open .nav-cta {
+                background: var(--primary);
+                margin-top: 8px;
+                padding: 14px 20px;
+                text-align: center;
+                justify-content: center;
+            }
+            .hamburger { padding: 8px; font-size: 1.4rem; }
+
+            /* CTA + footer */
+            .cta-section .cta-buttons { flex-direction: column; gap: 10px; }
+            .cta-section .cta-buttons a { width: 100%; justify-content: center; }
+            .footer { padding: 40px 0 24px; }
+        }
+
+        @media (max-width: 480px) {
+            /* Phone — make sure every primary surface uses 90%+ of the
+               viewport width so nothing is awkwardly centered with big
+               margins on a small device. */
+            .section { padding: 44px 0; }
+            .container { padding: 0 14px; }
+            .hero-stats { grid-template-columns: repeat(2, 1fr); }
+            .download-grid { grid-template-columns: 1fr; }
+            .biz-gallery { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 1.75rem; }
+            .section-title { font-size: 1.55rem; }
+        }
+
+        /* iOS Safari fix: prevent zoom on input focus by ensuring all
+           inputs/selects/textareas use at least 16px font. Without
+           this iOS auto-zooms when the user taps a field, which looks
+           awful and forces a re-zoom-out. */
+        @media (max-width: 768px) {
+            input, select, textarea { font-size: 16px !important; }
+        }
+
+        /* === LEAD CAPTURE FORM === */
+        .lead-card{max-width:680px;margin:48px auto 0;background:linear-gradient(135deg,var(--surface-2),rgba(245,158,11,.04));border:1px solid var(--surface-3);border-radius:var(--radius-lg);padding:36px 32px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+        .lead-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+        .lead-grid .lead-field-full{grid-column:1 / -1}
+        @media(max-width:560px){.lead-grid{grid-template-columns:1fr}}
+        .lead-field{display:flex;flex-direction:column;gap:6px}
+        .lead-field label{font-size:.88rem;color:var(--text-muted);font-weight:600}
+        .lead-field input,.lead-field textarea{background:rgba(15,23,42,.6);border:1px solid var(--surface-3);border-radius:var(--radius-sm);color:var(--text);padding:12px 14px;font-family:inherit;font-size:1rem;transition:border-color .2s}
+        .lead-field input:focus,.lead-field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
+        .lead-field input[dir="ltr"]{direction:ltr;text-align:left}
+        .lead-actions{display:flex;align-items:center;gap:16px;margin-top:24px;flex-wrap:wrap}
+        #lead-status{flex:1;font-size:.92rem;color:var(--text-muted);min-height:1.4em}
+        #lead-status.is-success{color:#10B981;font-weight:700}
+        #lead-status.is-error{color:#EF4444;font-weight:700}
     </style>
 </head>
 <body>
@@ -310,6 +454,8 @@
             <a href="#features">المميزات</a>
             <a href="#analytics">التحليلات</a>
             <a href="#pricing">الباقات</a>
+            <a href="#downloads">حمّل التطبيق</a>
+            <a href="#signup">سجّل الآن</a>
             <a href="https://wa.me/201017026531" target="_blank" class="nav-cta">
                 <i class="fab fa-whatsapp"></i> تواصل معنا
             </a>
@@ -786,6 +932,86 @@
     </div>
 </section>
 
+<!-- DOWNLOADS -->
+<section class="section" id="downloads">
+    <div class="container">
+        <div class="section-header" data-aos="fade-up" style="text-align:center;max-width:760px;margin:0 auto 16px">
+            <h2 class="section-title">حمّل تطبيق <span>Waselak Cashier</span></h2>
+            <p style="color:var(--text-muted);font-size:1.05rem">آخر إصدار رسمي (release) — متاح على أندرويد، ماك، ويندوز، ولينكس. النسخة تتحدّث تلقائيًا من داخل التطبيق.</p>
+        </div>
+        <div class="download-grid" id="download-grid">
+            <a class="download-card is-loading" id="dl-android" href="" data-platform="android" data-aos="fade-up" data-aos-delay="50">
+                <span class="dl-icon android"><i class="fab fa-android"></i></span>
+                <span class="dl-title">Android (APK)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-macos" href="" data-platform="macos" data-aos="fade-up" data-aos-delay="100">
+                <span class="dl-icon macos"><i class="fab fa-apple"></i></span>
+                <span class="dl-title">macOS (DMG)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-windows" href="" data-platform="windows" data-aos="fade-up" data-aos-delay="150">
+                <span class="dl-icon windows"><i class="fab fa-windows"></i></span>
+                <span class="dl-title">Windows (MSI)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-linux" href="" data-platform="linux" data-aos="fade-up" data-aos-delay="200">
+                <span class="dl-icon linux"><i class="fab fa-linux"></i></span>
+                <span class="dl-title">Linux (DEB)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+        </div>
+        <p style="text-align:center;margin-top:24px;color:var(--text-muted);font-size:.85rem">
+            <i class="fas fa-shield-halved" style="color:var(--primary-light);margin-left:6px"></i>
+            ملفات موقعة من المطوّر — بعد التحميل وافق على فتحها من إعدادات الأمان للنظام.
+        </p>
+    </div>
+</section>
+
+<!-- SIGN-UP / LEAD CAPTURE -->
+<section class="section" id="signup" style="background:var(--surface-2)">
+    <div class="container">
+        <div class="section-header" data-aos="fade-up" style="text-align:center;max-width:760px;margin:0 auto 16px">
+            <h2 class="section-title">سجّل بياناتك <span>هنتواصل معاك</span></h2>
+            <p style="color:var(--text-muted);font-size:1.05rem">سيب لنا اسم نشاطك ورقم الموبايل — هنبدأ معاك مكالمة قصيرة ونجهّز حسابك في دقايق.</p>
+        </div>
+        <form class="lead-card" id="lead-form" data-aos="zoom-in-up" autocomplete="on" onsubmit="return submitLead(event)">
+            <div class="lead-grid">
+                <div class="lead-field">
+                    <label for="lead-business-name">اسم النشاط / المحل *</label>
+                    <input id="lead-business-name" name="business_name" type="text" required placeholder="مثلًا: صيدلية الشفاء" maxlength="255" autocomplete="organization">
+                </div>
+                <div class="lead-field">
+                    <label for="lead-business-phone">رقم تليفون المحل / الصيدلية / المطعم *</label>
+                    <input id="lead-business-phone" name="business_phone" type="tel" dir="ltr" required placeholder="01XXXXXXXXX — رقم التليفون اللي العملاء بيتواصلوا بيه" pattern="[0-9+\\-\\s()]{7,20}" autocomplete="tel-national">
+                </div>
+                <div class="lead-field">
+                    <label for="lead-contact-name">اسم صاحب النشاط *</label>
+                    <input id="lead-contact-name" name="contact_name" type="text" required placeholder="مثلًا: أحمد محمد" maxlength="255" autocomplete="name">
+                </div>
+                <div class="lead-field">
+                    <label for="lead-contact-phone">موبايلك الشخصي *</label>
+                    <input id="lead-contact-phone" name="contact_phone" type="tel" dir="ltr" required placeholder="01XXXXXXXXX" pattern="[0-9+\\-\\s()]{7,20}" autocomplete="tel">
+                </div>
+                <div class="lead-field lead-field-full">
+                    <label for="lead-notes">ملاحظات (اختياري)</label>
+                    <textarea id="lead-notes" name="notes" rows="3" placeholder="نوع النشاط، عدد الفروع، أي تفاصيل تحب نعرفها"></textarea>
+                </div>
+            </div>
+            <div class="lead-actions">
+                <p id="lead-status" aria-live="polite"></p>
+                <button class="btn-primary" id="lead-submit" type="submit">
+                    <i class="fas fa-paper-plane"></i> أرسل البيانات
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
+
 <!-- CTA -->
 <section class="section cta-section">
     <div class="container">
@@ -928,6 +1154,100 @@
             }
         });
     });
+
+    // ── Downloads: pull live URLs from the backend ──────────────
+    // Asks the backend for the matching release asset per platform.
+    // The backend's check-update endpoint also picks the right file
+    // name for the current GitHub release, so the page stays correct
+    // automatically as new versions ship — no redeploy needed.
+    async function loadDownloadUrls() {
+        const platforms = ['android', 'macos', 'windows', 'linux'];
+        await Promise.all(platforms.map(async (plat) => {
+            const card = document.getElementById('dl-' + plat);
+            if (!card) return;
+            try {
+                // Sentinel current_version=0.0.0 / version_code=1 so any
+                // real release is reported as "has_update", forcing the
+                // download_url + download_filename to populate.
+                const resp = await fetch('/api/v1/app/check-update?app=cashier&version=0.0.0&version_code=1&platform=' + plat + '&variant=release');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                const url = data.download_url;
+                const versionLabel = data.latest_version ? ('v' + data.latest_version) : '';
+                if (url) {
+                    // download_url is a relative path (e.g. "api/v1/app/download?...");
+                    // prepend a slash so it's absolute against the current host.
+                    card.href = url.startsWith('http') ? url : '/' + url.replace(/^\/+/, '');
+                    card.classList.remove('is-loading');
+                    const v = card.querySelector('.dl-version');
+                    if (v) v.textContent = versionLabel || 'متوفر';
+                } else {
+                    card.classList.remove('is-loading');
+                    const v = card.querySelector('.dl-version');
+                    if (v) v.textContent = 'غير متوفر';
+                    card.style.pointerEvents = 'none';
+                    card.style.opacity = '.55';
+                }
+            } catch (err) {
+                card.classList.remove('is-loading');
+                const v = card.querySelector('.dl-version');
+                if (v) v.textContent = 'تعذّر التحميل';
+            }
+        }));
+    }
+    window.addEventListener('DOMContentLoaded', loadDownloadUrls);
+
+    // ── Lead form submission ─────────────────────────────────────
+    // POST → /api/v1/public/leads (no auth). Inlined here so the
+    // page works as a single static file with no JS bundle.
+    async function submitLead(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('lead-submit');
+        const status = document.getElementById('lead-status');
+        const payload = {
+            business_name: form.business_name.value.trim(),
+            business_phone: form.business_phone.value.trim(),
+            contact_name: form.contact_name.value.trim(),
+            contact_phone: form.contact_phone.value.trim(),
+            notes: (form.notes?.value || '').trim() || null,
+            source: 'landing',
+        };
+        status.className = '';
+        status.textContent = 'جاري الإرسال…';
+        btn.disabled = true;
+        btn.style.opacity = '.7';
+        try {
+            // Absolute URL → debug backend, regardless of which host
+            // serves the landing page. CRM lives on the debug backend
+            // (crm.waselak.online → :8081 → waselak_db), so leads MUST
+            // land in the same DB the CRM reads from. Without this,
+            // submissions made from www.waselak.online would land in
+            // waselak_prod and the CRM would never see them.
+            const resp = await fetch('https://debug.waselak.online/api/v1/public/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (resp.ok) {
+                status.className = 'is-success';
+                status.textContent = '✓ تم استلام بياناتك — هنتواصل معاك قريب.';
+                form.reset();
+            } else {
+                let msg = 'حصل خطأ. حاول تاني.';
+                try { const err = await resp.json(); if (err.error) msg = err.error; } catch (_) {}
+                status.className = 'is-error';
+                status.textContent = '✗ ' + msg;
+            }
+        } catch (err) {
+            status.className = 'is-error';
+            status.textContent = '✗ مفيش اتصال إنترنت. حاول تاني.';
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+        return false;
+    }
 </script>
 
 </body>

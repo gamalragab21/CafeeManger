@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
+import net.marllex.waselak.core.ui.update.AppUpdateState
 
 data class UpdateInfo(
     val hasUpdate: Boolean = false,
@@ -53,10 +55,15 @@ fun AboutScreen(
     appName: String,
     versionName: String,
     versionCode: Int,
-    onCheckUpdate: suspend () -> UpdateInfo,
+    onCheckUpdate: (suspend () -> UpdateInfo)? = null,
     onDownload: (suspend (url: String, onProgress: (Float) -> Unit) -> String?)? = null,
     onNavigateBack: (() -> Unit)? = null,
     vendorName: String? = null,
+    // When non-null the screen drives all update logic from this shared state
+    // holder (refresh / startDownload / progress). The banner observes the
+    // same flow, so a download started here pushes its progress to the banner
+    // and vice-versa. Falls back to the legacy callback path when null.
+    appUpdateState: AppUpdateState? = null,
 ) {
     val scope = rememberCoroutineScope()
     val platformActions = net.marllex.waselak.core.ui.platform.rememberPlatformActions()
@@ -64,10 +71,14 @@ fun AboutScreen(
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Legacy path only — when appUpdateState is provided the screen reads
+    // the shared phase directly and we skip the local check.
     LaunchedEffect(Unit) {
-        isChecking = true
-        try { updateInfo = onCheckUpdate() } catch (e: Exception) { error = e.message }
-        isChecking = false
+        if (appUpdateState == null && onCheckUpdate != null) {
+            isChecking = true
+            try { updateInfo = onCheckUpdate() } catch (e: Exception) { error = e.message }
+            isChecking = false
+        }
     }
 
     Scaffold(
@@ -142,6 +153,17 @@ fun AboutScreen(
                     shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
+                        if (appUpdateState != null) {
+                            // Shared-state path — reads phase from the global
+                            // AppUpdateState so the banner and this screen
+                            // stay in lockstep. Tapping Check/Install here
+                            // updates the banner progress in real-time.
+                            UpdateStatusCardFromState(
+                                state = appUpdateState,
+                                fallbackInfo = updateInfo,
+                            )
+                            return@Column
+                        }
                         when {
                             isChecking -> {
                                 Row(
@@ -163,7 +185,7 @@ fun AboutScreen(
                                     TextButton(onClick = {
                                         scope.launch {
                                             error = null; isChecking = true
-                                            try { updateInfo = onCheckUpdate() } catch (e: Exception) { error = e.message }
+                                            try { onCheckUpdate?.let { updateInfo = it() } } catch (e: Exception) { error = e.message }
                                             isChecking = false
                                         }
                                     }) { Text(stringResource(Res.string.retry)) }
@@ -226,8 +248,14 @@ fun AboutScreen(
                                         Button(
                                             onClick = {
                                                 if (downloadLink.isNotBlank()) {
+                                                    // Elvis fallback to "" so a missing baseUrl doesn't
+                                                    // produce the literal string "null" via Kotlin's
+                                                    // null-coercion in templates. The Ktor client's
+                                                    // configured BASE_URL takes over when the prefix is
+                                                    // empty (relative URLs resolve against the client's
+                                                    // default), so the download still works.
                                                     val fullUrl = if (downloadLink.startsWith("http")) downloadLink
-                                                        else "${info.baseUrl?.trimEnd('/')}/$downloadLink"
+                                                        else "${(info.baseUrl ?: "").trimEnd('/')}/${downloadLink.trimStart('/')}"
                                                     if (onDownload != null) {
                                                         downloadState = DownloadState.DOWNLOADING
                                                         downloadProgress = 0f
@@ -312,7 +340,7 @@ fun AboutScreen(
                                     IconButton(onClick = {
                                         scope.launch {
                                             isChecking = true
-                                            try { updateInfo = onCheckUpdate() } catch (e: Exception) { error = e.message }
+                                            try { onCheckUpdate?.let { updateInfo = it() } } catch (e: Exception) { error = e.message }
                                             isChecking = false
                                         }
                                     }) {
@@ -504,4 +532,178 @@ fun MandatoryUpdateScreen(
             }
         }
     }
+}
+
+/**
+ * State-driven update card. Reads its UI from [AppUpdateState.phase] so the
+ * banner mounted at the scaffold root and this card share the SAME download
+ * lifecycle — tapping Install here advances the banner's progress in real
+ * time, and a download started from the banner is reflected here.
+ *
+ * [fallbackInfo] is shown for the social links + release notes when the
+ * phase is Idle (no fresh check yet) — we fall back to whatever the legacy
+ * onCheckUpdate flow populated so the screen never looks empty.
+ */
+@Composable
+private fun UpdateStatusCardFromState(
+    state: AppUpdateState,
+    fallbackInfo: UpdateInfo?,
+) {
+    // Re-query the backend every time the user opens this screen so the
+    // "Update available" action shows/hides based on the freshest server
+    // truth. Without this, the card would keep advertising an update the
+    // user already installed (the cached Phase.Available survives across
+    // navigations within the app). refresh() is a no-op when a download
+    // is already in flight, so this is safe to call unconditionally.
+    LaunchedEffect(Unit) { state.refresh() }
+    val phase by state.phase.collectAsState()
+    val accentColor = when (phase) {
+        is AppUpdateState.Phase.Available ->
+            if ((phase as AppUpdateState.Phase.Available).info.updateStatus == "MANDATORY")
+                Color(0xFFE53935) else Color(0xFF2196F3)
+        is AppUpdateState.Phase.Error -> Color(0xFFE53935)
+        else -> Color(0xFF2196F3)
+    }
+    when (val p = phase) {
+        is AppUpdateState.Phase.Checking -> {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(Res.string.checking_for_updates), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        is AppUpdateState.Phase.Available -> {
+            val isMandatory = p.info.updateStatus == "MANDATORY"
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (isMandatory) Icons.Default.Warning else Icons.Default.NewReleases,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(28.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (isMandatory) stringResource(Res.string.mandatory_update_title)
+                        else stringResource(Res.string.update_available),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                    )
+                    Text("v${p.info.latestVersion ?: ""}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            p.info.releaseNotes?.let { notes ->
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(notes, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { state.startDownload() },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(Res.string.download_update))
+            }
+        }
+        is AppUpdateState.Phase.Downloading -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Download, contentDescription = null, tint = accentColor, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(Res.string.update_available),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                    )
+                    Text("v${p.info.latestVersion ?: ""}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            // Progress bar + live percent. `progress = { p.progress }` is a
+            // lambda so Compose only re-snapshots the indicator (not the
+            // whole card) when the StateFlow ticks.
+            LinearProgressIndicator(
+                progress = { p.progress },
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = accentColor,
+            )
+            Spacer(Modifier.height(8.dp))
+            // `align(End)` only works inside a ColumnScope and this composable
+            // isn't an extension on ColumnScope, so we use textAlign instead.
+            Text(
+                "${(p.progress * 100).toInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = accentColor,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        is AppUpdateState.Phase.ReadyToInstall -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(Res.string.download_update) + " ✓",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4CAF50),
+                    )
+                    Text(p.filePath, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { state.startDownload() }, // re-fires install intent
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(Res.string.download_update))
+            }
+        }
+        is AppUpdateState.Phase.Error -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(12.dp))
+                Text(p.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                TextButton(onClick = { state.refresh() }) { Text(stringResource(Res.string.retry)) }
+            }
+        }
+        is AppUpdateState.Phase.Idle, is AppUpdateState.Phase.Dismissed -> {
+            // No update available (or user dismissed). Offer a manual check.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(Res.string.up_to_date), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = Color(0xFF4CAF50))
+                    Text(stringResource(Res.string.up_to_date_message), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { state.refresh() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+    // Suppress unused-parameter warning — fallbackInfo is for future social-
+    // link bridge if we add it back here.
+    @Suppress("UNUSED_EXPRESSION") fallbackInfo
 }

@@ -18,7 +18,12 @@ fun ManagerApp() {
 
     LaunchedEffect(Unit) {
         try {
-            val resp = apiClient.checkForUpdate("manager", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+            val resp = apiClient.checkForUpdate(
+                app = "manager",
+                version = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                variant = if (BuildConfig.IS_DEBUG) "debug" else "release",
+            )
             if (resp.hasUpdate && resp.updateStatus == "MANDATORY") {
                 mandatoryUpdate = Triple(resp.latestVersion, resp.releaseNotesAr ?: resp.releaseNotes, resp.downloadUrl)
             }

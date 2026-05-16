@@ -544,7 +544,9 @@ jobs:
         id: vars
         run: |
           VERSION=$(grep 'APP_VERSION_NAME' gradle.properties | cut -d'=' -f2 | tr -d ' ')
+          VERSION_CODE=$(grep 'APP_VERSION_CODE' gradle.properties | cut -d'=' -f2 | tr -d ' ')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           DATE=$(date -u '+%Y-%m-%d')
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
@@ -553,11 +555,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.vars.outputs.version }}
+          VERSION_CODE: ${{ steps.vars.outputs.version_code }}
         run: |
           TAG="${GITHUB_REF_NAME}"
 
-          # Create release with all files
-          NOTES="Waselak v${VERSION} - Android APKs (debug+release), Desktop (Linux/macOS/Windows), Backend JAR. Built by CI/CD ${DATE}"
+          # Create release with all files. The "VERSION_CODE=N" marker is
+          # what the backend's GithubReleaseService parser extracts to
+          # compare against the running app — without it the backend
+          # falls back to a synthetic version_code derived from the
+          # semver, which never matches the real build number.
+          NOTES="Waselak v${VERSION} (VERSION_CODE=${VERSION_CODE}) - Android APKs (debug+release), Desktop (Linux/macOS/Windows), Backend JAR. Built by CI/CD ${DATE}"
           gh release create "$TAG" \
             --title "Waselak v${VERSION}" \
             --notes "$NOTES" \
@@ -585,7 +592,7 @@ jobs:
             echo "⚠️ BACKEND_PUSH_TOKEN not set, skipping backend notification"
             exit 0
           fi
-          for HOST in "http://187.124.47.222:8080" "http://187.124.47.222:8081"; do
+          for HOST in "https://api.waselak.online" "https://debug.waselak.online"; do
             echo "→ Notifying $HOST"
             CODE=$(curl -s -o /tmp/notify.json -w "%{http_code}" -m 15 \
               -X POST "$HOST/api/v1/app/release-published" \

@@ -77,10 +77,13 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # ATS exception so Ktor on iOS can hit the staging backend over
-        # plain HTTP (187.124.47.222:8080 release / :8081 debug). Without
-        # this every API call fails with -1022 "App Transport Security
-        # policy requires the use of a secure connection".
+        # ATS is now satisfied by HTTPS endpoints — api.waselak.online and
+        # debug.waselak.online both serve over TLS (Let's Encrypt). The
+        # blanket NSAllowsArbitraryLoads is kept as a safety net for
+        # ad-hoc dev builds that point at a local backend (LAN IP), and
+        # so prod doesn't refuse to launch if we ever swap a host that
+        # hasn't been onboarded to HTTPS yet. Once we're certain every
+        # client config is on HTTPS, this whole block can be deleted.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         # Face ID usage description. iOS REQUIRES this key when the app
