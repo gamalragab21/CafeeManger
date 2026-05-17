@@ -169,6 +169,22 @@ class KmpApplicationConventionPlugin : Plugin<Project> {
                         getByName("release") {
                             signingConfig = signingConfigs.getByName("release")
                         }
+                        // CRITICAL for in-app update on debug builds:
+                        // sign DEBUG with the SAME keystore as release.
+                        // Without this, the Android default debug.keystore is
+                        // used — and every machine (every dev + every CI run)
+                        // has a different one. A user who installed a debug
+                        // APK from machine A can't update to a debug APK from
+                        // machine B because Android rejects "Conflict with
+                        // existing package" (signatures don't match).
+                        //
+                        // Using the release key for debug is safe — the
+                        // PRIVATE key never leaves the build host, only the
+                        // PUBLIC certificate is embedded in the APK and that
+                        // already ships in every release APK anyway.
+                        getByName("debug") {
+                            signingConfig = signingConfigs.getByName("release")
+                        }
                     }
                 }
 

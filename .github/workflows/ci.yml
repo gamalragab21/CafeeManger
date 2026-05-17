@@ -179,7 +179,14 @@ jobs:
       # ── Build APKs ──────────────────────────────────────────────────────
       # Keystore is handled by Gradle: it reads KEYSTORE_BASE64 env var,
       # decodes it to a .jks file, and configures signing automatically.
+      # Both debug AND release builds need the keystore — without it,
+      # debug APKs would be signed with Android's auto-generated default
+      # debug.keystore (different per CI run), so any user trying to
+      # update from one CI debug build to a later CI debug build would
+      # hit "package conflict, signatures don't match".
       - name: Build all debug APKs
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: ./gradlew assembleAllDebug
 
       - name: Build all release APKs

@@ -295,7 +295,17 @@
         .float-shape{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);opacity:.15}
 
         /* === DOWNLOADS SECTION === */
-        .download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:48px}
+        /* App selector tabs — sits above the platform grid. Active tab
+           gets a brand-tinted background; inactive tabs are flat with
+           a subtle hover so it's obvious they're clickable. */
+        .download-tabs{display:inline-flex;gap:6px;padding:6px;background:var(--surface-2);border:1px solid var(--surface-3);border-radius:999px;margin:40px auto 24px;flex-wrap:wrap;justify-content:center}
+        .download-tabs .dl-tab{display:inline-flex;align-items:center;gap:10px;padding:10px 20px;border-radius:999px;background:transparent;border:none;color:var(--text-muted);font-family:inherit;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .25s}
+        .download-tabs .dl-tab i{font-size:1rem}
+        .download-tabs .dl-tab:hover{color:var(--text);background:rgba(255,255,255,.04)}
+        .download-tabs .dl-tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 4px 14px var(--primary-glow)}
+        #downloads > .container{text-align:center}
+        #downloads > .container > .download-grid{text-align:right}
+        .download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:24px}
         .download-card{background:linear-gradient(135deg,var(--surface-2),rgba(37,99,235,.05));border:1px solid var(--surface-3);border-radius:var(--radius);padding:28px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;transition:all .3s;text-decoration:none;color:var(--text)}
         .download-card:hover{transform:translateY(-4px);border-color:var(--primary);box-shadow:0 12px 32px var(--primary-glow)}
         .download-card.is-loading{opacity:.55;pointer-events:none}
@@ -936,29 +946,102 @@
 <section class="section" id="downloads">
     <div class="container">
         <div class="section-header" data-aos="fade-up" style="text-align:center;max-width:760px;margin:0 auto 16px">
-            <h2 class="section-title">حمّل تطبيق <span>Waselak Cashier</span></h2>
-            <p style="color:var(--text-muted);font-size:1.05rem">آخر إصدار رسمي (release) — متاح على أندرويد، ماك، ويندوز، ولينكس. النسخة تتحدّث تلقائيًا من داخل التطبيق.</p>
+            <h2 class="section-title">حمّل تطبيقات <span>Waselak</span></h2>
+            <p style="color:var(--text-muted);font-size:1.05rem">3 تطبيقات لفريقك — اختر التطبيق وحمّل النسخة المناسبة لجهازك. النسخ كلها تتحدّث تلقائيًا من داخل التطبيق.</p>
         </div>
-        <div class="download-grid" id="download-grid">
-            <a class="download-card is-loading" id="dl-android" href="" data-platform="android" data-aos="fade-up" data-aos-delay="50">
+
+        <!-- App selector — pick which Waselak app you want, then the 4
+             platform cards below populate from the backend for that app. -->
+        <div class="download-tabs" role="tablist" data-aos="fade-up" data-aos-delay="50">
+            <button class="dl-tab active" data-app="cashier" role="tab" aria-selected="true" onclick="switchDownloadTab('cashier')">
+                <i class="fas fa-cash-register"></i>
+                <span>Cashier — كاشير</span>
+            </button>
+            <button class="dl-tab" data-app="manager" role="tab" aria-selected="false" onclick="switchDownloadTab('manager')">
+                <i class="fas fa-chart-line"></i>
+                <span>Manager — المدير</span>
+            </button>
+            <button class="dl-tab" data-app="delivery" role="tab" aria-selected="false" onclick="switchDownloadTab('delivery')">
+                <i class="fas fa-motorcycle"></i>
+                <span>Delivery — توصيل</span>
+            </button>
+        </div>
+
+        <!-- One grid per app; only the active tab's grid is visible. JS
+             populates `href` + version on page load for all three at
+             once, so flipping tabs is instant (no extra fetch). -->
+        <div class="download-grid app-grid" data-app="cashier" id="grid-cashier">
+            <a class="download-card is-loading" id="dl-cashier-android" href="" data-platform="android">
                 <span class="dl-icon android"><i class="fab fa-android"></i></span>
                 <span class="dl-title">Android (APK)</span>
                 <span class="dl-version">جاري التحميل…</span>
                 <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
             </a>
-            <a class="download-card is-loading" id="dl-macos" href="" data-platform="macos" data-aos="fade-up" data-aos-delay="100">
+            <a class="download-card is-loading" id="dl-cashier-macos" href="" data-platform="macos">
                 <span class="dl-icon macos"><i class="fab fa-apple"></i></span>
                 <span class="dl-title">macOS (DMG)</span>
                 <span class="dl-version">جاري التحميل…</span>
                 <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
             </a>
-            <a class="download-card is-loading" id="dl-windows" href="" data-platform="windows" data-aos="fade-up" data-aos-delay="150">
+            <a class="download-card is-loading" id="dl-cashier-windows" href="" data-platform="windows">
                 <span class="dl-icon windows"><i class="fab fa-windows"></i></span>
                 <span class="dl-title">Windows (MSI)</span>
                 <span class="dl-version">جاري التحميل…</span>
                 <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
             </a>
-            <a class="download-card is-loading" id="dl-linux" href="" data-platform="linux" data-aos="fade-up" data-aos-delay="200">
+            <a class="download-card is-loading" id="dl-cashier-linux" href="" data-platform="linux">
+                <span class="dl-icon linux"><i class="fab fa-linux"></i></span>
+                <span class="dl-title">Linux (DEB)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+        </div>
+        <div class="download-grid app-grid" data-app="manager" id="grid-manager" style="display:none">
+            <a class="download-card is-loading" id="dl-manager-android" href="" data-platform="android">
+                <span class="dl-icon android"><i class="fab fa-android"></i></span>
+                <span class="dl-title">Android (APK)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-manager-macos" href="" data-platform="macos">
+                <span class="dl-icon macos"><i class="fab fa-apple"></i></span>
+                <span class="dl-title">macOS (DMG)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-manager-windows" href="" data-platform="windows">
+                <span class="dl-icon windows"><i class="fab fa-windows"></i></span>
+                <span class="dl-title">Windows (MSI)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-manager-linux" href="" data-platform="linux">
+                <span class="dl-icon linux"><i class="fab fa-linux"></i></span>
+                <span class="dl-title">Linux (DEB)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+        </div>
+        <div class="download-grid app-grid" data-app="delivery" id="grid-delivery" style="display:none">
+            <a class="download-card is-loading" id="dl-delivery-android" href="" data-platform="android">
+                <span class="dl-icon android"><i class="fab fa-android"></i></span>
+                <span class="dl-title">Android (APK)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-delivery-macos" href="" data-platform="macos">
+                <span class="dl-icon macos"><i class="fab fa-apple"></i></span>
+                <span class="dl-title">macOS (DMG)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-delivery-windows" href="" data-platform="windows">
+                <span class="dl-icon windows"><i class="fab fa-windows"></i></span>
+                <span class="dl-title">Windows (MSI)</span>
+                <span class="dl-version">جاري التحميل…</span>
+                <span class="dl-cta"><i class="fas fa-download"></i> تحميل</span>
+            </a>
+            <a class="download-card is-loading" id="dl-delivery-linux" href="" data-platform="linux">
                 <span class="dl-icon linux"><i class="fab fa-linux"></i></span>
                 <span class="dl-title">Linux (DEB)</span>
                 <span class="dl-version">جاري التحميل…</span>
@@ -1156,46 +1239,70 @@
     });
 
     // ── Downloads: pull live URLs from the backend ──────────────
-    // Asks the backend for the matching release asset per platform.
-    // The backend's check-update endpoint also picks the right file
-    // name for the current GitHub release, so the page stays correct
+    // Loads ALL three apps (cashier/manager/delivery) on page load so
+    // flipping between tabs is instant — no extra fetch per tab. The
+    // backend's check-update endpoint picks the right release asset
+    // name from the current GitHub release, so the page stays correct
     // automatically as new versions ship — no redeploy needed.
     async function loadDownloadUrls() {
+        const apps = ['cashier', 'manager', 'delivery'];
         const platforms = ['android', 'macos', 'windows', 'linux'];
-        await Promise.all(platforms.map(async (plat) => {
-            const card = document.getElementById('dl-' + plat);
-            if (!card) return;
-            try {
-                // Sentinel current_version=0.0.0 / version_code=1 so any
-                // real release is reported as "has_update", forcing the
-                // download_url + download_filename to populate.
-                const resp = await fetch('/api/v1/app/check-update?app=cashier&version=0.0.0&version_code=1&platform=' + plat + '&variant=release');
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                const data = await resp.json();
-                const url = data.download_url;
-                const versionLabel = data.latest_version ? ('v' + data.latest_version) : '';
-                if (url) {
-                    // download_url is a relative path (e.g. "api/v1/app/download?...");
-                    // prepend a slash so it's absolute against the current host.
-                    card.href = url.startsWith('http') ? url : '/' + url.replace(/^\/+/, '');
-                    card.classList.remove('is-loading');
-                    const v = card.querySelector('.dl-version');
-                    if (v) v.textContent = versionLabel || 'متوفر';
-                } else {
-                    card.classList.remove('is-loading');
-                    const v = card.querySelector('.dl-version');
-                    if (v) v.textContent = 'غير متوفر';
-                    card.style.pointerEvents = 'none';
-                    card.style.opacity = '.55';
-                }
-            } catch (err) {
+        const calls = [];
+        for (const app of apps) {
+            for (const plat of platforms) {
+                calls.push(populateCard(app, plat));
+            }
+        }
+        await Promise.all(calls);
+    }
+    async function populateCard(app, plat) {
+        const card = document.getElementById('dl-' + app + '-' + plat);
+        if (!card) return;
+        try {
+            // Sentinel current_version=0.0.0 / version_code=1 so any
+            // real release is reported as "has_update", forcing the
+            // download_url + download_filename to populate.
+            const resp = await fetch('/api/v1/app/check-update?app=' + app + '&version=0.0.0&version_code=1&platform=' + plat + '&variant=release');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            const url = data.download_url;
+            const versionLabel = data.latest_version ? ('v' + data.latest_version) : '';
+            if (url) {
+                // download_url is relative (e.g. "api/v1/app/download?...");
+                // prepend a slash so it's absolute against the current host.
+                card.href = url.startsWith('http') ? url : '/' + url.replace(/^\/+/, '');
                 card.classList.remove('is-loading');
                 const v = card.querySelector('.dl-version');
-                if (v) v.textContent = 'تعذّر التحميل';
+                if (v) v.textContent = versionLabel || 'متوفر';
+            } else {
+                card.classList.remove('is-loading');
+                const v = card.querySelector('.dl-version');
+                if (v) v.textContent = 'غير متوفر';
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '.55';
             }
-        }));
+        } catch (err) {
+            card.classList.remove('is-loading');
+            const v = card.querySelector('.dl-version');
+            if (v) v.textContent = 'تعذّر التحميل';
+        }
     }
     window.addEventListener('DOMContentLoaded', loadDownloadUrls);
+
+    // ── Tab switcher for downloads ─────────────────────────────
+    // Toggles which app's platform grid is visible. All three are
+    // populated on page load, so this is a pure show/hide — instant
+    // and works offline once the cards are populated.
+    function switchDownloadTab(app) {
+        document.querySelectorAll('.download-tabs .dl-tab').forEach(t => {
+            const isActive = t.getAttribute('data-app') === app;
+            t.classList.toggle('active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        document.querySelectorAll('.app-grid').forEach(g => {
+            g.style.display = (g.getAttribute('data-app') === app) ? 'grid' : 'none';
+        });
+    }
 
     // ── Lead form submission ─────────────────────────────────────
     // POST → /api/v1/public/leads (no auth). Inlined here so the
